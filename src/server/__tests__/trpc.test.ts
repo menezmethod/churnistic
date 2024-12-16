@@ -4,6 +4,8 @@ import { inferProcedureInput } from '@trpc/server';
 import { mockDeep, mockReset } from 'jest-mock-extended';
 import { prisma } from '@/lib/prisma/db';
 import type { AppRouter } from '../routers/_app';
+import { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // Mock Prisma
 jest.mock('@/lib/prisma/db', () => ({
@@ -19,22 +21,20 @@ beforeEach(() => {
 
 // Test context with authenticated user
 const createAuthContext = () => {
-  return createContext({
-    req: {
-      headers: {
-        authorization: 'Bearer test-token',
-      },
-    } as any,
+  const req = new NextRequest('http://localhost:3000', {
+    headers: {
+      authorization: 'Bearer test-token',
+    },
   });
+  const res = new NextResponse();
+  return createContext({ req, res });
 };
 
 // Test context without authentication
 const createAnonContext = () => {
-  return createContext({
-    req: {
-      headers: {},
-    } as any,
-  });
+  const req = new NextRequest('http://localhost:3000');
+  const res = new NextResponse();
+  return createContext({ req, res });
 };
 
 describe('Card Router', () => {

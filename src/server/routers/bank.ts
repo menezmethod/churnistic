@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { RequirementType, type BonusProgress } from '@/types/bank';
+import type { DirectDeposit } from '@prisma/client';
 
 // Input validation schemas
 const BankAccountInput = z.object({

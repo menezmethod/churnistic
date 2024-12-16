@@ -1,76 +1,65 @@
-import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
+import { httpBatchLink } from '@trpc/client';
+import { appRouter } from '@/server/routers/_app';
+import { createTRPCNext } from '@trpc/next';
 import type { AppRouter } from '@/server/routers/_app';
-import { getUrl } from './client';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase/config';
+import { TRPCError } from '@trpc/server';
 
-// Create test client
-const client = createTRPCProxyClient<AppRouter>({
-  links: [
-    httpBatchLink({
-      url: getUrl(),
-      async headers() {
-        const currentUser = getAuth().currentUser;
-        if (currentUser) {
-          const token = await currentUser.getIdToken();
-          return {
-            authorization: `Bearer ${token}`,
-          };
-        }
-        return {};
-      },
-    }),
-  ],
+export const trpc = createTRPCNext<AppRouter>({
+  config() {
+    return {
+      links: [
+        httpBatchLink({
+          url: 'http://localhost:3000/api/trpc',
+        }),
+      ],
+    };
+  },
 });
 
-async function testEndpoints() {
+// Test helper functions
+export async function testQuery<T>(
+  queryFn: () => Promise<T>,
+  expectedData?: T
+): Promise<void> {
   try {
-    // Test public procedure (user creation)
-    console.log('\n🔍 Testing user creation...');
-    const newUser = await client.user.create.mutate({
-      firebaseUid: 'test-uid-123',
-      email: 'test@example.com',
-      displayName: 'Test User',
-    });
-    console.log('✅ User created:', newUser);
-
-    // Test protected procedure (company creation) without auth
-    console.log('\n🔍 Testing company creation without auth (should fail)...');
-    try {
-      await client.company.create.mutate({
-        name: 'Test Company',
-        industry: 'Technology',
-        size: '1-10',
-        website: 'https://test.com',
-      });
-    } catch (error) {
-      console.log('✅ Protected route correctly rejected unauthorized access:', error.message);
+    const data = await queryFn();
+    if (expectedData) {
+      expect(data).toEqual(expectedData);
     }
-
-    // Sign in with test credentials
-    console.log('\n🔍 Testing authentication...');
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, 'test@example.com', 'testpassword123');
-      console.log('✅ Authentication successful:', userCredential.user.uid);
-
-      // Test protected procedure (company creation) with auth
-      console.log('\n🔍 Testing company creation with auth...');
-      const newCompany = await client.company.create.mutate({
-        name: 'Test Company',
-        industry: 'Technology',
-        size: '1-10',
-        website: 'https://test.com',
-      });
-      console.log('✅ Company created:', newCompany);
-    } catch (error) {
-      console.log('❌ Authentication failed:', error.message);
-    }
-
-    console.log('\n✅ Test completed successfully!');
   } catch (error) {
-    console.error('❌ Test failed:', error);
+    if (error instanceof TRPCError) {
+      throw new Error(`Query failed: ${error.message}`);
+    }
+    throw error;
   }
 }
 
-// Run the tests
-testEndpoints(); 
+export async function testMutation<T>(
+  mutationFn: () => Promise<T>,
+  expectedData?: T
+): Promise<void> {
+  try {
+    const data = await mutationFn();
+    if (expectedData) {
+      expect(data).toEqual(expectedData);
+    }
+  } catch (error) {
+    if (error instanceof TRPCError) {
+      throw new Error(`Mutation failed: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+// Example test helpers for specific routes
+export async function testUserQuery(userId: string) {
+  return testQuery(() => trpc.user.getById.query({ id: userId }));
+}
+
+export async function testCardQuery(cardId: string) {
+  return testQuery(() => trpc.card.getById.query({ id: cardId }));
+}
+
+export async function testBankQuery(bankId: string) {
+  return testQuery(() => trpc.bank.getById.query({ id: bankId }));
+} 

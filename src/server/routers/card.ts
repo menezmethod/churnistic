@@ -3,6 +3,9 @@ import { router, protectedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { CardStatus, type RuleViolation, type EligibilityCheck } from '@/types/card';
 
+// Define the rule type
+type VelocityRule = '5/24' | '2/30' | '1/90';
+
 // Input validation schemas
 const CardApplicationInput = z.object({
   cardId: z.string(),
