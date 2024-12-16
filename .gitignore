@@ -24,8 +24,11 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
@@ -48,6 +51,7 @@ next-env.d.ts
 firebase-debug.log
 firebase-debug.*.log
 .firebase/
+*firebase-adminsdk*.json
 
 # OS generated files
 .DS_Store

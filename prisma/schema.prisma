@@ -251,3 +251,27 @@ model InvestmentAccount {
   notes           String?
   user            User      @relation(fields: [userId], references: [id])
 }
+
+model Company {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  industry        String?
+  size            String?
+  website         String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  customers       Customer[]
+}
+
+model Customer {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  companyId       String    @db.ObjectId
+  email           String
+  name            String?
+  status          String    // "active", "at_risk", "churned"
+  lastActive      DateTime
+  churnedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  company         Company   @relation(fields: [companyId], references: [id])
+}

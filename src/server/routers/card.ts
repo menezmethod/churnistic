@@ -2,9 +2,68 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { CardStatus, type RuleViolation, type EligibilityCheck } from '@/types/card';
+import type { Card, CardApplication } from '@prisma/client';
 
-// Define the rule type
+// Define the rule types
 type VelocityRule = '5/24' | '2/30' | '1/90';
+type ChurningRule = 'once_lifetime' | 'once_24mo' | 'once_48mo';
+
+type ApplicationWithCard = CardApplication & {
+  card: Card;
+};
+
+interface RuleCheck {
+  rule: VelocityRule | ChurningRule;
+  check: (applications: ApplicationWithCard[]) => boolean;
+  message: string;
+}
+
+const ruleChecks: Record<VelocityRule | ChurningRule, RuleCheck> = {
+  '5/24': {
+    rule: '5/24',
+    check: (applications) => applications.length < 5,
+    message: 'Too many applications in the past 24 months',
+  },
+  '2/30': {
+    rule: '2/30',
+    check: (applications) => applications.length < 2,
+    message: 'Too many applications in the past 30 days',
+  },
+  '1/90': {
+    rule: '1/90',
+    check: (applications) => applications.length < 1,
+    message: 'Too many applications in the past 90 days',
+  },
+  'once_lifetime': {
+    rule: 'once_lifetime',
+    check: (applications) => applications.length === 0,
+    message: 'Can only receive bonus once per lifetime',
+  },
+  'once_24mo': {
+    rule: 'once_24mo',
+    check: (applications) => applications.length === 0,
+    message: 'Can only receive bonus once every 24 months',
+  },
+  'once_48mo': {
+    rule: 'once_48mo',
+    check: (applications) => applications.length === 0,
+    message: 'Can only receive bonus once every 48 months',
+  },
+};
+
+function checkVelocityRule(
+  rule: VelocityRule | ChurningRule, 
+  applications: ApplicationWithCard[]
+): RuleViolation | null {
+  const ruleCheck = ruleChecks[rule];
+  if (!ruleCheck.check(applications)) {
+    return {
+      rule,
+      message: ruleCheck.message,
+    };
+  }
+  return null;
+}
 
 // Input validation schemas
 const CardApplicationInput = z.object({
@@ -12,6 +71,9 @@ const CardApplicationInput = z.object({
   creditScore: z.number().optional(),
   income: z.number().optional(),
   notes: z.string().optional(),
+  status: z.nativeEnum(CardStatus).default(CardStatus.PENDING),
+  spendProgress: z.number().default(0),
+  annualFeePaid: z.boolean().default(false),
 });
 
 const SpendUpdateInput = z.object({
@@ -30,7 +92,7 @@ const RetentionOfferInput = z.object({
 
 export const cardRouter = router({
   // Card Applications
-  apply: protectedProcedure
+  applyForCard: protectedProcedure
     .input(CardApplicationInput)
     .mutation(async ({ ctx, input }) => {
       const card = await ctx.prisma.card.findUnique({
@@ -67,8 +129,9 @@ export const cardRouter = router({
         data: {
           userId: ctx.session.uid,
           cardId: input.cardId,
-          status: CardStatus.PENDING,
-          creditScore: input.creditScore,
+          status: input.status,
+          spendProgress: input.spendProgress,
+          annualFeePaid: input.annualFeePaid,
           spendDeadline: new Date(Date.now() + card.minSpendPeriod * 30 * 24 * 60 * 60 * 1000),
           notes: input.notes,
         },
@@ -224,21 +287,14 @@ export const cardRouter = router({
         include: { card: true },
       });
 
-      const rules = card.issuerRules.filter(rule => rule.isActive);
+      const rules = card.issuerRules.filter((rule: { isActive: boolean; ruleType: string }) => rule.isActive);
       const violations: RuleViolation[] = [];
 
       // Check each rule
       for (const rule of rules) {
-        switch (rule.ruleType) {
-          case '5/24':
-            if (recentApplications.length >= 5) {
-              violations.push({
-                rule: '5/24',
-                message: 'Too many applications in the past 24 months',
-              });
-            }
-            break;
-          // Add more rule checks here
+        const violation = checkVelocityRule(rule.ruleType as VelocityRule | ChurningRule, recentApplications);
+        if (violation) {
+          violations.push(violation);
         }
       }
 

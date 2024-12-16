@@ -47,6 +47,61 @@ mockIntersectionObserver.mockReturnValue({
 });
 window.IntersectionObserver = mockIntersectionObserver;
 
+// Mock Request and Response
+if (!global.Request) {
+  global.Request = class Request {
+    constructor(input, init = {}) {
+      this.url = input;
+      this.method = init.method || 'GET';
+      this.headers = new Headers(init.headers);
+    }
+  };
+}
+
+if (!global.Response) {
+  global.Response = class Response {
+    constructor(body = '', init = {}) {
+      this.body = body;
+      this.status = init.status || 200;
+      this.statusText = init.statusText || '';
+      this.headers = new Headers(init.headers);
+    }
+  };
+}
+
+if (!global.Headers) {
+  global.Headers = class Headers {
+    constructor(init = {}) {
+      this._headers = new Map();
+      if (init) {
+        Object.entries(init).forEach(([key, value]) => {
+          this.set(key, value);
+        });
+      }
+    }
+
+    append(name, value) {
+      this._headers.set(name.toLowerCase(), value);
+    }
+
+    delete(name) {
+      this._headers.delete(name.toLowerCase());
+    }
+
+    get(name) {
+      return this._headers.get(name.toLowerCase()) || null;
+    }
+
+    has(name) {
+      return this._headers.has(name.toLowerCase());
+    }
+
+    set(name, value) {
+      this._headers.set(name.toLowerCase(), value);
+    }
+  };
+}
+
 // Suppress console errors in tests
 const originalError = console.error;
 beforeAll(() => {

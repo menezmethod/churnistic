@@ -2,47 +2,103 @@ import { createContext } from '../trpc';
 import { appRouter } from '../routers/_app';
 import { inferProcedureInput } from '@trpc/server';
 import { mockDeep, mockReset } from 'jest-mock-extended';
-import { prisma } from '@/lib/prisma/db';
 import type { AppRouter } from '../routers/_app';
-import { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import { prisma, type MockPrismaClient } from '@/lib/prisma/__mocks__/db';
+import { getAuth } from 'firebase-admin/auth';
+import type { DecodedIdToken } from 'firebase-admin/auth';
+import type { Card, IssuerRule, BankAccount, BonusRequirement } from '@prisma/client';
 
 // Mock Prisma
-jest.mock('@/lib/prisma/db', () => ({
-  prisma: mockDeep(),
+jest.mock('@/lib/prisma/db');
+
+// Mock Firebase Admin Auth
+jest.mock('firebase-admin/auth', () => ({
+  getAuth: jest.fn(() => ({
+    verifyIdToken: jest.fn(() => Promise.resolve({
+      uid: 'test-user',
+      aud: 'test-audience',
+      auth_time: Date.now(),
+      exp: Date.now() + 3600,
+      iat: Date.now(),
+      iss: 'https://securetoken.google.com/test-project',
+      sub: 'test-user',
+      email: 'test@example.com',
+      email_verified: true,
+      firebase: {
+        identities: {
+          email: ['test@example.com'],
+        },
+        sign_in_provider: 'custom',
+      },
+    } as DecodedIdToken)),
+  })),
 }));
 
-const prismaMock = prisma as jest.Mocked<typeof prisma>;
+// Get the mocked prisma instance
+const prismaMock = prisma as MockPrismaClient;
 
 // Reset mocks before each test
 beforeEach(() => {
   mockReset(prismaMock);
+  (getAuth().verifyIdToken as jest.Mock).mockClear();
+});
+
+// Mock Next.js request/response
+const mockRequest = (headers = {}) => ({
+  headers: new Headers(headers),
+  cookies: new Map(),
+  nextUrl: new URL('http://localhost:3000'),
+});
+
+const mockResponse = () => ({
+  headers: new Headers(),
 });
 
 // Test context with authenticated user
-const createAuthContext = () => {
-  const req = new NextRequest('http://localhost:3000', {
-    headers: {
+const createAuthContext = async () => {
+  const context = await createContext({
+    req: mockRequest({
       authorization: 'Bearer test-token',
+    }),
+    res: mockResponse(),
+  } as any);
+
+  // Mock the session with full DecodedIdToken
+  context.session = {
+    uid: 'test-user',
+    aud: 'test-audience',
+    auth_time: Date.now(),
+    exp: Date.now() + 3600,
+    iat: Date.now(),
+    iss: 'https://securetoken.google.com/test-project',
+    sub: 'test-user',
+    email: 'test@example.com',
+    email_verified: true,
+    firebase: {
+      identities: {
+        email: ['test@example.com'],
+      },
+      sign_in_provider: 'custom',
     },
-  });
-  const res = new NextResponse();
-  return createContext({ req, res });
+  };
+
+  return context;
 };
 
 // Test context without authentication
 const createAnonContext = () => {
-  const req = new NextRequest('http://localhost:3000');
-  const res = new NextResponse();
-  return createContext({ req, res });
+  return createContext({
+    req: mockRequest(),
+    res: mockResponse(),
+  } as any);
 };
 
 describe('Card Router', () => {
   test('checkEligibility - should check Chase 5/24 rule', async () => {
     const caller = appRouter.createCaller(await createAuthContext());
     
-    // Mock recent applications
-    prismaMock.card.findUnique.mockResolvedValueOnce({
+    // Mock card with issuer rules
+    const mockCard: Card & { issuerRules: IssuerRule[] } = {
       id: 'test-card',
       issuer: 'Chase',
       name: 'Sapphire Preferred',
@@ -59,8 +115,25 @@ describe('Card Router', () => {
       churningRules: [],
       createdAt: new Date(),
       updatedAt: new Date(),
-    });
+      creditScoreMin: null,
+      referralBonus: null,
+      referralBonusCash: null,
+      issuerRules: [{
+        id: 'rule-1',
+        cardId: 'test-card',
+        ruleType: '5/24',
+        description: 'No more than 5 cards in 24 months',
+        cooldownPeriod: 24,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        maxCards: null,
+      }],
+    };
 
+    prismaMock.card.findUnique.mockResolvedValueOnce(mockCard);
+
+    // Mock recent applications
     prismaMock.cardApplication.findMany.mockResolvedValueOnce([
       // Mock 5 recent applications
       ...Array(5).fill({
@@ -91,17 +164,37 @@ describe('Bank Router', () => {
     const caller = appRouter.createCaller(await createAuthContext());
 
     // Mock bank account with bonus requirements
-    prismaMock.bankAccount.findUnique.mockResolvedValueOnce({
+    const mockBankAccount = {
       id: 'test-account',
       userId: 'test-user',
       bankId: 'test-bank',
       accountType: 'checking',
       bonusId: 'test-bonus',
       openedAt: new Date(),
+      closedAt: null,
+      bonusEarnedAt: null,
       minimumBalance: null,
       monthsFeeWaived: null,
       notes: null,
-    });
+      bonus: {
+        include: {
+          requirements: [{
+            id: 'req-1',
+            bonusId: 'test-bonus',
+            type: 'DIRECT_DEPOSIT',
+            amount: 500,
+            count: 2,
+            deadline: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            completed: false,
+            completedAt: null,
+          }],
+        },
+      },
+      directDeposits: [],
+      debitTransactions: [],
+    };
+
+    prismaMock.bankAccount.findUnique.mockResolvedValueOnce(mockBankAccount);
 
     // Mock direct deposit creation
     prismaMock.directDeposit.create.mockResolvedValueOnce({

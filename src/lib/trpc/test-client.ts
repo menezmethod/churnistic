@@ -53,13 +53,16 @@ export async function testMutation<T>(
 
 // Example test helpers for specific routes
 export async function testUserQuery(userId: string) {
-  return testQuery(() => trpc.user.getById.query({ id: userId }));
+  return testQuery(async () => {
+    const result = await trpc.user.me.useQuery().data;
+    return result;
+  });
 }
 
 export async function testCardQuery(cardId: string) {
-  return testQuery(() => trpc.card.getById.query({ id: cardId }));
+  return testQuery(async () => trpc.card.checkEligibility.useQuery({ cardId }).data);
 }
 
-export async function testBankQuery(bankId: string) {
-  return testQuery(() => trpc.bank.getById.query({ id: bankId }));
+export async function testBankQuery(accountId: string) {
+  return testQuery(async () => trpc.bank.getBonusProgress.useQuery({ accountId }).data);
 } 

@@ -2,10 +2,19 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { RequirementType, type BonusProgress } from '@/types/bank';
-import type { DirectDeposit } from '@prisma/client';
+import type { DirectDeposit, BonusRequirement, BankAccount, Bank } from '@prisma/client';
+
+type BankAccountWithBonus = BankAccount & {
+  bank: Bank;
+  bonus: {
+    requirements: BonusRequirement[];
+  } | null;
+  directDeposits: DirectDeposit[];
+  debitTransactions: any[]; // Replace with proper type when available
+};
 
 // Input validation schemas
-const BankAccountInput = z.object({
+const bankAccountSchema = z.object({
   bankId: z.string(),
   accountType: z.string(),
   bonusId: z.string().optional(),
@@ -14,24 +23,66 @@ const BankAccountInput = z.object({
   notes: z.string().optional(),
 });
 
-const DirectDepositInput = z.object({
+const directDepositSchema = z.object({
   accountId: z.string(),
   amount: z.number(),
   source: z.string(),
   date: z.date().default(() => new Date()),
 });
 
-const DebitTransactionInput = z.object({
+const debitTransactionSchema = z.object({
   accountId: z.string(),
   amount: z.number(),
   description: z.string().optional(),
   date: z.date().default(() => new Date()),
 });
 
+type BankAccountInput = z.infer<typeof bankAccountSchema>;
+type DirectDepositInput = z.infer<typeof directDepositSchema>;
+type DebitTransactionInput = z.infer<typeof debitTransactionSchema>;
+
+async function validateBankAccount(req: BankAccountInput): Promise<boolean> {
+  // Validation logic here
+  return true;
+}
+
+async function validateBankBonus(req: DirectDepositInput): Promise<boolean> {
+  // Validation logic here
+  return true;
+}
+
+function calculateBonusProgress(
+  directDeposits: DirectDeposit[], 
+  requirements: BonusRequirement[]
+): BonusProgress[] {
+  return requirements.map((requirement: BonusRequirement) => {
+    if (requirement.type === RequirementType.DIRECT_DEPOSIT) {
+      const ddCount = directDeposits.filter(
+        (dd: DirectDeposit) => dd.amount >= (requirement.amount || 0)
+      ).length;
+      return {
+        type: requirement.type as RequirementType,
+        required: requirement.count || 1,
+        completed: ddCount,
+        amount: requirement.amount || 0,
+        deadline: requirement.deadline,
+        isComplete: requirement.completed,
+      };
+    }
+    return {
+      type: requirement.type as RequirementType,
+      required: requirement.count || 1,
+      completed: 0,
+      deadline: requirement.deadline,
+      isComplete: requirement.completed,
+    };
+  });
+}
+
 export const bankRouter = router({
   // Open new bank account
   openAccount: protectedProcedure
-    .input(BankAccountInput)
+    .input(bankAccountSchema)
     .mutation(async ({ ctx, input }) => {
       const bank = await ctx.prisma.bank.findUnique({
         where: { id: input.bankId },
@@ -79,7 +130,7 @@ export const bankRouter = router({
 
   // Record direct deposit
   addDirectDeposit: protectedProcedure
-    .input(DirectDepositInput)
+    .input(directDepositSchema)
     .mutation(async ({ ctx, input }) => {
       const account = await ctx.prisma.bankAccount.findUnique({
         where: { id: input.accountId },
@@ -112,7 +163,7 @@ export const bankRouter = router({
       // Check if this completes any bonus requirements
       if (account.bonus) {
         const ddRequirements = account.bonus.requirements.filter(
-          req => req.type === RequirementType.DIRECT_DEPOSIT
+          (requirement: BonusRequirement) => requirement.type === RequirementType.DIRECT_DEPOSIT
         );
 
         for (const req of ddRequirements) {
@@ -142,7 +193,7 @@ export const bankRouter = router({
 
   // Record debit transaction
   addDebitTransaction: protectedProcedure
-    .input(DebitTransactionInput)
+    .input(debitTransactionSchema)
     .mutation(async ({ ctx, input }) => {
       const account = await ctx.prisma.bankAccount.findUnique({
         where: { id: input.accountId },
@@ -174,7 +225,7 @@ export const bankRouter = router({
       // Check if this completes any bonus requirements
       if (account.bonus) {
         const debitRequirements = account.bonus.requirements.filter(
-          req => req.type === RequirementType.DEBIT_TRANSACTIONS
+          (requirement: BonusRequirement) => requirement.type === RequirementType.DEBIT_TRANSACTIONS
         );
 
         for (const req of debitRequirements) {
@@ -185,7 +236,7 @@ export const bankRouter = router({
               },
             });
 
-            if (transactionCount >= req.count) {
+            if (transactionCount >= (req.count ?? 1)) {
               await ctx.prisma.bonusRequirement.update({
                 where: { id: req.id },
                 data: {
@@ -272,40 +323,10 @@ export const bankRouter = router({
         return null;
       }
 
-      const progress: BonusProgress[] = account.bonus.requirements.map(req => {
-        switch (req.type) {
-          case RequirementType.DIRECT_DEPOSIT:
-            const ddCount = account.directDeposits.filter(
-              dd => dd.amount >= req.amount
-            ).length;
-            return {
-              type: req.type,
-              required: req.count || 1,
-              completed: ddCount,
-              amount: req.amount,
-              deadline: req.deadline,
-              isComplete: req.completed,
-            };
-
-          case RequirementType.DEBIT_TRANSACTIONS:
-            return {
-              type: req.type,
-              required: req.count || 1,
-              completed: account.debitTransactions.length,
-              deadline: req.deadline,
-              isComplete: req.completed,
-            };
-
-          default:
-            return {
-              type: req.type,
-              required: req.count || 1,
-              completed: 0,
-              deadline: req.deadline,
-              isComplete: req.completed,
-            };
-        }
-      });
+      const progress: BonusProgress[] = calculateBonusProgress(
+        account.directDeposits,
+        account.bonus.requirements
+      );
 
       return {
         bonus: account.bonus,
