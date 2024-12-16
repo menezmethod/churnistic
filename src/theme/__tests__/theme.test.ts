@@ -1,5 +1,4 @@
 import { theme } from '../theme';
-import { palette } from '../palette';
 import { components } from '../components';
 
 describe('Theme Configuration', () => {
@@ -79,33 +78,41 @@ describe('Theme Configuration', () => {
   describe('Components', () => {
     it('should have proper button configurations', () => {
       const buttonStyles = components.MuiButton?.styleOverrides;
-      expect(buttonStyles?.root?.borderRadius).toBe(8);
-      expect(buttonStyles?.root?.textTransform).toBe('none');
-      expect(buttonStyles?.root?.fontWeight).toBe(600);
-      expect(buttonStyles?.contained?.boxShadow).toBe('none');
+      const rootStyle = buttonStyles?.root as Record<string, unknown>;
+      const containedStyle = buttonStyles?.contained as Record<string, unknown>;
+      
+      expect(rootStyle?.borderRadius).toBe(8);
+      expect(rootStyle?.textTransform).toBe('none');
+      expect(rootStyle?.fontWeight).toBe(600);
+      expect(containedStyle?.boxShadow).toBe('none');
     });
 
     it('should have proper card configurations', () => {
       const cardStyles = components.MuiCard?.styleOverrides;
-      expect(cardStyles?.root?.borderRadius).toBe(12);
-      expect(cardStyles?.root?.boxShadow).toBe('0px 2px 4px rgba(0, 0, 0, 0.05)');
+      const rootStyle = cardStyles?.root as Record<string, unknown>;
+      
+      expect(rootStyle?.borderRadius).toBe(12);
+      expect(rootStyle?.boxShadow).toBe('0px 2px 4px rgba(0, 0, 0, 0.05)');
     });
 
     it('should have proper text field configurations', () => {
       const textFieldProps = components.MuiTextField?.defaultProps;
       const textFieldStyles = components.MuiTextField?.styleOverrides;
+      const rootStyle = textFieldStyles?.root as Record<string, { borderRadius?: number }>;
       
       expect(textFieldProps?.variant).toBe('outlined');
       expect(textFieldProps?.size).toBe('small');
-      expect(textFieldStyles?.root?.['& .MuiOutlinedInput-root']?.borderRadius).toBe(8);
+      expect(rootStyle?.['& .MuiOutlinedInput-root']?.borderRadius).toBe(8);
     });
 
     it('should have proper table configurations', () => {
       const tableHeadStyles = components.MuiTableHead?.styleOverrides;
       const tableCellStyles = components.MuiTableCell?.styleOverrides;
+      const headRootStyle = tableHeadStyles?.root as Record<string, { fontWeight?: number }>;
+      const cellRootStyle = tableCellStyles?.root as Record<string, unknown>;
       
-      expect(tableHeadStyles?.root?.['& .MuiTableCell-root']?.fontWeight).toBe(600);
-      expect(tableCellStyles?.root?.borderBottom).toBe('1px solid rgba(0, 0, 0, 0.06)');
+      expect(headRootStyle?.['& .MuiTableCell-root']?.fontWeight).toBe(600);
+      expect(cellRootStyle?.borderBottom).toBe('1px solid rgba(0, 0, 0, 0.06)');
     });
   });
 

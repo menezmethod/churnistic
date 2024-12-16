@@ -1,14 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import RootLayout from '../layout';
+import { metadata } from '../layout';
 
 // Mock the theme provider and other dependencies
 jest.mock('@mui/material-nextjs/v14-appRouter', () => ({
-  AppRouterCacheProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="cache-provider">{children}</div>,
+  AppRouterCacheProvider: ({ children }: { children: React.ReactNode }): JSX.Element => <div data-testid="cache-provider">{children}</div>,
 }));
 
 jest.mock('@mui/material/styles', () => ({
-  ThemeProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="theme-provider">{children}</div>,
-  createTheme: () => ({
+  ThemeProvider: ({ children }: { children: React.ReactNode }): JSX.Element => <div data-testid="theme-provider">{children}</div>,
+  createTheme: (): unknown => ({
     palette: {
       primary: { main: '#2E7D32' },
     },
@@ -20,7 +21,7 @@ jest.mock('@mui/material/styles', () => ({
 
 jest.mock('@mui/material/CssBaseline', () => ({
   __esModule: true,
-  default: () => null,
+  default: (): null => null,
 }));
 
 // Mock the theme
@@ -37,10 +38,10 @@ jest.mock('@/theme/theme', () => ({
 
 // Mock next/document to handle html and body tags
 jest.mock('next/document', () => ({
-  Html: ({ children }: { children: React.ReactNode }) => <div data-testid="html">{children}</div>,
-  Head: () => null,
-  Main: () => null,
-  NextScript: () => null,
+  Html: ({ children }: { children: React.ReactNode }): JSX.Element => <div data-testid="html">{children}</div>,
+  Head: (): null => null,
+  Main: (): null => null,
+  NextScript: (): null => null,
 }));
 
 describe('RootLayout', () => {
@@ -57,8 +58,6 @@ describe('RootLayout', () => {
   });
 
   it('has correct metadata', () => {
-    const metadata = require('../layout').metadata;
-    
     expect(metadata.title).toBe('Churnistic - Credit Card Churning Tracker');
     expect(metadata.description).toBe('Track and optimize your credit card churning strategy');
   });
