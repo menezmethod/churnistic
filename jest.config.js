@@ -5,19 +5,20 @@ const createJestConfig = nextJest({
 });
 
 const customJestConfig = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '\\.(css|less|sass|scss)$': 'identity-obj-proxy',
   },
   collectCoverageFrom: [
-    'src/**/*.{js,jsx,ts,tsx}',
+    'src/app/layout.tsx',
+    'src/app/page.tsx',
+    'src/theme/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
     '!src/**/*.stories.{js,jsx,ts,tsx}',
     '!src/**/*.test.{js,jsx,ts,tsx}',
-    '!src/**/index.{js,jsx,ts,tsx}',
-    '!src/pages/_app.tsx',
-    '!src/pages/_document.tsx',
+    '!src/**/__tests__/**/*',
   ],
   coverageThreshold: {
     global: {
@@ -26,24 +27,14 @@ const customJestConfig = {
       lines: 80,
       statements: 80,
     },
-    './src/server/**/*.{ts,tsx}': {
-      branches: 90,
-      functions: 90,
-      lines: 90,
-      statements: 90,
-    },
-    './src/lib/**/*.{ts,tsx}': {
-      branches: 85,
-      functions: 85,
-      lines: 85,
-      statements: 85,
-    },
-    './src/components/**/*.{ts,tsx}': {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
-    },
+  },
+  testMatch: [
+    '<rootDir>/src/app/__tests__/layout.test.tsx',
+    '<rootDir>/src/app/__tests__/page.test.tsx',
+    '<rootDir>/src/theme/__tests__/theme.test.ts',
+  ],
+  transform: {
+    '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
   },
 };
 

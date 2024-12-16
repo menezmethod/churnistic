@@ -23,29 +23,31 @@ Commit: `chore: initialize repository with gitignore`
 #### 2. Next.js Project Setup
 ```bash
 # Create Next.js project
-npx create-next-app@latest churnistic --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"
+npx create-next-app@latest churnistic --typescript --eslint --app --src-dir --import-alias "@/*"
 
 # Navigate to project
-cd Churnistic
+cd churnistic
 
 # Initialize Git
 git add .
-git commit -m "feat: initialize Next.js project with TypeScript and Tailwind"
+git commit -m "feat: initialize Next.js project with TypeScript"
 ```
 
 #### 3. Dependencies Installation
 ```bash
 # Install core dependencies
 npm install @prisma/client @trpc/server @trpc/client @trpc/react-query @tanstack/react-query zod firebase
+npm install @mui/material @emotion/react @emotion/styled @mui/icons-material @mui/x-data-grid @mui/x-date-pickers
+npm install @mui/material-nextjs
 
 # Install dev dependencies
-npm install -D prettier prettier-plugin-tailwindcss husky lint-staged @types/node
+npm install -D prettier husky lint-staged @types/node
 
 # Initialize Husky
 npx husky-init && npm install
 ```
 
-Commit: `chore: add core dependencies and development tools`
+Commit: `chore: add core dependencies including Material UI and development tools`
 
 ### Mid-Morning Session (2 hours)
 #### 4. Firebase Setup
@@ -79,7 +81,7 @@ Commit: `chore: add environment configuration`
 #### 6. Project Structure Setup
 ```bash
 # Create directory structure
-mkdir -p src/{components,lib,types,styles,server,utils}
+mkdir -p src/{components,lib,types,styles,server,utils,theme}
 mkdir -p src/components/{ui,auth,layout,dashboard}
 mkdir -p src/lib/{firebase,trpc,prisma}
 mkdir -p src/server/{api,auth,db}
@@ -90,9 +92,12 @@ touch src/lib/firebase/auth.ts
 touch src/lib/trpc/client.ts
 touch src/lib/trpc/server.ts
 touch src/types/index.ts
+touch src/theme/theme.ts
+touch src/theme/components.ts
+touch src/theme/palette.ts
 ```
 
-Commit: `feat: set up project directory structure`
+Commit: `feat: set up project directory structure with MUI theme configuration`
 
 #### 7. Base Configuration Files
 1. TypeScript Configuration
@@ -120,7 +125,21 @@ module.exports = {
 }
 ```
 
-Commit: `chore: configure TypeScript and ESLint`
+3. Material UI Theme Setup
+```typescript
+// src/theme/theme.ts
+import { createTheme } from '@mui/material/styles';
+import { palette } from './palette';
+import { components } from './components';
+
+export const theme = createTheme({
+  palette,
+  components,
+  // Add custom theme options here
+});
+```
+
+Commit: `chore: configure TypeScript, ESLint, and MUI theme`
 
 ### Evening Session (2 hours)
 #### 8. MongoDB Atlas Setup
@@ -198,7 +217,7 @@ Testing Steps:
 Dependencies Added:
 - Next.js 14
 - TypeScript
-- Tailwind CSS
+- Material UI
 - tRPC
 - Prisma
 - Firebase
