@@ -8,7 +8,7 @@ const firebaseAdminConfig = {
     : undefined,
 };
 
-export function initAdmin() {
+export function initAdmin(): void {
   if (getApps().length === 0) {
     initializeApp({
       credential: cert(firebaseAdminConfig),

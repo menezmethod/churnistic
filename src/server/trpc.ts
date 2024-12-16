@@ -1,6 +1,6 @@
 import { initTRPC } from '@trpc/server';
 import { type CreateNextContextOptions } from '@trpc/server/adapters/next';
-import { getAuth } from 'firebase-admin/auth';
+import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
 import { prisma } from '@/lib/prisma/db';
 import { initAdmin } from '@/lib/firebase/admin';
 
@@ -9,11 +9,11 @@ initAdmin();
 
 // Context type definition
 export interface CreateContextOptions {
-  session: any | null;
+  session: DecodedIdToken | null;
   prisma: typeof prisma;
 }
 
-export async function createContext({ req }: CreateNextContextOptions) {
+export async function createContext({ req }: CreateNextContextOptions): Promise<CreateContextOptions> {
   const session = req.headers.authorization
     ? await getAuth()
         .verifyIdToken(req.headers.authorization.replace('Bearer ', ''))

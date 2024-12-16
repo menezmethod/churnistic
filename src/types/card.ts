@@ -72,4 +72,10 @@ export interface RuleViolation {
 export interface EligibilityCheck {
   eligible: boolean;
   violations: RuleViolation[];
-} 
+}
+
+// Export utility functions to check card status
+export const isPending = (status: CardStatus): boolean => status === CardStatus.PENDING;
+export const isApproved = (status: CardStatus): boolean => status === CardStatus.APPROVED;
+export const isDenied = (status: CardStatus): boolean => status === CardStatus.DENIED;
+export const isCancelled = (status: CardStatus): boolean => status === CardStatus.CANCELLED; 
