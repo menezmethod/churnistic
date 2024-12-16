@@ -1,0 +1,253 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  firebaseUid       String    @unique
+  email            String    @unique
+  displayName      String?
+  photoURL         String?
+  creditScore      Int?      
+  monthlyIncome    Int?      
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  applications     CardApplication[]
+  bankAccounts     BankAccount[]
+  creditPulls      CreditPull[]
+  investmentAccounts InvestmentAccount[]
+  householdId      String?   @db.ObjectId  // For P2 tracking
+  household        Household? @relation(fields: [householdId], references: [id])
+  referrals        Referral[] @relation("Referrer")
+  referredBy       Referral[] @relation("Referred")
+}
+
+model Household {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  name            String    // e.g., "Smith Family"
+  members         User[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Card {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  issuer            String    // e.g., "Chase", "Amex"
+  name              String    // e.g., "Sapphire Preferred"
+  type              String    // e.g., "Credit", "Charge"
+  network           String    // e.g., "Visa", "Mastercard"
+  rewardType        String    // e.g., "Points", "Miles", "Cashback"
+  signupBonus       Int       // e.g., 60000 (points/miles)
+  minSpend          Int       // e.g., 4000 (dollars)
+  minSpendPeriod    Int       // in months
+  annualFee         Int       // in dollars
+  isActive          Boolean   @default(true)
+  creditScoreMin    Int?      // Minimum credit score typically needed
+  businessCard      Boolean   @default(false)  // Is this a business card?
+  velocityRules     String[]  // e.g., ["No more than 5 cards in 24 months"]
+  churningRules     String[]  // e.g., ["Must wait 48 months between bonuses"]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  applications      CardApplication[]
+  issuerRules       IssuerRule[]
+  retentionOffers   RetentionOffer[]
+  referralBonus     Int?      // Points/miles for referring
+  referralBonusCash Int?      // Cash value for referring
+}
+
+model CardApplication {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String    @db.ObjectId
+  cardId          String    @db.ObjectId
+  status          String    // "Pending", "Approved", "Denied", "Cancelled"
+  appliedAt       DateTime  @default(now())
+  approvedAt      DateTime?
+  bonusEarnedAt   DateTime?
+  closedAt        DateTime?
+  creditPullId    String?   @db.ObjectId
+  annualFeePaid   Boolean   @default(false)
+  annualFeeDue    DateTime?
+  spendProgress   Int       @default(0)  // Track progress towards min spend
+  spendDeadline   DateTime? // When min spend must be completed
+  notes           String?
+  user            User      @relation(fields: [userId], references: [id])
+  card            Card      @relation(fields: [cardId], references: [id])
+  creditPull      CreditPull? @relation(fields: [creditPullId], references: [id])
+  retentionOffers RetentionOffer[]
+}
+
+model RetentionOffer {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  cardId          String    @db.ObjectId
+  applicationId   String    @db.ObjectId
+  offerDate       DateTime  @default(now())
+  pointsOffered   Int?      // Points/miles offered
+  statementCredit Int?      // Statement credit in dollars
+  spendRequired   Int?      // Spend requirement if any
+  accepted        Boolean?  // Whether offer was accepted
+  notes           String?
+  card            Card      @relation(fields: [cardId], references: [id])
+  application     CardApplication @relation(fields: [applicationId], references: [id])
+}
+
+model Referral {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  referrerId      String    @db.ObjectId  // User who referred
+  referredId      String    @db.ObjectId  // User who was referred
+  cardId          String    @db.ObjectId
+  referralDate    DateTime  @default(now())
+  bonusEarned     Boolean   @default(false)
+  bonusEarnedAt   DateTime?
+  referrer        User      @relation("Referrer", fields: [referrerId], references: [id])
+  referred        User      @relation("Referred", fields: [referredId], references: [id])
+}
+
+model IssuerRule {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  cardId          String    @db.ObjectId
+  ruleType        String    // e.g., "5/24", "2/90", "1/8"
+  description     String    // Detailed explanation
+  cooldownPeriod  Int       // in months
+  maxCards        Int?      // Maximum number of cards allowed
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  card            Card      @relation(fields: [cardId], references: [id])
+}
+
+model CreditPull {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String    @db.ObjectId
+  type            String    // e.g., "Hard Pull", "Soft Pull"
+  bureau          String    // e.g., "Experian", "TransUnion"
+  score           Int
+  pullDate        DateTime  @default(now())
+  expiryDate      DateTime  // When this pull expires (usually 30 days)
+  user            User      @relation(fields: [userId], references: [id])
+  applications    CardApplication[]
+}
+
+model Bank {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  name                String    @unique
+  website             String?
+  chexSystemsSensitive Boolean  @default(false)
+  earlyTermFee        Int?      // Fee for early account closure
+  earlyTermPeriod     Int?      // Period in months for early termination
+  bonusCooldown       Int?      // Months between bonuses
+  dataPoints          DataPoint[]
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  accounts            BankAccount[]
+  bonusOffers         BankBonus[]
+}
+
+model DataPoint {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  bankId          String    @db.ObjectId
+  type            String    // "DD", "ChexSystems", "Bonus"
+  description     String    // e.g., "Ally transfer works as DD"
+  successRate     Int       // Percentage of success
+  lastVerified    DateTime  @default(now())
+  bank            Bank      @relation(fields: [bankId], references: [id])
+}
+
+model BankAccount {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String    @db.ObjectId
+  bankId            String    @db.ObjectId
+  accountType       String    // "Checking", "Savings"
+  bonusId           String?   @db.ObjectId
+  openedAt          DateTime  @default(now())
+  closedAt          DateTime?
+  bonusEarnedAt     DateTime?
+  directDeposits    DirectDeposit[]
+  debitTransactions DebitTransaction[]
+  minimumBalance    Int?      // Required minimum balance
+  monthsFeeWaived   Int?      // Number of months fees are waived
+  notes             String?
+  user              User      @relation(fields: [userId], references: [id])
+  bank              Bank      @relation(fields: [bankId], references: [id])
+  bonus             BankBonus? @relation(fields: [bonusId], references: [id])
+}
+
+model DirectDeposit {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  accountId       String    @db.ObjectId
+  amount          Int
+  source          String    // e.g., "Employer", "Ally", "Chase"
+  date            DateTime  @default(now())
+  verified        Boolean   @default(false)  // Whether it counted as DD
+  account         BankAccount @relation(fields: [accountId], references: [id])
+}
+
+model DebitTransaction {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  accountId       String    @db.ObjectId
+  amount          Int
+  date            DateTime  @default(now())
+  description     String?
+  account         BankAccount @relation(fields: [accountId], references: [id])
+}
+
+model BankBonus {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  bankId          String    @db.ObjectId
+  amount          Int       // in dollars
+  requirements    BonusRequirement[]
+  expiryDate      DateTime?
+  isActive        Boolean   @default(true)
+  cooldownPeriod  Int       // in months
+  termsLink       String?   // Link to full terms
+  dataPoints      String[]  // User reported success methods
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  bank            Bank      @relation(fields: [bankId], references: [id])
+  accounts        BankAccount[]
+}
+
+model BonusRequirement {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  bonusId         String    @db.ObjectId
+  type            RequirementType
+  amount          Int       // Amount needed
+  count           Int?      // Number of times needed (e.g., 2 DDs)
+  deadline        DateTime  // When requirement must be met
+  completed       Boolean   @default(false)
+  completedAt     DateTime?
+  bonus           BankBonus @relation(fields: [bonusId], references: [id])
+}
+
+enum RequirementType {
+  DIRECT_DEPOSIT
+  MINIMUM_BALANCE
+  DEBIT_TRANSACTIONS
+  BILL_PAY
+}
+
+model InvestmentAccount {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String    @db.ObjectId
+  platform        String    // e.g., "Fidelity", "Robinhood"
+  accountType     String    // e.g., "Individual", "IRA"
+  bonusAmount     Int       // in dollars
+  requirements    String    // e.g., "Deposit $5000"
+  depositAmount   Int       // Amount deposited
+  holdingPeriod   Int       // Required holding period in days
+  openedAt        DateTime  @default(now())
+  bonusEarnedAt   DateTime?
+  closedAt        DateTime?
+  notes           String?
+  user            User      @relation(fields: [userId], references: [id])
+}
