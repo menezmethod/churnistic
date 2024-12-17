@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import RootLayout from '../layout';
-import { metadata } from '../layout';
+
+import RootLayout, { metadata } from '../layout';
 
 // Mock the theme provider and other dependencies
 jest.mock('@mui/material-nextjs/v14-appRouter', () => ({

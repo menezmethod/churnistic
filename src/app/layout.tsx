@@ -1,9 +1,10 @@
-import type { Metadata } from 'next';
-import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
-import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { theme } from '@/theme/theme';
+import { ThemeProvider } from '@mui/material/styles';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
+import type { Metadata } from 'next';
+
 import { AuthProvider } from '@/lib/auth/AuthContext';
+import { theme } from '@/theme/theme';
 import './globals.css';
 
 export const metadata: Metadata = {

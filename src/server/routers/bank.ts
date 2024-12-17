@@ -1,10 +1,11 @@
-import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
+import type { DirectDeposit , RequirementType as PrismaRequirementType } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
-import type { DirectDeposit } from '@prisma/client';
+import { z } from 'zod';
+
 import { RequirementType as CustomRequirementType } from '@/types/bank';
-import type { RequirementType as PrismaRequirementType } from '@prisma/client';
 import type { BonusRequirement, BonusProgress } from '@/types/bank';
+
+import { router, protectedProcedure } from '../trpc';
 
 function convertRequirementType(type: PrismaRequirementType): CustomRequirementType {
   return type as unknown as CustomRequirementType;
@@ -265,7 +266,9 @@ export const bankRouter = router({
       let nextCursor: typeof input.cursor | undefined = undefined;
       if (accounts.length > input.limit) {
         const nextItem = accounts.pop();
-        nextCursor = nextItem!.id;
+        if (nextItem) {
+          nextCursor = nextItem.id;
+        }
       }
 
       return {

@@ -1,8 +1,10 @@
 import { initTRPC } from '@trpc/server';
+import type { DecodedIdToken } from 'firebase-admin/auth';
+import { getAuth } from 'firebase-admin/auth';
 import { type NextRequest } from 'next/server';
-import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
-import { prisma } from '@/lib/prisma/db';
+
 import { initAdmin } from '@/lib/firebase/admin';
+import { prisma } from '@/lib/prisma/db';
 
 // Initialize Firebase Admin
 initAdmin();
@@ -18,9 +20,10 @@ interface ContextOptions {
 }
 
 export async function createContext({ req }: ContextOptions): Promise<CreateContextOptions> {
-  const session = req.headers.get('authorization')
+  const authHeader = req.headers.get('authorization');
+  const session = authHeader
     ? await getAuth()
-        .verifyIdToken(req.headers.get('authorization')!.replace('Bearer ', ''))
+        .verifyIdToken(authHeader.replace('Bearer ', ''))
         .catch(() => null)
     : null;
 

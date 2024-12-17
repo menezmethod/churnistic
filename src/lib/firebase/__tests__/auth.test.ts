@@ -1,13 +1,17 @@
+import type {
+  User,
+  AuthError,
+} from 'firebase/auth';
+
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
-  GoogleAuthProvider,
   signInWithPopup,
+  GoogleAuthProvider,
   GithubAuthProvider,
-  User,
-  type AuthError,
 } from 'firebase/auth';
+
 import {
   signInWithEmail,
   signUpWithEmail,

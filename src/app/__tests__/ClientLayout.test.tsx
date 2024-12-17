@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+
 import { ClientLayout } from '../ClientLayout';
 
 // Mock Material-UI components and theme

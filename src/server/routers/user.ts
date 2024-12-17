@@ -1,6 +1,7 @@
-import { z } from 'zod';
-import { router, protectedProcedure, publicProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
+
+import { router, protectedProcedure, publicProcedure } from '../trpc';
 
 export const userRouter = router({
   me: protectedProcedure.query(async ({ ctx }) => {

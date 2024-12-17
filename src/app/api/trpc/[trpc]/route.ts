@@ -1,7 +1,8 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
-import { appRouter } from '@/server/routers/_app';
+import type { NextRequest } from 'next/server';
+
 import { createContext } from '@/server/context';
-import { NextRequest } from 'next/server';
+import { appRouter } from '@/server/routers/_app';
 
 export async function GET(req: NextRequest): Promise<Response> {
   return handler(req);

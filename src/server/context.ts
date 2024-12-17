@@ -1,7 +1,8 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma/db';
-import { createAuthContext } from '@/lib/auth/authUtils';
 import type { DecodedIdToken } from 'firebase-admin/auth';
+import type { NextRequest } from 'next/server';
+
+import { createAuthContext } from '@/lib/auth/authUtils';
+import { prisma } from '@/lib/prisma/db';
 
 export interface CreateContextOptions {
   session: DecodedIdToken | null;

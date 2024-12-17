@@ -1,12 +1,12 @@
 import { describe, expect, test } from '@jest/globals';
-import { appRouter } from '@/server/routers/_app';
-import { createContext } from '@/server/context';
-import type { Card, CardApplication } from '@prisma/client';
-import { CardStatus } from '@/types/card';
+import type { Card, CardApplication , PrismaClient } from '@prisma/client';
 import { mockDeep } from 'jest-mock-extended';
-import type { PrismaClient } from '@prisma/client';
 import type { NextRequest } from 'next/server';
+
+import { createContext } from '@/server/context';
 import type { CreateContextOptions } from '@/server/context';
+import { appRouter } from '@/server/routers/_app';
+import { CardStatus } from '@/types/card';
 
 // Create mock instances
 export const prismaMock = mockDeep<PrismaClient>();

@@ -1,8 +1,9 @@
 import { describe, expect, test, jest, beforeEach } from '@jest/globals';
-import { createAuthContext } from '../authUtils';
-import type { NextRequest } from 'next/server';
 import type { DecodedIdToken, Auth } from 'firebase-admin/auth';
 import { getAuth } from 'firebase-admin/auth';
+import type { NextRequest } from 'next/server';
+
+import { createAuthContext } from '../authUtils';
 
 // Mock firebase-admin/auth
 jest.mock('firebase-admin/auth');

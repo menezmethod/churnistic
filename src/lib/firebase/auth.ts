@@ -11,6 +11,7 @@ import {
   type Unsubscribe,
   type AuthError as FirebaseAuthError,
 } from 'firebase/auth';
+
 import { auth } from '../auth/firebase';
 
 export interface AuthError {

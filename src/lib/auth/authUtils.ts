@@ -1,5 +1,5 @@
-import { NextRequest } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
+import type { NextRequest } from 'next/server';
 
 export interface Session {
   uid: string;

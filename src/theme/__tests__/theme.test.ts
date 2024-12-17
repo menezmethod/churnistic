@@ -1,5 +1,5 @@
-import { theme } from '../theme';
 import { components } from '../components';
+import { theme } from '../theme';
 
 describe('Theme Configuration', () => {
   describe('Palette', () => {

@@ -1,6 +1,7 @@
-import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
+
+import { router, protectedProcedure } from '../trpc';
 
 export const companyRouter = router({
   getAll: protectedProcedure.query(async ({ ctx }) => {

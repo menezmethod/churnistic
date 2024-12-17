@@ -1,7 +1,9 @@
-import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
+
 import { CardStatus } from '@/types/card';
+
+import { router, protectedProcedure } from '../trpc';
 
 // Input validation schemas
 const cardApplicationSchema = z.object({
@@ -47,7 +49,7 @@ export const cardRouter = router({
 
     // Check issuer rules
     for (const rule of card.issuerRules) {
-      if (!rule.isActive) continue;
+      if (!rule.isActive) {continue;}
 
       if (rule.maxCards) {
         const activeCards = await ctx.prisma.cardApplication.count({
@@ -191,7 +193,9 @@ export const cardRouter = router({
       let nextCursor: typeof input.cursor | undefined = undefined;
       if (applications.length > input.limit) {
         const nextItem = applications.pop();
-        nextCursor = nextItem!.id;
+        if (nextItem) {
+          nextCursor = nextItem.id;
+        }
       }
 
       return {
@@ -235,7 +239,7 @@ export const cardRouter = router({
 
       // Check issuer rules
       for (const rule of card.issuerRules) {
-        if (!rule.isActive) continue;
+        if (!rule.isActive) {continue;}
 
         if (rule.maxCards) {
           const activeCards = await ctx.prisma.cardApplication.count({

@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import { AuthProvider, useAuth } from '../AuthContext';
-import { User } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import { act } from 'react';
+
+import { AuthProvider, useAuth } from '../AuthContext';
 
 const mockUser = {
   email: 'test@example.com',

@@ -1,8 +1,10 @@
 import { describe, expect, test, jest } from '@jest/globals';
-import { appRouter } from '@/server/routers/_app';
-import { createContext } from '@/server/context';
-import { NextRequest } from 'next/server';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
+import type { NextRequest } from 'next/server';
+
+import { createContext } from '@/server/context';
+import { appRouter } from '@/server/routers/_app';
+
 
 // Mock request helper
 const mockRequest = (): NextRequest => {

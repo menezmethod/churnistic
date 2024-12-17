@@ -1,6 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
-import { GET } from '../route';
+
 import { prisma } from '@/lib/prisma/db';
+
+import { GET } from '../route';
 
 jest.mock('@/lib/prisma/db', () => ({
   prisma: {
