@@ -1,5 +1,4 @@
 import type { User, AuthError } from 'firebase/auth';
-
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
