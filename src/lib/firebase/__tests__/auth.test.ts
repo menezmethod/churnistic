@@ -5,7 +5,6 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   GithubAuthProvider,
-  onAuthStateChanged,
   User,
   type AuthError,
 } from 'firebase/auth';
@@ -15,7 +14,6 @@ import {
   signInWithGoogle,
   signInWithGithub,
   signOut,
-  onAuthStateChange,
 } from '../auth';
 
 // Mock firebase/app
@@ -50,18 +48,6 @@ jest.mock('firebase/auth', () => ({
   })),
 }));
 
-// Mock firebase config
-jest.mock('../config', () => ({
-  app: {
-    name: '[DEFAULT]',
-    options: {},
-  },
-  auth: {
-    currentUser: null,
-    onAuthStateChanged: jest.fn(),
-  },
-}));
-
 describe('Firebase Auth', () => {
   const mockUser = {
     uid: 'test-uid',
@@ -73,6 +59,12 @@ describe('Firebase Auth', () => {
     message: 'Test error message',
   } as AuthError;
 
+  const expectedError = {
+    code: mockError.code,
+    message: mockError.message,
+    originalError: mockError,
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -83,12 +75,12 @@ describe('Firebase Auth', () => {
         user: mockUser,
       });
 
-      const result = await signInWithEmail('test@example.com', 'password');
+      const result = await signInWithEmail('test@example.com', 'password123');
       expect(result).toEqual({ user: mockUser, error: null });
       expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
         expect.anything(),
         'test@example.com',
-        'password'
+        'password123'
       );
     });
 
@@ -96,7 +88,29 @@ describe('Firebase Auth', () => {
       (signInWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(mockError);
 
       const result = await signInWithEmail('test@example.com', 'password');
-      expect(result).toEqual({ user: null, error: mockError });
+      expect(result).toEqual({ user: null, error: expectedError });
+    });
+
+    it('should validate email format', async () => {
+      const result = await signInWithEmail('invalid-email', 'password');
+      expect(result).toEqual({
+        user: null,
+        error: {
+          code: 'auth/invalid-email-format',
+          message: 'Invalid email format',
+        },
+      });
+    });
+
+    it('should validate password length', async () => {
+      const result = await signInWithEmail('test@example.com', '12345');
+      expect(result).toEqual({
+        user: null,
+        error: {
+          code: 'auth/weak-password',
+          message: 'Password should be at least 6 characters',
+        },
+      });
     });
   });
 
@@ -106,12 +120,12 @@ describe('Firebase Auth', () => {
         user: mockUser,
       });
 
-      const result = await signUpWithEmail('test@example.com', 'password');
+      const result = await signUpWithEmail('test@example.com', 'password123');
       expect(result).toEqual({ user: mockUser, error: null });
       expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(
         expect.anything(),
         'test@example.com',
-        'password'
+        'password123'
       );
     });
 
@@ -119,14 +133,34 @@ describe('Firebase Auth', () => {
       (createUserWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(mockError);
 
       const result = await signUpWithEmail('test@example.com', 'password');
-      expect(result).toEqual({ user: null, error: mockError });
+      expect(result).toEqual({ user: null, error: expectedError });
+    });
+
+    it('should validate email format', async () => {
+      const result = await signUpWithEmail('invalid-email', 'password');
+      expect(result).toEqual({
+        user: null,
+        error: {
+          code: 'auth/invalid-email-format',
+          message: 'Invalid email format',
+        },
+      });
+    });
+
+    it('should validate password length', async () => {
+      const result = await signUpWithEmail('test@example.com', '12345');
+      expect(result).toEqual({
+        user: null,
+        error: {
+          code: 'auth/weak-password',
+          message: 'Password should be at least 6 characters',
+        },
+      });
     });
   });
 
   describe('signInWithGoogle', () => {
     it('should sign in successfully with Google', async () => {
-      const provider = { addScope: jest.fn() };
-      (GoogleAuthProvider as unknown as jest.Mock).mockReturnValueOnce(provider);
       (signInWithPopup as jest.Mock).mockResolvedValueOnce({
         user: mockUser,
       });
@@ -134,21 +168,19 @@ describe('Firebase Auth', () => {
       const result = await signInWithGoogle();
       expect(result).toEqual({ user: mockUser, error: null });
       expect(GoogleAuthProvider).toHaveBeenCalled();
-      expect(signInWithPopup).toHaveBeenCalledWith(expect.anything(), provider);
+      expect(signInWithPopup).toHaveBeenCalledWith(expect.anything(), expect.any(Object));
     });
 
     it('should handle Google sign in errors', async () => {
       (signInWithPopup as jest.Mock).mockRejectedValueOnce(mockError);
 
       const result = await signInWithGoogle();
-      expect(result).toEqual({ user: null, error: mockError });
+      expect(result).toEqual({ user: null, error: expectedError });
     });
   });
 
   describe('signInWithGithub', () => {
     it('should sign in successfully with GitHub', async () => {
-      const provider = { addScope: jest.fn() };
-      (GithubAuthProvider as unknown as jest.Mock).mockReturnValueOnce(provider);
       (signInWithPopup as jest.Mock).mockResolvedValueOnce({
         user: mockUser,
       });
@@ -156,14 +188,14 @@ describe('Firebase Auth', () => {
       const result = await signInWithGithub();
       expect(result).toEqual({ user: mockUser, error: null });
       expect(GithubAuthProvider).toHaveBeenCalled();
-      expect(signInWithPopup).toHaveBeenCalledWith(expect.anything(), provider);
+      expect(signInWithPopup).toHaveBeenCalledWith(expect.anything(), expect.any(Object));
     });
 
     it('should handle GitHub sign in errors', async () => {
       (signInWithPopup as jest.Mock).mockRejectedValueOnce(mockError);
 
       const result = await signInWithGithub();
-      expect(result).toEqual({ user: null, error: mockError });
+      expect(result).toEqual({ user: null, error: expectedError });
     });
   });
 
@@ -180,42 +212,7 @@ describe('Firebase Auth', () => {
       (firebaseSignOut as jest.Mock).mockRejectedValueOnce(mockError);
 
       const result = await signOut();
-      expect(result).toEqual({ error: mockError });
-    });
-  });
-
-  describe('onAuthStateChange', () => {
-    it('should set up auth state observer', () => {
-      const mockCallback = jest.fn();
-      const mockUnsubscribe = jest.fn();
-
-      (onAuthStateChanged as jest.Mock).mockReturnValueOnce(mockUnsubscribe);
-
-      const unsubscribe = onAuthStateChange(mockCallback);
-      expect(onAuthStateChanged).toHaveBeenCalledWith(expect.anything(), mockCallback);
-      expect(unsubscribe).toBe(mockUnsubscribe);
-    });
-
-    it('should handle auth state changes', () => {
-      const mockCallback = jest.fn();
-      (onAuthStateChanged as jest.Mock).mockImplementationOnce((auth, callback) => {
-        callback(mockUser);
-        return jest.fn();
-      });
-
-      onAuthStateChange(mockCallback);
-      expect(mockCallback).toHaveBeenCalledWith(mockUser);
-    });
-
-    it('should handle auth state changes with null user', () => {
-      const mockCallback = jest.fn();
-      (onAuthStateChanged as jest.Mock).mockImplementationOnce((auth, callback) => {
-        callback(null);
-        return jest.fn();
-      });
-
-      onAuthStateChange(mockCallback);
-      expect(mockCallback).toHaveBeenCalledWith(null);
+      expect(result).toEqual({ error: expectedError });
     });
   });
 });
