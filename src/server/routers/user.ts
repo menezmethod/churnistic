@@ -1,20 +1,21 @@
-import { z } from 'zod';
-import { router, protectedProcedure, publicProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
+
+import { router, protectedProcedure, publicProcedure } from '../trpc';
 
 export const userRouter = router({
   me: protectedProcedure.query(async ({ ctx }) => {
     const user = await ctx.prisma.user.findUnique({
       where: { firebaseUid: ctx.session.uid },
     });
-    
+
     if (!user) {
       throw new TRPCError({
         code: 'NOT_FOUND',
         message: 'User not found',
       });
     }
-    
+
     return user;
   }),
 
@@ -52,4 +53,4 @@ export const userRouter = router({
       where: { firebaseUid: ctx.session.uid },
     });
   }),
-}); 
+});

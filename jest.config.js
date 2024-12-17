@@ -10,11 +10,21 @@ const customJestConfig = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(css|less|sass|scss)$': 'identity-obj-proxy',
+    '^jose/(.*)$': '<rootDir>/node_modules/jose/dist/node/cjs/$1',
+    '^firebase-admin/auth$': '<rootDir>/src/lib/auth/__mocks__/firebase-admin.ts',
+    '^next/server$': '<rootDir>/node_modules/next/dist/server/web/exports/index.js',
+    '^jwks-rsa$': '<rootDir>/node_modules/jwks-rsa/src/index.js'
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(jose|@firebase|firebase|firebase-admin|@trpc|superjson|@babel|@jest|jest-runtime|next/dist/compiled|@swc/helpers|@babel/runtime/helpers/esm|uuid|jwks-rsa)/)'
+  ],
+  transform: {
+    '^.+\\.(js|jsx|ts|tsx|mjs)$': ['babel-jest', { presets: ['next/babel'] }],
+  },
+  moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'node'],
+  testMatch: ['<rootDir>/src/**/__tests__/**/*.test.{ts,tsx}'],
   collectCoverageFrom: [
-    'src/app/layout.tsx',
-    'src/app/page.tsx',
-    'src/theme/**/*.{ts,tsx}',
+    'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
     '!src/**/*.stories.{js,jsx,ts,tsx}',
     '!src/**/*.test.{js,jsx,ts,tsx}',
@@ -28,14 +38,8 @@ const customJestConfig = {
       statements: 80,
     },
   },
-  testMatch: [
-    '<rootDir>/src/app/__tests__/layout.test.tsx',
-    '<rootDir>/src/app/__tests__/page.test.tsx',
-    '<rootDir>/src/theme/__tests__/theme.test.ts',
-  ],
-  transform: {
-    '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
-  },
+  testTimeout: 10000,
+  resolver: '<rootDir>/jest.resolver.js',
 };
 
-module.exports = createJestConfig(customJestConfig); 
+module.exports = createJestConfig(customJestConfig);

@@ -1,8 +1,10 @@
 import { initTRPC } from '@trpc/server';
-import { type CreateNextContextOptions } from '@trpc/server/adapters/next';
-import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
-import { prisma } from '@/lib/prisma/db';
+import type { DecodedIdToken } from 'firebase-admin/auth';
+import { getAuth } from 'firebase-admin/auth';
+import { type NextRequest } from 'next/server';
+
 import { initAdmin } from '@/lib/firebase/admin';
+import { prisma } from '@/lib/prisma/db';
 
 // Initialize Firebase Admin
 initAdmin();
@@ -13,10 +15,15 @@ export interface CreateContextOptions {
   prisma: typeof prisma;
 }
 
-export async function createContext({ req }: CreateNextContextOptions): Promise<CreateContextOptions> {
-  const session = req.headers.authorization
+interface ContextOptions {
+  req: NextRequest;
+}
+
+export async function createContext({ req }: ContextOptions): Promise<CreateContextOptions> {
+  const authHeader = req.headers.get('authorization');
+  const session = authHeader
     ? await getAuth()
-        .verifyIdToken(req.headers.authorization.replace('Bearer ', ''))
+        .verifyIdToken(authHeader.replace('Bearer ', ''))
         .catch(() => null)
     : null;
 
@@ -26,7 +33,7 @@ export async function createContext({ req }: CreateNextContextOptions): Promise<
   };
 }
 
-const t = initTRPC.context<typeof createContext>().create();
+const t = initTRPC.context<CreateContextOptions>().create();
 
 // Base router and procedure helpers
 export const router = t.router;
@@ -45,4 +52,4 @@ export const protectedProcedure = t.procedure.use(
       },
     });
   })
-); 
+);

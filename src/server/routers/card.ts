@@ -1,88 +1,19 @@
-import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
-import { CardStatus, type RuleViolation, type EligibilityCheck } from '@/types/card';
-import type { Card, CardApplication } from '@prisma/client';
+import { z } from 'zod';
 
-// Define the rule types
-type VelocityRule = '5/24' | '2/30' | '1/90';
-type ChurningRule = 'once_lifetime' | 'once_24mo' | 'once_48mo';
+import { CardStatus } from '@/types/card';
 
-type ApplicationWithCard = CardApplication & {
-  card: Card;
-};
-
-interface RuleCheck {
-  rule: VelocityRule | ChurningRule;
-  check: (applications: ApplicationWithCard[]) => boolean;
-  message: string;
-}
-
-const ruleChecks: Record<VelocityRule | ChurningRule, RuleCheck> = {
-  '5/24': {
-    rule: '5/24',
-    check: (applications) => applications.length < 5,
-    message: 'Too many applications in the past 24 months',
-  },
-  '2/30': {
-    rule: '2/30',
-    check: (applications) => applications.length < 2,
-    message: 'Too many applications in the past 30 days',
-  },
-  '1/90': {
-    rule: '1/90',
-    check: (applications) => applications.length < 1,
-    message: 'Too many applications in the past 90 days',
-  },
-  'once_lifetime': {
-    rule: 'once_lifetime',
-    check: (applications) => applications.length === 0,
-    message: 'Can only receive bonus once per lifetime',
-  },
-  'once_24mo': {
-    rule: 'once_24mo',
-    check: (applications) => applications.length === 0,
-    message: 'Can only receive bonus once every 24 months',
-  },
-  'once_48mo': {
-    rule: 'once_48mo',
-    check: (applications) => applications.length === 0,
-    message: 'Can only receive bonus once every 48 months',
-  },
-};
-
-function checkVelocityRule(
-  rule: VelocityRule | ChurningRule, 
-  applications: ApplicationWithCard[]
-): RuleViolation | null {
-  const ruleCheck = ruleChecks[rule];
-  if (!ruleCheck.check(applications)) {
-    return {
-      rule,
-      message: ruleCheck.message,
-    };
-  }
-  return null;
-}
+import { router, protectedProcedure } from '../trpc';
 
 // Input validation schemas
-const CardApplicationInput = z.object({
+const cardApplicationSchema = z.object({
   cardId: z.string(),
   creditScore: z.number().optional(),
   income: z.number().optional(),
   notes: z.string().optional(),
-  status: z.nativeEnum(CardStatus).default(CardStatus.PENDING),
-  spendProgress: z.number().default(0),
-  annualFeePaid: z.boolean().default(false),
 });
 
-const SpendUpdateInput = z.object({
-  applicationId: z.string(),
-  amount: z.number(),
-  date: z.date(),
-});
-
-const RetentionOfferInput = z.object({
+const retentionOfferSchema = z.object({
   applicationId: z.string(),
   pointsOffered: z.number().optional(),
   statementCredit: z.number().optional(),
@@ -91,113 +22,154 @@ const RetentionOfferInput = z.object({
 });
 
 export const cardRouter = router({
-  // Card Applications
-  applyForCard: protectedProcedure
-    .input(CardApplicationInput)
+  // Apply for a new card
+  apply: protectedProcedure.input(cardApplicationSchema).mutation(async ({ ctx, input }) => {
+    // Check if user is eligible for the card
+    const card = await ctx.prisma.card.findUnique({
+      where: { id: input.cardId },
+      include: {
+        issuerRules: true,
+      },
+    });
+
+    if (!card) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Card not found',
+      });
+    }
+
+    // Check credit score requirement
+    if (card.creditScoreMin && input.creditScore && input.creditScore < card.creditScoreMin) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Credit score too low',
+      });
+    }
+
+    // Check issuer rules
+    for (const rule of card.issuerRules) {
+      if (!rule.isActive) {
+        continue;
+      }
+
+      if (rule.maxCards) {
+        const activeCards = await ctx.prisma.cardApplication.count({
+          where: {
+            userId: ctx.session.uid,
+            card: {
+              issuerId: card.issuerId
+            },
+            status: {
+              in: [CardStatus.APPROVED, CardStatus.PENDING],
+            },
+          },
+        });
+
+        if (activeCards >= rule.maxCards) {
+          return {
+            success: false,
+            error: {
+              code: 'MAX_CARDS_EXCEEDED',
+              message: `Maximum of ${rule.maxCards} cards allowed from issuer`,
+              details: {
+                maxCards: rule.maxCards,
+                issuer: card.issuerId,
+              },
+            },
+          };
+        }
+      }
+
+      if (rule.cooldownPeriod) {
+        const recentApplication = await ctx.prisma.cardApplication.findFirst({
+          where: {
+            userId: ctx.session.uid,
+            card: {
+              issuerId: card.issuerId
+            },
+            appliedAt: {
+              gte: new Date(Date.now() - rule.cooldownPeriod * 24 * 60 * 60 * 1000),
+            },
+          },
+        });
+
+        if (recentApplication) {
+          return {
+            success: false,
+            error: {
+              code: 'COOLDOWN_PERIOD',
+              message: 'Cooldown period not met',
+              details: {
+                cooldownPeriod: rule.cooldownPeriod,
+                issuer: card.issuerId,
+              },
+            },
+          };
+        }
+      }
+    }
+
+    return ctx.prisma.cardApplication.create({
+      data: {
+        userId: ctx.session.uid,
+        cardId: input.cardId,
+        status: CardStatus.PENDING,
+        notes: input.notes,
+        appliedAt: new Date(),
+        spendProgress: 0,
+        annualFeePaid: false,
+      },
+    });
+  }),
+
+  // Update application status
+  updateStatus: protectedProcedure
+    .input(
+      z.object({
+        applicationId: z.string(),
+        status: z.nativeEnum(CardStatus),
+        notes: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const card = await ctx.prisma.card.findUnique({
-        where: { id: input.cardId },
-        include: { issuerRules: true },
+      const application = await ctx.prisma.cardApplication.findUnique({
+        where: { id: input.applicationId },
       });
 
-      if (!card) {
+      if (!application || application.userId !== ctx.session.uid) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'Card not found',
+          message: 'Application not found',
         });
       }
 
-      // Check eligibility (5/24, etc.)
-      const recentApplications = await ctx.prisma.cardApplication.findMany({
-        where: {
-          userId: ctx.session.uid,
-          appliedAt: {
-            gte: new Date(Date.now() - 24 * 30 * 24 * 60 * 60 * 1000), // 24 months
-          },
-        },
-      });
-
-      // Example: Check Chase 5/24
-      if (card.issuer === 'Chase' && recentApplications.length >= 5) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Chase 5/24 rule: Too many recent applications',
-        });
-      }
-
-      return ctx.prisma.cardApplication.create({
+      return ctx.prisma.cardApplication.update({
+        where: { id: input.applicationId },
         data: {
-          userId: ctx.session.uid,
-          cardId: input.cardId,
           status: input.status,
-          spendProgress: input.spendProgress,
-          annualFeePaid: input.annualFeePaid,
-          spendDeadline: new Date(Date.now() + card.minSpendPeriod * 30 * 24 * 60 * 60 * 1000),
+          approvedAt: input.status === CardStatus.APPROVED ? new Date() : undefined,
+          closedAt: input.status === CardStatus.CANCELLED ? new Date() : undefined,
           notes: input.notes,
         },
       });
     }),
 
-  // Update application status
-  updateStatus: protectedProcedure
-    .input(z.object({
-      applicationId: z.string(),
-      status: z.nativeEnum(CardStatus),
-      approvedAt: z.date().optional(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const application = await ctx.prisma.cardApplication.findUnique({
-        where: { id: input.applicationId },
-        include: { card: true },
-      });
-
-      if (!application || application.userId !== ctx.session.uid) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Application not found',
-        });
-      }
-
-      return ctx.prisma.cardApplication.update({
-        where: { id: input.applicationId },
-        data: {
-          status: input.status,
-          approvedAt: input.status === CardStatus.APPROVED ? input.approvedAt || new Date() : undefined,
-        },
-      });
-    }),
-
-  // Track spending progress
-  updateSpend: protectedProcedure
-    .input(SpendUpdateInput)
-    .mutation(async ({ ctx, input }) => {
-      const application = await ctx.prisma.cardApplication.findUnique({
-        where: { id: input.applicationId },
-        include: { card: true },
-      });
-
-      if (!application || application.userId !== ctx.session.uid) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Application not found',
-        });
-      }
-
-      const newProgress = application.spendProgress + input.amount;
-      const bonusEarned = newProgress >= application.card.minSpend;
-
-      return ctx.prisma.cardApplication.update({
-        where: { id: input.applicationId },
-        data: {
-          spendProgress: newProgress,
-          bonusEarnedAt: bonusEarned ? input.date : undefined,
-        },
-      });
-    }),
-
-  // Record retention offer
+  // Add retention offer
   addRetentionOffer: protectedProcedure
-    .input(RetentionOfferInput)
+    .input(
+      z
+        .object({
+          applicationId: z.string(),
+          pointsOffered: z.number().positive('Points offered must be positive').optional(),
+          statementCredit: z.number().positive('Statement credit must be positive').optional(),
+          spendRequired: z.number().positive('Spend requirement must be positive').optional(),
+          notes: z.string().optional(),
+        })
+        .refine(data => data.pointsOffered !== undefined || data.statementCredit !== undefined, {
+          message: 'Must specify either points or statement credit',
+        })
+    )
     .mutation(async ({ ctx, input }) => {
       const application = await ctx.prisma.cardApplication.findUnique({
         where: { id: input.applicationId },
@@ -222,24 +194,23 @@ export const cardRouter = router({
       });
     }),
 
-  // Get user's applications
+  // Get user's card applications
   getApplications: protectedProcedure
-    .input(z.object({
-      status: z.nativeEnum(CardStatus).optional(),
-      limit: z.number().min(1).max(100).default(10),
-      cursor: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).default(10),
+        cursor: z.string().optional(),
+      })
+    )
     .query(async ({ ctx, input }) => {
       const applications = await ctx.prisma.cardApplication.findMany({
         where: {
           userId: ctx.session.uid,
-          ...(input.status && { status: input.status }),
         },
         take: input.limit + 1,
         cursor: input.cursor ? { id: input.cursor } : undefined,
         include: {
           card: true,
-          creditPull: true,
           retentionOffers: true,
         },
         orderBy: {
@@ -250,7 +221,9 @@ export const cardRouter = router({
       let nextCursor: typeof input.cursor | undefined = undefined;
       if (applications.length > input.limit) {
         const nextItem = applications.pop();
-        nextCursor = nextItem!.id;
+        if (nextItem) {
+          nextCursor = nextItem.id;
+        }
       }
 
       return {
@@ -259,15 +232,20 @@ export const cardRouter = router({
       };
     }),
 
-  // Check application eligibility
+  // Check card eligibility
   checkEligibility: protectedProcedure
-    .input(z.object({
-      cardId: z.string(),
-    }))
-    .query(async ({ ctx, input }): Promise<EligibilityCheck> => {
+    .input(
+      z.object({
+        cardId: z.string(),
+        creditScore: z.number().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
       const card = await ctx.prisma.card.findUnique({
         where: { id: input.cardId },
-        include: { issuerRules: true },
+        include: {
+          issuerRules: true,
+        },
       });
 
       if (!card) {
@@ -277,25 +255,109 @@ export const cardRouter = router({
         });
       }
 
-      const recentApplications = await ctx.prisma.cardApplication.findMany({
+      const violations = [];
+
+      // Check issuer maximum cards first
+      const issuerCards = await ctx.prisma.cardApplication.count({
+        where: {
+          userId: ctx.session.uid,
+          card: {
+            issuerId: card.issuerId
+          },
+          status: CardStatus.APPROVED,
+        },
+      });
+
+      if (issuerCards >= 5) {
+        violations.push({
+          rule: 'Maximum Cards',
+          message: `Maximum of 5 cards allowed from this issuer`,
+        });
+      }
+
+      // Check application cooldown
+      const recentApplication = await ctx.prisma.cardApplication.findFirst({
+        where: {
+          userId: ctx.session.uid,
+          card: {
+            issuerId: card.issuerId
+          },
+          appliedAt: {
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          },
+        },
+      });
+
+      if (recentApplication) {
+        violations.push({
+          rule: 'Application Cooldown',
+          message: 'Must wait 30 days between applications',
+        });
+      }
+
+      // Check velocity rules
+      const recentApplications = await ctx.prisma.cardApplication.count({
         where: {
           userId: ctx.session.uid,
           appliedAt: {
-            gte: new Date(Date.now() - 24 * 30 * 24 * 60 * 60 * 1000), // 24 months
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
           },
         },
-        include: { card: true },
       });
 
-      const rules = card.issuerRules.filter((rule: { isActive: boolean; ruleType: string }) => rule.isActive);
-      const violations: RuleViolation[] = [];
+      if (recentApplications >= 2) {
+        violations.push({
+          rule: 'Velocity Rule',
+          message: 'Maximum of 2 applications allowed in 30 days',
+        });
+      }
 
-      // Check each rule
-      for (const rule of rules) {
-        const violation = checkVelocityRule(rule.ruleType as VelocityRule | ChurningRule, recentApplications);
-        if (violation) {
-          violations.push(violation);
+      // Check churning rules
+      const lastBonusEarned = await ctx.prisma.cardApplication.findFirst({
+        where: {
+          userId: ctx.session.uid,
+          cardId: input.cardId,
+          bonusEarnedAt: {
+            not: null,
+          },
+        },
+        orderBy: {
+          bonusEarnedAt: 'desc',
+        },
+      });
+
+      if (lastBonusEarned && lastBonusEarned.bonusEarnedAt) {
+        const monthsSinceBonus = Math.floor(
+          (Date.now() - lastBonusEarned.bonusEarnedAt.getTime()) / (30 * 24 * 60 * 60 * 1000)
+        );
+        if (monthsSinceBonus < 48) {
+          violations.push({
+            rule: 'Bonus Cooldown',
+            message: 'Must wait 48 months between signup bonuses',
+          });
         }
+      }
+
+      // Check business card requirements
+      if (card.businessCard) {
+        const user = (await ctx.prisma.user.findUnique({
+          where: { id: ctx.session.uid },
+        })) as { businessVerified: boolean } | null;
+
+        if (!user?.businessVerified) {
+          violations.push({
+            rule: 'Business Card',
+            message: 'Business verification required',
+          });
+        }
+      }
+
+      // Check credit score last
+      if (card.creditScoreMin && input.creditScore && input.creditScore < card.creditScoreMin) {
+        violations.push({
+          rule: 'Credit Score',
+          message: `Minimum credit score required: ${card.creditScoreMin}`,
+        });
       }
 
       return {
@@ -303,4 +365,177 @@ export const cardRouter = router({
         violations,
       };
     }),
-}); 
+
+  // Apply for card
+  applyForCard: protectedProcedure
+    .input(
+      z.object({
+        cardId: z.string(),
+        creditScore: z.number().optional(),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const card = await ctx.prisma.card.findUnique({
+        where: { id: input.cardId },
+        include: {
+          issuerRules: true,
+        },
+      });
+
+      if (!card) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Card not found',
+        });
+      }
+
+      // Check velocity rules first
+      const recentApplications = await ctx.prisma.cardApplication.count({
+        where: {
+          userId: ctx.session.uid,
+          appliedAt: {
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days
+          },
+        },
+      });
+
+      if (recentApplications >= 2) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Maximum applications reached for this period',
+        });
+      }
+
+      // Check churning rules
+      const lastBonusEarned = await ctx.prisma.cardApplication.findFirst({
+        where: {
+          userId: ctx.session.uid,
+          cardId: input.cardId,
+          bonusEarnedAt: {
+            not: null,
+          },
+        },
+        orderBy: {
+          bonusEarnedAt: 'desc',
+        },
+      });
+
+      if (lastBonusEarned && lastBonusEarned.bonusEarnedAt) {
+        const monthsSinceBonus = Math.floor(
+          (Date.now() - lastBonusEarned.bonusEarnedAt.getTime()) / (30 * 24 * 60 * 60 * 1000)
+        );
+        if (monthsSinceBonus < 48) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Must wait 48 months between signup bonuses',
+          });
+        }
+      }
+
+      // Check credit score requirement
+      if (card.creditScoreMin && (!input.creditScore || input.creditScore < card.creditScoreMin)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Credit score too low',
+        });
+      }
+
+      // Check issuer maximum cards
+      const issuerCards = await ctx.prisma.cardApplication.count({
+        where: {
+          userId: ctx.session.uid,
+          card: {
+            issuerId: card.issuerId
+          },
+          status: CardStatus.APPROVED,
+        },
+      });
+
+      if (issuerCards >= 5) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Maximum of 5 cards allowed from this issuer',
+        });
+      }
+
+      // Check business card requirements
+      if (card.businessCard) {
+        const user = (await ctx.prisma.user.findUnique({
+          where: { id: ctx.session.uid },
+        })) as { businessVerified: boolean } | null;
+
+        if (!user?.businessVerified) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Business verification required',
+          });
+        }
+      }
+
+      return ctx.prisma.cardApplication.create({
+        data: {
+          userId: ctx.session.uid,
+          cardId: input.cardId,
+          status: CardStatus.PENDING,
+          notes: input.notes,
+          appliedAt: new Date(),
+          spendProgress: 0,
+          annualFeePaid: false,
+        },
+      });
+    }),
+
+  // Update spend progress
+  updateSpend: protectedProcedure
+    .input(
+      z.object({
+        applicationId: z.string(),
+        amount: z.number().positive('Spend amount must be positive'),
+        date: z.date(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const application = await ctx.prisma.cardApplication.findUnique({
+        where: { id: input.applicationId },
+        include: {
+          card: true,
+        },
+      });
+
+      if (!application || application.userId !== ctx.session.uid) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Application not found',
+        });
+      }
+
+      if (application.status !== CardStatus.APPROVED) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot track spend for non-approved applications',
+        });
+      }
+
+      if (application.spendDeadline && input.date > application.spendDeadline) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Spend date is after bonus deadline',
+        });
+      }
+
+      const newSpendProgress = application.spendProgress + input.amount;
+      const shouldEarnBonus =
+        !application.bonusEarnedAt &&
+        newSpendProgress >= application.card.minSpend &&
+        (!application.spendDeadline || input.date <= application.spendDeadline);
+
+      return ctx.prisma.cardApplication.update({
+        where: { id: input.applicationId },
+        data: {
+          spendProgress: newSpendProgress,
+          bonusEarnedAt: shouldEarnBonus ? input.date : application.bonusEarnedAt,
+        },
+      });
+    }),
+});

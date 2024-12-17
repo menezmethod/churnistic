@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+
 import HomePage from '../page';
 
 describe('HomePage', () => {
@@ -6,4 +7,4 @@ describe('HomePage', () => {
     render(<HomePage />);
     expect(screen.getByRole('main')).toBeInTheDocument();
   });
-}); 
+});

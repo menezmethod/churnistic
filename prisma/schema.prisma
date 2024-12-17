@@ -21,6 +21,7 @@ model User {
   photoURL         String?
   creditScore      Int?      
   monthlyIncome    Int?      
+  businessVerified Boolean   @default(false)  // For business card applications
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   applications     CardApplication[]
@@ -43,7 +44,8 @@ model Household {
 
 model Card {
   id                String    @id @default(auto()) @map("_id") @db.ObjectId
-  issuer            String    // e.g., "Chase", "Amex"
+  issuerId          String    @db.ObjectId
+  issuer            Issuer    @relation(fields: [issuerId], references: [id])
   name              String    // e.g., "Sapphire Preferred"
   type              String    // e.g., "Credit", "Charge"
   network           String    // e.g., "Visa", "Mastercard"
@@ -64,6 +66,14 @@ model Card {
   retentionOffers   RetentionOffer[]
   referralBonus     Int?      // Points/miles for referring
   referralBonusCash Int?      // Cash value for referring
+}
+
+model Issuer {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  name            String    @unique
+  cards           Card[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model CardApplication {

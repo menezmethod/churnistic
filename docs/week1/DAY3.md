@@ -1,12 +1,15 @@
 # Day 3: API Foundation & UI Framework (Wednesday)
 
 ## Overview
+
 Focus on building the API infrastructure with tRPC and setting up the core UI components.
 
 ## Session Plan
 
 ### Morning Session (3 hours)
+
 #### 1. tRPC Server Setup
+
 ```typescript
 // src/server/trpc.ts
 import { initTRPC, TRPCError } from '@trpc/server';
@@ -17,7 +20,7 @@ const t = initTRPC.create();
 
 const isAuthenticated = t.middleware(async ({ next }) => {
   const session = cookies().get('session')?.value;
-  
+
   if (!session) {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
   }
@@ -42,6 +45,7 @@ export const protectedProcedure = t.procedure.use(isAuthenticated);
 Commit: `feat: set up tRPC server with authentication`
 
 #### 2. Customer Router Implementation
+
 ```typescript
 // src/server/routers/customer.ts
 import { z } from 'zod';
@@ -50,20 +54,24 @@ import { prisma } from '@/lib/prisma';
 
 export const customerRouter = router({
   list: protectedProcedure
-    .input(z.object({
-      page: z.number().default(1),
-      limit: z.number().default(10),
-      search: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        page: z.number().default(1),
+        limit: z.number().default(10),
+        search: z.string().optional(),
+      })
+    )
     .query(async ({ input }) => {
       const skip = (input.page - 1) * input.limit;
-      const where = input.search ? {
-        OR: [
-          { name: { contains: input.search, mode: 'insensitive' } },
-          { email: { contains: input.search, mode: 'insensitive' } },
-          { company: { contains: input.search, mode: 'insensitive' } },
-        ],
-      } : {};
+      const where = input.search
+        ? {
+            OR: [
+              { name: { contains: input.search, mode: 'insensitive' } },
+              { email: { contains: input.search, mode: 'insensitive' } },
+              { company: { contains: input.search, mode: 'insensitive' } },
+            ],
+          }
+        : {};
 
       const [customers, total] = await Promise.all([
         prisma.customer.findMany({
@@ -88,12 +96,14 @@ export const customerRouter = router({
     }),
 
   create: protectedProcedure
-    .input(z.object({
-      name: z.string(),
-      email: z.string().email(),
-      company: z.string(),
-      industry: z.string(),
-    }))
+    .input(
+      z.object({
+        name: z.string(),
+        email: z.string().email(),
+        company: z.string(),
+        industry: z.string(),
+      })
+    )
     .mutation(async ({ input }) => {
       return prisma.customer.create({
         data: input,
@@ -105,7 +115,9 @@ export const customerRouter = router({
 Commit: `feat: implement customer API router`
 
 ### Mid-Morning Session (2 hours)
+
 #### 3. UI Component Setup
+
 ```bash
 # Install shadcn-ui
 npx shadcn-ui@latest init
@@ -173,7 +185,9 @@ export function DataTable<T>({ columns, data, loading }: DataTableProps<T>) {
 Commit: `feat: add core UI components and data table`
 
 ### Afternoon Session (3 hours)
+
 #### 4. Layout Implementation
+
 ```typescript
 // src/components/layout/dashboard-layout.tsx
 import { SideNav } from './side-nav';
@@ -203,7 +217,9 @@ const navigation = [
 Commit: `feat: implement dashboard layout components`
 
 ### Evening Session (2 hours)
+
 #### 5. API Documentation
+
 ```typescript
 // src/types/api.ts
 export interface PaginatedResponse<T> {
@@ -237,17 +253,20 @@ Commit: `feat: add API type definitions and documentation`
 ## Pull Requests
 
 ### PR #4: API Foundation
-```markdown
+
+````markdown
 PR Title: feat: API Foundation with tRPC
 
 Description:
 Implements the core API infrastructure using tRPC:
+
 - Server setup with authentication
 - Customer router implementation
 - Type-safe API endpoints
 - API documentation
 
 Changes:
+
 - Add tRPC server configuration
 - Implement customer router
 - Add authentication middleware
@@ -255,6 +274,7 @@ Changes:
 - Add API documentation
 
 Testing Steps:
+
 1. Start development server
 2. Test authenticated endpoints:
    ```bash
@@ -263,12 +283,15 @@ Testing Steps:
      -H "Cookie: session=<valid-session>" \
      -d '{"page": 1, "limit": 10}'
    ```
+````
+
 3. Verify error handling:
    - Test without authentication
    - Test with invalid inputs
    - Test pagination
 
 API Endpoints Added:
+
 - customer.list: Get paginated customer list
 - customer.create: Create new customer
 - customer.get: Get customer details
@@ -276,7 +299,8 @@ API Endpoints Added:
 
 Related Issues:
 Closes #4 - API Foundation Implementation
-```
+
+````
 
 ### PR #5: UI Framework
 ```markdown
@@ -316,9 +340,10 @@ UI Components Added:
 
 Related Issues:
 Closes #5 - UI Framework Implementation
-```
+````
 
 ## Day 3 Checklist
+
 - [ ] tRPC Server Setup
 - [ ] Customer Router
 - [ ] UI Components
@@ -328,7 +353,8 @@ Closes #5 - UI Framework Implementation
 - [ ] PR Reviews & Merges
 
 ## Notes
+
 - Document API endpoints thoroughly
 - Consider rate limiting for API routes
 - Test component accessibility
-- Plan for error boundary implementation 
+- Plan for error boundary implementation

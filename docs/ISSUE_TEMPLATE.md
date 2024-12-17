@@ -5,7 +5,7 @@
 ```javascript
 const issues = [
   {
-    title: "Your Issue Title",
+    title: 'Your Issue Title',
     body: `### Scope/Feature Name
 - [ ] Task 1
 - [ ] Task 2
@@ -13,7 +13,7 @@ const issues = [
 - [ ] Task 4
 
 PR Scope: Brief description of what this PR will include`,
-    labels: ["label1", "label2"]
+    labels: ['label1', 'label2'],
   },
   // Copy this structure for each issue
 ];
@@ -27,22 +27,22 @@ async function createIssues() {
     const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
       method: 'POST',
       headers: {
-        'Authorization': `token ${token}`,
-        'Accept': 'application/vnd.github.v3+json'
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
       },
       body: JSON.stringify({
         title: issue.title,
         body: issue.body,
-        labels: issue.labels
-      })
+        labels: issue.labels,
+      }),
     });
-    
+
     if (response.ok) {
       console.log(`Created issue: ${issue.title}`);
     } else {
       console.error(`Failed to create issue: ${issue.title}`);
     }
-    
+
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 }
@@ -81,6 +81,7 @@ PR Scope: What will be delivered`,
 ## How to Use
 
 1. Create a GitHub Personal Access Token:
+
    - Go to GitHub.com → Your profile picture → Settings
    - Scroll to "Developer settings" → "Personal access tokens" → "Tokens (classic)"
    - Click "Generate new token (classic)"
@@ -90,11 +91,13 @@ PR Scope: What will be delivered`,
 2. Go to your repository page on GitHub
 
 3. Open Developer Console:
+
    - Mac: Command + Option + J
    - Windows/Linux: F12 or Ctrl + Shift + J
    - Or right-click → Inspect → Console tab
 
 4. Copy the script template
+
    - Replace `YOUR_GITHUB_TOKEN` with your actual token
    - Add your issues following the Issue Structure Template
    - Modify owner/repo if needed
@@ -102,19 +105,22 @@ PR Scope: What will be delivered`,
 5. Paste the modified script into the console
 
 6. Run the script by typing:
+
 ```javascript
-createIssues()
+createIssues();
 ```
 
 ## Best Practices
 
 1. Issue Creation:
+
    - Keep tasks atomic and specific
    - Include clear acceptance criteria
    - Add relevant links or dependencies
    - Mention related issues if applicable
 
 2. Security:
+
    - Never commit tokens to the repository
    - Revoke tokens after suspected exposure
    - Use tokens with minimum required permissions
@@ -139,4 +145,4 @@ createIssues()
 PR Scope: Complete user authentication flow with form and validation`,
   labels: ["frontend", "security", "feature"]
 }
-``` 
+```

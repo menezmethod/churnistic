@@ -1,4 +1,4 @@
-import { PaletteOptions } from '@mui/material';
+import type { PaletteOptions } from '@mui/material';
 
 export const palette: PaletteOptions = {
   primary: {
@@ -55,4 +55,4 @@ export const palette: PaletteOptions = {
     disabled: 'rgba(0, 0, 0, 0.38)',
   },
   divider: 'rgba(0, 0, 0, 0.12)',
-}; 
+};

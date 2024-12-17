@@ -1,12 +1,15 @@
 # Day 4: Customer Dashboard & Analytics (Thursday)
 
 ## Overview
+
 Focus on implementing the customer dashboard, analytics foundation, and risk calculation system.
 
 ## Session Plan
 
 ### Morning Session (3 hours)
+
 #### 1. Customer Dashboard Page
+
 ```typescript
 // src/app/dashboard/customers/page.tsx
 import { Suspense } from 'react';
@@ -21,11 +24,11 @@ export default function CustomersPage() {
         <h1 className="text-3xl font-bold">Customers</h1>
         <NewCustomerButton />
       </div>
-      
+
       <Suspense fallback={<div>Loading stats...</div>}>
         <CustomerStats />
       </Suspense>
-      
+
       <Suspense fallback={<div>Loading customers...</div>}>
         <CustomerList />
       </Suspense>
@@ -37,6 +40,7 @@ export default function CustomersPage() {
 Commit: `feat: implement customers dashboard page`
 
 #### 2. Customer List Component
+
 ```typescript
 // src/components/customers/customer-list.tsx
 'use client';
@@ -49,7 +53,7 @@ import { trpc } from '@/lib/trpc/client';
 export function CustomerList() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  
+
   const { data, isLoading } = trpc.customer.list.useQuery({
     page,
     limit: 10,
@@ -118,13 +122,13 @@ export function CustomerList() {
           className="px-4 py-2 border rounded-lg"
         />
       </div>
-      
+
       <DataTable
         columns={columns}
         data={data?.customers ?? []}
         loading={isLoading}
       />
-      
+
       {data && (
         <Pagination
           currentPage={page}
@@ -140,7 +144,9 @@ export function CustomerList() {
 Commit: `feat: add customer list component with search and filtering`
 
 ### Mid-Morning Session (2 hours)
+
 #### 3. Customer Stats Component
+
 ```typescript
 // src/components/customers/customer-stats.tsx
 'use client';
@@ -163,7 +169,7 @@ export function CustomerStats() {
           </div>
         </div>
       </Card>
-      
+
       <Card>
         <div className="p-6">
           <h3 className="text-sm font-medium text-gray-500">At Risk</h3>
@@ -175,7 +181,7 @@ export function CustomerStats() {
           </div>
         </div>
       </Card>
-      
+
       <Card>
         <div className="p-6">
           <h3 className="text-sm font-medium text-gray-500">Revenue at Risk</h3>
@@ -195,14 +201,16 @@ export function CustomerStats() {
 Commit: `feat: add customer statistics component`
 
 ### Afternoon Session (3 hours)
+
 #### 4. Risk Calculation System
+
 ```typescript
 // src/lib/analytics/risk-calculator.ts
 interface RiskFactors {
-  activityLevel: number;    // 0-100
-  supportTickets: number;   // Count of open tickets
+  activityLevel: number; // 0-100
+  supportTickets: number; // Count of open tickets
   billingIssues: boolean;
-  featureUsage: number;     // 0-100
+  featureUsage: number; // 0-100
 }
 
 export function calculateRiskScore(factors: RiskFactors): number {
@@ -221,7 +229,7 @@ export function calculateRiskScore(factors: RiskFactors): number {
   };
 
   return Object.entries(weights).reduce((total, [factor, weight]) => {
-    return total + (scores[factor as keyof typeof scores] * weight);
+    return total + scores[factor as keyof typeof scores] * weight;
   }, 0);
 }
 
@@ -236,9 +244,11 @@ function normalizeTicketScore(tickets: number): number {
 // src/server/routers/analytics.ts
 export const analyticsRouter = router({
   calculateRisk: protectedProcedure
-    .input(z.object({
-      customerId: z.string(),
-    }))
+    .input(
+      z.object({
+        customerId: z.string(),
+      })
+    )
     .mutation(async ({ input }) => {
       const [activities, tickets, billing] = await Promise.all([
         prisma.activity.findMany({
@@ -295,7 +305,9 @@ export const analyticsRouter = router({
 Commit: `feat: implement risk calculation system`
 
 ### Evening Session (2 hours)
+
 #### 5. Customer Profile Page
+
 ```typescript
 // src/app/dashboard/customers/[id]/page.tsx
 import { Suspense } from 'react';
@@ -323,14 +335,14 @@ export default async function CustomerPage({ params }: { params: { id: string } 
   return (
     <div className="space-y-6">
       <CustomerHeader customer={customer} />
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <Suspense fallback={<div>Loading activity...</div>}>
             <CustomerActivity customerId={customer.id} />
           </Suspense>
         </div>
-        
+
         <div>
           <Suspense fallback={<div>Loading risk analysis...</div>}>
             <RiskAnalysis customer={customer} />
@@ -347,11 +359,13 @@ Commit: `feat: add customer profile page with activity and risk analysis`
 ## Pull Requests
 
 ### PR #6: Customer Dashboard Implementation
+
 ```markdown
 PR Title: feat: Customer Dashboard and Management
 
 Description:
 Implements the core customer management features:
+
 - Customer dashboard with stats
 - Customer list with search and filtering
 - New customer creation flow
@@ -359,6 +373,7 @@ Implements the core customer management features:
 - Basic analytics integration
 
 Changes:
+
 - Add customer dashboard page
 - Create customer list component
 - Implement customer statistics
@@ -367,6 +382,7 @@ Changes:
 - Set up basic analytics
 
 Testing Steps:
+
 1. Start development server
 2. Test customer list:
    - Verify pagination works
@@ -382,12 +398,14 @@ Testing Steps:
    - Verify risk analysis
 
 UI/UX Considerations:
+
 - Responsive design for all views
 - Loading states and error handling
 - Intuitive navigation
 - Clear data visualization
 
 Performance Considerations:
+
 - Pagination for large datasets
 - Optimistic updates
 - Proper query invalidation
@@ -398,17 +416,20 @@ Closes #6 - Customer Dashboard Implementation
 ```
 
 ### PR #7: Analytics Foundation
-```markdown
+
+````markdown
 PR Title: feat: Analytics Foundation and Risk Calculation
 
 Description:
 Sets up the foundation for analytics and risk calculation:
+
 - Basic risk calculation algorithm
 - Analytics data structures
 - Initial metrics tracking
 - Data visualization setup
 
 Changes:
+
 - Add analytics router
 - Implement risk calculation
 - Create analytics components
@@ -416,10 +437,13 @@ Changes:
 - Add visualization utilities
 
 Testing Steps:
+
 1. Generate test data:
    ```bash
    npx prisma db seed
    ```
+````
+
 2. Verify calculations:
    - Check risk scores
    - Verify metrics
@@ -430,6 +454,7 @@ Testing Steps:
    - Verify data updates
 
 Analytics Features:
+
 - Customer risk scoring
 - Activity analysis
 - Revenue impact
@@ -437,6 +462,7 @@ Analytics Features:
 
 Related Issues:
 Closes #7 - Analytics Foundation
+
 ```
 
 ## Day 4 Checklist
@@ -452,4 +478,5 @@ Closes #7 - Analytics Foundation
 - Monitor performance with larger datasets
 - Consider caching strategy for analytics
 - Plan for more advanced risk indicators
-- Document risk calculation methodology 
+- Document risk calculation methodology
+```
