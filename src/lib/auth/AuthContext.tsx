@@ -18,7 +18,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
   const [loading, setLoading] = useState(true);
 
   useEffect((): (() => void) => {
-    const unsubscribe = onAuthStateChanged(auth, user => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
     });
@@ -26,7 +26,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     return unsubscribe;
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>
+  );
 }
 
 export const useAuth = (): AuthContextType => {

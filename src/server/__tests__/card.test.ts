@@ -249,7 +249,12 @@ describe('Card Router', () => {
         ],
         issuerRules: [],
       } as unknown as Card & {
-        churningRules: { id: string; cardId: string; bonusCooldown: number; isActive: boolean }[];
+        churningRules: {
+          id: string;
+          cardId: string;
+          bonusCooldown: number;
+          isActive: boolean;
+        }[];
         issuerRules: {
           id: string;
           issuerId: string;
@@ -304,7 +309,12 @@ describe('Card Router', () => {
           periodDays: number;
           isActive: boolean;
         }[];
-        churningRules: { id: string; cardId: string; bonusCooldown: number; isActive: boolean }[];
+        churningRules: {
+          id: string;
+          cardId: string;
+          bonusCooldown: number;
+          isActive: boolean;
+        }[];
         issuerRules: {
           id: string;
           issuerId: string;
@@ -396,7 +406,9 @@ describe('Card Router', () => {
         },
       };
 
-      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplicationWithCard);
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(
+        mockApplicationWithCard
+      );
 
       const expectedDeadline = new Date();
       expectedDeadline.setMonth(expectedDeadline.getMonth() + 3);
@@ -474,7 +486,10 @@ describe('Card Router', () => {
     test('should return paginated applications', async () => {
       const caller = await createCaller();
 
-      const mockApplications = [mockApplication, { ...mockApplication, id: 'test-application-2' }];
+      const mockApplications = [
+        mockApplication,
+        { ...mockApplication, id: 'test-application-2' },
+      ];
       prismaMock.cardApplication.findMany.mockResolvedValueOnce(mockApplications);
 
       const result = await caller.card.getApplications({
@@ -544,7 +559,9 @@ describe('Card Router', () => {
         retentionOffers: [mockRetentionOffer],
       };
 
-      prismaMock.cardApplication.findMany.mockResolvedValueOnce([mockApplicationWithRelations]);
+      prismaMock.cardApplication.findMany.mockResolvedValueOnce([
+        mockApplicationWithRelations,
+      ]);
 
       const result = await caller.card.getApplications({
         limit: 10,
@@ -824,7 +841,12 @@ describe('Card Router', () => {
         ],
         issuerRules: [],
       } as unknown as Card & {
-        churningRules: { id: string; cardId: string; bonusCooldown: number; isActive: boolean }[];
+        churningRules: {
+          id: string;
+          cardId: string;
+          bonusCooldown: number;
+          isActive: boolean;
+        }[];
         issuerRules: {
           id: string;
           issuerId: string;
@@ -1012,7 +1034,9 @@ describe('Card Router', () => {
         },
       };
 
-      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplicationWithCard);
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(
+        mockApplicationWithCard
+      );
       prismaMock.cardApplication.update.mockResolvedValueOnce({
         ...mockApplicationWithCard,
         spendProgress: 3500,
@@ -1041,7 +1065,9 @@ describe('Card Router', () => {
         },
       };
 
-      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplicationWithCard);
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(
+        mockApplicationWithCard
+      );
       prismaMock.cardApplication.update.mockResolvedValueOnce({
         ...mockApplicationWithCard,
         spendProgress: 1500,
@@ -1118,7 +1144,9 @@ describe('Card Router', () => {
         card: mockCard,
       };
 
-      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplicationWithDeadline);
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(
+        mockApplicationWithDeadline
+      );
 
       const spendDate = new Date();
       await expect(

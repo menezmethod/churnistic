@@ -65,7 +65,9 @@ describe('RootLayout', () => {
 
   it('has correct metadata', () => {
     expect(metadata.title).toBe('Churnistic - Credit Card Churning Tracker');
-    expect(metadata.description).toBe('Track and optimize your credit card churning strategy');
+    expect(metadata.description).toBe(
+      'Track and optimize your credit card churning strategy'
+    );
   });
 
   it('includes theme provider and css baseline', () => {

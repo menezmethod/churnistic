@@ -98,7 +98,10 @@ describe('Theme Configuration', () => {
     it('should have proper text field configurations', () => {
       const textFieldProps = components.MuiTextField?.defaultProps;
       const textFieldStyles = components.MuiTextField?.styleOverrides;
-      const rootStyle = textFieldStyles?.root as Record<string, { borderRadius?: number }>;
+      const rootStyle = textFieldStyles?.root as Record<
+        string,
+        { borderRadius?: number }
+      >;
 
       expect(textFieldProps?.variant).toBe('outlined');
       expect(textFieldProps?.size).toBe('small');
@@ -108,7 +111,10 @@ describe('Theme Configuration', () => {
     it('should have proper table configurations', () => {
       const tableHeadStyles = components.MuiTableHead?.styleOverrides;
       const tableCellStyles = components.MuiTableCell?.styleOverrides;
-      const headRootStyle = tableHeadStyles?.root as Record<string, { fontWeight?: number }>;
+      const headRootStyle = tableHeadStyles?.root as Record<
+        string,
+        { fontWeight?: number }
+      >;
       const cellRootStyle = tableCellStyles?.root as Record<string, unknown>;
 
       expect(headRootStyle?.['& .MuiTableCell-root']?.fontWeight).toBe(600);

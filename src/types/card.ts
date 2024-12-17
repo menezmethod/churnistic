@@ -85,4 +85,5 @@ export interface EligibilityCheck {
 export const isPending = (status: CardStatus): boolean => status === CardStatus.PENDING;
 export const isApproved = (status: CardStatus): boolean => status === CardStatus.APPROVED;
 export const isDenied = (status: CardStatus): boolean => status === CardStatus.DENIED;
-export const isCancelled = (status: CardStatus): boolean => status === CardStatus.CANCELLED;
+export const isCancelled = (status: CardStatus): boolean =>
+  status === CardStatus.CANCELLED;

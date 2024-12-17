@@ -74,8 +74,12 @@ export const theme = createTheme({
     borderRadius: 8,
   },
   shadows: defaultShadows.map((shadow, index) => {
-    if (index === 0) return 'none';
-    if (index <= 4) return `0px ${index * 2}px ${index * 2}px rgba(0,0,0,0.05)`;
+    if (index === 0) {
+      return 'none';
+    }
+    if (index <= 4) {
+      return `0px ${index * 2}px ${index * 2}px rgba(0,0,0,0.05)`;
+    }
     return shadow;
   }) as Shadows,
   components,

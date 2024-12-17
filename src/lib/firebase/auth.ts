@@ -36,7 +36,11 @@ const validatePassword = (password: string): boolean => {
   return password.length >= 6;
 };
 
-const createAuthError = (code: string, message: string, originalError?: unknown): AuthError => {
+const createAuthError = (
+  code: string,
+  message: string,
+  originalError?: unknown
+): AuthError => {
   return {
     code,
     message,
@@ -44,7 +48,10 @@ const createAuthError = (code: string, message: string, originalError?: unknown)
   };
 };
 
-export const signInWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
+export const signInWithEmail = async (
+  email: string,
+  password: string
+): Promise<AuthResponse> => {
   // Input validation
   if (!email || !password) {
     return {
@@ -63,7 +70,10 @@ export const signInWithEmail = async (email: string, password: string): Promise<
   if (!validatePassword(password)) {
     return {
       user: null,
-      error: createAuthError('auth/weak-password', 'Password should be at least 6 characters'),
+      error: createAuthError(
+        'auth/weak-password',
+        'Password should be at least 6 characters'
+      ),
     };
   }
 
@@ -82,7 +92,10 @@ export const signInWithEmail = async (email: string, password: string): Promise<
   }
 };
 
-export const signUpWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
+export const signUpWithEmail = async (
+  email: string,
+  password: string
+): Promise<AuthResponse> => {
   // Input validation
   if (!email || !password) {
     return {
@@ -101,7 +114,10 @@ export const signUpWithEmail = async (email: string, password: string): Promise<
   if (!validatePassword(password)) {
     return {
       user: null,
-      error: createAuthError('auth/weak-password', 'Password should be at least 6 characters'),
+      error: createAuthError(
+        'auth/weak-password',
+        'Password should be at least 6 characters'
+      ),
     };
   }
 
@@ -169,7 +185,9 @@ export const signInWithGithub = async (): Promise<AuthResponse> => {
   }
 };
 
-export const resetPassword = async (email: string): Promise<{ error: AuthError | null }> => {
+export const resetPassword = async (
+  email: string
+): Promise<{ error: AuthError | null }> => {
   if (!email) {
     return {
       error: createAuthError('auth/invalid-input', 'Email is required'),

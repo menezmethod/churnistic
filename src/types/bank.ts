@@ -49,4 +49,5 @@ export const isMinimumBalance = (type: RequirementType): boolean =>
   type === RequirementType.MINIMUM_BALANCE;
 export const isDebitTransactions = (type: RequirementType): boolean =>
   type === RequirementType.DEBIT_TRANSACTIONS;
-export const isBillPay = (type: RequirementType): boolean => type === RequirementType.BILL_PAY;
+export const isBillPay = (type: RequirementType): boolean =>
+  type === RequirementType.BILL_PAY;

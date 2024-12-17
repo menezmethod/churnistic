@@ -43,7 +43,7 @@ async function createIssues() {
       console.error(`Failed to create issue: ${issue.title}`);
     }
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 }
 ```
