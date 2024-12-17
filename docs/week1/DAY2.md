@@ -1,12 +1,15 @@
 # Day 2: Authentication & Core Models (Tuesday)
 
 ## Overview
+
 Focus on implementing Firebase authentication and setting up core data models.
 
 ## Session Plan
 
 ### Morning Session (3 hours)
+
 #### 1. Firebase Configuration
+
 ```typescript
 // src/lib/firebase/config.ts
 import { initializeApp, getApps } from 'firebase/app';
@@ -18,7 +21,7 @@ const firebaseConfig = {
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
 export const initFirebase = () => {
@@ -35,6 +38,7 @@ export const auth = getAuth(initFirebase());
 Commit: `feat: add Firebase configuration and initialization`
 
 #### 2. Auth Context Setup
+
 ```typescript
 // src/lib/firebase/auth-context.tsx
 import { createContext, useContext, useEffect, useState } from 'react';
@@ -74,7 +78,9 @@ export const useAuth = () => useContext(AuthContext);
 Commit: `feat: add Firebase auth context and provider`
 
 ### Mid-Morning Session (2 hours)
+
 #### 3. Protected Route Middleware
+
 ```typescript
 // src/middleware.ts
 import { NextResponse } from 'next/server';
@@ -97,13 +103,14 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/settings/:path*']
+  matcher: ['/dashboard/:path*', '/settings/:path*'],
 };
 ```
 
 Commit: `feat: add protected route middleware`
 
 #### 4. Firebase Admin Setup
+
 ```typescript
 // src/lib/firebase/admin.ts
 import * as admin from 'firebase-admin';
@@ -113,8 +120,8 @@ if (!admin.apps.length) {
     credential: admin.credential.cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-    })
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
   });
 }
 
@@ -124,7 +131,9 @@ export const auth = admin.auth();
 Commit: `feat: add Firebase Admin SDK configuration`
 
 ### Afternoon Session (3 hours)
+
 #### 5. Core Data Models
+
 ```prisma
 // prisma/schema.prisma
 model Customer {
@@ -164,6 +173,7 @@ model ChurnRisk {
 Commit: `feat: add core data models for customer and activity tracking`
 
 #### 6. Authentication Components
+
 ```typescript
 // src/components/auth/login-form.tsx
 import { useState } from 'react';
@@ -195,7 +205,9 @@ export function LoginForm() {
 Commit: `feat: add authentication form components`
 
 ### Evening Session (2 hours)
+
 #### 7. Session Management
+
 ```typescript
 // src/app/api/auth/session/route.ts
 import { auth } from '@/lib/firebase/admin';
@@ -206,19 +218,19 @@ export async function POST(request: Request) {
     const { token } = await request.json();
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
     const sessionCookie = await auth.createSessionCookie(token, { expiresIn });
-    
+
     cookies().set('session', sessionCookie, {
       maxAge: expiresIn,
       httpOnly: true,
-      secure: true
+      secure: true,
     });
 
     return new Response(JSON.stringify({ status: 'success' }), {
-      status: 200
+      status: 200,
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401
+      status: 401,
     });
   }
 }
@@ -229,11 +241,13 @@ Commit: `feat: add session management API routes`
 ## Pull Requests
 
 ### PR #2: Firebase Authentication System
+
 ```markdown
 PR Title: feat: Firebase Authentication System
 
 Description:
 Implements complete Firebase authentication system including:
+
 - Firebase initialization and configuration
 - Auth context and hooks
 - Protected route middleware
@@ -242,6 +256,7 @@ Implements complete Firebase authentication system including:
 - Firebase Admin SDK setup
 
 Changes:
+
 - Add Firebase configuration and initialization
 - Create AuthContext and useAuth hook
 - Implement protected route middleware
@@ -251,6 +266,7 @@ Changes:
 - Update environment variables
 
 Testing Steps:
+
 1. Configure Firebase credentials in .env.local
 2. Start development server
 3. Test login flow:
@@ -265,6 +281,7 @@ Testing Steps:
    - Reopen and verify session maintained
 
 Security Considerations:
+
 - Secure session cookie settings
 - Protected route implementation
 - Error handling
@@ -275,16 +292,19 @@ Closes #2 - Authentication System Implementation
 ```
 
 ### PR #3: Core Data Models
-```markdown
+
+````markdown
 PR Title: feat: Core Data Models and Database Schema
 
 Description:
 Implements the core data models for the application:
+
 - Customer model with risk tracking
 - Activity logging system
 - Churn risk assessment model
 
 Changes:
+
 - Add Prisma schema for core models
 - Create database migrations
 - Add type definitions
@@ -292,10 +312,13 @@ Changes:
 - Add indexes for performance
 
 Testing Steps:
+
 1. Run database migrations:
    ```bash
    npx prisma migrate dev
    ```
+````
+
 2. Verify model creation:
    ```bash
    npx prisma studio
@@ -306,6 +329,7 @@ Testing Steps:
    - Verify relationships
 
 Database Changes:
+
 - New Customer collection
 - New Activity collection
 - New ChurnRisk collection
@@ -313,6 +337,7 @@ Database Changes:
 
 Related Issues:
 Closes #3 - Core Data Models Implementation
+
 ```
 
 ## Day 2 Checklist
@@ -329,4 +354,5 @@ Closes #3 - Core Data Models Implementation
 - Test all authentication flows thoroughly
 - Document security considerations
 - Verify database indexes
-- Plan for user management features 
+- Plan for user management features
+```

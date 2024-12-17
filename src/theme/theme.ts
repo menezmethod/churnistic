@@ -1,6 +1,8 @@
-import { createTheme, ThemeOptions } from '@mui/material/styles';
-import { palette } from './palette';
+import type { ThemeOptions } from '@mui/material/styles';
+import { createTheme } from '@mui/material/styles';
+
 import { components } from './components';
+import { palette } from './palette';
 
 const themeOptions: ThemeOptions = {
   palette,
@@ -96,4 +98,4 @@ const themeOptions: ThemeOptions = {
   ],
 };
 
-export const theme = createTheme(themeOptions); 
+export const theme = createTheme(themeOptions);

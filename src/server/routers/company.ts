@@ -1,28 +1,27 @@
-import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
+
+import { router, protectedProcedure } from '../trpc';
 
 export const companyRouter = router({
   getAll: protectedProcedure.query(async ({ ctx }) => {
     return ctx.prisma.company.findMany();
   }),
 
-  getById: protectedProcedure
-    .input(z.string())
-    .query(async ({ ctx, input }) => {
-      const company = await ctx.prisma.company.findUnique({
-        where: { id: input },
+  getById: protectedProcedure.input(z.string()).query(async ({ ctx, input }) => {
+    const company = await ctx.prisma.company.findUnique({
+      where: { id: input },
+    });
+
+    if (!company) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Company not found',
       });
+    }
 
-      if (!company) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Company not found',
-        });
-      }
-
-      return company;
-    }),
+    return company;
+  }),
 
   create: protectedProcedure
     .input(
@@ -57,11 +56,9 @@ export const companyRouter = router({
       });
     }),
 
-  delete: protectedProcedure
-    .input(z.string())
-    .mutation(async ({ ctx, input }) => {
-      return ctx.prisma.company.delete({
-        where: { id: input },
-      });
-    }),
-}); 
+  delete: protectedProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
+    return ctx.prisma.company.delete({
+      where: { id: input },
+    });
+  }),
+});

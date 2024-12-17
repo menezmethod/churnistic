@@ -3,17 +3,21 @@
 ## MVP Scope (4 Weeks)
 
 ### Core Features
+
 1. Customer Data Integration
+
    - CSV upload for historical customer data
    - Basic data validation and cleaning
    - Customer profile creation
 
 2. Churn Prediction Engine
+
    - Basic ML model for churn prediction
    - Key indicators monitoring
    - Risk score calculation
 
 3. Dashboard & Analytics
+
    - Customer risk overview
    - Churn metrics visualization
    - Basic filtering and sorting
@@ -26,6 +30,7 @@
 ## Data Models
 
 ### Customer
+
 ```typescript
 interface Customer {
   id: string;
@@ -43,6 +48,7 @@ interface Customer {
 ```
 
 ### Activity
+
 ```typescript
 interface Activity {
   id: string;
@@ -59,11 +65,12 @@ interface Activity {
 ```
 
 ### ChurnRisk
+
 ```typescript
 interface ChurnRisk {
   id: string;
   customerId: string;
-  score: number;  // 0-100
+  score: number; // 0-100
   indicators: {
     activityDecline?: boolean;
     billingIssues?: boolean;
@@ -76,6 +83,7 @@ interface ChurnRisk {
 ```
 
 ### Alert
+
 ```typescript
 interface Alert {
   id: string;
@@ -91,6 +99,7 @@ interface Alert {
 ## Sprint Plan
 
 ### Week 1: Foundation
+
 ```mermaid
 gantt
     title Week 1: Foundation
@@ -106,12 +115,15 @@ gantt
 ```
 
 #### Key PRs:
+
 1. `feat: Initial project setup (#1)`
+
    - Next.js + TypeScript setup
    - MongoDB connection
    - Basic API structure
 
 2. `feat: Authentication system (#2)`
+
    - User registration/login
    - JWT implementation
    - Protected routes
@@ -122,6 +134,7 @@ gantt
    - Risk assessment
 
 ### Week 2: Data Integration
+
 ```mermaid
 gantt
     title Week 2: Data Integration
@@ -137,12 +150,15 @@ gantt
 ```
 
 #### Key PRs:
+
 1. `feat: CSV upload system (#4)`
+
    - File upload component
    - Data validation
    - Error handling
 
 2. `feat: Customer data processing (#5)`
+
    - Data transformation
    - Profile creation
    - Activity logging
@@ -153,6 +169,7 @@ gantt
    - Success confirmation
 
 ### Week 3: Prediction Engine
+
 ```mermaid
 gantt
     title Week 3: Prediction Engine
@@ -167,12 +184,15 @@ gantt
 ```
 
 #### Key PRs:
+
 1. `feat: Churn prediction model (#7)`
+
    - Risk scoring algorithm
    - Indicator analysis
    - Trend calculation
 
 2. `feat: Risk dashboard (#8)`
+
    - Risk visualization
    - Customer filtering
    - Trend analysis
@@ -183,6 +203,7 @@ gantt
    - Alert management UI
 
 ### Week 4: Analytics & Polish
+
 ```mermaid
 gantt
     title Week 4: Analytics & Polish
@@ -198,12 +219,15 @@ gantt
 ```
 
 #### Key PRs:
+
 1. `feat: Analytics dashboard (#10)`
+
    - Metrics visualization
    - Export functionality
    - Custom reports
 
 2. `feat: Performance optimization (#11)`
+
    - Query optimization
    - Caching implementation
    - Load testing
@@ -216,6 +240,7 @@ gantt
 ## Technical Stack
 
 ### Frontend
+
 - Next.js 14
 - TypeScript
 - Tailwind CSS
@@ -224,6 +249,7 @@ gantt
 - Recharts
 
 ### Backend
+
 - Node.js
 - Express
 - MongoDB
@@ -231,6 +257,7 @@ gantt
 - JWT authentication
 
 ### DevOps
+
 - GitHub Actions
 - Docker
 - AWS (EC2, S3, SES)
@@ -239,6 +266,7 @@ gantt
 ## API Endpoints
 
 ### Customer Management
+
 ```typescript
 // POST /api/customers/upload
 // Upload customer data CSV
@@ -271,6 +299,7 @@ interface RiskDetails {
 ```
 
 ### Analytics
+
 ```typescript
 // GET /api/analytics/overview
 interface AnalyticsOverview {
@@ -298,6 +327,7 @@ interface ChurnTrends {
 ## Deployment
 
 ### Infrastructure Setup
+
 ```mermaid
 graph TD
     subgraph "AWS Infrastructure"
@@ -320,6 +350,7 @@ graph TD
 ```
 
 ### CI/CD Pipeline
+
 ```mermaid
 graph TD
     subgraph "CI Pipeline"
@@ -338,6 +369,7 @@ graph TD
 ## Launch Checklist
 
 ### Pre-launch
+
 - [ ] Security audit
 - [ ] Performance testing
 - [ ] Data backup system
@@ -346,6 +378,7 @@ graph TD
 - [ ] User guides
 
 ### Launch Day
+
 - [ ] Database migration
 - [ ] DNS configuration
 - [ ] SSL certificates
@@ -354,7 +387,8 @@ graph TD
 - [ ] Team communication
 
 ### Post-launch
+
 - [ ] Monitor metrics
 - [ ] Gather feedback
 - [ ] Address issues
-- [ ] Plan iterations 
+- [ ] Plan iterations

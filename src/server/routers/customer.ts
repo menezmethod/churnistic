@@ -1,6 +1,7 @@
-import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
+
+import { router, protectedProcedure } from '../trpc';
 
 const CustomerStatus = z.enum(['active', 'at_risk', 'churned']);
 
@@ -21,22 +22,20 @@ export const customerRouter = router({
       });
     }),
 
-  getById: protectedProcedure
-    .input(z.string())
-    .query(async ({ ctx, input }) => {
-      const customer = await ctx.prisma.customer.findUnique({
-        where: { id: input },
+  getById: protectedProcedure.input(z.string()).query(async ({ ctx, input }) => {
+    const customer = await ctx.prisma.customer.findUnique({
+      where: { id: input },
+    });
+
+    if (!customer) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Customer not found',
       });
+    }
 
-      if (!customer) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Customer not found',
-        });
-      }
-
-      return customer;
-    }),
+    return customer;
+  }),
 
   create: protectedProcedure
     .input(
@@ -77,13 +76,11 @@ export const customerRouter = router({
       });
     }),
 
-  delete: protectedProcedure
-    .input(z.string())
-    .mutation(async ({ ctx, input }) => {
-      return ctx.prisma.customer.delete({
-        where: { id: input },
-      });
-    }),
+  delete: protectedProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
+    return ctx.prisma.customer.delete({
+      where: { id: input },
+    });
+  }),
 
   updateStatus: protectedProcedure
     .input(
@@ -101,4 +98,4 @@ export const customerRouter = router({
         },
       });
     }),
-}); 
+});

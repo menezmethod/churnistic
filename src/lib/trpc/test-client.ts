@@ -1,26 +1,18 @@
-import { httpBatchLink } from '@trpc/client';
-import { appRouter } from '@/server/routers/_app';
-import { createTRPCNext } from '@trpc/next';
-import type { AppRouter } from '@/server/routers/_app';
+import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import { TRPCError } from '@trpc/server';
 
-export const trpc = createTRPCNext<AppRouter>({
-  config() {
-    return {
-      links: [
-        httpBatchLink({
-          url: 'http://localhost:3000/api/trpc',
-        }),
-      ],
-    };
-  },
+import type { AppRouter } from '@/server/routers/_app';
+
+export const trpc = createTRPCProxyClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: 'http://localhost:3000/api/trpc',
+    }),
+  ],
 });
 
 // Test helper functions
-export async function testQuery<T>(
-  queryFn: () => Promise<T>,
-  expectedData?: T
-): Promise<void> {
+export async function testQuery<T>(queryFn: () => Promise<T>, expectedData?: T): Promise<void> {
   try {
     const data = await queryFn();
     if (expectedData) {
@@ -52,17 +44,16 @@ export async function testMutation<T>(
 }
 
 // Example test helpers for specific routes
-export async function testUserQuery(userId: string) {
+export async function testUserQuery(): Promise<void> {
   return testQuery(async () => {
-    const result = await trpc.user.me.useQuery().data;
-    return result;
+    return await trpc.user.me.query();
   });
 }
 
-export async function testCardQuery(cardId: string) {
-  return testQuery(async () => trpc.card.checkEligibility.useQuery({ cardId }).data);
+export async function testCardQuery(cardId: string): Promise<void> {
+  return testQuery(async () => trpc.card.checkEligibility.query({ cardId }));
 }
 
-export async function testBankQuery(accountId: string) {
-  return testQuery(async () => trpc.bank.getBonusProgress.useQuery({ accountId }).data);
-} 
+export async function testBankQuery(accountId: string): Promise<void> {
+  return testQuery(async () => trpc.bank.getBonusProgress.query({ accountId }));
+}

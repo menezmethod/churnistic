@@ -1,4 +1,4 @@
-import { Components, Theme } from '@mui/material';
+import type { Components, Theme } from '@mui/material';
 
 export const components: Components<Theme> = {
   MuiButton: {
@@ -93,4 +93,4 @@ export const components: Components<Theme> = {
       },
     },
   },
-}; 
+};

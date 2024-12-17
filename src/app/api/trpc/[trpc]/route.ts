@@ -1,16 +1,51 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
+import type { NextRequest } from 'next/server';
+
+import { createContext } from '@/server/context';
 import { appRouter } from '@/server/routers/_app';
-import { createContext } from '@/server/trpc';
-import { NextRequest } from 'next/server';
 
-// Create a handler for Next.js App Router
-const handler = async (req: NextRequest): Promise<Response> => {
-  return fetchRequestHandler({
-    endpoint: '/api/trpc',
-    router: appRouter,
-    req,
-    createContext: async () => createContext({ req }),
-  });
-};
+export async function GET(req: NextRequest): Promise<Response> {
+  return handler(req);
+}
 
-export { handler as GET, handler as POST };
+export async function POST(req: NextRequest): Promise<Response> {
+  return handler(req);
+}
+
+async function handler(req: NextRequest): Promise<Response> {
+  try {
+    const response = await fetchRequestHandler({
+      endpoint: '/api/trpc',
+      req,
+      router: appRouter,
+      createContext: () => createContext(req),
+      onError: ({ error, type, path }) => {
+        // Log error in non-production environments
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.error('tRPC error:', { type, path, error });
+        }
+      },
+    });
+    return response;
+  } catch (err) {
+    // Log error in non-production environments
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.error('Error in tRPC handler:', err);
+    }
+    return new Response(
+      JSON.stringify({
+        error: {
+          message: 'Internal server error',
+        },
+      }),
+      {
+        status: 500,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }
+    );
+  }
+}
