@@ -1,5 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
-import type { PrismaClient, BankAccount, BonusRequirement, DirectDeposit } from '@prisma/client';
+import type {
+  PrismaClient,
+  BankAccount,
+  BonusRequirement,
+  DirectDeposit,
+} from '@prisma/client';
 import { mockDeep } from 'jest-mock-extended';
 import type { NextRequest } from 'next/server';
 
@@ -221,7 +226,10 @@ describe('Bank Router', () => {
     test('should return paginated accounts', async () => {
       const caller = await createCaller();
 
-      const mockAccounts = [mockBankAccount, { ...mockBankAccount, id: 'test-account-2' }];
+      const mockAccounts = [
+        mockBankAccount,
+        { ...mockBankAccount, id: 'test-account-2' },
+      ];
       prismaMock.bankAccount.findMany.mockResolvedValueOnce(mockAccounts);
 
       const result = await caller.bank.getAccounts({

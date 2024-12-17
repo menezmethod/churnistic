@@ -12,7 +12,10 @@ export const trpc = createTRPCProxyClient<AppRouter>({
 });
 
 // Test helper functions
-export async function testQuery<T>(queryFn: () => Promise<T>, expectedData?: T): Promise<void> {
+export async function testQuery<T>(
+  queryFn: () => Promise<T>,
+  expectedData?: T
+): Promise<void> {
   try {
     const data = await queryFn();
     if (expectedData) {

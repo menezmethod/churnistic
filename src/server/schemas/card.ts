@@ -13,4 +13,4 @@ export const retentionOfferSchema = z.object({
   statementCredit: z.number().optional(),
   spendRequired: z.number().optional(),
   notes: z.string().optional(),
-}); 
+});

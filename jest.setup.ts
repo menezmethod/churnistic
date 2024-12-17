@@ -1,7 +1,11 @@
 /// <reference types="node" />
 import '@testing-library/jest-dom';
 import type { Response as NodeResponse } from 'node-fetch';
-import fetch, { Response, Headers as NodeHeaders, Request as NodeRequest } from 'node-fetch';
+import fetch, {
+  Response,
+  Headers as NodeHeaders,
+  Request as NodeRequest,
+} from 'node-fetch';
 
 declare global {
   namespace NodeJS {
@@ -66,16 +70,18 @@ jest.mock('firebase/auth', () => ({
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: jest.fn().mockImplementation((query): MediaQueryList => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(),
-    removeListener: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
+  value: jest.fn().mockImplementation(
+    (query): MediaQueryList => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    })
+  ),
 });
 
 // Mock IntersectionObserver

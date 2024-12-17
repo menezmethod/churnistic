@@ -225,7 +225,10 @@ describe('Firebase Auth', () => {
 
       const result = await resetPassword('test@example.com');
       expect(result).toEqual({ error: null });
-      expect(sendPasswordResetEmail).toHaveBeenCalledWith(expect.anything(), 'test@example.com');
+      expect(sendPasswordResetEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        'test@example.com'
+      );
     });
 
     it('should handle reset password errors', async () => {
@@ -282,7 +285,9 @@ describe('Firebase Auth', () => {
         message: 'Too many unsuccessful login attempts',
       } as AuthError;
 
-      (signInWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(tooManyRequestsError);
+      (signInWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(
+        tooManyRequestsError
+      );
 
       const result = await signInWithEmail('test@example.com', 'password123');
       expect(result).toEqual({

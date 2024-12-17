@@ -19,7 +19,9 @@ interface ContextOptions {
   req: NextRequest;
 }
 
-export async function createContext({ req }: ContextOptions): Promise<CreateContextOptions> {
+export async function createContext({
+  req,
+}: ContextOptions): Promise<CreateContextOptions> {
   const authHeader = req.headers.get('authorization');
   const session = authHeader
     ? await getAuth()

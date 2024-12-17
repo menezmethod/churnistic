@@ -1,4 +1,7 @@
-import type { DirectDeposit, RequirementType as PrismaRequirementType } from '@prisma/client';
+import type {
+  DirectDeposit,
+  RequirementType as PrismaRequirementType,
+} from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
@@ -62,50 +65,52 @@ function calculateBonusProgress(
 
 export const bankRouter = router({
   // Open new bank account
-  openAccount: protectedProcedure.input(bankAccountSchema).mutation(async ({ ctx, input }) => {
-    const bank = await ctx.prisma.bank.findUnique({
-      where: { id: input.bankId },
-    });
-
-    if (!bank) {
-      throw new TRPCError({
-        code: 'NOT_FOUND',
-        message: 'Bank not found',
-      });
-    }
-
-    // Check if user is eligible (no recent accounts/bonuses)
-    if (bank.bonusCooldown) {
-      const recentBonus = await ctx.prisma.bankAccount.findFirst({
-        where: {
-          userId: ctx.session.uid,
-          bankId: input.bankId,
-          bonusEarnedAt: {
-            gte: new Date(Date.now() - bank.bonusCooldown * 30 * 24 * 60 * 60 * 1000),
-          },
-        },
+  openAccount: protectedProcedure
+    .input(bankAccountSchema)
+    .mutation(async ({ ctx, input }) => {
+      const bank = await ctx.prisma.bank.findUnique({
+        where: { id: input.bankId },
       });
 
-      if (recentBonus) {
+      if (!bank) {
         throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: `Must wait ${bank.bonusCooldown} months between bonuses`,
+          code: 'NOT_FOUND',
+          message: 'Bank not found',
         });
       }
-    }
 
-    return ctx.prisma.bankAccount.create({
-      data: {
-        userId: ctx.session.uid,
-        bankId: input.bankId,
-        accountType: input.accountType,
-        bonusId: input.bonusId,
-        minimumBalance: input.minimumBalance,
-        monthsFeeWaived: input.monthsFeeWaived,
-        notes: input.notes,
-      },
-    });
-  }),
+      // Check if user is eligible (no recent accounts/bonuses)
+      if (bank.bonusCooldown) {
+        const recentBonus = await ctx.prisma.bankAccount.findFirst({
+          where: {
+            userId: ctx.session.uid,
+            bankId: input.bankId,
+            bonusEarnedAt: {
+              gte: new Date(Date.now() - bank.bonusCooldown * 30 * 24 * 60 * 60 * 1000),
+            },
+          },
+        });
+
+        if (recentBonus) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: `Must wait ${bank.bonusCooldown} months between bonuses`,
+          });
+        }
+      }
+
+      return ctx.prisma.bankAccount.create({
+        data: {
+          userId: ctx.session.uid,
+          bankId: input.bankId,
+          accountType: input.accountType,
+          bonusId: input.bonusId,
+          minimumBalance: input.minimumBalance,
+          monthsFeeWaived: input.monthsFeeWaived,
+          notes: input.notes,
+        },
+      });
+    }),
 
   // Record direct deposit
   addDirectDeposit: protectedProcedure
@@ -142,8 +147,9 @@ export const bankRouter = router({
       // Check if this completes any bonus requirements
       if (account.bonus) {
         const ddRequirements = account.bonus.requirements.filter(
-          requirement =>
-            convertRequirementType(requirement.type) === CustomRequirementType.DIRECT_DEPOSIT
+          (requirement) =>
+            convertRequirementType(requirement.type) ===
+            CustomRequirementType.DIRECT_DEPOSIT
         );
 
         for (const req of ddRequirements) {
@@ -205,8 +211,9 @@ export const bankRouter = router({
       // Check if this completes any bonus requirements
       if (account.bonus) {
         const debitRequirements = account.bonus.requirements.filter(
-          requirement =>
-            convertRequirementType(requirement.type) === CustomRequirementType.DEBIT_TRANSACTIONS
+          (requirement) =>
+            convertRequirementType(requirement.type) ===
+            CustomRequirementType.DEBIT_TRANSACTIONS
         );
 
         for (const req of debitRequirements) {
@@ -312,7 +319,7 @@ export const bankRouter = router({
 
       const progress: BonusProgress[] = calculateBonusProgress(
         account.directDeposits,
-        account.bonus.requirements.map(req => ({
+        account.bonus.requirements.map((req) => ({
           ...req,
           type: convertRequirementType(req.type),
           count: req.count ?? undefined,
@@ -323,7 +330,7 @@ export const bankRouter = router({
       return {
         bonus: account.bonus,
         progress,
-        isComplete: progress.every(p => p.completed),
+        isComplete: progress.every((p) => p.completed),
       };
     }),
 

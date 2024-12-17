@@ -13,108 +13,113 @@ const cardApplicationSchema = z.object({
   notes: z.string().optional(),
 });
 
-
 export const cardRouter = router({
   // Apply for a new card
-  apply: protectedProcedure.input(cardApplicationSchema).mutation(async ({ ctx, input }) => {
-    // Check if user is eligible for the card
-    const card = await ctx.prisma.card.findUnique({
-      where: { id: input.cardId },
-      include: {
-        issuerRules: true,
-      },
-    });
-
-    if (!card) {
-      throw new TRPCError({
-        code: 'NOT_FOUND',
-        message: 'Card not found',
+  apply: protectedProcedure
+    .input(cardApplicationSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Check if user is eligible for the card
+      const card = await ctx.prisma.card.findUnique({
+        where: { id: input.cardId },
+        include: {
+          issuerRules: true,
+        },
       });
-    }
 
-    // Check credit score requirement
-    if (card.creditScoreMin && input.creditScore && input.creditScore < card.creditScoreMin) {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Credit score too low',
-      });
-    }
-
-    // Check issuer rules
-    for (const rule of card.issuerRules) {
-      if (!rule.isActive) {
-        continue;
+      if (!card) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Card not found',
+        });
       }
 
-      if (rule.maxCards) {
-        const activeCards = await ctx.prisma.cardApplication.count({
-          where: {
-            userId: ctx.session.uid,
-            card: {
-              issuerId: card.issuerId
-            },
-            status: {
-              in: [CardStatus.APPROVED, CardStatus.PENDING],
-            },
-          },
+      // Check credit score requirement
+      if (
+        card.creditScoreMin &&
+        input.creditScore &&
+        input.creditScore < card.creditScoreMin
+      ) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Credit score too low',
         });
+      }
 
-        if (activeCards >= rule.maxCards) {
-          return {
-            success: false,
-            error: {
-              code: 'MAX_CARDS_EXCEEDED',
-              message: `Maximum of ${rule.maxCards} cards allowed from issuer`,
-              details: {
-                maxCards: rule.maxCards,
-                issuer: card.issuerId,
+      // Check issuer rules
+      for (const rule of card.issuerRules) {
+        if (!rule.isActive) {
+          continue;
+        }
+
+        if (rule.maxCards) {
+          const activeCards = await ctx.prisma.cardApplication.count({
+            where: {
+              userId: ctx.session.uid,
+              card: {
+                issuerId: card.issuerId,
+              },
+              status: {
+                in: [CardStatus.APPROVED, CardStatus.PENDING],
               },
             },
-          };
+          });
+
+          if (activeCards >= rule.maxCards) {
+            return {
+              success: false,
+              error: {
+                code: 'MAX_CARDS_EXCEEDED',
+                message: `Maximum of ${rule.maxCards} cards allowed from issuer`,
+                details: {
+                  maxCards: rule.maxCards,
+                  issuer: card.issuerId,
+                },
+              },
+            };
+          }
+        }
+
+        if (rule.cooldownPeriod) {
+          const recentApplication = await ctx.prisma.cardApplication.findFirst({
+            where: {
+              userId: ctx.session.uid,
+              card: {
+                issuerId: card.issuerId,
+              },
+              appliedAt: {
+                gte: new Date(Date.now() - rule.cooldownPeriod * 24 * 60 * 60 * 1000),
+              },
+            },
+          });
+
+          if (recentApplication) {
+            return {
+              success: false,
+              error: {
+                code: 'COOLDOWN_PERIOD',
+                message: 'Cooldown period not met',
+                details: {
+                  cooldownPeriod: rule.cooldownPeriod,
+                  issuer: card.issuerId,
+                },
+              },
+            };
+          }
         }
       }
 
-      if (rule.cooldownPeriod) {
-        const recentApplication = await ctx.prisma.cardApplication.findFirst({
-          where: {
-            userId: ctx.session.uid,
-            card: {
-              issuerId: card.issuerId
-            },
-            appliedAt: {
-              gte: new Date(Date.now() - rule.cooldownPeriod * 24 * 60 * 60 * 1000),
-            },
-          },
-        });
-
-        if (recentApplication) {
-          return {
-            success: false,
-            error: {
-              code: 'COOLDOWN_PERIOD',
-              message: 'Cooldown period not met',
-              details: {
-                cooldownPeriod: rule.cooldownPeriod,
-                issuer: card.issuerId,
-              },
-            },
-          };
-        }
-      }
-    }
-
-    return ctx.prisma.cardApplication.create({
-      data: {
-        userId: ctx.session.uid,
-        cardId: input.cardId,
-        status: CardStatus.PENDING,
-        notes: input.notes,
-        appliedAt: new Date(),
-        spendProgress: 0,
-        annualFeePaid: false,
-      },
-    });
-  }),
+      return ctx.prisma.cardApplication.create({
+        data: {
+          userId: ctx.session.uid,
+          cardId: input.cardId,
+          status: CardStatus.PENDING,
+          notes: input.notes,
+          appliedAt: new Date(),
+          spendProgress: 0,
+          annualFeePaid: false,
+        },
+      });
+    }),
 
   // Update application status
   updateStatus: protectedProcedure
@@ -154,14 +159,27 @@ export const cardRouter = router({
       z
         .object({
           applicationId: z.string(),
-          pointsOffered: z.number().positive('Points offered must be positive').optional(),
-          statementCredit: z.number().positive('Statement credit must be positive').optional(),
-          spendRequired: z.number().positive('Spend requirement must be positive').optional(),
+          pointsOffered: z
+            .number()
+            .positive('Points offered must be positive')
+            .optional(),
+          statementCredit: z
+            .number()
+            .positive('Statement credit must be positive')
+            .optional(),
+          spendRequired: z
+            .number()
+            .positive('Spend requirement must be positive')
+            .optional(),
           notes: z.string().optional(),
         })
-        .refine(data => data.pointsOffered !== undefined || data.statementCredit !== undefined, {
-          message: 'Must specify either points or statement credit',
-        })
+        .refine(
+          (data) =>
+            data.pointsOffered !== undefined || data.statementCredit !== undefined,
+          {
+            message: 'Must specify either points or statement credit',
+          }
+        )
     )
     .mutation(async ({ ctx, input }) => {
       const application = await ctx.prisma.cardApplication.findUnique({
@@ -255,7 +273,7 @@ export const cardRouter = router({
         where: {
           userId: ctx.session.uid,
           card: {
-            issuerId: card.issuerId
+            issuerId: card.issuerId,
           },
           status: CardStatus.APPROVED,
         },
@@ -273,7 +291,7 @@ export const cardRouter = router({
         where: {
           userId: ctx.session.uid,
           card: {
-            issuerId: card.issuerId
+            issuerId: card.issuerId,
           },
           appliedAt: {
             gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
@@ -321,7 +339,8 @@ export const cardRouter = router({
 
       if (lastBonusEarned && lastBonusEarned.bonusEarnedAt) {
         const monthsSinceBonus = Math.floor(
-          (Date.now() - lastBonusEarned.bonusEarnedAt.getTime()) / (30 * 24 * 60 * 60 * 1000)
+          (Date.now() - lastBonusEarned.bonusEarnedAt.getTime()) /
+            (30 * 24 * 60 * 60 * 1000)
         );
         if (monthsSinceBonus < 48) {
           violations.push({
@@ -346,7 +365,11 @@ export const cardRouter = router({
       }
 
       // Check credit score last
-      if (card.creditScoreMin && input.creditScore && input.creditScore < card.creditScoreMin) {
+      if (
+        card.creditScoreMin &&
+        input.creditScore &&
+        input.creditScore < card.creditScoreMin
+      ) {
         violations.push({
           rule: 'Credit Score',
           message: `Minimum credit score required: ${card.creditScoreMin}`,
@@ -416,7 +439,8 @@ export const cardRouter = router({
 
       if (lastBonusEarned && lastBonusEarned.bonusEarnedAt) {
         const monthsSinceBonus = Math.floor(
-          (Date.now() - lastBonusEarned.bonusEarnedAt.getTime()) / (30 * 24 * 60 * 60 * 1000)
+          (Date.now() - lastBonusEarned.bonusEarnedAt.getTime()) /
+            (30 * 24 * 60 * 60 * 1000)
         );
         if (monthsSinceBonus < 48) {
           throw new TRPCError({
@@ -427,7 +451,10 @@ export const cardRouter = router({
       }
 
       // Check credit score requirement
-      if (card.creditScoreMin && (!input.creditScore || input.creditScore < card.creditScoreMin)) {
+      if (
+        card.creditScoreMin &&
+        (!input.creditScore || input.creditScore < card.creditScoreMin)
+      ) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Credit score too low',
@@ -439,7 +466,7 @@ export const cardRouter = router({
         where: {
           userId: ctx.session.uid,
           card: {
-            issuerId: card.issuerId
+            issuerId: card.issuerId,
           },
           status: CardStatus.APPROVED,
         },

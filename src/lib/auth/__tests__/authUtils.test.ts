@@ -38,7 +38,7 @@ describe('authUtils', () => {
       }),
     } as NextRequest;
 
-    const mockVerifyIdToken = jest.fn().mockImplementation(async token => {
+    const mockVerifyIdToken = jest.fn().mockImplementation(async (token) => {
       expect(token).toBe('test-token');
       return mockDecodedToken;
     });
@@ -79,7 +79,7 @@ describe('authUtils', () => {
       }),
     } as NextRequest;
 
-    const mockVerifyIdToken = jest.fn().mockImplementation(async token => {
+    const mockVerifyIdToken = jest.fn().mockImplementation(async (token) => {
       expect(token).toBe('test-token');
       throw new Error('Invalid token');
     });

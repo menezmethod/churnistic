@@ -11,4 +11,4 @@ module.exports = (path, options) => {
       return pkg;
     },
   });
-}; 
+};

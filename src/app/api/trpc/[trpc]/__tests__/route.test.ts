@@ -11,20 +11,25 @@ jest.mock('@trpc/server/adapters/fetch', () => ({
 }));
 
 describe('tRPC API Route', () => {
-  const mockRequest = new NextRequest(new URL('http://localhost:3000/api/trpc/test.query'), {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: 'Bearer test-token',
-    },
-  });
+  const mockRequest = new NextRequest(
+    new URL('http://localhost:3000/api/trpc/test.query'),
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer test-token',
+      },
+    }
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('should handle POST requests', async () => {
-    (fetchRequestHandler as jest.Mock).mockResolvedValueOnce(new Response('{"result": "success"}'));
+    (fetchRequestHandler as jest.Mock).mockResolvedValueOnce(
+      new Response('{"result": "success"}')
+    );
 
     const response = await POST(mockRequest);
 
@@ -55,11 +60,13 @@ describe('tRPC API Route', () => {
   });
 
   it('should create context with auth', async () => {
-    (fetchRequestHandler as jest.Mock).mockImplementationOnce(async ({ createContext }) => {
-      const ctx = await createContext(mockRequest);
-      expect(ctx).toHaveProperty('session');
-      return new Response('{"result": "success"}');
-    });
+    (fetchRequestHandler as jest.Mock).mockImplementationOnce(
+      async ({ createContext }) => {
+        const ctx = await createContext(mockRequest);
+        expect(ctx).toHaveProperty('session');
+        return new Response('{"result": "success"}');
+      }
+    );
 
     await POST(mockRequest);
   });
@@ -75,11 +82,13 @@ describe('tRPC API Route', () => {
       }
     );
 
-    (fetchRequestHandler as jest.Mock).mockImplementationOnce(async ({ createContext }) => {
-      const ctx = await createContext(requestWithoutAuth);
-      expect(ctx.session).toBeNull();
-      return new Response('{"result": "success"}');
-    });
+    (fetchRequestHandler as jest.Mock).mockImplementationOnce(
+      async ({ createContext }) => {
+        const ctx = await createContext(requestWithoutAuth);
+        expect(ctx.session).toBeNull();
+        return new Response('{"result": "success"}');
+      }
+    );
 
     await POST(requestWithoutAuth);
   });
