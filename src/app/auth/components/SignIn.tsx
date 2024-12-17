@@ -7,6 +7,7 @@ import Checkbox from '@mui/material/Checkbox';
 import Divider from '@mui/material/Divider';
 import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import type { FormHelperTextProps } from '@mui/material/FormHelperText';
 import FormLabel from '@mui/material/FormLabel';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
@@ -55,6 +56,10 @@ const SignInContainer = styled(Stack)(({ theme }) => ({
     backgroundRepeat: 'no-repeat',
   },
 }));
+
+interface ExtendedFormHelperTextProps extends FormHelperTextProps {
+  'data-testid'?: string;
+}
 
 export function SignIn(): JSX.Element {
   const router = useRouter();
@@ -203,6 +208,12 @@ export function SignIn(): JSX.Element {
               fullWidth
               variant="outlined"
               disabled={isLoading}
+              FormHelperTextProps={
+                {
+                  'data-testid': 'email-helper-text',
+                  id: 'email-helper-text',
+                } as ExtendedFormHelperTextProps
+              }
             />
           </FormControl>
           <FormControl>
@@ -219,6 +230,12 @@ export function SignIn(): JSX.Element {
               fullWidth
               variant="outlined"
               disabled={isLoading}
+              FormHelperTextProps={
+                {
+                  'data-testid': 'password-helper-text',
+                  id: 'password-helper-text',
+                } as ExtendedFormHelperTextProps
+              }
             />
           </FormControl>
           <FormControlLabel

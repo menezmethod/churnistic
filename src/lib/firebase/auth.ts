@@ -221,3 +221,5 @@ export const getCurrentUser = (): User | null => {
 export const onAuthStateChange = (callback: AuthStateHandler): Unsubscribe => {
   return onAuthStateChanged(auth, callback);
 };
+
+export { auth };
