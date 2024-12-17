@@ -8,10 +8,11 @@ const mockUser = {
   uid: '123',
 } as User;
 
-let authStateCallback: ((user: User | null) => void) | null = null;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+let authStateCallback: ((_user: User | null) => void) | null = null;
 
 jest.mock('firebase/auth', () => ({
-  onAuthStateChanged: jest.fn((auth, callback) => {
+  onAuthStateChanged: jest.fn((_auth, callback): (() => void) => {
     authStateCallback = callback;
     return () => {};
   }),
@@ -23,6 +24,7 @@ jest.mock('../firebase', () => ({
 }));
 
 const TestComponent = (): JSX.Element => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user, loading } = useAuth();
   return (
     <div>

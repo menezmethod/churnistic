@@ -11,7 +11,7 @@ jest.mock('@/lib/prisma/db', () => ({
 
 jest.mock('next/server', () => ({
   NextResponse: {
-    json: jest.fn((data, init) => ({
+    json: jest.fn((data, init): { json: () => Promise<unknown>; status: number } => ({
       json: async () => data,
       status: init?.status || 200,
     })),
