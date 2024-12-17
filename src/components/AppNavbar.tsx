@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Dashboard,
   CreditCard,
   Settings,
   People,
@@ -58,25 +57,22 @@ interface MenuItemType {
 }
 
 const mainMenuItems: MenuItemType[] = [
-  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard', requiresAuth: true },
   {
-    text: 'Credit Cards',
-    icon: <CreditCard />,
-    path: '/cards',
-    badge: 2,
+    text: 'Dashboard',
+    icon: <Analytics />,
+    path: '/dashboard',
     requiresAuth: true,
   },
   {
-    text: 'Bank Accounts',
-    icon: <AccountBalance />,
-    path: '/bank-accounts',
-    badge: 1,
+    text: 'Opportunities',
+    icon: <AccountBalanceWallet />,
+    path: '/opportunities', 
     requiresAuth: true,
   },
   {
-    text: 'Investments',
+    text: 'Track Progress',
     icon: <TrendingUp />,
-    path: '/investments',
+    path: '/track',
     requiresAuth: true,
   },
   {
