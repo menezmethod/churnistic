@@ -20,7 +20,10 @@
     "type-check": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "fix": "npm run format && npm run lint:fix"
+    "fix": "npm run format && npm run lint:fix",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "start-server-and-test dev http://localhost:3000 cypress:run"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -59,6 +62,8 @@
     "@typescript-eslint/eslint-plugin": "^8.18.1",
     "@typescript-eslint/parser": "^8.18.1",
     "babel-jest": "^29.7.0",
+    "cypress": "^13.16.1",
+    "cypress-firebase": "^4.2.1",
     "eslint": "^8",
     "eslint-config-next": "^14.1.0",
     "eslint-config-prettier": "^9.1.0",
@@ -77,6 +82,7 @@
     "lint-staged": "^15.2.0",
     "node-fetch": "^2.7.0",
     "prettier": "^3.1.1",
+    "start-server-and-test": "^2.0.9",
     "tailwindcss": "^3.4.16",
     "typescript": "^5"
   },

@@ -39,7 +39,7 @@ describe('SignIn Component', () => {
 
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /sign in with google/i })
     ).toBeInTheDocument();
@@ -114,7 +114,12 @@ describe('SignIn Component', () => {
     fireEvent.change(passwordInput, { target: { value: 'wrongpassword' } });
     fireEvent.click(submitButton);
 
-    expect(await screen.findByText(/invalid email or password/i)).toBeInTheDocument();
+    expect(await screen.findByTestId('email-helper-text')).toHaveTextContent(
+      /invalid email or password/i
+    );
+    expect(await screen.findByTestId('password-helper-text')).toHaveTextContent(
+      /invalid email or password/i
+    );
   });
 
   it('handles Google sign in', async () => {
