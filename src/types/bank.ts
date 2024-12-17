@@ -1,9 +1,11 @@
+/* eslint-disable no-unused-vars */
 export enum RequirementType {
   DIRECT_DEPOSIT = 'DIRECT_DEPOSIT',
   MINIMUM_BALANCE = 'MINIMUM_BALANCE',
   DEBIT_TRANSACTIONS = 'DEBIT_TRANSACTIONS',
   BILL_PAY = 'BILL_PAY',
 }
+/* eslint-enable no-unused-vars */
 
 export interface BonusRequirement {
   id: string;
@@ -34,12 +36,10 @@ export interface DebitTransaction {
 }
 
 export interface BonusProgress {
-  type: RequirementType;
-  required: number;
-  completed: number;
-  amount?: number;
+  completed: boolean;
+  progress: number;
+  total: number;
   deadline: Date;
-  isComplete: boolean;
 }
 
 // Export a utility function to check requirement type

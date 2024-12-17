@@ -1,9 +1,11 @@
+/* eslint-disable no-unused-vars */
 export enum CardStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  DENIED = 'denied',
-  CANCELLED = 'cancelled',
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  DENIED = 'DENIED',
+  CANCELLED = 'CANCELLED',
 }
+/* eslint-enable no-unused-vars */
 
 export interface Card {
   id: string;
