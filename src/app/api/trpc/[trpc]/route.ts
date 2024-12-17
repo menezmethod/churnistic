@@ -34,6 +34,18 @@ async function handler(req: NextRequest): Promise<Response> {
       // eslint-disable-next-line no-console
       console.error('Error in tRPC handler:', err);
     }
-    return new Response('Internal server error', { status: 500 });
+    return new Response(
+      JSON.stringify({
+        error: {
+          message: 'Internal server error',
+        },
+      }),
+      { 
+        status: 500,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }
+    );
   }
 }

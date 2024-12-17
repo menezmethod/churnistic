@@ -10,6 +10,7 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   GithubAuthProvider,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 
 import {
@@ -18,6 +19,7 @@ import {
   signInWithGoogle,
   signInWithGithub,
   signOut,
+  resetPassword,
 } from '../auth';
 
 // Mock firebase/app
@@ -50,6 +52,7 @@ jest.mock('firebase/auth', () => ({
     currentUser: null,
     onAuthStateChanged: jest.fn(),
   })),
+  sendPasswordResetEmail: jest.fn(),
 }));
 
 describe('Firebase Auth', () => {
@@ -217,6 +220,86 @@ describe('Firebase Auth', () => {
 
       const result = await signOut();
       expect(result).toEqual({ error: expectedError });
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should send password reset email successfully', async () => {
+      (sendPasswordResetEmail as jest.Mock).mockResolvedValueOnce(undefined);
+
+      const result = await resetPassword('test@example.com');
+      expect(result).toEqual({ error: null });
+      expect(sendPasswordResetEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        'test@example.com'
+      );
+    });
+
+    it('should handle reset password errors', async () => {
+      (sendPasswordResetEmail as jest.Mock).mockRejectedValueOnce(mockError);
+
+      const result = await resetPassword('test@example.com');
+      expect(result).toEqual({ error: expectedError });
+    });
+
+    it('should validate email is provided', async () => {
+      const result = await resetPassword('');
+      expect(result).toEqual({
+        error: {
+          code: 'auth/invalid-input',
+          message: 'Email is required',
+        },
+      });
+    });
+
+    it('should validate email format', async () => {
+      const result = await resetPassword('invalid-email');
+      expect(result).toEqual({
+        error: {
+          code: 'auth/invalid-email-format',
+          message: 'Invalid email format',
+        },
+      });
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle network errors', async () => {
+      const networkError = {
+        code: 'auth/network-request-failed',
+        message: 'Network error',
+      } as AuthError;
+
+      (signInWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(networkError);
+
+      const result = await signInWithEmail('test@example.com', 'password123');
+      expect(result).toEqual({
+        user: null,
+        error: {
+          code: networkError.code,
+          message: networkError.message,
+          originalError: networkError,
+        },
+      });
+    });
+
+    it('should handle too many requests error', async () => {
+      const tooManyRequestsError = {
+        code: 'auth/too-many-requests',
+        message: 'Too many unsuccessful login attempts',
+      } as AuthError;
+
+      (signInWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(tooManyRequestsError);
+
+      const result = await signInWithEmail('test@example.com', 'password123');
+      expect(result).toEqual({
+        user: null,
+        error: {
+          code: tooManyRequestsError.code,
+          message: tooManyRequestsError.message,
+          originalError: tooManyRequestsError,
+        },
+      });
     });
   });
 });

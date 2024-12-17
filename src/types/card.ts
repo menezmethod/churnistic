@@ -1,31 +1,36 @@
-/* eslint-disable no-unused-vars */
+import type { Card as PrismaCard } from '@prisma/client';
+
+export type Card = PrismaCard;
+
 export enum CardStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   DENIED = 'DENIED',
   CANCELLED = 'CANCELLED',
 }
-/* eslint-enable no-unused-vars */
 
-export interface Card {
-  id: string;
-  issuer: string;
-  name: string;
-  type: string;
-  network: string;
-  rewardType: string;
-  signupBonus: number;
-  minSpend: number;
-  minSpendPeriod: number;
-  annualFee: number;
-  isActive: boolean;
-  creditScoreMin?: number;
-  businessCard: boolean;
-  velocityRules: string[];
-  churningRules: string[];
-  referralBonus?: number;
-  referralBonusCash?: number;
-}
+export type CardWithIssuer = Card & {
+  issuer: {
+    id: string;
+    name: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+};
+
+export type CardWithRules = CardWithIssuer & {
+  issuerRules: {
+    id: string;
+    cardId: string;
+    ruleType: string;
+    description: string;
+    cooldownPeriod: number;
+    maxCards: number | null;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }[];
+};
 
 export interface CardApplication {
   id: string;
