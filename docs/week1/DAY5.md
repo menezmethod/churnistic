@@ -1,12 +1,15 @@
 # Day 5: Testing, Documentation & Deployment Prep (Friday)
 
 ## Overview
+
 Focus on implementing tests, finalizing documentation, and preparing for deployment.
 
 ## Session Plan
 
 ### Morning Session (3 hours)
+
 #### 1. Test Environment Setup
+
 ```bash
 # Install testing dependencies
 npm install -D jest @testing-library/react @testing-library/jest-dom @testing-library/user-event
@@ -46,9 +49,10 @@ EOF
 Commit: `chore: set up testing environment with Jest and Testing Library`
 
 #### 2. API Mocking Setup
+
 ```typescript
 // src/mocks/handlers.ts
-import { rest } from 'msw'
+import { rest } from 'msw';
 
 export const handlers = [
   rest.post('/api/trpc/customer.list', (req, res, ctx) => {
@@ -70,20 +74,21 @@ export const handlers = [
           },
         },
       })
-    )
+    );
   }),
-]
+];
 
 // src/mocks/server.ts
-import { setupServer } from 'msw/node'
-import { handlers } from './handlers'
+import { setupServer } from 'msw/node';
+import { handlers } from './handlers';
 
-export const server = setupServer(...handlers)
+export const server = setupServer(...handlers);
 ```
 
 Commit: `feat: add API mocking with MSW`
 
 #### 3. Component Tests
+
 ```typescript
 // src/components/customers/__tests__/customer-list.test.tsx
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
@@ -128,9 +133,9 @@ describe('CustomerList', () => {
   it('handles search functionality', async () => {
     render(<CustomerList />)
     const searchInput = screen.getByPlaceholderText('Search customers...')
-    
+
     fireEvent.change(searchInput, { target: { value: 'test' } })
-    
+
     await waitFor(() => {
       expect(trpc.customer.list.useQuery).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -174,7 +179,9 @@ describe('Risk Calculator', () => {
 Commit: `feat: add component and utility tests`
 
 ### Mid-Morning Session (2 hours)
+
 #### 4. Integration Tests
+
 ```typescript
 // src/tests/integration/customer-flow.test.tsx
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
@@ -240,7 +247,7 @@ describe('Customer Management Flow', () => {
 
     // Test customer details view
     fireEvent.click(screen.getByText('View Details'))
-    
+
     await waitFor(() => {
       expect(screen.getByText('Customer Details')).toBeInTheDocument()
       expect(screen.getByText('Risk Analysis')).toBeInTheDocument()
@@ -252,7 +259,9 @@ describe('Customer Management Flow', () => {
 Commit: `feat: add integration tests for customer flows`
 
 ### Afternoon Session (3 hours)
+
 #### 5. Deployment Configuration
+
 ```yaml
 # .github/workflows/ci.yml
 name: CI
@@ -332,20 +341,26 @@ services:
 Commit: `feat: add CI/CD and Docker configuration`
 
 ### Evening Session (2 hours)
+
 #### 6. Documentation Updates
+
 ```markdown
 # README.md Updates
+
 ## Development
+
 - Add testing instructions
 - Document deployment process
 - Update environment variables
 
 ## API Documentation
+
 - Document all endpoints
 - Add request/response examples
 - Include error handling
 
 ## Contributing Guidelines
+
 - PR process
 - Code style
 - Testing requirements
@@ -356,11 +371,13 @@ Commit: `docs: update documentation with testing and deployment guides`
 ## Pull Requests
 
 ### PR #8: Testing Implementation
-```markdown
+
+````markdown
 PR Title: feat: Comprehensive Test Suite
 
 Description:
 Implements comprehensive testing infrastructure:
+
 - Jest and Testing Library setup
 - Component tests
 - Integration tests
@@ -368,6 +385,7 @@ Implements comprehensive testing infrastructure:
 - CI configuration
 
 Changes:
+
 - Add test configuration
 - Create test utilities
 - Implement component tests
@@ -375,10 +393,13 @@ Changes:
 - Set up CI pipeline
 
 Testing Steps:
+
 1. Run test suite:
    ```bash
    npm run test
    ```
+````
+
 2. Verify coverage:
    ```bash
    npm run test:coverage
@@ -389,13 +410,15 @@ Testing Steps:
    - Check coverage reports
 
 Coverage Requirements:
+
 - Components: 80%
 - Utils: 90%
 - API Routes: 85%
 
 Related Issues:
 Closes #8 - Test Infrastructure
-```
+
+````
 
 ### PR #9: Deployment Configuration
 ```markdown
@@ -418,7 +441,8 @@ Deployment Steps:
 1. Build Docker image:
    ```bash
    docker build -t churnistic .
-   ```
+````
+
 2. Run containers:
    ```bash
    docker-compose up -d
@@ -429,6 +453,7 @@ Deployment Steps:
    - Test production build
 
 Infrastructure:
+
 - Docker containers
 - GitHub Actions
 - MongoDB Atlas
@@ -436,6 +461,7 @@ Infrastructure:
 
 Related Issues:
 Closes #9 - Deployment Configuration
+
 ```
 
 ## Day 5 Checklist
@@ -451,4 +477,5 @@ Closes #9 - Deployment Configuration
 - Ensure all tests are passing
 - Document deployment process
 - Update environment variables
-- Plan for monitoring setup 
+- Plan for monitoring setup
+```

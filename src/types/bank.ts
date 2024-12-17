@@ -1,9 +1,11 @@
+/* eslint-disable no-unused-vars */
 export enum RequirementType {
   DIRECT_DEPOSIT = 'DIRECT_DEPOSIT',
   MINIMUM_BALANCE = 'MINIMUM_BALANCE',
   DEBIT_TRANSACTIONS = 'DEBIT_TRANSACTIONS',
   BILL_PAY = 'BILL_PAY',
 }
+/* eslint-enable no-unused-vars */
 
 export interface BonusRequirement {
   id: string;
@@ -34,16 +36,17 @@ export interface DebitTransaction {
 }
 
 export interface BonusProgress {
-  type: RequirementType;
-  required: number;
-  completed: number;
-  amount?: number;
+  completed: boolean;
+  progress: number;
+  total: number;
   deadline: Date;
-  isComplete: boolean;
 }
 
 // Export a utility function to check requirement type
-export const isDirectDeposit = (type: RequirementType): boolean => type === RequirementType.DIRECT_DEPOSIT;
-export const isMinimumBalance = (type: RequirementType): boolean => type === RequirementType.MINIMUM_BALANCE;
-export const isDebitTransactions = (type: RequirementType): boolean => type === RequirementType.DEBIT_TRANSACTIONS;
-export const isBillPay = (type: RequirementType): boolean => type === RequirementType.BILL_PAY; 
+export const isDirectDeposit = (type: RequirementType): boolean =>
+  type === RequirementType.DIRECT_DEPOSIT;
+export const isMinimumBalance = (type: RequirementType): boolean =>
+  type === RequirementType.MINIMUM_BALANCE;
+export const isDebitTransactions = (type: RequirementType): boolean =>
+  type === RequirementType.DEBIT_TRANSACTIONS;
+export const isBillPay = (type: RequirementType): boolean => type === RequirementType.BILL_PAY;

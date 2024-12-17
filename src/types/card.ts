@@ -1,29 +1,36 @@
+import type { Card as PrismaCard } from '@prisma/client';
+
+export type Card = PrismaCard;
+
 export enum CardStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  DENIED = 'denied',
-  CANCELLED = 'cancelled',
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  DENIED = 'DENIED',
+  CANCELLED = 'CANCELLED',
 }
 
-export interface Card {
-  id: string;
-  issuer: string;
-  name: string;
-  type: string;
-  network: string;
-  rewardType: string;
-  signupBonus: number;
-  minSpend: number;
-  minSpendPeriod: number;
-  annualFee: number;
-  isActive: boolean;
-  creditScoreMin?: number;
-  businessCard: boolean;
-  velocityRules: string[];
-  churningRules: string[];
-  referralBonus?: number;
-  referralBonusCash?: number;
-}
+export type CardWithIssuer = Card & {
+  issuer: {
+    id: string;
+    name: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+};
+
+export type CardWithRules = CardWithIssuer & {
+  issuerRules: {
+    id: string;
+    cardId: string;
+    ruleType: string;
+    description: string;
+    cooldownPeriod: number;
+    maxCards: number | null;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }[];
+};
 
 export interface CardApplication {
   id: string;
@@ -78,4 +85,4 @@ export interface EligibilityCheck {
 export const isPending = (status: CardStatus): boolean => status === CardStatus.PENDING;
 export const isApproved = (status: CardStatus): boolean => status === CardStatus.APPROVED;
 export const isDenied = (status: CardStatus): boolean => status === CardStatus.DENIED;
-export const isCancelled = (status: CardStatus): boolean => status === CardStatus.CANCELLED; 
+export const isCancelled = (status: CardStatus): boolean => status === CardStatus.CANCELLED;
