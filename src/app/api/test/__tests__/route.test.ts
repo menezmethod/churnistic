@@ -27,7 +27,7 @@ describe('Test API Route', () => {
 
     const response = await GET();
     const data = await response.json();
-    
+
     expect(data).toEqual({
       status: 'success',
       message: 'Database connection successful',
@@ -43,7 +43,7 @@ describe('Test API Route', () => {
 
     const response = await GET();
     const data = await response.json();
-    
+
     expect(data).toEqual({
       status: 'error',
       message: 'Database connection failed',

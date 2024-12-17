@@ -40,7 +40,7 @@ async function handler(req: NextRequest): Promise<Response> {
           message: 'Internal server error',
         },
       }),
-      { 
+      {
         status: 500,
         headers: {
           'content-type': 'application/json',

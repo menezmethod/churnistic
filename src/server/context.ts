@@ -13,10 +13,12 @@ export async function createContext(req: NextRequest): Promise<CreateContextOpti
   try {
     const authContext = await createAuthContext(req);
     return {
-      session: authContext.session ? ({
-        uid: authContext.session.uid,
-        email: authContext.session.email,
-      } as DecodedIdToken) : null,
+      session: authContext.session
+        ? ({
+            uid: authContext.session.uid,
+            email: authContext.session.email,
+          } as DecodedIdToken)
+        : null,
       prisma,
     };
   } catch {

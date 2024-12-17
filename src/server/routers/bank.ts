@@ -1,4 +1,4 @@
-import type { DirectDeposit , RequirementType as PrismaRequirementType } from '@prisma/client';
+import type { DirectDeposit, RequirementType as PrismaRequirementType } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 

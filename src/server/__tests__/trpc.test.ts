@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import type { Card, CardApplication , PrismaClient } from '@prisma/client';
+import type { Card, CardApplication, PrismaClient } from '@prisma/client';
 import { mockDeep } from 'jest-mock-extended';
 import type { NextRequest } from 'next/server';
 

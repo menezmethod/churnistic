@@ -1,7 +1,4 @@
-import type {
-  User,
-  AuthError,
-} from 'firebase/auth';
+import type { User, AuthError } from 'firebase/auth';
 
 import {
   signInWithEmailAndPassword,
@@ -229,10 +226,7 @@ describe('Firebase Auth', () => {
 
       const result = await resetPassword('test@example.com');
       expect(result).toEqual({ error: null });
-      expect(sendPasswordResetEmail).toHaveBeenCalledWith(
-        expect.anything(),
-        'test@example.com'
-      );
+      expect(sendPasswordResetEmail).toHaveBeenCalledWith(expect.anything(), 'test@example.com');
     });
 
     it('should handle reset password errors', async () => {

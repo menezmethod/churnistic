@@ -16,7 +16,7 @@ const prismaMock = mockDeep<PrismaClient>();
 // Mock data
 const mockCard: Card = {
   id: 'test-card-id',
-  issuer: 'Test Issuer',
+  issuerId: 'test-issuer-id',
   name: 'Test Card',
   type: 'credit',
   network: 'visa',
@@ -117,11 +117,6 @@ type MockUser = User & {
   businessVerified: boolean;
 };
 
-// Add type for mock application with card
-type MockApplicationWithCard = typeof mockApplication & {
-  card: Card;
-};
-
 // Mock data
 const mockUser = {
   id: 'test-user',
@@ -137,6 +132,13 @@ const mockUser = {
   updatedAt: new Date(),
 } as const;
 
+// Update mock application type to include card relation and make spendDeadline nullable
+type MockApplicationWithRelations = Omit<typeof mockApplication, 'spendDeadline'> & {
+  card?: Card;
+  retentionOffers?: (typeof mockRetentionOffer)[];
+  spendDeadline: Date | null;
+};
+
 describe('Card Router', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -147,10 +149,16 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          issuerRules: [],
+        ...mockCard,
+        issuerRules: [],
       } as unknown as Card & {
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -187,20 +195,32 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          velocityRules: [
-              {
-                  id: 'rule-1',
-                  cardId: 'test-card',
-                  maxApplications: 2,
-                  periodDays: 30,
-                  isActive: true,
-              },
-          ],
-          issuerRules: [],
+        ...mockCard,
+        velocityRules: [
+          {
+            id: 'rule-1',
+            cardId: 'test-card',
+            maxApplications: 2,
+            periodDays: 30,
+            isActive: true,
+          },
+        ],
+        issuerRules: [],
       } as unknown as Card & {
-        velocityRules: { id: string; cardId: string; maxApplications: number; periodDays: number; isActive: boolean; }[];
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        velocityRules: {
+          id: string;
+          cardId: string;
+          maxApplications: number;
+          periodDays: number;
+          isActive: boolean;
+        }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -218,19 +238,25 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          churningRules: [
-              {
-                  id: 'rule-1',
-                  cardId: 'test-card',
-                  bonusCooldown: 48,
-                  isActive: true,
-              },
-          ],
-          issuerRules: [],
+        ...mockCard,
+        churningRules: [
+          {
+            id: 'rule-1',
+            cardId: 'test-card',
+            bonusCooldown: 48,
+            isActive: true,
+          },
+        ],
+        issuerRules: [],
       } as unknown as Card & {
-        churningRules: { id: string; cardId: string; bonusCooldown: number; isActive: boolean; }[];
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        churningRules: { id: string; cardId: string; bonusCooldown: number; isActive: boolean }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -251,29 +277,41 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          velocityRules: [
-              {
-                  id: 'rule-1',
-                  cardId: 'test-card',
-                  maxApplications: 2,
-                  periodDays: 30,
-                  isActive: false,
-              },
-          ],
-          churningRules: [
-              {
-                  id: 'rule-1',
-                  cardId: 'test-card',
-                  bonusCooldown: 48,
-                  isActive: false,
-              },
-          ],
-          issuerRules: [],
+        ...mockCard,
+        velocityRules: [
+          {
+            id: 'rule-1',
+            cardId: 'test-card',
+            maxApplications: 2,
+            periodDays: 30,
+            isActive: false,
+          },
+        ],
+        churningRules: [
+          {
+            id: 'rule-1',
+            cardId: 'test-card',
+            bonusCooldown: 48,
+            isActive: false,
+          },
+        ],
+        issuerRules: [],
       } as unknown as Card & {
-        velocityRules: { id: string; cardId: string; maxApplications: number; periodDays: number; isActive: boolean; }[];
-        churningRules: { id: string; cardId: string; bonusCooldown: number; isActive: boolean; }[];
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        velocityRules: {
+          id: string;
+          cardId: string;
+          maxApplications: number;
+          periodDays: number;
+          isActive: boolean;
+        }[];
+        churningRules: { id: string; cardId: string; bonusCooldown: number; isActive: boolean }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -292,11 +330,17 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          creditScoreMin: 740,
-          issuerRules: [],
+        ...mockCard,
+        creditScoreMin: 740,
+        issuerRules: [],
       } as unknown as Card & {
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -314,11 +358,17 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          creditScoreMin: 740,
-          issuerRules: [],
+        ...mockCard,
+        creditScoreMin: 740,
+        issuerRules: [],
       } as unknown as Card & {
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -347,10 +397,10 @@ describe('Card Router', () => {
       };
 
       prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplicationWithCard);
-      
+
       const expectedDeadline = new Date();
       expectedDeadline.setMonth(expectedDeadline.getMonth() + 3);
-      
+
       prismaMock.cardApplication.update.mockResolvedValueOnce({
         ...mockApplication,
         status: CardStatus.APPROVED,
@@ -370,7 +420,7 @@ describe('Card Router', () => {
 
     test('should update to cancelled status', async () => {
       const caller = await createCaller();
-      
+
       prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplication);
       prismaMock.cardApplication.update.mockResolvedValueOnce({
         ...mockApplication,
@@ -392,7 +442,7 @@ describe('Card Router', () => {
 
     test('should throw error if application not found', async () => {
       const caller = await createCaller();
-      
+
       prismaMock.cardApplication.findUnique.mockResolvedValueOnce(null);
 
       await expect(
@@ -405,7 +455,7 @@ describe('Card Router', () => {
 
     test('should throw error if application belongs to another user', async () => {
       const caller = await createCaller();
-      
+
       prismaMock.cardApplication.findUnique.mockResolvedValueOnce({
         ...mockApplication,
         userId: 'other-user',
@@ -424,10 +474,7 @@ describe('Card Router', () => {
     test('should return paginated applications', async () => {
       const caller = await createCaller();
 
-      const mockApplications = [
-        mockApplication,
-        { ...mockApplication, id: 'test-application-2' },
-      ];
+      const mockApplications = [mockApplication, { ...mockApplication, id: 'test-application-2' }];
       prismaMock.cardApplication.findMany.mockResolvedValueOnce(mockApplications);
 
       const result = await caller.card.getApplications({
@@ -549,8 +596,8 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          issuerRules: [],
+        ...mockCard,
+        issuerRules: [],
       } as unknown as Card;
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -572,9 +619,9 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          creditScoreMin: 740,
-          issuerRules: [],
+        ...mockCard,
+        creditScoreMin: 740,
+        issuerRules: [],
       } as unknown as Card;
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -612,18 +659,24 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          issuerRules: [
-              {
-                  id: 'rule-1',
-                  issuerId: 'test-issuer',
-                  maxCards: 5,
-                  cooldownPeriod: 30,
-                  isActive: true,
-              },
-          ],
+        ...mockCard,
+        issuerRules: [
+          {
+            id: 'rule-1',
+            issuerId: 'test-issuer',
+            maxCards: 5,
+            cooldownPeriod: 30,
+            isActive: true,
+          },
+        ],
       } as unknown as Card & {
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -646,18 +699,24 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          issuerRules: [
-              {
-                  id: 'rule-1',
-                  issuerId: 'test-issuer',
-                  maxCards: 5,
-                  cooldownPeriod: 30,
-                  isActive: true,
-              },
-          ],
+        ...mockCard,
+        issuerRules: [
+          {
+            id: 'rule-1',
+            issuerId: 'test-issuer',
+            maxCards: 5,
+            cooldownPeriod: 30,
+            isActive: true,
+          },
+        ],
       } as unknown as Card & {
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -680,18 +739,24 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          issuerRules: [
-              {
-                  id: 'rule-1',
-                  issuerId: 'test-issuer',
-                  maxCards: 5,
-                  cooldownPeriod: 30,
-                  isActive: false,
-              },
-          ],
+        ...mockCard,
+        issuerRules: [
+          {
+            id: 'rule-1',
+            issuerId: 'test-issuer',
+            maxCards: 5,
+            cooldownPeriod: 30,
+            isActive: false,
+          },
+        ],
       } as unknown as Card & {
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -709,18 +774,25 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          issuerRules: [],
+        ...mockCard,
+        issuerRules: [],
       } as unknown as Card & {
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
-      
+
       // Mock the count for velocity check
-      prismaMock.cardApplication.count.mockResolvedValueOnce(0) // For issuer cards check
+      prismaMock.cardApplication.count
+        .mockResolvedValueOnce(0) // For issuer cards check
         .mockResolvedValueOnce(3); // For velocity check (> 2 applications in 30 days)
-      
+
       // Mock no recent application for cooldown check
       prismaMock.cardApplication.findFirst.mockResolvedValueOnce(null);
 
@@ -741,19 +813,25 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockCardWithRules = {
-          ...mockCard,
-          churningRules: [
-              {
-                  id: 'rule-1',
-                  cardId: 'test-card',
-                  bonusCooldown: 48,
-                  isActive: true,
-              },
-          ],
-          issuerRules: [],
+        ...mockCard,
+        churningRules: [
+          {
+            id: 'rule-1',
+            cardId: 'test-card',
+            bonusCooldown: 48,
+            isActive: true,
+          },
+        ],
+        issuerRules: [],
       } as unknown as Card & {
-        churningRules: { id: string; cardId: string; bonusCooldown: number; isActive: boolean; }[];
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        churningRules: { id: string; cardId: string; bonusCooldown: number; isActive: boolean }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
@@ -779,11 +857,17 @@ describe('Card Router', () => {
       const caller = await createCaller();
 
       const mockBusinessCard = {
-          ...mockCard,
-          businessCard: true,
-          issuerRules: [],
+        ...mockCard,
+        businessCard: true,
+        issuerRules: [],
       } as unknown as Card & {
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockBusinessCard);
@@ -836,28 +920,35 @@ describe('Card Router', () => {
     test('should identify all violations', async () => {
       const caller = await createCaller();
       const mockCardWithRules = {
-          ...mockCard,
-          creditScoreMin: 750,
-          businessCard: true,
-          issuerRules: [
-              {
-                  id: 'rule-1',
-                  issuerId: 'test-issuer',
-                  maxCards: 5,
-                  cooldownPeriod: 30,
-                  isActive: true,
-              },
-          ],
+        ...mockCard,
+        creditScoreMin: 750,
+        businessCard: true,
+        issuerRules: [
+          {
+            id: 'rule-1',
+            issuerId: 'test-issuer',
+            maxCards: 5,
+            cooldownPeriod: 30,
+            isActive: true,
+          },
+        ],
       } as unknown as Card & {
-        issuerRules: { id: string; issuerId: string; maxCards: number; cooldownPeriod: number; isActive: boolean; }[];
+        issuerRules: {
+          id: string;
+          issuerId: string;
+          maxCards: number;
+          cooldownPeriod: number;
+          isActive: boolean;
+        }[];
       };
 
       prismaMock.card.findUnique.mockResolvedValueOnce(mockCardWithRules);
-      
+
       // Mock max cards violation
-      prismaMock.cardApplication.count.mockResolvedValueOnce(5) // For issuer rules
+      prismaMock.cardApplication.count
+        .mockResolvedValueOnce(5) // For issuer rules
         .mockResolvedValueOnce(3); // For velocity rules
-      
+
       // Mock cooldown violation
       prismaMock.cardApplication.findFirst.mockResolvedValueOnce({
         ...mockApplication,
@@ -909,16 +1000,17 @@ describe('Card Router', () => {
   });
 
   describe('updateSpend', () => {
-    test('should update spend progress and earn bonus', async () => {
+    test('should update spend progress and earn bonus when threshold met', async () => {
       const caller = await createCaller();
       const mockApplicationWithCard = {
-          ...mockApplication,
-          status: CardStatus.APPROVED,
-          card: {
-              ...mockCard,
-              minSpend: 3000,
-          },
-      } as unknown as MockApplicationWithCard;
+        ...mockApplication,
+        status: CardStatus.APPROVED,
+        spendProgress: 2000,
+        card: {
+          ...mockCard,
+          minSpend: 3000,
+        },
+      };
 
       prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplicationWithCard);
       prismaMock.cardApplication.update.mockResolvedValueOnce({
@@ -929,7 +1021,7 @@ describe('Card Router', () => {
 
       const result = await caller.card.updateSpend({
         applicationId: 'test-application',
-        amount: 3500,
+        amount: 1500,
         date: new Date(),
       });
 
@@ -940,38 +1032,70 @@ describe('Card Router', () => {
     test('should not earn bonus if spend requirement not met', async () => {
       const caller = await createCaller();
       const mockApplicationWithCard = {
-          ...mockApplication,
-          status: CardStatus.APPROVED,
-          card: {
-              ...mockCard,
-              minSpend: 4000,
-          },
-      } as unknown as MockApplicationWithCard;
+        ...mockApplication,
+        status: CardStatus.APPROVED,
+        spendProgress: 1000,
+        card: {
+          ...mockCard,
+          minSpend: 3000,
+        },
+      };
 
       prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplicationWithCard);
       prismaMock.cardApplication.update.mockResolvedValueOnce({
         ...mockApplicationWithCard,
-        spendProgress: 2000,
+        spendProgress: 1500,
       });
 
       const result = await caller.card.updateSpend({
         applicationId: 'test-application',
-        amount: 2000,
+        amount: 500,
         date: new Date(),
       });
 
-      expect(result.spendProgress).toBe(2000);
+      expect(result.spendProgress).toBe(1500);
       expect(result.bonusEarnedAt).toBeNull();
+    });
+
+    test('should throw error if application not found', async () => {
+      const caller = await createCaller();
+
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        caller.card.updateSpend({
+          applicationId: 'non-existent',
+          amount: 1000,
+          date: new Date(),
+        })
+      ).rejects.toThrow('Application not found');
+    });
+
+    test('should throw error if application belongs to another user', async () => {
+      const caller = await createCaller();
+
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce({
+        ...mockApplication,
+        userId: 'other-user',
+      });
+
+      await expect(
+        caller.card.updateSpend({
+          applicationId: 'test-application',
+          amount: 1000,
+          date: new Date(),
+        })
+      ).rejects.toThrow('Application not found');
     });
 
     test('should throw error if application not approved', async () => {
       const caller = await createCaller();
-      
+
       prismaMock.cardApplication.findUnique.mockResolvedValueOnce({
-          ...mockApplication,
-          status: CardStatus.PENDING,
-          card: mockCard,
-      } as unknown as MockApplicationWithCard);
+        ...mockApplication,
+        status: CardStatus.PENDING,
+        card: mockCard,
+      } as MockApplicationWithRelations);
 
       await expect(
         caller.card.updateSpend({
@@ -987,51 +1111,191 @@ describe('Card Router', () => {
       const deadline = new Date();
       deadline.setDate(deadline.getDate() - 1); // Yesterday
 
-      const mockApplicationWithCard = {
-          ...mockApplication,
-          status: CardStatus.APPROVED,
-          spendDeadline: deadline,
-          card: mockCard,
-      } as unknown as MockApplicationWithCard;
+      const mockApplicationWithDeadline: MockApplicationWithRelations = {
+        ...mockApplication,
+        status: CardStatus.APPROVED,
+        spendDeadline: deadline,
+        card: mockCard,
+      };
 
-      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplicationWithCard);
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplicationWithDeadline);
 
+      const spendDate = new Date();
       await expect(
         caller.card.updateSpend({
           applicationId: 'test-application',
           amount: 1000,
-          date: new Date(),
+          date: spendDate,
         })
       ).rejects.toThrow('Spend date is after bonus deadline');
     });
   });
 
   describe('addRetentionOffer', () => {
-    test('should add retention offer successfully', async () => {
+    test('should add retention offer with points', async () => {
       const caller = await createCaller();
-      
-      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplication);
-      prismaMock.retentionOffer.create.mockResolvedValueOnce(mockRetentionOffer);
-
-      const result = await caller.card.addRetentionOffer({
+      const mockOffer = {
         applicationId: 'test-application',
         pointsOffered: 10000,
-        notes: 'Test offer',
+        notes: 'Test retention offer',
+      };
+
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplication);
+      prismaMock.retentionOffer.create.mockResolvedValueOnce({
+        id: 'test-offer',
+        cardId: mockApplication.cardId,
+        ...mockOffer,
+        statementCredit: null,
+        spendRequired: null,
+        offerDate: new Date(),
+        accepted: null,
       });
 
-      expect(result).toEqual(mockRetentionOffer);
+      const result = await caller.card.addRetentionOffer(mockOffer);
+
+      expect(result.pointsOffered).toBe(mockOffer.pointsOffered);
+      expect(result.applicationId).toBe(mockOffer.applicationId);
+      expect(result.cardId).toBe(mockApplication.cardId);
     });
 
-    test('should require either points or statement credit', async () => {
+    test('should add retention offer with statement credit', async () => {
+      const caller = await createCaller();
+      const mockOffer = {
+        applicationId: 'test-application',
+        statementCredit: 200,
+        spendRequired: 1000,
+        notes: 'Test retention offer',
+      };
+
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplication);
+      prismaMock.retentionOffer.create.mockResolvedValueOnce({
+        id: 'test-offer',
+        cardId: mockApplication.cardId,
+        ...mockOffer,
+        pointsOffered: null,
+        offerDate: new Date(),
+        accepted: null,
+      });
+
+      const result = await caller.card.addRetentionOffer(mockOffer);
+
+      expect(result.statementCredit).toBe(mockOffer.statementCredit);
+      expect(result.spendRequired).toBe(mockOffer.spendRequired);
+      expect(result.applicationId).toBe(mockOffer.applicationId);
+    });
+
+    test('should throw error if application not found', async () => {
+      const caller = await createCaller();
+
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        caller.card.addRetentionOffer({
+          applicationId: 'non-existent',
+          pointsOffered: 10000,
+        })
+      ).rejects.toThrow('Application not found');
+    });
+
+    test('should throw error if application belongs to another user', async () => {
+      const caller = await createCaller();
+
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce({
+        ...mockApplication,
+        userId: 'other-user',
+      });
+
+      await expect(
+        caller.card.addRetentionOffer({
+          applicationId: 'test-application',
+          pointsOffered: 10000,
+        })
+      ).rejects.toThrow('Application not found');
+    });
+
+    test('should throw error if neither points nor statement credit provided', async () => {
       const caller = await createCaller();
 
       await expect(
         caller.card.addRetentionOffer({
           applicationId: 'test-application',
           spendRequired: 1000,
-          notes: 'Test offer',
+          notes: 'Invalid offer',
         })
       ).rejects.toThrow('Must specify either points or statement credit');
     });
   });
-}); 
+
+  describe('edge cases', () => {
+    test('should handle zero spend amount', async () => {
+      const caller = await createCaller();
+
+      await expect(
+        caller.card.updateSpend({
+          applicationId: 'test-application',
+          amount: 0,
+          date: new Date(),
+        })
+      ).rejects.toThrow('Spend amount must be positive');
+    });
+
+    test('should handle negative spend amount', async () => {
+      const caller = await createCaller();
+
+      await expect(
+        caller.card.updateSpend({
+          applicationId: 'test-application',
+          amount: -100,
+          date: new Date(),
+        })
+      ).rejects.toThrow('Spend amount must be positive');
+    });
+
+    test('should handle negative points offered', async () => {
+      const caller = await createCaller();
+
+      await expect(
+        caller.card.addRetentionOffer({
+          applicationId: 'test-application',
+          pointsOffered: -10000,
+        })
+      ).rejects.toThrow('Points offered must be positive');
+    });
+
+    test('should handle negative statement credit', async () => {
+      const caller = await createCaller();
+
+      await expect(
+        caller.card.addRetentionOffer({
+          applicationId: 'test-application',
+          statementCredit: -100,
+        })
+      ).rejects.toThrow('Statement credit must be positive');
+    });
+
+    test('should handle both points and statement credit provided', async () => {
+      const caller = await createCaller();
+      const mockOffer = {
+        applicationId: 'test-application',
+        pointsOffered: 10000,
+        statementCredit: 200,
+      };
+
+      prismaMock.cardApplication.findUnique.mockResolvedValueOnce(mockApplication);
+      prismaMock.retentionOffer.create.mockResolvedValueOnce({
+        id: 'test-offer',
+        cardId: mockApplication.cardId,
+        ...mockOffer,
+        spendRequired: null,
+        offerDate: new Date(),
+        accepted: null,
+        notes: null,
+      });
+
+      const result = await caller.card.addRetentionOffer(mockOffer);
+
+      expect(result.pointsOffered).toBe(mockOffer.pointsOffered);
+      expect(result.statementCredit).toBe(mockOffer.statementCredit);
+    });
+  });
+});

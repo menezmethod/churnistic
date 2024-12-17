@@ -44,38 +44,26 @@ const createAuthError = (code: string, message: string, originalError?: unknown)
   };
 };
 
-export const signInWithEmail = async (
-  email: string,
-  password: string
-): Promise<AuthResponse> => {
+export const signInWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
   // Input validation
   if (!email || !password) {
     return {
       user: null,
-      error: createAuthError(
-        'auth/invalid-input',
-        'Email and password are required'
-      ),
+      error: createAuthError('auth/invalid-input', 'Email and password are required'),
     };
   }
 
   if (!validateEmail(email)) {
     return {
       user: null,
-      error: createAuthError(
-        'auth/invalid-email-format',
-        'Invalid email format'
-      ),
+      error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
     };
   }
 
   if (!validatePassword(password)) {
     return {
       user: null,
-      error: createAuthError(
-        'auth/weak-password',
-        'Password should be at least 6 characters'
-      ),
+      error: createAuthError('auth/weak-password', 'Password should be at least 6 characters'),
     };
   }
 
@@ -94,38 +82,26 @@ export const signInWithEmail = async (
   }
 };
 
-export const signUpWithEmail = async (
-  email: string,
-  password: string
-): Promise<AuthResponse> => {
+export const signUpWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
   // Input validation
   if (!email || !password) {
     return {
       user: null,
-      error: createAuthError(
-        'auth/invalid-input',
-        'Email and password are required'
-      ),
+      error: createAuthError('auth/invalid-input', 'Email and password are required'),
     };
   }
 
   if (!validateEmail(email)) {
     return {
       user: null,
-      error: createAuthError(
-        'auth/invalid-email-format',
-        'Invalid email format'
-      ),
+      error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
     };
   }
 
   if (!validatePassword(password)) {
     return {
       user: null,
-      error: createAuthError(
-        'auth/weak-password',
-        'Password should be at least 6 characters'
-      ),
+      error: createAuthError('auth/weak-password', 'Password should be at least 6 characters'),
     };
   }
 
@@ -196,19 +172,13 @@ export const signInWithGithub = async (): Promise<AuthResponse> => {
 export const resetPassword = async (email: string): Promise<{ error: AuthError | null }> => {
   if (!email) {
     return {
-      error: createAuthError(
-        'auth/invalid-input',
-        'Email is required'
-      ),
+      error: createAuthError('auth/invalid-input', 'Email is required'),
     };
   }
 
   if (!validateEmail(email)) {
     return {
-      error: createAuthError(
-        'auth/invalid-email-format',
-        'Invalid email format'
-      ),
+      error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
     };
   }
 

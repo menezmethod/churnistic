@@ -38,12 +38,10 @@ describe('authUtils', () => {
       }),
     } as NextRequest;
 
-    const mockVerifyIdToken = jest.fn().mockImplementation(
-      async (token) => {
-        expect(token).toBe('test-token');
-        return mockDecodedToken;
-      }
-    );
+    const mockVerifyIdToken = jest.fn().mockImplementation(async token => {
+      expect(token).toBe('test-token');
+      return mockDecodedToken;
+    });
     (getAuth as jest.Mock).mockReturnValue({
       verifyIdToken: mockVerifyIdToken,
     } as unknown as Auth);
@@ -81,12 +79,10 @@ describe('authUtils', () => {
       }),
     } as NextRequest;
 
-    const mockVerifyIdToken = jest.fn().mockImplementation(
-      async (token) => {
-        expect(token).toBe('test-token');
-        throw new Error('Invalid token');
-      }
-    );
+    const mockVerifyIdToken = jest.fn().mockImplementation(async token => {
+      expect(token).toBe('test-token');
+      throw new Error('Invalid token');
+    });
     (getAuth as jest.Mock).mockReturnValue({
       verifyIdToken: mockVerifyIdToken,
     } as unknown as Auth);

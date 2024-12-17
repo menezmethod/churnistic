@@ -27,7 +27,7 @@ describe('tRPC API Route', () => {
     (fetchRequestHandler as jest.Mock).mockResolvedValueOnce(new Response('{"result": "success"}'));
 
     const response = await POST(mockRequest);
-    
+
     expect(fetchRequestHandler).toHaveBeenCalledWith({
       endpoint: '/api/trpc',
       req: mockRequest,
@@ -35,7 +35,7 @@ describe('tRPC API Route', () => {
       createContext: expect.any(Function),
       onError: expect.any(Function),
     });
-    
+
     expect(response.status).toBe(200);
   });
 
@@ -43,7 +43,7 @@ describe('tRPC API Route', () => {
     (fetchRequestHandler as jest.Mock).mockRejectedValueOnce(new Error('Test error'));
 
     const response = await POST(mockRequest);
-    
+
     expect(response.status).toBe(500);
     expect(response.headers.get('content-type')).toBe('application/json');
     const data = await response.json();
@@ -65,12 +65,15 @@ describe('tRPC API Route', () => {
   });
 
   it('should handle missing authorization', async () => {
-    const requestWithoutAuth = new NextRequest(new URL('http://localhost:3000/api/trpc/test.query'), {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-    });
+    const requestWithoutAuth = new NextRequest(
+      new URL('http://localhost:3000/api/trpc/test.query'),
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+      }
+    );
 
     (fetchRequestHandler as jest.Mock).mockImplementationOnce(async ({ createContext }) => {
       const ctx = await createContext(requestWithoutAuth);
@@ -80,4 +83,4 @@ describe('tRPC API Route', () => {
 
     await POST(requestWithoutAuth);
   });
-}); 
+});

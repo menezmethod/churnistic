@@ -13,18 +13,18 @@ const prismaMock = mockDeep<PrismaClient>();
 
 // Mock data
 const mockUser: User = {
-  id: 'test-user-id',
+  id: 'test-user',
   firebaseUid: 'test-firebase-uid',
   email: 'test@example.com',
   displayName: 'Test User',
-  photoURL: 'https://example.com/photo.jpg',
+  photoURL: null,
   creditScore: null,
   monthlyIncome: null,
   householdId: null,
   businessVerified: false,
   createdAt: new Date(),
   updatedAt: new Date(),
-};
+} as const;
 
 // Mock request
 const mockRequest = (headers: Record<string, string> = {}): NextRequest => {
@@ -206,4 +206,4 @@ describe('User Router', () => {
       await expect(caller.user.delete()).rejects.toThrow('User not found');
     });
   });
-}); 
+});

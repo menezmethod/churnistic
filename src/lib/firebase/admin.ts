@@ -16,7 +16,9 @@ const validateConfig = (): void => {
     .map(([key]) => key);
 
   if (missingFields.length > 0) {
-    const error = new Error(`Missing required Firebase Admin config: ${missingFields.join(', ')}`) as FirebaseAdminError;
+    const error = new Error(
+      `Missing required Firebase Admin config: ${missingFields.join(', ')}`
+    ) as FirebaseAdminError;
     error.code = 'admin/invalid-config';
     throw error;
   }

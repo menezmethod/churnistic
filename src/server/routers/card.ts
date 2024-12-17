@@ -49,7 +49,9 @@ export const cardRouter = router({
 
     // Check issuer rules
     for (const rule of card.issuerRules) {
-      if (!rule.isActive) {continue;}
+      if (!rule.isActive) {
+        continue;
+      }
 
       if (rule.maxCards) {
         const activeCards = await ctx.prisma.cardApplication.count({
@@ -156,18 +158,17 @@ export const cardRouter = router({
   // Add retention offer
   addRetentionOffer: protectedProcedure
     .input(
-      z.object({
-        applicationId: z.string(),
-        pointsOffered: z.number().positive('Points offered must be positive').optional(),
-        statementCredit: z.number().positive('Statement credit must be positive').optional(),
-        spendRequired: z.number().positive('Spend requirement must be positive').optional(),
-        notes: z.string().optional(),
-      }).refine(
-        data => data.pointsOffered !== undefined || data.statementCredit !== undefined,
-        {
+      z
+        .object({
+          applicationId: z.string(),
+          pointsOffered: z.number().positive('Points offered must be positive').optional(),
+          statementCredit: z.number().positive('Statement credit must be positive').optional(),
+          spendRequired: z.number().positive('Spend requirement must be positive').optional(),
+          notes: z.string().optional(),
+        })
+        .refine(data => data.pointsOffered !== undefined || data.statementCredit !== undefined, {
           message: 'Must specify either points or statement credit',
-        }
-      )
+        })
     )
     .mutation(async ({ ctx, input }) => {
       const application = await ctx.prisma.cardApplication.findUnique({
@@ -339,9 +340,9 @@ export const cardRouter = router({
 
       // Check business card requirements
       if (card.businessCard) {
-        const user = await ctx.prisma.user.findUnique({
+        const user = (await ctx.prisma.user.findUnique({
           where: { id: ctx.session.uid },
-        }) as { businessVerified: boolean } | null;
+        })) as { businessVerified: boolean } | null;
 
         if (!user?.businessVerified) {
           violations.push({
@@ -460,9 +461,9 @@ export const cardRouter = router({
 
       // Check business card requirements
       if (card.businessCard) {
-        const user = await ctx.prisma.user.findUnique({
+        const user = (await ctx.prisma.user.findUnique({
           where: { id: ctx.session.uid },
-        }) as { businessVerified: boolean } | null;
+        })) as { businessVerified: boolean } | null;
 
         if (!user?.businessVerified) {
           throw new TRPCError({

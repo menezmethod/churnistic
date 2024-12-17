@@ -1,6 +1,8 @@
 import type { User as PrismaUser } from '@prisma/client';
 
-export type User = PrismaUser;
+export type User = PrismaUser & {
+  businessVerified: boolean;
+};
 
 export type UserWithoutPassword = Omit<User, 'password'>;
 
@@ -13,4 +15,4 @@ export type UserWithHousehold = User & {
     id: string;
     name: string;
   } | null;
-}; 
+};

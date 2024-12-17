@@ -1,4 +1,4 @@
-import type { User} from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { createContext, useContext, useEffect, useState } from 'react';
 
@@ -16,7 +16,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
   const [loading, setLoading] = useState(true);
 
   useEffect((): (() => void) => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, user => {
       setUser(user);
       setLoading(false);
     });

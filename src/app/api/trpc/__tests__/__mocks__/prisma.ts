@@ -16,4 +16,4 @@ export const createMockContext = (): MockContext => {
   return {
     prisma: prismaMock,
   };
-}; 
+};

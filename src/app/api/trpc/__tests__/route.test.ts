@@ -5,7 +5,6 @@ import type { NextRequest } from 'next/server';
 import { createContext } from '@/server/context';
 import { appRouter } from '@/server/routers/_app';
 
-
 // Mock request helper
 const mockRequest = (): NextRequest => {
   return {
@@ -58,7 +57,7 @@ describe('tRPC API Route', () => {
   test('handles tRPC requests', async () => {
     const req = mockRequest();
     const { GET } = await import('../[trpc]/route');
-    
+
     const response = await GET(req);
     expect(response).toBeDefined();
     expect(fetchRequestHandler).toHaveBeenCalledWith({
