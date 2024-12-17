@@ -58,7 +58,7 @@ export const cardRouter = router({
           where: {
             userId: ctx.session.uid,
             card: {
-              issuerId: card.issuerId,
+              issuerId: card.issuerId
             },
             status: {
               in: [CardStatus.APPROVED, CardStatus.PENDING],
@@ -74,7 +74,7 @@ export const cardRouter = router({
               message: `Maximum of ${rule.maxCards} cards allowed from issuer`,
               details: {
                 maxCards: rule.maxCards,
-                issuerId: card.issuerId,
+                issuer: card.issuerId,
               },
             },
           };
@@ -86,7 +86,7 @@ export const cardRouter = router({
           where: {
             userId: ctx.session.uid,
             card: {
-              issuerId: card.issuerId,
+              issuerId: card.issuerId
             },
             appliedAt: {
               gte: new Date(Date.now() - rule.cooldownPeriod * 24 * 60 * 60 * 1000),
@@ -102,7 +102,7 @@ export const cardRouter = router({
               message: 'Cooldown period not met',
               details: {
                 cooldownPeriod: rule.cooldownPeriod,
-                issuerId: card.issuerId,
+                issuer: card.issuerId,
               },
             },
           };
@@ -262,7 +262,7 @@ export const cardRouter = router({
         where: {
           userId: ctx.session.uid,
           card: {
-            issuerId: card.issuerId,
+            issuerId: card.issuerId
           },
           status: CardStatus.APPROVED,
         },
@@ -280,7 +280,7 @@ export const cardRouter = router({
         where: {
           userId: ctx.session.uid,
           card: {
-            issuerId: card.issuerId,
+            issuerId: card.issuerId
           },
           appliedAt: {
             gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
@@ -446,7 +446,7 @@ export const cardRouter = router({
         where: {
           userId: ctx.session.uid,
           card: {
-            issuerId: card.issuerId,
+            issuerId: card.issuerId
           },
           status: CardStatus.APPROVED,
         },
