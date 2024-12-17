@@ -1,18 +1,39 @@
 import '@testing-library/jest-dom';
-import { mockDeep } from 'jest-mock-extended';
-import type { PrismaClient } from '@prisma/client';
+import { TextEncoder, TextDecoder } from 'util';
+import fetch, { Headers, Request, Response } from 'node-fetch';
 
-// Mock Prisma
-jest.mock('@/lib/prisma/db', () => ({
-  prisma: mockDeep<PrismaClient>() as unknown as {
-    [K in keyof PrismaClient]: PrismaClient[K] extends (..._: unknown[]) => unknown
-      ? jest.Mock<ReturnType<PrismaClient[K]>, Parameters<PrismaClient[K]>>
-      : PrismaClient[K] extends object
-      ? {
-          [P in keyof PrismaClient[K]]: PrismaClient[K][P] extends (..._: unknown[]) => unknown
-            ? jest.Mock<ReturnType<PrismaClient[K][P]>, Parameters<PrismaClient[K][P]>>
-            : PrismaClient[K][P];
-        }
-      : PrismaClient[K];
-  },
-})); 
+// Polyfill TextEncoder/TextDecoder for Node.js environment
+global.TextEncoder = TextEncoder;
+(global.TextDecoder as unknown) = TextDecoder;
+
+// Mock fetch and web APIs for Node.js environment
+(global.fetch as unknown) = fetch;
+(global.Headers as unknown) = Headers;
+(global.Request as unknown) = Request;
+(global.Response as unknown) = Response;
+
+// Mock console methods for tests
+const mockConsole = {
+  log: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  info: jest.fn(),
+};
+
+// Store original console methods
+const originalConsole = { ...console };
+
+beforeAll(() => {
+  // Replace console methods with mocks
+  Object.assign(console, mockConsole);
+});
+
+afterAll(() => {
+  // Restore original console methods
+  Object.assign(console, originalConsole);
+});
+
+// Reset all mocks before each test
+beforeEach(() => {
+  jest.clearAllMocks();
+});

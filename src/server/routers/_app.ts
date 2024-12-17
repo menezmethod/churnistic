@@ -13,4 +13,4 @@ export const appRouter = router({
   customer: customerRouter,
 });
 
-export type AppRouter = typeof appRouter; 
+export type AppRouter = typeof appRouter;

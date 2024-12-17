@@ -1,20 +1,18 @@
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma/db';
 
-export async function GET(): Promise<Response> {
+export async function GET(): Promise<NextResponse> {
   try {
     await prisma.$connect();
     await prisma.$disconnect();
 
-    return new Response(
-      JSON.stringify({
+    return NextResponse.json(
+      {
         status: 'success',
         message: 'Database connection successful',
-      }),
+      },
       {
         status: 200,
-        headers: {
-          'content-type': 'application/json',
-        },
       }
     );
   } catch (error) {
@@ -22,20 +20,17 @@ export async function GET(): Promise<Response> {
       // eslint-disable-next-line no-console
       console.error('Database connection error:', error);
     }
-    
+
     await prisma.$disconnect();
-    
-    return new Response(
-      JSON.stringify({
+
+    return NextResponse.json(
+      {
         status: 'error',
         message: 'Database connection failed',
-      }),
+      },
       {
         status: 500,
-        headers: {
-          'content-type': 'application/json',
-        },
       }
     );
   }
-} 
+}

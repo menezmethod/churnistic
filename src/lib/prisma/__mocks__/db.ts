@@ -1,9 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { mockDeep, mockReset, DeepMockProxy } from 'jest-mock-extended';
 
-const prismaMock = mockDeep<PrismaClient>();
-
-export { prismaMock };
+export const prisma = mockDeep<PrismaClient>();
 
 export type Context = {
   prisma: PrismaClient;
@@ -15,14 +13,14 @@ export type MockContext = {
 
 export const createMockContext = (): MockContext => {
   return {
-    prisma: prismaMock,
+    prisma: prisma,
   };
 };
 
 beforeEach(() => {
-  mockReset(prismaMock);
+  mockReset(prisma);
 });
 
 jest.mock('@prisma/client', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => prismaMock),
-})); 
+  PrismaClient: jest.fn().mockImplementation(() => prisma),
+}));

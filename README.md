@@ -13,12 +13,14 @@ Churnistic is a platform that aggregates and analyzes real-world credit card chu
 ## 🎁 Quick Start
 
 1. Prerequisites:
+
 ```bash
 # Install Node.js 18+
 # Install MongoDB 6+
 ```
 
 2. Clone and Setup:
+
 ```bash
 # Clone repository
 git clone https://github.com/menezmethod/churnistic.git
@@ -33,6 +35,7 @@ cp .env.example .env.local
 ```
 
 3. Development:
+
 ```bash
 # Start development server
 npm run dev
@@ -96,10 +99,12 @@ Our documentation is organized into the following sections:
 ## 🚀 Development Timeline
 
 ### Phase 1: MVP (2 weeks)
+
 - Week 1: Foundation & Setup
 - Week 2: Core Features
 
 ### Phase 2: Enhancement (2 weeks)
+
 - Week 3: Feature Completion
 - Week 4: Polish & Launch
 
@@ -125,11 +130,13 @@ Our documentation is organized into the following sections:
 ## 👥 Target Audience
 
 ### Primary
+
 - Active churners
 - Travel hackers
 - Points/miles enthusiasts
 
 ### Secondary
+
 - Travel planners
 - Bank bonus seekers
 - Credit card optimizers
@@ -160,4 +167,4 @@ npm start
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

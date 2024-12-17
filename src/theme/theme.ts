@@ -96,4 +96,4 @@ const themeOptions: ThemeOptions = {
   ],
 };
 
-export const theme = createTheme(themeOptions); 
+export const theme = createTheme(themeOptions);

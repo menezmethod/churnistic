@@ -14,4 +14,4 @@ export function initAdmin(): void {
       credential: cert(firebaseAdminConfig),
     });
   }
-} 
+}

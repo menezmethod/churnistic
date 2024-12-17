@@ -11,10 +11,7 @@ export const trpc = createTRPCProxyClient<AppRouter>({
 });
 
 // Test helper functions
-export async function testQuery<T>(
-  queryFn: () => Promise<T>,
-  expectedData?: T
-): Promise<void> {
+export async function testQuery<T>(queryFn: () => Promise<T>, expectedData?: T): Promise<void> {
   try {
     const data = await queryFn();
     if (expectedData) {
@@ -46,16 +43,16 @@ export async function testMutation<T>(
 }
 
 // Example test helpers for specific routes
-export async function testUserQuery() {
+export async function testUserQuery(): Promise<void> {
   return testQuery(async () => {
     return await trpc.user.me.query();
   });
 }
 
-export async function testCardQuery(cardId: string) {
+export async function testCardQuery(cardId: string): Promise<void> {
   return testQuery(async () => trpc.card.checkEligibility.query({ cardId }));
 }
 
-export async function testBankQuery(accountId: string) {
+export async function testBankQuery(accountId: string): Promise<void> {
   return testQuery(async () => trpc.bank.getBonusProgress.query({ accountId }));
-} 
+}

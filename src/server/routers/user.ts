@@ -7,14 +7,14 @@ export const userRouter = router({
     const user = await ctx.prisma.user.findUnique({
       where: { firebaseUid: ctx.session.uid },
     });
-    
+
     if (!user) {
       throw new TRPCError({
         code: 'NOT_FOUND',
         message: 'User not found',
       });
     }
-    
+
     return user;
   }),
 
@@ -52,4 +52,4 @@ export const userRouter = router({
       where: { firebaseUid: ctx.session.uid },
     });
   }),
-}); 
+});

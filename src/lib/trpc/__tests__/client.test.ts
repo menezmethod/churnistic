@@ -7,7 +7,7 @@ describe('tRPC Client', () => {
   beforeEach(() => {
     jest.resetModules();
     process.env = { ...originalEnv };
-    // @ts-ignore
+    // @ts-expect-error: window is undefined in test environment
     delete global.window;
   });
 
@@ -53,4 +53,4 @@ describe('tRPC Client', () => {
       expect(getUrl()).toBe('http://localhost:3000/api/trpc');
     });
   });
-}); 
+});

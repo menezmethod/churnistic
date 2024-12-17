@@ -1,60 +1,33 @@
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  GoogleAuthProvider,
-  signInWithPopup,
-  sendPasswordResetEmail,
-  User,
-} from 'firebase/auth';
-import { auth } from './firebase';
+import { NextRequest } from 'next/server';
+import { getAuth } from 'firebase-admin/auth';
 
-export const signUp = async (email: string, password: string) => {
+export interface Session {
+  uid: string;
+  email: string | null;
+}
+
+export interface AuthContext {
+  session: Session | null;
+}
+
+export async function createAuthContext(req: NextRequest): Promise<AuthContext> {
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    return { user: userCredential.user, error: null };
-  } catch (error) {
-    return { user: null, error };
-  }
-};
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return { session: null };
+    }
 
-export const signIn = async (email: string, password: string) => {
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return { user: userCredential.user, error: null };
-  } catch (error) {
-    return { user: null, error };
-  }
-};
+    const token = authHeader.split('Bearer ')[1];
+    const decodedToken = await getAuth().verifyIdToken(token);
 
-export const signOut = async () => {
-  try {
-    await firebaseSignOut(auth);
-    return { error: null };
-  } catch (error) {
-    return { error };
+    return {
+      session: {
+        uid: decodedToken.uid,
+        email: decodedToken.email || null,
+      },
+    };
+  } catch {
+    // Return null session for any auth errors
+    return { session: null };
   }
-};
-
-export const signInWithGoogle = async () => {
-  try {
-    const provider = new GoogleAuthProvider();
-    const userCredential = await signInWithPopup(auth, provider);
-    return { user: userCredential.user, error: null };
-  } catch (error) {
-    return { user: null, error };
-  }
-};
-
-export const resetPassword = async (email: string) => {
-  try {
-    await sendPasswordResetEmail(auth, email);
-    return { error: null };
-  } catch (error) {
-    return { error };
-  }
-};
-
-export const getCurrentUser = (): User | null => {
-  return auth.currentUser;
-}; 
+}

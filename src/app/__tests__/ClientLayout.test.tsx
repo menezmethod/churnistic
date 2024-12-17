@@ -3,11 +3,15 @@ import { ClientLayout } from '../ClientLayout';
 
 // Mock Material-UI components and theme
 jest.mock('@mui/material-nextjs/v14-appRouter', () => ({
-  AppRouterCacheProvider: ({ children }: { children: React.ReactNode }): JSX.Element => <div>{children}</div>,
+  AppRouterCacheProvider: ({ children }: { children: React.ReactNode }): JSX.Element => (
+    <div>{children}</div>
+  ),
 }));
 
 jest.mock('@mui/material/styles', () => ({
-  ThemeProvider: ({ children }: { children: React.ReactNode }): JSX.Element => <div>{children}</div>,
+  ThemeProvider: ({ children }: { children: React.ReactNode }): JSX.Element => (
+    <div>{children}</div>
+  ),
   createTheme: (): Record<string, unknown> => ({}),
 }));
 
@@ -32,4 +36,4 @@ describe('ClientLayout', () => {
 
     expect(screen.getByTestId('test-child')).toHaveTextContent(testContent);
   });
-}); 
+});

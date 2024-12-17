@@ -7,7 +7,7 @@ import {
   GithubAuthProvider,
   onAuthStateChanged,
   User,
-  type AuthError
+  type AuthError,
 } from 'firebase/auth';
 import {
   signInWithEmail,
@@ -15,7 +15,7 @@ import {
   signInWithGoogle,
   signInWithGithub,
   signOut,
-  onAuthStateChange
+  onAuthStateChange,
 } from '../auth';
 
 // Mock firebase/app
@@ -126,7 +126,7 @@ describe('Firebase Auth', () => {
   describe('signInWithGoogle', () => {
     it('should sign in successfully with Google', async () => {
       const provider = { addScope: jest.fn() };
-      ((GoogleAuthProvider as unknown) as jest.Mock).mockReturnValueOnce(provider);
+      (GoogleAuthProvider as unknown as jest.Mock).mockReturnValueOnce(provider);
       (signInWithPopup as jest.Mock).mockResolvedValueOnce({
         user: mockUser,
       });
@@ -134,10 +134,7 @@ describe('Firebase Auth', () => {
       const result = await signInWithGoogle();
       expect(result).toEqual({ user: mockUser, error: null });
       expect(GoogleAuthProvider).toHaveBeenCalled();
-      expect(signInWithPopup).toHaveBeenCalledWith(
-        expect.anything(),
-        provider
-      );
+      expect(signInWithPopup).toHaveBeenCalledWith(expect.anything(), provider);
     });
 
     it('should handle Google sign in errors', async () => {
@@ -151,7 +148,7 @@ describe('Firebase Auth', () => {
   describe('signInWithGithub', () => {
     it('should sign in successfully with GitHub', async () => {
       const provider = { addScope: jest.fn() };
-      ((GithubAuthProvider as unknown) as jest.Mock).mockReturnValueOnce(provider);
+      (GithubAuthProvider as unknown as jest.Mock).mockReturnValueOnce(provider);
       (signInWithPopup as jest.Mock).mockResolvedValueOnce({
         user: mockUser,
       });
@@ -159,10 +156,7 @@ describe('Firebase Auth', () => {
       const result = await signInWithGithub();
       expect(result).toEqual({ user: mockUser, error: null });
       expect(GithubAuthProvider).toHaveBeenCalled();
-      expect(signInWithPopup).toHaveBeenCalledWith(
-        expect.anything(),
-        provider
-      );
+      expect(signInWithPopup).toHaveBeenCalledWith(expect.anything(), provider);
     });
 
     it('should handle GitHub sign in errors', async () => {
@@ -194,7 +188,7 @@ describe('Firebase Auth', () => {
     it('should set up auth state observer', () => {
       const mockCallback = jest.fn();
       const mockUnsubscribe = jest.fn();
-      
+
       (onAuthStateChanged as jest.Mock).mockReturnValueOnce(mockUnsubscribe);
 
       const unsubscribe = onAuthStateChange(mockCallback);
@@ -224,4 +218,4 @@ describe('Firebase Auth', () => {
       expect(mockCallback).toHaveBeenCalledWith(null);
     });
   });
-}); 
+});

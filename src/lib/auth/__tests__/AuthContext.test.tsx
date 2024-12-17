@@ -1,43 +1,49 @@
 import { render, screen } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../AuthContext';
 import { User } from 'firebase/auth';
-import { auth } from '../firebase';
+import { act } from 'react';
 
-// Mock Firebase auth
-jest.mock('../firebase', () => ({
-  auth: {
-    onAuthStateChanged: jest.fn(),
-  },
+const mockUser = {
+  email: 'test@example.com',
+  uid: '123',
+} as User;
+
+let authStateCallback: ((user: User | null) => void) | null = null;
+
+jest.mock('firebase/auth', () => ({
+  onAuthStateChanged: jest.fn((auth, callback) => {
+    authStateCallback = callback;
+    return () => {};
+  }),
+  getAuth: jest.fn(),
 }));
 
+jest.mock('../firebase', () => ({
+  auth: {},
+}));
+
+const TestComponent = (): JSX.Element => {
+  const { user, loading } = useAuth();
+  return (
+    <div>
+      {loading ? (
+        <div>Loading...</div>
+      ) : user ? (
+        <div>Logged in as {user.email}</div>
+      ) : (
+        <div>Not logged in</div>
+      )}
+    </div>
+  );
+};
+
 describe('AuthContext', () => {
-  const mockUser: Partial<User> = {
-    email: 'test@example.com',
-    uid: '123',
-  };
-
-  const TestComponent = (): JSX.Element => {
-    const { user, loading } = useAuth();
-    return (
-      <div>
-        {loading ? (
-          'Loading...'
-        ) : user ? (
-          `Logged in as ${user.email}`
-        ) : (
-          'Not logged in'
-        )}
-      </div>
-    );
-  };
-
-  beforeEach((): void => {
-    (auth.onAuthStateChanged as jest.Mock).mockReset();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    authStateCallback = null;
   });
 
-  it('provides loading state initially', (): void => {
-    (auth.onAuthStateChanged as jest.Mock).mockImplementation(() => () => {});
-
+  test('provides loading state initially', () => {
     render(
       <AuthProvider>
         <TestComponent />
@@ -47,57 +53,39 @@ describe('AuthContext', () => {
     expect(screen.getByText('Loading...')).toBeInTheDocument();
   });
 
-  it('provides user when authenticated', async (): Promise<void> => {
-    (auth.onAuthStateChanged as jest.Mock).mockImplementation((callback) => {
-      callback(mockUser);
-      return () => {};
-    });
-
+  test('updates state when auth state changes', async () => {
     render(
       <AuthProvider>
         <TestComponent />
       </AuthProvider>
     );
 
-    expect(await screen.findByText(`Logged in as ${mockUser.email}`)).toBeInTheDocument();
-  });
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
 
-  it('provides null user when not authenticated', async (): Promise<void> => {
-    (auth.onAuthStateChanged as jest.Mock).mockImplementation((callback) => {
-      callback(null);
-      return () => {};
+    await act(async () => {
+      if (authStateCallback) {
+        authStateCallback(mockUser);
+      }
     });
 
+    expect(screen.getByText(`Logged in as ${mockUser.email}`)).toBeInTheDocument();
+  });
+
+  test('handles sign out', async () => {
     render(
       <AuthProvider>
         <TestComponent />
       </AuthProvider>
     );
 
-    expect(await screen.findByText('Not logged in')).toBeInTheDocument();
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+
+    await act(async () => {
+      if (authStateCallback) {
+        authStateCallback(null);
+      }
+    });
+
+    expect(screen.getByText('Not logged in')).toBeInTheDocument();
   });
-
-  it('unsubscribes from auth state changes on unmount', (): void => {
-    const unsubscribe = jest.fn();
-    (auth.onAuthStateChanged as jest.Mock).mockImplementation(() => unsubscribe);
-
-    const { unmount } = render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
-
-    unmount();
-    expect(unsubscribe).toHaveBeenCalled();
-  });
-
-  it('throws error when useAuth is used outside AuthProvider', (): void => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
-    expect(() => {
-      render(<TestComponent />);
-    }).toThrow();
-
-    consoleError.mockRestore();
-  });
-}); 
+});

@@ -55,4 +55,4 @@ export const palette: PaletteOptions = {
     disabled: 'rgba(0, 0, 0, 0.38)',
   },
   divider: 'rgba(0, 0, 0, 0.12)',
-}; 
+};

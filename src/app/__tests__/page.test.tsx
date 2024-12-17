@@ -6,4 +6,4 @@ describe('HomePage', () => {
     render(<HomePage />);
     expect(screen.getByRole('main')).toBeInTheDocument();
   });
-}); 
+});

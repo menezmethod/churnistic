@@ -1,9 +1,5 @@
 module.exports = {
-  extends: [
-    'next/core-web-vitals',
-    'prettier',
-    'plugin:@typescript-eslint/recommended',
-  ],
+  extends: ['next/core-web-vitals', 'prettier', 'plugin:@typescript-eslint/recommended'],
   plugins: ['@typescript-eslint'],
   rules: {
     'no-unused-vars': 'error',
@@ -13,12 +9,5 @@ module.exports = {
     'react-hooks/rules-of-hooks': 'error',
     'react-hooks/exhaustive-deps': 'warn',
   },
-  ignorePatterns: [
-    'node_modules/',
-    '.next/',
-    'out/',
-    'coverage/',
-    '*.config.js',
-    '*.setup.ts',
-  ],
-}; 
+  ignorePatterns: ['node_modules/', '.next/', 'out/', 'coverage/', '*.config.js', '*.setup.ts'],
+};

@@ -4,11 +4,15 @@ import { metadata } from '../layout';
 
 // Mock the theme provider and other dependencies
 jest.mock('@mui/material-nextjs/v14-appRouter', () => ({
-  AppRouterCacheProvider: ({ children }: { children: React.ReactNode }): JSX.Element => <div data-testid="cache-provider">{children}</div>,
+  AppRouterCacheProvider: ({ children }: { children: React.ReactNode }): JSX.Element => (
+    <div data-testid="cache-provider">{children}</div>
+  ),
 }));
 
 jest.mock('@mui/material/styles', () => ({
-  ThemeProvider: ({ children }: { children: React.ReactNode }): JSX.Element => <div data-testid="theme-provider">{children}</div>,
+  ThemeProvider: ({ children }: { children: React.ReactNode }): JSX.Element => (
+    <div data-testid="theme-provider">{children}</div>
+  ),
   createTheme: (): unknown => ({
     palette: {
       primary: { main: '#2E7D32' },
@@ -38,7 +42,9 @@ jest.mock('@/theme/theme', () => ({
 
 // Mock next/document to handle html and body tags
 jest.mock('next/document', () => ({
-  Html: ({ children }: { children: React.ReactNode }): JSX.Element => <div data-testid="html">{children}</div>,
+  Html: ({ children }: { children: React.ReactNode }): JSX.Element => (
+    <div data-testid="html">{children}</div>
+  ),
   Head: (): null => null,
   Main: (): null => null,
   NextScript: (): null => null,
@@ -51,7 +57,7 @@ describe('RootLayout', () => {
         <div data-testid="test-child">Test Content</div>
       </RootLayout>
     );
-    
+
     const child = screen.getByTestId('test-child');
     expect(child).toBeInTheDocument();
     expect(child).toHaveTextContent('Test Content');
@@ -68,8 +74,8 @@ describe('RootLayout', () => {
         <div>Test Content</div>
       </RootLayout>
     );
-    
+
     expect(screen.getByTestId('theme-provider')).toBeInTheDocument();
     expect(screen.getByTestId('cache-provider')).toBeInTheDocument();
   });
-}); 
+});

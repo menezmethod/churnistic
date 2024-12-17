@@ -1,15 +1,50 @@
 import '@testing-library/jest-dom';
+import { Response, Headers, Request } from 'node-fetch';
 
-// Extend expect matchers
-expect.extend({
-  toHaveStyle(received, style) {
-    const pass = received.style[style] !== undefined;
-    return {
-      pass,
-      message: () => `expected ${received} to have style property ${style}`,
-    };
-  },
+// Mock web APIs
+Object.defineProperty(global, 'Response', {
+  writable: true,
+  value: Response,
 });
+
+Object.defineProperty(global, 'Headers', {
+  writable: true,
+  value: Headers,
+});
+
+Object.defineProperty(global, 'Request', {
+  writable: true,
+  value: Request,
+});
+
+// Mock Firebase
+const mockAuth = {
+  currentUser: null,
+  onAuthStateChanged: jest.fn((auth, callback) => {
+    callback(null);
+    return () => {};
+  }),
+};
+
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(() => ({
+    name: '[DEFAULT]',
+    options: {},
+  })),
+  getApps: jest.fn(() => []),
+  getApp: jest.fn(() => ({
+    name: '[DEFAULT]',
+    options: {},
+  })),
+}));
+
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(() => mockAuth),
+  onAuthStateChanged: jest.fn((auth, callback) => {
+    callback(null);
+    return () => {};
+  }),
+}));
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -48,4 +83,22 @@ class MockResizeObserver {
 Object.defineProperty(window, 'ResizeObserver', {
   writable: true,
   value: MockResizeObserver,
-}); 
+});
+
+// Suppress console errors in tests
+const originalError = console.error;
+beforeAll(() => {
+  console.error = (...args) => {
+    if (
+      typeof args[0] === 'string' &&
+      args[0].includes('Warning: ReactDOM.render is no longer supported')
+    ) {
+      return;
+    }
+    originalError.call(console, ...args);
+  };
+});
+
+afterAll(() => {
+  console.error = originalError;
+});

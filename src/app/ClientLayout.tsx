@@ -18,4 +18,4 @@ export function ClientLayout({ children }: ClientLayoutProps): JSX.Element {
       </ThemeProvider>
     </AppRouterCacheProvider>
   );
-} 
+}

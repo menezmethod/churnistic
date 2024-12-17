@@ -65,7 +65,7 @@ describe('Prisma Client', () => {
       configurable: true,
     });
     const { prisma } = await import('../db');
-    
+
     expect(prisma).toBeDefined();
     expect(mockPrismaConstructor).toHaveBeenCalledTimes(1);
     expect(prisma).toHaveProperty('user');
@@ -80,11 +80,11 @@ describe('Prisma Client', () => {
       value: 'development',
       configurable: true,
     });
-    
+
     // First import
     const { prisma: prisma1 } = await import('../db');
     expect(mockPrismaConstructor).toHaveBeenCalledTimes(1);
-    
+
     // Second import should reuse the same instance
     const { prisma: prisma2 } = await import('../db');
     expect(prisma2).toBe(prisma1);
@@ -96,7 +96,7 @@ describe('Prisma Client', () => {
       value: 'production',
       configurable: true,
     });
-    
+
     const { prisma } = await import('../db');
     expect(prisma).toBeDefined();
     expect(mockPrismaConstructor).toHaveBeenCalled();
@@ -115,7 +115,7 @@ describe('Prisma Client', () => {
 
     requiredModels.forEach(model => {
       expect(prisma).toHaveProperty(model as string);
-      expect(typeof (prisma as any)[model]).toBe('object');
+      expect(typeof prisma[model]).toBe('object');
     });
   });
-}); 
+});

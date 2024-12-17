@@ -1,139 +1,96 @@
-import {
-  signUp,
-  signIn,
-  signOut,
-  signInWithGoogle,
-  resetPassword,
-  getCurrentUser,
-} from '../authUtils';
-import { auth } from '../firebase';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  GoogleAuthProvider,
-  signInWithPopup,
-  sendPasswordResetEmail,
-} from 'firebase/auth';
+import { describe, expect, test, jest, beforeEach } from '@jest/globals';
+import { createAuthContext } from '../authUtils';
+import type { NextRequest } from 'next/server';
+import type { DecodedIdToken, Auth } from 'firebase-admin/auth';
+import { getAuth } from 'firebase-admin/auth';
 
-// Mock Firebase auth
-jest.mock('firebase/auth');
-jest.mock('../firebase', () => ({
-  auth: {
-    _currentUser: null,
-    get currentUser() {
-      return this._currentUser;
-    },
-  },
-}));
+// Mock firebase-admin/auth
+jest.mock('firebase-admin/auth');
 
-describe('Auth Utils', () => {
-  const mockUser = {
+describe('authUtils', () => {
+  const mockDecodedToken: DecodedIdToken = {
+    uid: 'test-uid',
     email: 'test@example.com',
-    uid: '123',
+    aud: 'test-audience',
+    auth_time: 123456789,
+    exp: 123456789,
+    iat: 123456789,
+    iss: 'https://securetoken.google.com/test-project',
+    sub: 'test-user',
+    email_verified: true,
+    firebase: {
+      identities: {
+        email: ['test@example.com'],
+      },
+      sign_in_provider: 'custom',
+    },
   };
 
-  const mockError = new Error('Firebase Auth Error');
-
   beforeEach(() => {
-    jest.clearAllMocks();
-    (auth as any)._currentUser = null;
+    jest.resetAllMocks();
   });
 
-  describe('signUp', () => {
-    it('creates a new user successfully', async () => {
-      (createUserWithEmailAndPassword as jest.Mock).mockResolvedValue({ user: mockUser });
+  test('creates auth context from request', async (): Promise<void> => {
+    const mockRequest = {
+      headers: new Headers({
+        authorization: 'Bearer test-token',
+      }),
+    } as NextRequest;
 
-      const result = await signUp('test@example.com', 'password123');
-      expect(result).toEqual({ user: mockUser, error: null });
-      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(auth, 'test@example.com', 'password123');
-    });
+    const mockVerifyIdToken = jest.fn().mockImplementation(
+      async (token) => {
+        expect(token).toBe('test-token');
+        return mockDecodedToken;
+      }
+    );
+    (getAuth as jest.Mock).mockReturnValue({
+      verifyIdToken: mockVerifyIdToken,
+    } as unknown as Auth);
 
-    it('handles signup error', async () => {
-      (createUserWithEmailAndPassword as jest.Mock).mockRejectedValue(mockError);
-
-      const result = await signUp('test@example.com', 'password123');
-      expect(result).toEqual({ user: null, error: mockError });
-    });
+    const context = await createAuthContext(mockRequest);
+    expect(context.session?.uid).toBe(mockDecodedToken.uid);
+    expect(context.session?.email).toBe(mockDecodedToken.email);
+    expect(mockVerifyIdToken).toHaveBeenCalledWith('test-token');
   });
 
-  describe('signIn', () => {
-    it('signs in user successfully', async () => {
-      (signInWithEmailAndPassword as jest.Mock).mockResolvedValue({ user: mockUser });
+  test('handles missing authorization header', async (): Promise<void> => {
+    const mockRequest = {
+      headers: new Headers({}),
+    } as NextRequest;
 
-      const result = await signIn('test@example.com', 'password123');
-      expect(result).toEqual({ user: mockUser, error: null });
-      expect(signInWithEmailAndPassword).toHaveBeenCalledWith(auth, 'test@example.com', 'password123');
-    });
-
-    it('handles signin error', async () => {
-      (signInWithEmailAndPassword as jest.Mock).mockRejectedValue(mockError);
-
-      const result = await signIn('test@example.com', 'password123');
-      expect(result).toEqual({ user: null, error: mockError });
-    });
+    const context = await createAuthContext(mockRequest);
+    expect(context.session).toBeNull();
   });
 
-  describe('signOut', () => {
-    it('signs out user successfully', async () => {
-      (firebaseSignOut as jest.Mock).mockResolvedValue(undefined);
+  test('handles invalid token format', async (): Promise<void> => {
+    const mockRequest = {
+      headers: new Headers({
+        authorization: 'InvalidFormat',
+      }),
+    } as NextRequest;
 
-      const result = await signOut();
-      expect(result).toEqual({ error: null });
-      expect(firebaseSignOut).toHaveBeenCalledWith(auth);
-    });
-
-    it('handles signout error', async () => {
-      (firebaseSignOut as jest.Mock).mockRejectedValue(mockError);
-
-      const result = await signOut();
-      expect(result).toEqual({ error: mockError });
-    });
+    const context = await createAuthContext(mockRequest);
+    expect(context.session).toBeNull();
   });
 
-  describe('signInWithGoogle', () => {
-    it('signs in with Google successfully', async () => {
-      (signInWithPopup as jest.Mock).mockResolvedValue({ user: mockUser });
+  test('handles token verification failure', async (): Promise<void> => {
+    const mockRequest = {
+      headers: new Headers({
+        authorization: 'Bearer test-token',
+      }),
+    } as NextRequest;
 
-      const result = await signInWithGoogle();
-      expect(result).toEqual({ user: mockUser, error: null });
-      expect(signInWithPopup).toHaveBeenCalledWith(auth, expect.any(GoogleAuthProvider));
-    });
+    const mockVerifyIdToken = jest.fn().mockImplementation(
+      async (token) => {
+        expect(token).toBe('test-token');
+        throw new Error('Invalid token');
+      }
+    );
+    (getAuth as jest.Mock).mockReturnValue({
+      verifyIdToken: mockVerifyIdToken,
+    } as unknown as Auth);
 
-    it('handles Google signin error', async () => {
-      (signInWithPopup as jest.Mock).mockRejectedValue(mockError);
-
-      const result = await signInWithGoogle();
-      expect(result).toEqual({ user: null, error: mockError });
-    });
+    const context = await createAuthContext(mockRequest);
+    expect(context.session).toBeNull();
   });
-
-  describe('resetPassword', () => {
-    it('sends reset password email successfully', async () => {
-      (sendPasswordResetEmail as jest.Mock).mockResolvedValue(undefined);
-
-      const result = await resetPassword('test@example.com');
-      expect(result).toEqual({ error: null });
-      expect(sendPasswordResetEmail).toHaveBeenCalledWith(auth, 'test@example.com');
-    });
-
-    it('handles reset password error', async () => {
-      (sendPasswordResetEmail as jest.Mock).mockRejectedValue(mockError);
-
-      const result = await resetPassword('test@example.com');
-      expect(result).toEqual({ error: mockError });
-    });
-  });
-
-  describe('getCurrentUser', () => {
-    it('returns current user', () => {
-      (auth as any)._currentUser = mockUser;
-      expect(getCurrentUser()).toBe(mockUser);
-    });
-
-    it('returns null when no user is signed in', () => {
-      (auth as any)._currentUser = null;
-      expect(getCurrentUser()).toBeNull();
-    });
-  });
-}); 
+});

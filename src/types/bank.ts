@@ -43,7 +43,10 @@ export interface BonusProgress {
 }
 
 // Export a utility function to check requirement type
-export const isDirectDeposit = (type: RequirementType): boolean => type === RequirementType.DIRECT_DEPOSIT;
-export const isMinimumBalance = (type: RequirementType): boolean => type === RequirementType.MINIMUM_BALANCE;
-export const isDebitTransactions = (type: RequirementType): boolean => type === RequirementType.DEBIT_TRANSACTIONS;
-export const isBillPay = (type: RequirementType): boolean => type === RequirementType.BILL_PAY; 
+export const isDirectDeposit = (type: RequirementType): boolean =>
+  type === RequirementType.DIRECT_DEPOSIT;
+export const isMinimumBalance = (type: RequirementType): boolean =>
+  type === RequirementType.MINIMUM_BALANCE;
+export const isDebitTransactions = (type: RequirementType): boolean =>
+  type === RequirementType.DEBIT_TRANSACTIONS;
+export const isBillPay = (type: RequirementType): boolean => type === RequirementType.BILL_PAY;
