@@ -52,13 +52,15 @@ const mockApplication: CardApplication = {
 };
 
 // Mock request
-const mockRequest = (headers: Record<string, string> = {}): NextRequest =>
-  ({
+const mockRequest = (headers: Record<string, string> = {}): NextRequest => {
+  const headerMap = new Map(Object.entries(headers));
+  return {
     headers: {
-      get: (key: string) => headers[key],
+      get: (key: string) => headerMap.get(key) ?? null,
       ...headers,
     },
-  }) as NextRequest;
+  } as NextRequest;
+};
 
 // Update test context with authenticated user and Prisma mock
 const createAuthContext = async (): Promise<CreateContextOptions> => {

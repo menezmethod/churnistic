@@ -24,6 +24,8 @@ export interface AuthResponse {
   error: AuthError | null;
 }
 
+type AuthStateHandler = (authState: User | null) => void;
+
 const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -227,6 +229,6 @@ export const getCurrentUser = (): User | null => {
   return auth.currentUser;
 };
 
-export const onAuthStateChange = (callback: (_user: User | null) => void): Unsubscribe => {
+export const onAuthStateChange = (callback: AuthStateHandler): Unsubscribe => {
   return onAuthStateChanged(auth, callback);
 };

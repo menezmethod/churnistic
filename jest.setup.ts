@@ -22,7 +22,7 @@ const mockAuth = {
   currentUser: null,
   onAuthStateChanged: jest.fn((auth, callback) => {
     callback(null);
-    return () => {};
+    return (): void => {};
   }),
 };
 
@@ -40,7 +40,7 @@ jest.mock('firebase/app', () => ({
 
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(() => mockAuth),
-  onAuthStateChanged: jest.fn((auth, callback) => {
+  onAuthStateChanged: jest.fn((auth, callback): (() => void) => {
     callback(null);
     return () => {};
   }),
@@ -49,7 +49,7 @@ jest.mock('firebase/auth', () => ({
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: jest.fn().mockImplementation((query): MediaQueryList => ({
     matches: false,
     media: query,
     onchange: null,
@@ -88,7 +88,7 @@ Object.defineProperty(window, 'ResizeObserver', {
 // Suppress console errors in tests
 const originalError = console.error;
 beforeAll(() => {
-  console.error = (...args) => {
+  console.error = (...args: unknown[]): void => {
     if (
       typeof args[0] === 'string' &&
       args[0].includes('Warning: ReactDOM.render is no longer supported')
