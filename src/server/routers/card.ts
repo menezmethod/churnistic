@@ -6,7 +6,7 @@ import type { Card, CardApplication } from '@prisma/client';
 
 // Define the rule types
 type VelocityRule = '5/24' | '2/30' | '1/90';
-type ChurningRule = 'once_lifetime' | 'once_24mo' | 'once_48mo';
+type ChurningRule = 'once_lifetime' | 'once_24mo' | 'once_48mo' | 'SAPPHIRE_48';
 
 type ApplicationWithCard = CardApplication & {
   card: Card;
@@ -18,7 +18,7 @@ interface RuleCheck {
   message: string;
 }
 
-const ruleChecks: Record<VelocityRule | ChurningRule, RuleCheck> = {
+const ruleChecks: Record<string, RuleCheck> = {
   '5/24': {
     rule: '5/24',
     check: (applications) => applications.length < 5,
@@ -49,6 +49,15 @@ const ruleChecks: Record<VelocityRule | ChurningRule, RuleCheck> = {
     check: (applications) => applications.length === 0,
     message: 'Can only receive bonus once every 48 months',
   },
+  'SAPPHIRE_48': {
+    rule: 'SAPPHIRE_48',
+    check: (applications) => !applications.some(app => 
+      app.card.name.includes('Sapphire') && 
+      app.bonusEarnedAt && 
+      app.bonusEarnedAt > new Date(Date.now() - 48 * 30 * 24 * 60 * 60 * 1000)
+    ),
+    message: 'No Sapphire bonus within 48 months',
+  },
 };
 
 function checkVelocityRule(
@@ -56,7 +65,39 @@ function checkVelocityRule(
   applications: ApplicationWithCard[]
 ): RuleViolation | null {
   const ruleCheck = ruleChecks[rule];
-  if (!ruleCheck.check(applications)) {
+  if (!ruleCheck) {
+    return null;
+  }
+
+  // Filter applications based on rule timeframe
+  const now = new Date();
+  const filteredApplications = applications.filter(app => {
+    const months = app.appliedAt.getTime() - now.getTime();
+    switch (rule) {
+      case '5/24':
+        return months <= 24 * 30 * 24 * 60 * 60 * 1000;
+      case '2/30':
+        return months <= 30 * 24 * 60 * 60 * 1000;
+      case '1/90':
+        return months <= 90 * 24 * 60 * 60 * 1000;
+      case 'once_lifetime':
+        return true;
+      case 'once_24mo':
+        return months <= 24 * 30 * 24 * 60 * 60 * 1000;
+      case 'once_48mo':
+        return months <= 48 * 30 * 24 * 60 * 60 * 1000;
+      case 'SAPPHIRE_48':
+        return !applications.some(app => 
+          app.card.name.includes('Sapphire') && 
+          app.bonusEarnedAt && 
+          app.bonusEarnedAt > new Date(Date.now() - 48 * 30 * 24 * 60 * 60 * 1000)
+        );
+      default:
+        return false;
+    }
+  });
+
+  if (!ruleCheck.check(filteredApplications)) {
     return {
       rule,
       message: ruleCheck.message,
@@ -91,6 +132,90 @@ const RetentionOfferInput = z.object({
 });
 
 export const cardRouter = router({
+  // Check card eligibility
+  checkEligibility: protectedProcedure
+    .input(z.object({
+      cardId: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const card = await ctx.prisma.card.findUnique({
+        where: { id: input.cardId },
+        include: { issuerRules: true },
+      });
+
+      if (!card) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Card not found',
+        });
+      }
+
+      const recentApplications = await ctx.prisma.cardApplication.findMany({
+        where: {
+          userId: ctx.session.uid,
+          appliedAt: {
+            gte: new Date(Date.now() - 24 * 30 * 24 * 60 * 60 * 1000), // 24 months
+          },
+        },
+        include: { card: true },
+      });
+
+      const violations: RuleViolation[] = [];
+
+      // Check velocity rules
+      if (card.velocityRules) {
+        for (const rule of card.velocityRules as (VelocityRule | ChurningRule)[]) {
+          const violation = checkVelocityRule(rule, recentApplications);
+          if (violation) {
+            violations.push(violation);
+          }
+        }
+      }
+
+      // Check issuer rules
+      if (card.issuerRules) {
+        const now = new Date();
+        for (const rule of card.issuerRules) {
+          if (rule.isActive) {
+            // Filter applications based on rule timeframe
+            const filteredApplications = recentApplications.filter(app => {
+              const months = app.appliedAt.getTime() - now.getTime();
+              switch (rule.ruleType) {
+                case '5/24':
+                  return months <= 24 * 30 * 24 * 60 * 60 * 1000;
+                case '2/30':
+                  return months <= 30 * 24 * 60 * 60 * 1000;
+                case '1/90':
+                  return months <= 90 * 24 * 60 * 60 * 1000;
+                case 'once_lifetime':
+                  return true;
+                case 'once_24mo':
+                  return months <= 24 * 30 * 24 * 60 * 60 * 1000;
+                case 'once_48mo':
+                case 'SAPPHIRE_48':
+                  return months <= 48 * 30 * 24 * 60 * 60 * 1000;
+                default:
+                  return false;
+              }
+            });
+
+            const ruleCheck = ruleChecks[rule.ruleType];
+            if (ruleCheck && !ruleCheck.check(filteredApplications)) {
+              violations.push({
+                rule: rule.ruleType,
+                message: ruleCheck.message,
+              });
+            }
+          }
+        }
+      }
+
+      return {
+        eligible: violations.length === 0,
+        violations,
+      } as EligibilityCheck;
+    }),
+
   // Card Applications
   applyForCard: protectedProcedure
     .input(CardApplicationInput)
@@ -183,6 +308,27 @@ export const cardRouter = router({
         });
       }
 
+      if (application.status !== CardStatus.APPROVED) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot track spend for non-approved applications',
+        });
+      }
+
+      if (!application.spendDeadline) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Application has no spend deadline set',
+        });
+      }
+
+      if (input.date > application.spendDeadline) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Spend date is after bonus deadline',
+        });
+      }
+
       const newProgress = application.spendProgress + input.amount;
       const bonusEarned = newProgress >= application.card.minSpend;
 
@@ -207,6 +353,20 @@ export const cardRouter = router({
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Application not found',
+        });
+      }
+
+      if (application.status !== CardStatus.APPROVED) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot add retention offer for non-approved applications',
+        });
+      }
+
+      if (application.closedAt) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot add retention offer for closed applications',
         });
       }
 
@@ -256,51 +416,6 @@ export const cardRouter = router({
       return {
         items: applications,
         nextCursor,
-      };
-    }),
-
-  // Check application eligibility
-  checkEligibility: protectedProcedure
-    .input(z.object({
-      cardId: z.string(),
-    }))
-    .query(async ({ ctx, input }): Promise<EligibilityCheck> => {
-      const card = await ctx.prisma.card.findUnique({
-        where: { id: input.cardId },
-        include: { issuerRules: true },
-      });
-
-      if (!card) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Card not found',
-        });
-      }
-
-      const recentApplications = await ctx.prisma.cardApplication.findMany({
-        where: {
-          userId: ctx.session.uid,
-          appliedAt: {
-            gte: new Date(Date.now() - 24 * 30 * 24 * 60 * 60 * 1000), // 24 months
-          },
-        },
-        include: { card: true },
-      });
-
-      const rules = card.issuerRules.filter((rule: { isActive: boolean; ruleType: string }) => rule.isActive);
-      const violations: RuleViolation[] = [];
-
-      // Check each rule
-      for (const rule of rules) {
-        const violation = checkVelocityRule(rule.ruleType as VelocityRule | ChurningRule, recentApplications);
-        if (violation) {
-          violations.push(violation);
-        }
-      }
-
-      return {
-        eligible: violations.length === 0,
-        violations,
       };
     }),
 }); 

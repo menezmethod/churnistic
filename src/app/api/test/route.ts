@@ -1,27 +1,41 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma/db';
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(): Promise<Response> {
   try {
-    // Test database connection
     await prisma.$connect();
-    
-    return NextResponse.json({ 
-      status: 'success',
-      message: 'Database connection successful'
-    });
+    await prisma.$disconnect();
+
+    return new Response(
+      JSON.stringify({
+        status: 'success',
+        message: 'Database connection successful',
+      }),
+      {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }
+    );
   } catch (error) {
-    // Log error in development only
     if (process.env.NODE_ENV !== 'production') {
       // eslint-disable-next-line no-console
       console.error('Database connection error:', error);
     }
     
-    return NextResponse.json({ 
-      status: 'error',
-      message: 'Database connection failed'
-    }, { status: 500 });
-  } finally {
     await prisma.$disconnect();
+    
+    return new Response(
+      JSON.stringify({
+        status: 'error',
+        message: 'Database connection failed',
+      }),
+      {
+        status: 500,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }
+    );
   }
 } 

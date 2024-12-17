@@ -1,81 +1,77 @@
-import { 
+import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   signInWithPopup,
   GithubAuthProvider,
-  User,
+  sendPasswordResetEmail,
   onAuthStateChanged,
-  UserCredential,
-  Auth,
-  Unsubscribe,
-  AuthError
+  type User,
+  type Unsubscribe,
 } from 'firebase/auth';
-import { auth } from './config';
+import { auth } from '../auth/firebase';
 
-interface AuthResponse {
-  user: User | null;
-  error: AuthError | null;
-}
-
-interface SignOutResponse {
-  error: AuthError | null;
-}
-
-// Sign in with email and password
-export const signInWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
+export const signInWithEmail = async (email: string, password: string): Promise<{ user: User | null; error: unknown }> => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return { user: userCredential.user, error: null };
   } catch (error) {
-    return { user: null, error: error as AuthError };
+    return { user: null, error };
   }
 };
 
-// Sign up with email and password
-export const signUpWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
+export const signUpWithEmail = async (email: string, password: string): Promise<{ user: User | null; error: unknown }> => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     return { user: userCredential.user, error: null };
   } catch (error) {
-    return { user: null, error: error as AuthError };
+    return { user: null, error };
   }
 };
 
-// Sign in with Google
-export const signInWithGoogle = async (): Promise<AuthResponse> => {
+export const signOut = async (): Promise<{ error: unknown }> => {
+  try {
+    await firebaseSignOut(auth);
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
+};
+
+export const signInWithGoogle = async (): Promise<{ user: User | null; error: unknown }> => {
   try {
     const provider = new GoogleAuthProvider();
     const userCredential = await signInWithPopup(auth, provider);
     return { user: userCredential.user, error: null };
   } catch (error) {
-    return { user: null, error: error as AuthError };
+    return { user: null, error };
   }
 };
 
-// Sign in with GitHub
-export const signInWithGithub = async (): Promise<AuthResponse> => {
+export const signInWithGithub = async (): Promise<{ user: User | null; error: unknown }> => {
   try {
     const provider = new GithubAuthProvider();
     const userCredential = await signInWithPopup(auth, provider);
     return { user: userCredential.user, error: null };
   } catch (error) {
-    return { user: null, error: error as AuthError };
+    return { user: null, error };
   }
 };
 
-// Sign out
-export const signOut = async (): Promise<SignOutResponse> => {
+export const resetPassword = async (email: string): Promise<{ error: unknown }> => {
   try {
-    await firebaseSignOut(auth);
+    await sendPasswordResetEmail(auth, email);
     return { error: null };
   } catch (error) {
-    return { error: error as AuthError };
+    return { error };
   }
 };
 
-// Auth state observer
+export const getCurrentUser = (): User | null => {
+  return auth.currentUser;
+};
+
 export const onAuthStateChange = (callback: (user: User | null) => void): Unsubscribe => {
   return onAuthStateChanged(auth, callback);
 }; 

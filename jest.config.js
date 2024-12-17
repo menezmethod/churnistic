@@ -5,16 +5,17 @@ const createJestConfig = nextJest({
 });
 
 const customJestConfig = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: [
+    '<rootDir>/jest.setup.ts',
+    '<rootDir>/src/app/api/trpc/__tests__/setup.ts'
+  ],
   testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(css|less|sass|scss)$': 'identity-obj-proxy',
   },
   collectCoverageFrom: [
-    'src/app/layout.tsx',
-    'src/app/page.tsx',
-    'src/theme/**/*.{ts,tsx}',
+    'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
     '!src/**/*.stories.{js,jsx,ts,tsx}',
     '!src/**/*.test.{js,jsx,ts,tsx}',
@@ -29,9 +30,7 @@ const customJestConfig = {
     },
   },
   testMatch: [
-    '<rootDir>/src/app/__tests__/layout.test.tsx',
-    '<rootDir>/src/app/__tests__/page.test.tsx',
-    '<rootDir>/src/theme/__tests__/theme.test.ts',
+    '<rootDir>/src/**/__tests__/**/*.test.{ts,tsx}',
   ],
   transform: {
     '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
