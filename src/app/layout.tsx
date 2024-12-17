@@ -1,10 +1,9 @@
 import CssBaseline from '@mui/material/CssBaseline';
-import { ThemeProvider } from '@mui/material/styles';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
 import type { Metadata } from 'next';
 
-import { AuthProvider } from '@/lib/auth/AuthContext';
-import { theme } from '@/theme/theme';
+import { ClientAuthProvider } from '@/lib/auth/ClientAuthProvider';
+import { ClientThemeProvider } from '@/theme/ClientThemeProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -21,10 +20,10 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AppRouterCacheProvider>
-          <ThemeProvider theme={theme}>
+          <ClientThemeProvider>
             <CssBaseline />
-            <AuthProvider>{children}</AuthProvider>
-          </ThemeProvider>
+            <ClientAuthProvider>{children}</ClientAuthProvider>
+          </ClientThemeProvider>
         </AppRouterCacheProvider>
       </body>
     </html>

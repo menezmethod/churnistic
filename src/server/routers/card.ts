@@ -13,13 +13,6 @@ const cardApplicationSchema = z.object({
   notes: z.string().optional(),
 });
 
-const retentionOfferSchema = z.object({
-  applicationId: z.string(),
-  pointsOffered: z.number().optional(),
-  statementCredit: z.number().optional(),
-  spendRequired: z.number().optional(),
-  notes: z.string().optional(),
-});
 
 export const cardRouter = router({
   // Apply for a new card

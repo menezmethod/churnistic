@@ -1,5 +1,22 @@
+/// <reference types="node" />
 import '@testing-library/jest-dom';
-import { Response, Headers, Request } from 'node-fetch';
+import type { Response as NodeResponse } from 'node-fetch';
+import fetch, { Response, Headers as NodeHeaders, Request as NodeRequest } from 'node-fetch';
+
+declare global {
+  namespace NodeJS {
+    interface Global {
+      fetch: typeof fetch;
+      Request: typeof NodeRequest;
+      Response: typeof NodeResponse;
+    }
+  }
+}
+
+// Set up global fetch API
+(global.fetch as unknown) = fetch;
+(global.Request as unknown) = NodeRequest;
+(global.Response as unknown) = Response;
 
 // Mock web APIs
 Object.defineProperty(global, 'Response', {
@@ -9,12 +26,12 @@ Object.defineProperty(global, 'Response', {
 
 Object.defineProperty(global, 'Headers', {
   writable: true,
-  value: Headers,
+  value: NodeHeaders,
 });
 
 Object.defineProperty(global, 'Request', {
   writable: true,
-  value: Request,
+  value: NodeRequest,
 });
 
 // Mock Firebase

@@ -1,5 +1,4 @@
 import { router } from '../trpc';
-
 import { bankRouter } from './bank';
 import { cardRouter } from './card';
 import { companyRouter } from './company';
