@@ -100,26 +100,130 @@ jest.mock('firebase/auth', () => {
   };
 });
 
+// Test accounts
+const TEST_USER = {
+  email: 'qa.tester@churnistic.com',
+  password: 'TestUser@2024',
+  uid: 'test-user-uid',
+};
+
+const TEST_ADMIN = {
+  email: 'admin@churnistic.com',
+  password: 'AdminUser@2024',
+  uid: 'admin-user-uid',
+};
+
 // Mock Firebase auth instance
-jest.mock('@/lib/firebase/auth', () => ({
-  auth: {
-    currentUser: null,
-    onAuthStateChanged: jest.fn((callback: NextOrObserver<User | null>): Unsubscribe => {
-      if (typeof callback === 'function') {
-        callback(null);
+jest.mock('@/lib/firebase/auth', () => {
+  let currentUser: User | null = null;
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePassword = (password: string): boolean => {
+    return password.length >= 6;
+  };
+
+  const createAuthError = (code: string, message: string, originalError?: unknown) => ({
+    code,
+    message,
+    originalError,
+  });
+
+  return {
+    auth: {
+      currentUser: null,
+      onAuthStateChanged: jest.fn(
+        (callback: NextOrObserver<User | null>): Unsubscribe => {
+          if (typeof callback === 'function') {
+            callback(currentUser);
+          }
+          return jest.fn();
+        }
+      ),
+    },
+    signInWithEmail: jest.fn(async (email: string, password: string) => {
+      if (!email || !password) {
+        return {
+          user: null,
+          error: createAuthError('auth/invalid-input', 'Email and password are required'),
+        };
       }
+
+      if (!validateEmail(email)) {
+        return {
+          user: null,
+          error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
+        };
+      }
+
+      if (!validatePassword(password)) {
+        return {
+          user: null,
+          error: createAuthError(
+            'auth/weak-password',
+            'Password should be at least 6 characters'
+          ),
+        };
+      }
+
+      // Check test accounts
+      if (
+        (email === TEST_USER.email && password === TEST_USER.password) ||
+        (email === TEST_ADMIN.email && password === TEST_ADMIN.password)
+      ) {
+        const user = {
+          uid: email === TEST_USER.email ? TEST_USER.uid : TEST_ADMIN.uid,
+          email,
+          emailVerified: true,
+        } as User;
+        currentUser = user;
+        return { user, error: null };
+      }
+
+      return {
+        user: null,
+        error: createAuthError('auth/invalid-credential', 'Invalid email or password'),
+      };
+    }),
+    signUpWithEmail: jest.fn(),
+    signOut: jest.fn(async () => {
+      currentUser = null;
+      return { error: null };
+    }),
+    signInWithGoogle: jest.fn(),
+    signInWithGithub: jest.fn(),
+    resetPassword: jest.fn(async (email: string) => {
+      if (!email) {
+        return {
+          error: createAuthError('auth/invalid-input', 'Email is required'),
+        };
+      }
+
+      if (!validateEmail(email)) {
+        return {
+          error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
+        };
+      }
+
+      // Only allow password reset for test accounts
+      if (email === TEST_USER.email || email === TEST_ADMIN.email) {
+        return { error: null };
+      }
+
+      return {
+        error: createAuthError('auth/user-not-found', 'No user found with this email'),
+      };
+    }),
+    getCurrentUser: jest.fn(() => currentUser),
+    onAuthStateChange: jest.fn((callback: (user: User | null) => void) => {
+      callback(currentUser);
       return jest.fn();
     }),
-  },
-  signInWithEmail: jest.fn(),
-  signUpWithEmail: jest.fn(),
-  signOut: jest.fn(),
-  signInWithGoogle: jest.fn(),
-  signInWithGithub: jest.fn(),
-  resetPassword: jest.fn(),
-  getCurrentUser: jest.fn(),
-  onAuthStateChange: jest.fn(),
-}));
+  };
+});
 
 // Mock Firebase Admin
 jest.mock('firebase-admin/app', () => ({
