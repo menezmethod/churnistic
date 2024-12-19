@@ -176,3 +176,40 @@ src/
 ## License
 
 MIT
+
+# Environment Setup
+
+## Environment Files
+The project uses several environment files for different purposes:
+
+1. `.env.local` - Local development environment variables
+2. `.env.test` - Test environment variables
+3. `cypress.env.json` - Cypress test environment variables
+
+For security reasons, these files are not committed to the repository. Example files are provided:
+
+- `.env.example` - Example local environment variables
+- `.env.test.example` - Example test environment variables
+- `cypress.env.example.json` - Example Cypress environment variables
+
+To set up your environment:
+
+1. Copy the example files:
+   ```bash
+   cp .env.example .env.local
+   cp .env.test.example .env.test
+   cp cypress.env.example.json cypress.env.json
+   ```
+
+2. Fill in the actual values in each file:
+   - Firebase credentials
+   - Database URLs
+   - Test account credentials
+   - Other API keys and secrets
+
+## Security Notes
+- Never commit sensitive data or credentials to the repository
+- Keep all environment files (`.env.*`, `cypress.env.json`) in `.gitignore`
+- Regularly rotate API keys and credentials
+- Use separate credentials for development, testing, and production
+- When setting up CI/CD, use secure environment variables
