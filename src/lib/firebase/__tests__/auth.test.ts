@@ -2,16 +2,26 @@ import { describe, expect, it, beforeEach } from '@jest/globals';
 
 import { signInWithEmail, signOut, resetPassword, getCurrentUser } from '../auth';
 
-// Test accounts (these match the ones defined in jest.setup.ts)
+// Test accounts (using environment variables)
 const TEST_USER = {
-  email: 'qa.tester@churnistic.com',
-  password: 'TestUser@2024',
+  email: process.env.TEST_USER_EMAIL || '',
+  password: process.env.TEST_USER_PASSWORD || '',
 };
 
 const TEST_ADMIN = {
-  email: 'admin@churnistic.com',
-  password: 'AdminUser@2024',
+  email: process.env.TEST_ADMIN_EMAIL || '',
+  password: process.env.TEST_ADMIN_PASSWORD || '',
 };
+
+// Validate test environment
+if (
+  !TEST_USER.email ||
+  !TEST_USER.password ||
+  !TEST_ADMIN.email ||
+  !TEST_ADMIN.password
+) {
+  throw new Error('Test environment variables are not properly configured');
+}
 
 describe('Firebase Auth Tests', () => {
   beforeEach(async () => {

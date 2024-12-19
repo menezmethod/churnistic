@@ -64,6 +64,7 @@
     "babel-jest": "^29.7.0",
     "cypress": "^13.17.0",
     "cypress-firebase": "^4.2.1",
+    "dotenv": "^16.4.7",
     "eslint": "^8",
     "eslint-config-next": "^14.1.0",
     "eslint-config-prettier": "^9.1.0",
