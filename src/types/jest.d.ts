@@ -1,52 +1,39 @@
-import '@testing-library/jest-dom';
+/// <reference types="@testing-library/jest-dom" />
+
+import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers';
 
 declare global {
   namespace jest {
-    interface Matchers<R> {
+    interface Matchers<R = void> extends TestingLibraryMatchers<R, void> {
       toBeInTheDocument(): R;
-      toHaveTextContent(text: string): R;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      toHaveBeenCalledWith(...args: any[]): R;
-      toHaveBeenCalled(): R;
-      toBe(expected: unknown): R;
-      toEqual(expected: unknown): R;
-      toBeNull(): R;
-      toBeDefined(): R;
-      toContain(expected: string): R;
-      toHaveProperty(property: string): R;
-      toBeDisabled(): R;
-      toBeEnabled(): R;
-      toHaveClass(className: string): R;
-      toHaveValue(value: string | number): R;
-      toHaveAttribute(attr: string, value?: string): R;
-      toHaveStyle(style: Record<string, unknown>): R;
     }
 
-    interface Expect extends jest.Matchers<void> {
+    interface Expect {
       any(constructor: unknown): unknown;
       anything(): unknown;
+      objectContaining<T extends object>(obj: T): T;
     }
   }
 
+  // Extend Chai assertions
   namespace Chai {
-    interface Assertion {
-      toBeInTheDocument(): void;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      toHaveBeenCalledWith(...args: any[]): void;
-      toHaveBeenCalled(): void;
-      toHaveTextContent(text: string): void;
-      toBe(expected: unknown): void;
-      toEqual(expected: unknown): void;
-      toBeNull(): void;
-      toBeDefined(): void;
-      toContain(expected: string): void;
-      toHaveProperty(property: string): void;
-      toBeDisabled(): void;
-      toBeEnabled(): void;
-      toHaveClass(className: string): void;
-      toHaveValue(value: string | number): void;
-      toHaveAttribute(attr: string, value?: string): void;
-      toHaveStyle(style: Record<string, unknown>): void;
+    interface Assertion extends TestingLibraryMatchers<unknown, void> {
+      toBeInTheDocument(): Assertion;
+      toHaveTextContent(text: string): Assertion;
+      toHaveBeenCalledWith(...args: unknown[]): Assertion;
+      toHaveBeenCalled(): Assertion;
+      toBe(expected: unknown): Assertion;
+      toEqual(expected: unknown): Assertion;
+      toBeNull(): Assertion;
+      toBeDefined(): Assertion;
+      toContain(expected: string): Assertion;
+      toHaveProperty(property: string): Assertion;
+      toBeDisabled(): Assertion;
+      toBeEnabled(): Assertion;
+      toHaveClass(className: string): Assertion;
+      toHaveValue(value: string | number): Assertion;
+      toHaveAttribute(attr: string, value?: string): Assertion;
+      toHaveStyle(style: Record<string, unknown>): Assertion;
     }
   }
 }

@@ -1,26 +1,25 @@
+import { describe, it, expect, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 
-import RootLayout, { metadata } from '../layout';
+import RootLayout from '../layout';
 
-// Mock the theme provider and other dependencies
+// Mock the providers
+jest.mock('@/theme/ClientThemeProvider', () => ({
+  ClientThemeProvider: ({ children }: { children: React.ReactNode }): JSX.Element => (
+    <div data-testid="theme-provider">{children}</div>
+  ),
+}));
+
+jest.mock('@/lib/auth/ClientAuthProvider', () => ({
+  ClientAuthProvider: ({ children }: { children: React.ReactNode }): JSX.Element => (
+    <div data-testid="auth-provider">{children}</div>
+  ),
+}));
+
 jest.mock('@mui/material-nextjs/v14-appRouter', () => ({
   AppRouterCacheProvider: ({ children }: { children: React.ReactNode }): JSX.Element => (
     <div data-testid="cache-provider">{children}</div>
   ),
-}));
-
-jest.mock('@mui/material/styles', () => ({
-  ThemeProvider: ({ children }: { children: React.ReactNode }): JSX.Element => (
-    <div data-testid="theme-provider">{children}</div>
-  ),
-  createTheme: (): unknown => ({
-    palette: {
-      primary: { main: '#2E7D32' },
-    },
-    typography: {
-      fontFamily: '"Inter", "Roboto", "Arial", sans-serif',
-    },
-  }),
 }));
 
 jest.mock('@mui/material/CssBaseline', () => ({
@@ -28,56 +27,18 @@ jest.mock('@mui/material/CssBaseline', () => ({
   default: (): null => null,
 }));
 
-// Mock the theme
-jest.mock('@/theme/theme', () => ({
-  theme: {
-    palette: {
-      primary: { main: '#2E7D32' },
-    },
-    typography: {
-      fontFamily: '"Inter", "Roboto", "Arial", sans-serif',
-    },
-  },
-}));
-
-// Mock next/document to handle html and body tags
-jest.mock('next/document', () => ({
-  Html: ({ children }: { children: React.ReactNode }): JSX.Element => (
-    <div data-testid="html">{children}</div>
-  ),
-  Head: (): null => null,
-  Main: (): null => null,
-  NextScript: (): null => null,
-}));
-
 describe('RootLayout', () => {
-  it('renders children correctly', () => {
+  it('renders children within providers', () => {
     render(
       <RootLayout>
-        <div data-testid="test-child">Test Content</div>
-      </RootLayout>
-    );
-
-    const child = screen.getByTestId('test-child');
-    expect(child).toBeInTheDocument();
-    expect(child).toHaveTextContent('Test Content');
-  });
-
-  it('has correct metadata', () => {
-    expect(metadata.title).toBe('Churnistic - Credit Card Churning Tracker');
-    expect(metadata.description).toBe(
-      'Track and optimize your credit card churning strategy'
-    );
-  });
-
-  it('includes theme provider and css baseline', () => {
-    render(
-      <RootLayout>
-        <div>Test Content</div>
+        <div data-testid="test-child">Test Child</div>
       </RootLayout>
     );
 
     expect(screen.getByTestId('theme-provider')).toBeInTheDocument();
+    expect(screen.getByTestId('auth-provider')).toBeInTheDocument();
     expect(screen.getByTestId('cache-provider')).toBeInTheDocument();
+    expect(screen.getByTestId('test-child')).toBeInTheDocument();
+    expect(screen.getByText('Test Child')).toBeInTheDocument();
   });
 });

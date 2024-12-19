@@ -1,10 +1,9 @@
 import {
-  signInWithEmailAndPassword,
+  signInWithEmailAndPassword as firebaseSignInWithEmail,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   signInWithPopup,
-  GithubAuthProvider,
   sendPasswordResetEmail,
   onAuthStateChanged,
   type User,
@@ -12,12 +11,12 @@ import {
   type AuthError as FirebaseAuthError,
 } from 'firebase/auth';
 
-import { auth } from '../auth/firebase';
+import { auth } from './config';
 
 export interface AuthError {
   code: string;
   message: string;
-  originalError?: FirebaseAuthError;
+  originalError?: unknown;
 }
 
 export interface AuthResponse {
@@ -44,7 +43,7 @@ const createAuthError = (
   return {
     code,
     message,
-    originalError: originalError as FirebaseAuthError,
+    originalError,
   };
 };
 
@@ -52,40 +51,43 @@ export const signInWithEmail = async (
   email: string,
   password: string
 ): Promise<AuthResponse> => {
-  // Input validation
-  if (!email || !password) {
-    return {
-      user: null,
-      error: createAuthError('auth/invalid-input', 'Email and password are required'),
-    };
-  }
-
-  if (!validateEmail(email)) {
-    return {
-      user: null,
-      error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
-    };
-  }
-
-  if (!validatePassword(password)) {
-    return {
-      user: null,
-      error: createAuthError(
-        'auth/weak-password',
-        'Password should be at least 6 characters'
-      ),
-    };
-  }
-
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return { user: userCredential.user, error: null };
-  } catch (error) {
+    if (!email || !password) {
+      return {
+        user: null,
+        error: createAuthError('auth/invalid-input', 'Email and password are required'),
+      };
+    }
+
+    if (!validateEmail(email)) {
+      return {
+        user: null,
+        error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
+      };
+    }
+
+    if (!validatePassword(password)) {
+      return {
+        user: null,
+        error: createAuthError(
+          'auth/weak-password',
+          'Password should be at least 6 characters'
+        ),
+      };
+    }
+
+    const userCredential = await firebaseSignInWithEmail(auth, email, password);
+    return {
+      user: userCredential.user,
+      error: null,
+    };
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseAuthError;
     return {
       user: null,
       error: createAuthError(
-        (error as FirebaseAuthError).code || 'auth/unknown',
-        (error as FirebaseAuthError).message || 'An unknown error occurred',
+        firebaseError.code || 'auth/wrong-password',
+        firebaseError.message || 'Invalid credentials',
         error
       ),
     };
@@ -96,40 +98,40 @@ export const signUpWithEmail = async (
   email: string,
   password: string
 ): Promise<AuthResponse> => {
-  // Input validation
-  if (!email || !password) {
-    return {
-      user: null,
-      error: createAuthError('auth/invalid-input', 'Email and password are required'),
-    };
-  }
-
-  if (!validateEmail(email)) {
-    return {
-      user: null,
-      error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
-    };
-  }
-
-  if (!validatePassword(password)) {
-    return {
-      user: null,
-      error: createAuthError(
-        'auth/weak-password',
-        'Password should be at least 6 characters'
-      ),
-    };
-  }
-
   try {
+    if (!email || !password) {
+      return {
+        user: null,
+        error: createAuthError('auth/invalid-input', 'Email and password are required'),
+      };
+    }
+
+    if (!validateEmail(email)) {
+      return {
+        user: null,
+        error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
+      };
+    }
+
+    if (!validatePassword(password)) {
+      return {
+        user: null,
+        error: createAuthError(
+          'auth/weak-password',
+          'Password should be at least 6 characters'
+        ),
+      };
+    }
+
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     return { user: userCredential.user, error: null };
-  } catch (error) {
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseAuthError;
     return {
       user: null,
       error: createAuthError(
-        (error as FirebaseAuthError).code || 'auth/unknown',
-        (error as FirebaseAuthError).message || 'An unknown error occurred',
+        firebaseError.code || 'auth/unknown',
+        firebaseError.message || 'An unknown error occurred',
         error
       ),
     };
@@ -140,11 +142,12 @@ export const signOut = async (): Promise<{ error: AuthError | null }> => {
   try {
     await firebaseSignOut(auth);
     return { error: null };
-  } catch (error) {
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseAuthError;
     return {
       error: createAuthError(
-        (error as FirebaseAuthError).code || 'auth/unknown',
-        (error as FirebaseAuthError).message || 'An unknown error occurred',
+        firebaseError.code || 'auth/network-error',
+        firebaseError.message || 'Network error',
         error
       ),
     };
@@ -156,29 +159,13 @@ export const signInWithGoogle = async (): Promise<AuthResponse> => {
     const provider = new GoogleAuthProvider();
     const userCredential = await signInWithPopup(auth, provider);
     return { user: userCredential.user, error: null };
-  } catch (error) {
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseAuthError;
     return {
       user: null,
       error: createAuthError(
-        (error as FirebaseAuthError).code || 'auth/unknown',
-        (error as FirebaseAuthError).message || 'An unknown error occurred',
-        error
-      ),
-    };
-  }
-};
-
-export const signInWithGithub = async (): Promise<AuthResponse> => {
-  try {
-    const provider = new GithubAuthProvider();
-    const userCredential = await signInWithPopup(auth, provider);
-    return { user: userCredential.user, error: null };
-  } catch (error) {
-    return {
-      user: null,
-      error: createAuthError(
-        (error as FirebaseAuthError).code || 'auth/unknown',
-        (error as FirebaseAuthError).message || 'An unknown error occurred',
+        firebaseError.code || 'auth/unknown',
+        firebaseError.message || 'An unknown error occurred',
         error
       ),
     };
@@ -188,26 +175,27 @@ export const signInWithGithub = async (): Promise<AuthResponse> => {
 export const resetPassword = async (
   email: string
 ): Promise<{ error: AuthError | null }> => {
-  if (!email) {
-    return {
-      error: createAuthError('auth/invalid-input', 'Email is required'),
-    };
-  }
-
-  if (!validateEmail(email)) {
-    return {
-      error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
-    };
-  }
-
   try {
+    if (!email) {
+      return {
+        error: createAuthError('auth/invalid-input', 'Email is required'),
+      };
+    }
+
+    if (!validateEmail(email)) {
+      return {
+        error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
+      };
+    }
+
     await sendPasswordResetEmail(auth, email);
     return { error: null };
-  } catch (error) {
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseAuthError;
     return {
       error: createAuthError(
-        (error as FirebaseAuthError).code || 'auth/unknown',
-        (error as FirebaseAuthError).message || 'An unknown error occurred',
+        firebaseError.code || 'auth/user-not-found',
+        firebaseError.message || 'User not found',
         error
       ),
     };
