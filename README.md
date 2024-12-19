@@ -59,7 +59,7 @@ This project is developed with the assistance of Language Learning Models (LLMs)
 
    - Inline comments for complex logic
    - JSDoc for public APIs
-   - Comprehensive test coverage
+   - Comprehensive test cover
    - Up-to-date README files
 
 3. **Best Practices**

@@ -1,93 +1,119 @@
-import { describe, expect, test, jest, beforeEach } from '@jest/globals';
-import type { DecodedIdToken, Auth } from 'firebase-admin/auth';
 import { getAuth } from 'firebase-admin/auth';
 import type { NextRequest } from 'next/server';
 
 import { createAuthContext } from '../authUtils';
 
-// Mock firebase-admin/auth
-jest.mock('firebase-admin/auth');
+// Mock Firebase Admin Auth
+jest.mock('firebase-admin/auth', () => ({
+  getAuth: jest.fn(() => ({
+    verifyIdToken: jest.fn(),
+  })),
+}));
 
 describe('authUtils', () => {
-  const mockDecodedToken: DecodedIdToken = {
-    uid: 'test-uid',
-    email: 'test@example.com',
-    aud: 'test-audience',
-    auth_time: 123456789,
-    exp: 123456789,
-    iat: 123456789,
-    iss: 'https://securetoken.google.com/test-project',
-    sub: 'test-user',
-    email_verified: true,
-    firebase: {
-      identities: {
-        email: ['test@example.com'],
-      },
-      sign_in_provider: 'custom',
-    },
-  };
+  const mockVerifyIdToken = jest.fn();
+  const mockAuth = { verifyIdToken: mockVerifyIdToken };
 
   beforeEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
+    (getAuth as jest.Mock).mockReturnValue(mockAuth);
   });
 
-  test('creates auth context from request', async (): Promise<void> => {
+  it('returns null session when no authorization header is present', async () => {
     const mockRequest = {
-      headers: new Headers({
-        authorization: 'Bearer test-token',
-      }),
-    } as NextRequest;
+      headers: {
+        get: jest.fn().mockReturnValue(null),
+      },
+    } as unknown as NextRequest;
 
-    const mockVerifyIdToken = jest.fn().mockImplementation(async (token) => {
-      expect(token).toBe('test-token');
-      return mockDecodedToken;
+    const context = await createAuthContext(mockRequest);
+    expect(context.session).toBeNull();
+    expect(mockVerifyIdToken).not.toHaveBeenCalled();
+  });
+
+  it('returns null session when authorization header is invalid', async () => {
+    const mockRequest = {
+      headers: {
+        get: jest.fn().mockReturnValue('Invalid Token'),
+      },
+    } as unknown as NextRequest;
+
+    const context = await createAuthContext(mockRequest);
+    expect(context.session).toBeNull();
+    expect(mockVerifyIdToken).not.toHaveBeenCalled();
+  });
+
+  it('returns valid session for valid token', async () => {
+    const mockToken = 'valid.jwt.token';
+    const mockDecodedToken = {
+      uid: '123',
+      email: 'test@example.com',
+    };
+
+    const mockRequest = {
+      headers: {
+        get: jest.fn().mockReturnValue(`Bearer ${mockToken}`),
+      },
+    } as unknown as NextRequest;
+
+    mockVerifyIdToken.mockResolvedValueOnce(mockDecodedToken);
+
+    const context = await createAuthContext(mockRequest);
+
+    expect(mockVerifyIdToken).toHaveBeenCalledWith(mockToken);
+    expect(context.session).toEqual({
+      uid: mockDecodedToken.uid,
+      email: mockDecodedToken.email,
     });
-    (getAuth as jest.Mock).mockReturnValue({
-      verifyIdToken: mockVerifyIdToken,
-    } as unknown as Auth);
-
-    const context = await createAuthContext(mockRequest);
-    expect(context.session?.uid).toBe(mockDecodedToken.uid);
-    expect(context.session?.email).toBe(mockDecodedToken.email);
-    expect(mockVerifyIdToken).toHaveBeenCalledWith('test-token');
   });
 
-  test('handles missing authorization header', async (): Promise<void> => {
+  it('handles null email in token', async () => {
+    const mockToken = 'valid.jwt.token';
+    const mockDecodedToken = {
+      uid: '123',
+      email: null,
+    };
+
     const mockRequest = {
-      headers: new Headers({}),
-    } as NextRequest;
+      headers: {
+        get: jest.fn().mockReturnValue(`Bearer ${mockToken}`),
+      },
+    } as unknown as NextRequest;
+
+    mockVerifyIdToken.mockResolvedValueOnce(mockDecodedToken);
 
     const context = await createAuthContext(mockRequest);
-    expect(context.session).toBeNull();
-  });
 
-  test('handles invalid token format', async (): Promise<void> => {
-    const mockRequest = {
-      headers: new Headers({
-        authorization: 'InvalidFormat',
-      }),
-    } as NextRequest;
-
-    const context = await createAuthContext(mockRequest);
-    expect(context.session).toBeNull();
-  });
-
-  test('handles token verification failure', async (): Promise<void> => {
-    const mockRequest = {
-      headers: new Headers({
-        authorization: 'Bearer test-token',
-      }),
-    } as NextRequest;
-
-    const mockVerifyIdToken = jest.fn().mockImplementation(async (token) => {
-      expect(token).toBe('test-token');
-      throw new Error('Invalid token');
+    expect(context.session).toEqual({
+      uid: mockDecodedToken.uid,
+      email: null,
     });
-    (getAuth as jest.Mock).mockReturnValue({
-      verifyIdToken: mockVerifyIdToken,
-    } as unknown as Auth);
+  });
+
+  it('returns null session when token verification fails', async () => {
+    const mockRequest = {
+      headers: {
+        get: jest.fn().mockReturnValue('Bearer invalid.token'),
+      },
+    } as unknown as NextRequest;
+
+    mockVerifyIdToken.mockRejectedValueOnce(new Error('Invalid token'));
 
     const context = await createAuthContext(mockRequest);
+
     expect(context.session).toBeNull();
+  });
+
+  it('handles missing authorization header gracefully', async () => {
+    const mockRequest = {
+      headers: {
+        get: jest.fn().mockReturnValue(undefined),
+      },
+    } as unknown as NextRequest;
+
+    const context = await createAuthContext(mockRequest);
+
+    expect(context.session).toBeNull();
+    expect(mockVerifyIdToken).not.toHaveBeenCalled();
   });
 });

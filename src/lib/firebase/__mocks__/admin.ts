@@ -3,7 +3,8 @@ import { jest } from '@jest/globals';
 export const mockFirebaseAdminConfig = {
   projectId: 'test-project',
   clientEmail: 'test@test-project.iam.gserviceaccount.com',
-  privateKey: '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC9QFxMkfXEsqm5\n-----END PRIVATE KEY-----\n',
+  privateKey:
+    '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC9QFxMkfXEsqm5\n-----END PRIVATE KEY-----\n',
 };
 
 process.env.FIREBASE_PROJECT_ID = mockFirebaseAdminConfig.projectId;
@@ -32,4 +33,4 @@ jest.mock('firebase-admin/auth', () => ({
   getAuth: jest.fn(() => mockAuth),
 }));
 
-export { mockApp as app, mockAuth as auth }; 
+export { mockApp as app, mockAuth as auth };

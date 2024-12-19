@@ -18,10 +18,10 @@ import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import { signInWithEmail, signInWithGoogle, signInWithGithub } from '@/lib/firebase/auth';
+import { signInWithEmail, signInWithGoogle } from '@/lib/firebase/auth';
 
 import { ForgotPassword } from './ForgotPassword';
-import { GoogleIcon, GithubIcon } from './icons';
+import { GoogleIcon } from './icons';
 
 const Card = styled(MuiCard)(({ theme }) => ({
   display: 'flex',
@@ -156,22 +156,6 @@ export function SignIn(): JSX.Element {
     }
   };
 
-  const handleGithubSignIn = async (): Promise<void> => {
-    setIsLoading(true);
-    try {
-      const { error } = await signInWithGithub();
-      if (error) {
-        throw error;
-      }
-    } catch (error) {
-      console.error('GitHub sign in error:', error);
-      setEmailError(true);
-      setEmailErrorMessage('An error occurred with GitHub sign in. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <SignInContainer direction="column" justifyContent="space-between">
       <Card variant="outlined">
@@ -270,17 +254,6 @@ export function SignIn(): JSX.Element {
             disabled={isLoading}
           >
             Sign in with Google
-          </Button>
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={(): void => {
-              void handleGithubSignIn();
-            }}
-            startIcon={<GithubIcon />}
-            disabled={isLoading}
-          >
-            Sign in with GitHub
           </Button>
           <Typography sx={{ textAlign: 'center' }}>
             Don&apos;t have an account?{' '}

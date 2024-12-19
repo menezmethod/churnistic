@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { Permission, UserRole } from '@/types/auth';
 
-interface AuthOptions {
+export interface AuthOptions {
   requiredRole?: UserRole;
   requiredPermissions?: Permission[];
   redirectTo?: string;
@@ -57,7 +57,10 @@ export function withAuth<P extends object>(
     if (loading) {
       return (
         <div className="flex h-screen items-center justify-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"></div>
+          <div
+            data-testid="loading-spinner"
+            className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"
+          />
         </div>
       );
     }

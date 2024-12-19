@@ -43,4 +43,4 @@ jest.mock('firebase/auth', () => ({
 }));
 
 export { mockApp as app, mockAuth as auth };
-export default mockAuth; 
+export default mockAuth;

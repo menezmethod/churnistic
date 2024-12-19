@@ -31,14 +31,16 @@ describe('Firebase Auth', () => {
     // Import the module after mocking
     await import('../../firebase/config');
 
-    expect(initializeApp).toHaveBeenCalledWith(expect.objectContaining({
-      apiKey: expect.any(String),
-      authDomain: expect.any(String),
-      projectId: expect.any(String),
-      storageBucket: expect.any(String),
-      messagingSenderId: expect.any(String),
-      appId: expect.any(String),
-    }));
+    expect(initializeApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiKey: expect.any(String),
+        authDomain: expect.any(String),
+        projectId: expect.any(String),
+        storageBucket: expect.any(String),
+        messagingSenderId: expect.any(String),
+        appId: expect.any(String),
+      })
+    );
     expect(getAuth).toHaveBeenCalled();
   });
 });
