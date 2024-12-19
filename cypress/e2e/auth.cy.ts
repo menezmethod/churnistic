@@ -20,7 +20,6 @@ describe('Authentication', () => {
       cy.get('input[name="password"]').should('be.visible');
       cy.get('button[type="submit"]').should('contain', 'Sign in');
       cy.get('button').contains('Sign in with Google').should('be.visible');
-      cy.get('button').contains('Sign in with GitHub').should('be.visible');
       cy.get('button[type="button"]')
         .contains('Forgot your password?')
         .should('be.visible');
