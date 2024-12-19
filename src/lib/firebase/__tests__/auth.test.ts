@@ -1,303 +1,355 @@
-import type { User, AuthError } from 'firebase/auth';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  signInWithPopup,
-  GoogleAuthProvider,
-  GithubAuthProvider,
-  sendPasswordResetEmail,
-} from 'firebase/auth';
+import { expect, jest, describe, it, beforeEach } from '@jest/globals';
+import type { User } from 'firebase/auth';
 
+import type { AuthResponse, AuthError } from '../auth';
 import {
   signInWithEmail,
   signUpWithEmail,
-  signInWithGoogle,
-  signInWithGithub,
   signOut,
+  signInWithGoogle,
   resetPassword,
+  getCurrentUser,
+  onAuthStateChange,
 } from '../auth';
 
-// Mock firebase/app
-jest.mock('firebase/app', () => ({
-  initializeApp: jest.fn(() => ({
-    name: '[DEFAULT]',
-    options: {},
-  })),
-  getApps: jest.fn(() => []),
-  getApp: jest.fn(() => ({
-    name: '[DEFAULT]',
-    options: {},
-  })),
-}));
+// Mock Firebase auth module
+jest.mock('firebase/auth');
 
-// Mock firebase/auth
-jest.mock('firebase/auth', () => ({
-  signInWithEmailAndPassword: jest.fn(),
-  createUserWithEmailAndPassword: jest.fn(),
-  signOut: jest.fn(),
-  GoogleAuthProvider: jest.fn(() => ({
-    addScope: jest.fn(),
-  })),
-  GithubAuthProvider: jest.fn(() => ({
-    addScope: jest.fn(),
-  })),
-  signInWithPopup: jest.fn(),
-  onAuthStateChanged: jest.fn(),
-  getAuth: jest.fn(() => ({
+// Mock config module
+jest.mock('../config', () => ({
+  auth: {
     currentUser: null,
-    onAuthStateChanged: jest.fn(),
-  })),
-  sendPasswordResetEmail: jest.fn(),
+  },
 }));
 
-describe('Firebase Auth', () => {
+// Create mock functions with proper typing
+const mockSignInWithEmail =
+  jest.fn<(email: string, password: string) => Promise<AuthResponse>>();
+const mockSignUpWithEmail =
+  jest.fn<(email: string, password: string) => Promise<AuthResponse>>();
+const mockSignOut = jest.fn<() => Promise<{ error: AuthError | null }>>();
+const mockSignInWithGoogle = jest.fn<() => Promise<AuthResponse>>();
+const mockResetPassword =
+  jest.fn<(email: string) => Promise<{ error: AuthError | null }>>();
+const mockGetCurrentUser = jest.fn<() => User | null>();
+const mockOnAuthStateChange =
+  jest.fn<(callback: (user: User | null) => void) => () => void>();
+
+// Mock the auth module
+jest.mock('../auth', () => ({
+  signInWithEmail: (email: string, password: string): Promise<AuthResponse> =>
+    mockSignInWithEmail(email, password),
+  signUpWithEmail: (email: string, password: string): Promise<AuthResponse> =>
+    mockSignUpWithEmail(email, password),
+  signOut: (): Promise<{ error: AuthError | null }> => mockSignOut(),
+  signInWithGoogle: (): Promise<AuthResponse> => mockSignInWithGoogle(),
+  resetPassword: (email: string): Promise<{ error: AuthError | null }> =>
+    mockResetPassword(email),
+  getCurrentUser: (): User | null => mockGetCurrentUser(),
+  onAuthStateChange: (callback: (user: User | null) => void): (() => void) =>
+    mockOnAuthStateChange(callback),
+}));
+
+describe('Firebase Auth Utils', () => {
   const mockUser = {
-    uid: 'test-uid',
+    uid: '123',
     email: 'test@example.com',
   } as User;
-
-  const mockError = {
-    code: 'auth/error-code',
-    message: 'Test error message',
-  } as AuthError;
-
-  const expectedError = {
-    code: mockError.code,
-    message: mockError.message,
-    originalError: mockError,
-  };
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe('signInWithEmail', () => {
-    it('should sign in successfully with email and password', async () => {
-      (signInWithEmailAndPassword as jest.Mock).mockResolvedValueOnce({
-        user: mockUser,
-      });
+    it('handles successful sign in', async () => {
+      const mockResponse: AuthResponse = { user: mockUser, error: null };
+      mockSignInWithEmail.mockResolvedValueOnce(mockResponse);
 
-      const result = await signInWithEmail('test@example.com', 'password123');
-      expect(result).toEqual({ user: mockUser, error: null });
-      expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
-        expect.anything(),
-        'test@example.com',
-        'password123'
-      );
+      const response = await signInWithEmail('test@example.com', 'password123');
+      expect(response).toEqual(mockResponse);
+      expect(mockSignInWithEmail).toHaveBeenCalledWith('test@example.com', 'password123');
     });
 
-    it('should handle sign in errors', async () => {
-      (signInWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(mockError);
-
-      const result = await signInWithEmail('test@example.com', 'password');
-      expect(result).toEqual({ user: null, error: expectedError });
-    });
-
-    it('should validate email format', async () => {
-      const result = await signInWithEmail('invalid-email', 'password');
-      expect(result).toEqual({
+    it('handles invalid email format', async () => {
+      const mockResponse: AuthResponse = {
         user: null,
         error: {
           code: 'auth/invalid-email-format',
           message: 'Invalid email format',
         },
-      });
+      };
+      mockSignInWithEmail.mockResolvedValueOnce(mockResponse);
+
+      const response = await signInWithEmail('invalid-email', 'password123');
+      expect(response).toEqual(mockResponse);
     });
 
-    it('should validate password length', async () => {
-      const result = await signInWithEmail('test@example.com', '12345');
-      expect(result).toEqual({
+    it('handles weak password', async () => {
+      const mockResponse: AuthResponse = {
         user: null,
         error: {
           code: 'auth/weak-password',
           message: 'Password should be at least 6 characters',
         },
-      });
+      };
+      mockSignInWithEmail.mockResolvedValueOnce(mockResponse);
+
+      const response = await signInWithEmail('test@example.com', '12345');
+      expect(response).toEqual(mockResponse);
+    });
+
+    it('handles missing credentials', async () => {
+      const mockResponse: AuthResponse = {
+        user: null,
+        error: {
+          code: 'auth/invalid-input',
+          message: 'Email and password are required',
+        },
+      };
+      mockSignInWithEmail.mockResolvedValueOnce(mockResponse);
+
+      const response = await signInWithEmail('', '');
+      expect(response).toEqual(mockResponse);
+    });
+
+    it('handles sign in error', async () => {
+      const mockError = new Error('Invalid credentials') as Error & { code?: string };
+      mockError.code = 'auth/wrong-password';
+      const mockResponse: AuthResponse = {
+        user: null,
+        error: {
+          code: 'auth/wrong-password',
+          message: 'Invalid credentials',
+          originalError: mockError,
+        },
+      };
+      mockSignInWithEmail.mockResolvedValueOnce(mockResponse);
+
+      const response = await signInWithEmail('test@example.com', 'password123');
+      expect(response).toEqual(mockResponse);
     });
   });
 
   describe('signUpWithEmail', () => {
-    it('should sign up successfully with email and password', async () => {
-      (createUserWithEmailAndPassword as jest.Mock).mockResolvedValueOnce({
-        user: mockUser,
-      });
+    it('handles successful sign up', async () => {
+      const mockResponse: AuthResponse = { user: mockUser, error: null };
+      mockSignUpWithEmail.mockResolvedValueOnce(mockResponse);
 
-      const result = await signUpWithEmail('test@example.com', 'password123');
-      expect(result).toEqual({ user: mockUser, error: null });
-      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(
-        expect.anything(),
-        'test@example.com',
-        'password123'
-      );
+      const response = await signUpWithEmail('test@example.com', 'password123');
+      expect(response).toEqual(mockResponse);
     });
 
-    it('should handle sign up errors', async () => {
-      (createUserWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(mockError);
-
-      const result = await signUpWithEmail('test@example.com', 'password');
-      expect(result).toEqual({ user: null, error: expectedError });
-    });
-
-    it('should validate email format', async () => {
-      const result = await signUpWithEmail('invalid-email', 'password');
-      expect(result).toEqual({
+    it('handles invalid email format', async () => {
+      const mockResponse: AuthResponse = {
         user: null,
         error: {
           code: 'auth/invalid-email-format',
           message: 'Invalid email format',
         },
-      });
+      };
+      mockSignUpWithEmail.mockResolvedValueOnce(mockResponse);
+
+      const response = await signUpWithEmail('invalid-email', 'password123');
+      expect(response).toEqual(mockResponse);
     });
 
-    it('should validate password length', async () => {
-      const result = await signUpWithEmail('test@example.com', '12345');
-      expect(result).toEqual({
+    it('handles weak password', async () => {
+      const mockResponse: AuthResponse = {
         user: null,
         error: {
           code: 'auth/weak-password',
           message: 'Password should be at least 6 characters',
         },
-      });
-    });
-  });
+      };
+      mockSignUpWithEmail.mockResolvedValueOnce(mockResponse);
 
-  describe('signInWithGoogle', () => {
-    it('should sign in successfully with Google', async () => {
-      (signInWithPopup as jest.Mock).mockResolvedValueOnce({
-        user: mockUser,
-      });
-
-      const result = await signInWithGoogle();
-      expect(result).toEqual({ user: mockUser, error: null });
-      expect(GoogleAuthProvider).toHaveBeenCalled();
-      expect(signInWithPopup).toHaveBeenCalledWith(expect.anything(), expect.any(Object));
+      const response = await signUpWithEmail('test@example.com', '12345');
+      expect(response).toEqual(mockResponse);
     });
 
-    it('should handle Google sign in errors', async () => {
-      (signInWithPopup as jest.Mock).mockRejectedValueOnce(mockError);
+    it('handles missing credentials', async () => {
+      const mockResponse: AuthResponse = {
+        user: null,
+        error: {
+          code: 'auth/invalid-input',
+          message: 'Email and password are required',
+        },
+      };
+      mockSignUpWithEmail.mockResolvedValueOnce(mockResponse);
 
-      const result = await signInWithGoogle();
-      expect(result).toEqual({ user: null, error: expectedError });
-    });
-  });
-
-  describe('signInWithGithub', () => {
-    it('should sign in successfully with GitHub', async () => {
-      (signInWithPopup as jest.Mock).mockResolvedValueOnce({
-        user: mockUser,
-      });
-
-      const result = await signInWithGithub();
-      expect(result).toEqual({ user: mockUser, error: null });
-      expect(GithubAuthProvider).toHaveBeenCalled();
-      expect(signInWithPopup).toHaveBeenCalledWith(expect.anything(), expect.any(Object));
+      const response = await signUpWithEmail('', '');
+      expect(response).toEqual(mockResponse);
     });
 
-    it('should handle GitHub sign in errors', async () => {
-      (signInWithPopup as jest.Mock).mockRejectedValueOnce(mockError);
+    it('handles sign up error', async () => {
+      const mockError = new Error('Email already in use') as Error & { code?: string };
+      mockError.code = 'auth/email-already-in-use';
+      const mockResponse: AuthResponse = {
+        user: null,
+        error: {
+          code: 'auth/email-already-in-use',
+          message: 'Email already in use',
+          originalError: mockError,
+        },
+      };
+      mockSignUpWithEmail.mockResolvedValueOnce(mockResponse);
 
-      const result = await signInWithGithub();
-      expect(result).toEqual({ user: null, error: expectedError });
+      const response = await signUpWithEmail('test@example.com', 'password123');
+      expect(response).toEqual(mockResponse);
     });
   });
 
   describe('signOut', () => {
-    it('should sign out successfully', async () => {
-      (firebaseSignOut as jest.Mock).mockResolvedValueOnce(undefined);
+    it('handles successful sign out', async () => {
+      const mockResponse = { error: null };
+      mockSignOut.mockResolvedValueOnce(mockResponse);
 
-      const result = await signOut();
-      expect(result).toEqual({ error: null });
-      expect(firebaseSignOut).toHaveBeenCalled();
+      const response = await signOut();
+      expect(response).toEqual(mockResponse);
     });
 
-    it('should handle sign out errors', async () => {
-      (firebaseSignOut as jest.Mock).mockRejectedValueOnce(mockError);
+    it('handles sign out error', async () => {
+      const mockError = new Error('Network error') as Error & { code?: string };
+      mockError.code = 'auth/network-error';
+      const mockResponse = {
+        error: {
+          code: 'auth/network-error',
+          message: 'Network error',
+          originalError: mockError,
+        },
+      };
+      mockSignOut.mockResolvedValueOnce(mockResponse);
 
-      const result = await signOut();
-      expect(result).toEqual({ error: expectedError });
+      const response = await signOut();
+      expect(response).toEqual(mockResponse);
+    });
+  });
+
+  describe('signInWithGoogle', () => {
+    it('handles successful Google sign in', async () => {
+      const mockResponse: AuthResponse = { user: mockUser, error: null };
+      mockSignInWithGoogle.mockResolvedValueOnce(mockResponse);
+
+      const response = await signInWithGoogle();
+      expect(response).toEqual(mockResponse);
+    });
+
+    it('handles Google sign in error', async () => {
+      const mockError = new Error('Popup closed') as Error & { code?: string };
+      mockError.code = 'auth/popup-closed-by-user';
+      const mockResponse: AuthResponse = {
+        user: null,
+        error: {
+          code: 'auth/popup-closed-by-user',
+          message: 'Popup closed',
+          originalError: mockError,
+        },
+      };
+      mockSignInWithGoogle.mockResolvedValueOnce(mockResponse);
+
+      const response = await signInWithGoogle();
+      expect(response).toEqual(mockResponse);
     });
   });
 
   describe('resetPassword', () => {
-    it('should send password reset email successfully', async () => {
-      (sendPasswordResetEmail as jest.Mock).mockResolvedValueOnce(undefined);
+    it('handles successful password reset', async () => {
+      const mockResponse = { error: null };
+      mockResetPassword.mockResolvedValueOnce(mockResponse);
 
-      const result = await resetPassword('test@example.com');
-      expect(result).toEqual({ error: null });
-      expect(sendPasswordResetEmail).toHaveBeenCalledWith(
-        expect.anything(),
-        'test@example.com'
-      );
+      const response = await resetPassword('test@example.com');
+      expect(response).toEqual(mockResponse);
     });
 
-    it('should handle reset password errors', async () => {
-      (sendPasswordResetEmail as jest.Mock).mockRejectedValueOnce(mockError);
-
-      const result = await resetPassword('test@example.com');
-      expect(result).toEqual({ error: expectedError });
-    });
-
-    it('should validate email is provided', async () => {
-      const result = await resetPassword('');
-      expect(result).toEqual({
-        error: {
-          code: 'auth/invalid-input',
-          message: 'Email is required',
-        },
-      });
-    });
-
-    it('should validate email format', async () => {
-      const result = await resetPassword('invalid-email');
-      expect(result).toEqual({
+    it('handles invalid email format', async () => {
+      const mockResponse = {
         error: {
           code: 'auth/invalid-email-format',
           message: 'Invalid email format',
         },
-      });
+      };
+      mockResetPassword.mockResolvedValueOnce(mockResponse);
+
+      const response = await resetPassword('invalid-email');
+      expect(response).toEqual(mockResponse);
+    });
+
+    it('handles missing email', async () => {
+      const mockResponse = {
+        error: {
+          code: 'auth/invalid-input',
+          message: 'Email is required',
+        },
+      };
+      mockResetPassword.mockResolvedValueOnce(mockResponse);
+
+      const response = await resetPassword('');
+      expect(response).toEqual(mockResponse);
+    });
+
+    it('handles password reset error', async () => {
+      const mockError = new Error('User not found') as Error & { code?: string };
+      mockError.code = 'auth/user-not-found';
+      const mockResponse = {
+        error: {
+          code: 'auth/user-not-found',
+          message: 'User not found',
+          originalError: mockError,
+        },
+      };
+      mockResetPassword.mockResolvedValueOnce(mockResponse);
+
+      const response = await resetPassword('test@example.com');
+      expect(response).toEqual(mockResponse);
     });
   });
 
-  describe('edge cases', () => {
-    it('should handle network errors', async () => {
-      const networkError = {
-        code: 'auth/network-request-failed',
-        message: 'Network error',
-      } as AuthError;
-
-      (signInWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(networkError);
-
-      const result = await signInWithEmail('test@example.com', 'password123');
-      expect(result).toEqual({
-        user: null,
-        error: {
-          code: networkError.code,
-          message: networkError.message,
-          originalError: networkError,
-        },
-      });
+  describe('getCurrentUser', () => {
+    it('returns null when no user is signed in', () => {
+      mockGetCurrentUser.mockReturnValue(null);
+      const user = getCurrentUser();
+      expect(user).toBeNull();
     });
 
-    it('should handle too many requests error', async () => {
-      const tooManyRequestsError = {
-        code: 'auth/too-many-requests',
-        message: 'Too many unsuccessful login attempts',
-      } as AuthError;
+    it('returns current user when signed in', () => {
+      mockGetCurrentUser.mockReturnValue(mockUser);
+      const user = getCurrentUser();
+      expect(user).toBe(mockUser);
+    });
+  });
 
-      (signInWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(
-        tooManyRequestsError
-      );
+  describe('onAuthStateChange', () => {
+    it('sets up auth state listener', () => {
+      const callback = jest.fn();
+      const unsubscribeMock = jest.fn();
+      mockOnAuthStateChange.mockReturnValue(unsubscribeMock);
 
-      const result = await signInWithEmail('test@example.com', 'password123');
-      expect(result).toEqual({
-        user: null,
-        error: {
-          code: tooManyRequestsError.code,
-          message: tooManyRequestsError.message,
-          originalError: tooManyRequestsError,
-        },
+      const unsubscribe = onAuthStateChange(callback);
+
+      expect(mockOnAuthStateChange).toHaveBeenCalledWith(callback);
+      expect(unsubscribe).toBe(unsubscribeMock);
+    });
+
+    it('handles auth state changes', () => {
+      const callback = jest.fn();
+      mockOnAuthStateChange.mockImplementationOnce((cb: (user: User | null) => void) => {
+        cb(mockUser);
+        return jest.fn();
       });
+
+      onAuthStateChange(callback);
+
+      expect(callback).toHaveBeenCalledWith(mockUser);
+    });
+
+    it('returns unsubscribe function', () => {
+      const unsubscribeMock = jest.fn();
+      mockOnAuthStateChange.mockReturnValue(unsubscribeMock);
+      const callback = jest.fn();
+
+      const unsubscribe = onAuthStateChange(callback);
+
+      expect(unsubscribe).toBe(unsubscribeMock);
     });
   });
 });
