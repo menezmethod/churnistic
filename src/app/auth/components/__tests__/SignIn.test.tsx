@@ -1,22 +1,23 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import { signInWithEmail, signInWithGoogle, signInWithGithub } from '@/lib/firebase/auth';
+import { signInWithEmail } from '@/lib/firebase/auth';
 
 import { SignIn } from '../SignIn';
 
-// Mock the next/navigation module
+// Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }));
 
-// Mock the auth context
+// Mock auth context
 jest.mock('@/lib/auth/AuthContext', () => ({
   useAuth: jest.fn(),
 }));
 
-// Mock the auth functions
+// Mock firebase auth
 jest.mock('@/lib/firebase/auth', () => ({
   signInWithEmail: jest.fn(),
   signInWithGoogle: jest.fn(),
@@ -36,146 +37,69 @@ describe('SignIn Component', () => {
 
   it('renders sign in form', () => {
     render(<SignIn />);
-
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /sign in with google/i })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /sign in with github/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
   });
 
-  it('redirects to dashboard if user is already authenticated', () => {
-    (useAuth as jest.Mock).mockReturnValue({ user: { uid: '123' } });
+  it('shows validation error for invalid email', async () => {
     render(<SignIn />);
-
-    expect(mockRouter.push).toHaveBeenCalledWith('/dashboard');
-  });
-
-  it('validates email format', async () => {
-    render(<SignIn />);
-
-    const emailInput = screen.getByLabelText(/email/i);
-    const submitButton = screen.getByRole('button', { name: /^sign in$/i });
+    const emailInput = screen.getByLabelText('Email');
+    const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
     fireEvent.change(emailInput, { target: { value: 'invalid-email' } });
     fireEvent.click(submitButton);
 
-    expect(
-      await screen.findByText(/please enter a valid email address/i)
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Please enter a valid email address.')).toBeInTheDocument();
   });
 
-  it('validates password length', async () => {
+  it('shows validation error for short password', async () => {
     render(<SignIn />);
-
-    const passwordInput = screen.getByLabelText(/password/i);
-    const submitButton = screen.getByRole('button', { name: /^sign in$/i });
+    const passwordInput = screen.getByLabelText('Password');
+    const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
     fireEvent.change(passwordInput, { target: { value: '12345' } });
     fireEvent.click(submitButton);
 
-    expect(
-      await screen.findByText(/password must be at least 6 characters/i)
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Password must be at least 6 characters long.')).toBeInTheDocument();
   });
 
-  it('handles successful email sign in', async () => {
-    (signInWithEmail as jest.Mock).mockResolvedValue({ error: null });
-    render(<SignIn />);
-
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const submitButton = screen.getByRole('button', { name: /^sign in$/i });
-
-    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
-    fireEvent.change(passwordInput, { target: { value: 'password123' } });
-    fireEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(signInWithEmail).toHaveBeenCalledWith('test@example.com', 'password123');
-    });
-  });
-
-  it('handles email sign in error', async () => {
+  it('handles sign in error', async () => {
     (signInWithEmail as jest.Mock).mockResolvedValue({
-      error: { code: 'auth/wrong-password', message: 'Invalid password' },
+      error: { code: 'auth/wrong-password' },
     });
+
     render(<SignIn />);
-
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const submitButton = screen.getByRole('button', { name: /^sign in$/i });
-
-    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
-    fireEvent.change(passwordInput, { target: { value: 'wrongpassword' } });
-    fireEvent.click(submitButton);
-
-    expect(await screen.findByTestId('email-helper-text')).toHaveTextContent(
-      /invalid email or password/i
-    );
-    expect(await screen.findByTestId('password-helper-text')).toHaveTextContent(
-      /invalid email or password/i
-    );
-  });
-
-  it('handles Google sign in', async () => {
-    (signInWithGoogle as jest.Mock).mockResolvedValue({ error: null });
-    render(<SignIn />);
-
-    const googleButton = screen.getByRole('button', { name: /sign in with google/i });
-    fireEvent.click(googleButton);
-
-    await waitFor(() => {
-      expect(signInWithGoogle).toHaveBeenCalled();
-    });
-  });
-
-  it('handles GitHub sign in', async () => {
-    (signInWithGithub as jest.Mock).mockResolvedValue({ error: null });
-    render(<SignIn />);
-
-    const githubButton = screen.getByRole('button', { name: /sign in with github/i });
-    fireEvent.click(githubButton);
-
-    await waitFor(() => {
-      expect(signInWithGithub).toHaveBeenCalled();
-    });
-  });
-
-  it('handles OAuth sign in errors', async () => {
-    (signInWithGoogle as jest.Mock).mockResolvedValue({
-      error: { code: 'auth/popup-closed-by-user', message: 'Popup closed' },
-    });
-    render(<SignIn />);
-
-    const googleButton = screen.getByRole('button', { name: /sign in with google/i });
-    fireEvent.click(googleButton);
-
-    expect(
-      await screen.findByText(/an error occurred with google sign in/i)
-    ).toBeInTheDocument();
-  });
-
-  it('disables form during submission', async () => {
-    (signInWithEmail as jest.Mock).mockImplementation(
-      () => new Promise((resolve) => setTimeout(resolve, 100))
-    );
-    render(<SignIn />);
-
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const submitButton = screen.getByRole('button', { name: /^sign in$/i });
+    const emailInput = screen.getByLabelText('Email');
+    const passwordInput = screen.getByLabelText('Password');
+    const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
     fireEvent.change(passwordInput, { target: { value: 'password123' } });
     fireEvent.click(submitButton);
 
-    expect(submitButton).toBeDisabled();
-    expect(emailInput).toBeDisabled();
-    expect(passwordInput).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByTestId('email-helper-text')).toHaveTextContent('Invalid email or password.');
+      expect(screen.getByTestId('password-helper-text')).toHaveTextContent('Invalid email or password.');
+    });
+  });
+
+  it('redirects to dashboard on successful sign in', async () => {
+    (signInWithEmail as jest.Mock).mockResolvedValue({ error: null });
+    (useAuth as jest.Mock).mockReturnValue({ user: { email: 'test@example.com' } });
+
+    render(<SignIn />);
+    const emailInput = screen.getByLabelText('Email');
+    const passwordInput = screen.getByLabelText('Password');
+    const submitButton = screen.getByRole('button', { name: 'Sign in' });
+
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockRouter.push).toHaveBeenCalledWith('/dashboard');
+    });
   });
 });

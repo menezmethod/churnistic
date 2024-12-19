@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import type { User } from 'firebase/auth';
 import { act } from 'react';
 
@@ -7,10 +8,15 @@ import { AuthProvider, useAuth } from '../AuthContext';
 const mockUser = {
   email: 'test@example.com',
   uid: '123',
-} as User;
+  getIdTokenResult: jest.fn().mockResolvedValue({
+    claims: {
+      role: 'user',
+    },
+  }),
+} as unknown as User;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
-let authStateCallback: ((_user: User | null) => void) | null = null;
+let authStateCallback: ((_user: User | null) => Promise<void>) | null = null;
 
 jest.mock('firebase/auth', () => ({
   onAuthStateChanged: jest.fn((_auth, callback): (() => void) => {
@@ -25,7 +31,6 @@ jest.mock('../firebase', () => ({
 }));
 
 const TestComponent = (): JSX.Element => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user, loading } = useAuth();
   return (
     <div>
@@ -67,7 +72,7 @@ describe('AuthContext', () => {
 
     await act(async () => {
       if (authStateCallback) {
-        authStateCallback(mockUser);
+        await authStateCallback(mockUser);
       }
     });
 
@@ -85,7 +90,7 @@ describe('AuthContext', () => {
 
     await act(async () => {
       if (authStateCallback) {
-        authStateCallback(null);
+        await authStateCallback(null);
       }
     });
 

@@ -1,6 +1,8 @@
-import '@testing-library/jest-dom';
 import fetch, { Headers, Request, Response } from 'node-fetch';
 import { TextEncoder, TextDecoder } from 'util';
+
+
+import '@testing-library/jest-dom';
 
 // Polyfill TextEncoder/TextDecoder for Node.js environment
 global.TextEncoder = TextEncoder;
