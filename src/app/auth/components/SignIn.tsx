@@ -119,7 +119,9 @@ export function SignIn(): JSX.Element {
       if (error) {
         if (
           error.code === 'auth/user-not-found' ||
-          error.code === 'auth/wrong-password'
+          error.code === 'auth/wrong-password' ||
+          error.code === 'auth/invalid-credential' ||
+          error.code === 'auth/invalid-email'
         ) {
           setEmailError(true);
           setPasswordError(true);
