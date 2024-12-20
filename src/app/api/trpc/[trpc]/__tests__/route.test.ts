@@ -1,96 +1,196 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { NextRequest } from 'next/server';
 
+
+import { createContext } from '@/server/context';
 import { appRouter } from '@/server/routers/_app';
 
-import { POST } from '../route';
+import { GET, POST } from '../route';
 
-// Mock the fetch request handler
+// Mock fetchRequestHandler
 jest.mock('@trpc/server/adapters/fetch', () => ({
   fetchRequestHandler: jest.fn(),
 }));
 
-describe('tRPC API Route', () => {
-  const mockRequest = new NextRequest(
-    new URL('http://localhost:3000/api/trpc/test.query'),
-    {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: 'Bearer test-token',
-      },
-    }
-  );
+// Mock createContext
+jest.mock('@/server/context', () => ({
+  createContext: jest.fn(),
+}));
+
+describe('tRPC Route', () => {
+  const mockFetchRequestHandler = fetchRequestHandler as jest.Mock;
+  const mockCreateContext = createContext as jest.Mock;
+  const originalConsoleError = console.error;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    mockFetchRequestHandler.mockReset();
+    mockCreateContext.mockReset();
+    console.error = jest.fn();
   });
 
-  it('should handle POST requests', async () => {
-    (fetchRequestHandler as jest.Mock).mockResolvedValueOnce(
-      new Response('{"result": "success"}')
-    );
+  afterEach(() => {
+    console.error = originalConsoleError;
+  });
 
-    const response = await POST(mockRequest);
+  const createMockRequest = (method = 'GET'): NextRequest => {
+    return new NextRequest(new URL('http://localhost:3000/api/trpc/test'), {
+      method,
+    });
+  };
 
-    const handlerConfig = (fetchRequestHandler as jest.Mock).mock.calls[0][0];
-    expect(handlerConfig.req).toBe(mockRequest);
-    expect(handlerConfig.router).toBe(appRouter);
-    expect(handlerConfig.endpoint).toBe('/api/trpc');
-    expect(typeof handlerConfig.createContext).toBe('function');
-    expect(typeof handlerConfig.onError).toBe('function');
+  it('handles GET requests successfully', async () => {
+    const mockResponse = new Response('{"result": "success"}', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+    mockFetchRequestHandler.mockResolvedValueOnce(mockResponse);
 
-    expect(response.status).toBe(200);
+    const request = createMockRequest('GET');
+    const response = await GET(request);
+
+    expect(response).toBe(mockResponse);
+    expect(mockFetchRequestHandler).toHaveBeenCalledWith({
+      endpoint: '/api/trpc',
+      req: request,
+      router: appRouter,
+      createContext: expect.any(Function),
+      onError: expect.any(Function),
+    });
+  });
+
+  it('handles POST requests successfully', async () => {
+    const mockResponse = new Response('{"result": "success"}', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+    mockFetchRequestHandler.mockResolvedValueOnce(mockResponse);
+
+    const request = createMockRequest('POST');
+    const response = await POST(request);
+
+    expect(response).toBe(mockResponse);
+    expect(mockFetchRequestHandler).toHaveBeenCalledWith({
+      endpoint: '/api/trpc',
+      req: request,
+      router: appRouter,
+      createContext: expect.any(Function),
+      onError: expect.any(Function),
+    });
+  });
+
+  it('logs tRPC errors in development', async () => {
+    const originalEnv = process.env.NODE_ENV;
+    Object.defineProperty(process.env, 'NODE_ENV', {
+      value: 'development',
+      configurable: true,
+    });
+
+    const mockError = new Error('Test error');
+    mockFetchRequestHandler.mockImplementationOnce(({ onError }) => {
+      onError({
+        error: mockError,
+        type: 'INTERNAL_SERVER_ERROR',
+        path: 'test.path',
+      });
+      return new Response();
+    });
+
+    const request = createMockRequest();
+    await GET(request);
+
+    expect(console.error).toHaveBeenCalledWith('tRPC error:', {
+      type: 'INTERNAL_SERVER_ERROR',
+      path: 'test.path',
+      error: mockError,
+    });
+
+    Object.defineProperty(process.env, 'NODE_ENV', {
+      value: originalEnv,
+      configurable: true,
+    });
+  });
+
+  it('does not log tRPC errors in production', async () => {
+    const originalEnv = process.env.NODE_ENV;
+    Object.defineProperty(process.env, 'NODE_ENV', {
+      value: 'production',
+      configurable: true,
+    });
+
+    const mockError = new Error('Test error');
+    mockFetchRequestHandler.mockImplementationOnce(({ onError }) => {
+      onError({
+        error: mockError,
+        type: 'INTERNAL_SERVER_ERROR',
+        path: 'test.path',
+      });
+      return new Response();
+    });
+
+    const request = createMockRequest();
+    await GET(request);
+
+    expect(console.error).not.toHaveBeenCalled();
+
+    Object.defineProperty(process.env, 'NODE_ENV', {
+      value: originalEnv,
+      configurable: true,
+    });
+  });
+
+  it('handles handler errors in development', async () => {
+    const originalEnv = process.env.NODE_ENV;
+    Object.defineProperty(process.env, 'NODE_ENV', {
+      value: 'development',
+      configurable: true,
+    });
+
+    const mockError = new Error('Handler error');
+    mockFetchRequestHandler.mockRejectedValueOnce(mockError);
+
+    const request = createMockRequest();
+    const response = await GET(request);
     const data = await response.json();
-    expect(data).toEqual({ result: 'success' });
-  });
-
-  it('should handle errors', async () => {
-    (fetchRequestHandler as jest.Mock).mockRejectedValueOnce(new Error('Test error'));
-
-    const response = await POST(mockRequest);
 
     expect(response.status).toBe(500);
-    expect(response.headers.get('content-type')).toBe('application/json');
-    const data = await response.json();
     expect(data).toEqual({
       error: {
         message: 'Internal server error',
       },
     });
+    expect(console.error).toHaveBeenCalledWith('Error in tRPC handler:', mockError);
+
+    Object.defineProperty(process.env, 'NODE_ENV', {
+      value: originalEnv,
+      configurable: true,
+    });
   });
 
-  it('should create context with auth', async () => {
-    (fetchRequestHandler as jest.Mock).mockImplementationOnce(
-      async ({ createContext }) => {
-        const ctx = await createContext();
-        expect(ctx).toBeDefined();
-        return new Response('{"result": "success"}');
-      }
-    );
+  it('handles handler errors in production without logging', async () => {
+    const originalEnv = process.env.NODE_ENV;
+    Object.defineProperty(process.env, 'NODE_ENV', {
+      value: 'production',
+      configurable: true,
+    });
 
-    await POST(mockRequest);
-  });
+    const mockError = new Error('Handler error');
+    mockFetchRequestHandler.mockRejectedValueOnce(mockError);
 
-  it('should handle missing authorization', async () => {
-    const requestWithoutAuth = new NextRequest(
-      new URL('http://localhost:3000/api/trpc/test.query'),
-      {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-        },
-      }
-    );
+    const request = createMockRequest();
+    const response = await GET(request);
+    const data = await response.json();
 
-    (fetchRequestHandler as jest.Mock).mockImplementationOnce(
-      async ({ createContext }) => {
-        const ctx = await createContext();
-        expect(ctx).toBeDefined();
-        return new Response('{"result": "success"}');
-      }
-    );
+    expect(response.status).toBe(500);
+    expect(data).toEqual({
+      error: {
+        message: 'Internal server error',
+      },
+    });
+    expect(console.error).not.toHaveBeenCalled();
 
-    await POST(requestWithoutAuth);
+    Object.defineProperty(process.env, 'NODE_ENV', {
+      value: originalEnv,
+      configurable: true,
+    });
   });
 });
