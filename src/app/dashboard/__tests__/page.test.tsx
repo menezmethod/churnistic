@@ -1,82 +1,77 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import { trpc } from '@/lib/trpc/client';
 
 import DashboardPage from '../page';
 
-// Mock the modules
+// Mock Firebase modules
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(),
+  getApps: jest.fn(() => []),
+}));
+
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(),
+}));
+
+jest.mock('firebase/firestore', () => ({
+  getFirestore: jest.fn(),
+  enableIndexedDbPersistence: jest.fn().mockResolvedValue(undefined),
+  doc: jest.fn(),
+  getDoc: jest.fn().mockResolvedValue({
+    exists: () => true,
+    data: () => ({
+      displayName: 'Test User',
+      customDisplayName: 'Churner',
+      email: 'test@example.com',
+    }),
+  }),
+}));
+
+jest.mock('firebase/storage', () => ({
+  getStorage: jest.fn(),
+}));
+
+// Mock auth context
 jest.mock('@/lib/auth/AuthContext', () => ({
   useAuth: jest.fn(),
 }));
 
-// Mock tRPC with proper types
-jest.mock('@/lib/trpc/client', () => ({
-  trpc: {
-    bank: {
-      getAccounts: {
-        useQuery: jest.fn(),
-      },
-    },
-    card: {
-      getApplications: {
-        useQuery: jest.fn(),
-      },
-    },
-  },
-}));
-
 describe('DashboardPage', () => {
-  const mockHasPermission = jest.fn(() => true);
-  const mockHasRole = jest.fn(() => true);
-
   beforeEach(() => {
     (useAuth as jest.Mock).mockReturnValue({
       user: { uid: '123', email: 'test@example.com' },
-      hasPermission: mockHasPermission,
-      hasRole: mockHasRole,
     });
-    (trpc.bank.getAccounts.useQuery as jest.Mock).mockReturnValue({
-      data: [],
-      isLoading: false,
+  });
+
+  it('renders welcome message', async () => {
+    render(<DashboardPage />);
+    await waitFor(async () => {
+      expect(await screen.findByText(/Welcome back/)).toBeInTheDocument();
     });
-    (trpc.card.getApplications.useQuery as jest.Mock).mockReturnValue({
-      data: [],
-      isLoading: false,
+  });
+
+  it('renders summary cards', async () => {
+    render(<DashboardPage />);
+    await waitFor(async () => {
+      expect(await screen.findByText('Active Cards')).toBeInTheDocument();
+      expect(await screen.findByText('Bank Bonuses')).toBeInTheDocument();
+      expect(await screen.findByText('Next Deadline')).toBeInTheDocument();
+      expect(await screen.findByText('Total Value')).toBeInTheDocument();
     });
-    mockHasPermission.mockClear();
-    mockHasRole.mockClear();
   });
 
-  it('renders dashboard title', () => {
+  it('renders recent applications section', async () => {
     render(<DashboardPage />);
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    await waitFor(async () => {
+      expect(await screen.findByText('Recent Card Applications')).toBeInTheDocument();
+    });
   });
 
-  it('renders card management section', () => {
+  it('renders settings button', async () => {
     render(<DashboardPage />);
-    expect(screen.getByText('Card Management')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Track and manage your credit card applications/)
-    ).toBeInTheDocument();
-    expect(screen.getByText('View Cards')).toBeInTheDocument();
-  });
-
-  it('renders rewards tracking section', () => {
-    render(<DashboardPage />);
-    expect(screen.getByText('Rewards Tracking')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Monitor your points, miles, and cashback/)
-    ).toBeInTheDocument();
-    expect(screen.getByText('View Rewards')).toBeInTheDocument();
-  });
-
-  it('renders application status section', () => {
-    render(<DashboardPage />);
-    expect(screen.getByText('Application Status')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Check the status of your pending card applications/)
-    ).toBeInTheDocument();
-    expect(screen.getByText('View Status')).toBeInTheDocument();
+    await waitFor(async () => {
+      expect(await screen.findByText('Settings')).toBeInTheDocument();
+    });
   });
 });

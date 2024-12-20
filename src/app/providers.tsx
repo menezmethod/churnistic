@@ -3,18 +3,15 @@
 import CssBaseline from '@mui/material/CssBaseline';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
 
+import { AuthProvider } from '@/lib/auth/AuthContext';
 import { ThemeProvider as CustomThemeProvider } from '@/lib/theme/ThemeContext';
 
-interface ClientLayoutProps {
-  children: React.ReactNode;
-}
-
-export function ClientLayout({ children }: ClientLayoutProps): JSX.Element {
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <AppRouterCacheProvider>
+    <AppRouterCacheProvider options={{ enableCssLayer: true }}>
       <CustomThemeProvider>
         <CssBaseline />
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </CustomThemeProvider>
     </AppRouterCacheProvider>
   );
