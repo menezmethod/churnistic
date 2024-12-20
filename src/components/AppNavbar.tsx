@@ -24,7 +24,6 @@ import {
   ListItemIcon,
   ListItemText,
 } from '@mui/material';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -91,9 +90,10 @@ export default function AppNavbar(): JSX.Element {
           <ListItem
             button
             key={item.text}
-            component={Link}
-            href={item.path}
-            onClick={handleDrawerToggle}
+            onClick={(): void => {
+              handleDrawerToggle();
+              router.push(item.path);
+            }}
             sx={{
               py: 1.5,
               px: 2,
@@ -191,9 +191,10 @@ export default function AppNavbar(): JSX.Element {
                 }}
               >
                 <MenuItem
-                  component={Link}
-                  href="/profile"
-                  onClick={handleClose}
+                  onClick={(): void => {
+                    handleClose();
+                    router.push('/profile');
+                  }}
                   sx={{
                     gap: 1.5,
                     '&:hover': {
@@ -222,9 +223,10 @@ export default function AppNavbar(): JSX.Element {
                   </Box>
                 </MenuItem>
                 <MenuItem
-                  component={Link}
-                  href="/profile/preferences"
-                  onClick={handleClose}
+                  onClick={(): void => {
+                    handleClose();
+                    router.push('/profile/preferences');
+                  }}
                   sx={{
                     gap: 1.5,
                     '&:hover': {
@@ -255,7 +257,10 @@ export default function AppNavbar(): JSX.Element {
               </Menu>
             </Box>
           ) : (
-            <Button color="inherit" component={Link} href="/signin">
+            <Button
+              color="inherit"
+              onClick={(): void => router.push('/signin')}
+            >
               Login
             </Button>
           )}
