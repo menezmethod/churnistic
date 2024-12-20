@@ -20,10 +20,13 @@ jobs:
           fetch-depth: 0  # Fetch all history for all branches
 
       - name: Create Pull Request
-        uses: repo-sync/pull-request@v2
-        with:
-          source_branch: "develop"
-          destination_branch: "master"
-          pr_title: "chore: merge develop into master"
-          pr_body: "Automated PR to merge develop into master"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if there's already an open PR
+          if ! gh pr list --head develop --base master --state open | grep -q .; then
+            # Create PR if none exists
+            gh pr create --base master --head develop \
+              --title "chore: merge develop into master" \
+              --body "Automated PR to merge develop into master"
+          fi
