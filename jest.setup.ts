@@ -48,11 +48,32 @@ Object.defineProperty(global, 'Request', {
 });
 
 // Mock Firebase
+const mockApp = {
+  name: '[DEFAULT]',
+  options: {},
+  _getProvider: jest.fn(),
+};
 
 jest.mock('firebase/app', () => ({
-  initializeApp: jest.fn(),
-  getApps: jest.fn(() => []),
-  getApp: jest.fn(),
+  initializeApp: jest.fn(() => mockApp),
+  getApps: jest.fn(() => [mockApp]),
+  getApp: jest.fn(() => mockApp),
+}));
+
+jest.mock('firebase/firestore', () => ({
+  getFirestore: jest.fn(() => ({
+    type: 'firestore',
+    toJSON: () => ({}),
+  })),
+  enableIndexedDbPersistence: jest.fn(() => Promise.resolve()),
+  connectFirestoreEmulator: jest.fn(),
+}));
+
+jest.mock('firebase/storage', () => ({
+  getStorage: jest.fn(() => ({
+    type: 'storage',
+    toJSON: () => ({}),
+  })),
 }));
 
 jest.mock('firebase/auth', () => {
@@ -102,14 +123,14 @@ jest.mock('firebase/auth', () => {
 
 // Test accounts
 const TEST_USER = {
-  email: 'qa.tester@churnistic.com',
-  password: 'TestUser@2024',
+  email: process.env.TEST_USER_EMAIL || 'qa.tester@churnistic.com',
+  password: process.env.TEST_USER_PASSWORD || 'TestUser@2024',
   uid: 'test-user-uid',
 };
 
 const TEST_ADMIN = {
-  email: 'admin@churnistic.com',
-  password: 'AdminUser@2024',
+  email: process.env.TEST_ADMIN_EMAIL || 'admin@churnistic.com',
+  password: process.env.TEST_ADMIN_PASSWORD || 'AdminUser@2024',
   uid: 'admin-user-uid',
 };
 

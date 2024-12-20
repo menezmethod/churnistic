@@ -9,21 +9,16 @@ jest.mock('@mui/material-nextjs/v14-appRouter', () => ({
   ),
 }));
 
-jest.mock('@mui/material/styles', () => ({
-  ThemeProvider: ({ children }: { children: React.ReactNode }): JSX.Element => (
-    <div>{children}</div>
-  ),
-  createTheme: (): Record<string, unknown> => ({}),
-}));
-
 jest.mock('@mui/material/CssBaseline', () => ({
   __esModule: true,
   default: (): null => null,
 }));
 
-// Mock theme
-jest.mock('@/theme/theme', () => ({
-  theme: {},
+// Mock ThemeContext
+jest.mock('@/lib/theme/ThemeContext', () => ({
+  ThemeProvider: ({ children }: { children: React.ReactNode }): JSX.Element => (
+    <div>{children}</div>
+  ),
 }));
 
 describe('ClientLayout', () => {

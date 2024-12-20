@@ -1,34 +1,32 @@
-import { describe, expect, jest, test, beforeEach } from '@jest/globals';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
-import { mockFirebaseConfig } from '../../firebase/__mocks__/config';
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(),
+  getApps: jest.fn(() => []),
+}));
 
-jest.mock('firebase/app');
-jest.mock('firebase/auth');
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(),
+}));
+
+jest.mock('firebase/firestore', () => ({
+  getFirestore: jest.fn(),
+  enableIndexedDbPersistence: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('firebase/storage', () => ({
+  getStorage: jest.fn(),
+}));
 
 describe('Firebase Auth', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  test('auth is initialized', async () => {
-    const mockApp = {
-      name: '[DEFAULT]',
-      options: mockFirebaseConfig,
-    };
-
-    const mockAuth = {
-      currentUser: null,
-      onAuthStateChanged: jest.fn(),
-      signInWithEmailAndPassword: jest.fn(),
-      signOut: jest.fn(),
-    };
-
-    (initializeApp as jest.Mock).mockReturnValue(mockApp);
-    (getAuth as jest.Mock).mockReturnValue(mockAuth);
-
-    // Import the module after mocking
+  it('auth is initialized', async () => {
     await import('../../firebase/config');
 
     expect(initializeApp).toHaveBeenCalledWith(
@@ -42,5 +40,8 @@ describe('Firebase Auth', () => {
       })
     );
     expect(getAuth).toHaveBeenCalled();
+    expect(getFirestore).toHaveBeenCalled();
+    expect(getStorage).toHaveBeenCalled();
+    expect(enableIndexedDbPersistence).toHaveBeenCalled();
   });
 });

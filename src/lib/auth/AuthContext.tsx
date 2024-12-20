@@ -1,89 +1,169 @@
 'use client';
 
-import { onAuthStateChanged } from 'firebase/auth';
+import {
+  User,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  sendPasswordResetEmail,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from 'firebase/auth';
 import { createContext, useContext, useEffect, useState } from 'react';
 
-import { auth } from '@/lib/firebase/auth';
+import { Permission, UserRole, ROLE_PERMISSIONS } from './types';
+import { auth } from '../firebase/config';
 
-import type { AuthContextType, AuthUser, Permission } from './types';
-import { ROLE_PERMISSIONS, UserRole } from './types';
-
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  loading: true,
-  hasRole: () => false,
-  hasPermission: () => false,
-});
-
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
-export const AuthProvider = ({
-  children,
-}: {
-  children: React.ReactNode;
-}): JSX.Element => {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect((): (() => void) => {
-    let unsubscribe: () => void;
-
-    const setupAuth = async (): Promise<void> => {
-      unsubscribe = onAuthStateChanged(auth, (firebaseUser): void => {
-        void (async (): Promise<void> => {
-          if (firebaseUser) {
-            try {
-              const tokenResult = await firebaseUser.getIdTokenResult();
-              const role = (tokenResult.claims.role as UserRole) || UserRole.USER;
-              setUser({
-                ...firebaseUser,
-                role,
-              } as AuthUser);
-            } catch (error) {
-              console.error('Error getting user token:', error);
-              setUser(null);
-            }
-          } else {
-            setUser(null);
-          }
-          setLoading(false);
-        })();
-      });
+// Extend the User type to include customClaims
+declare module 'firebase/auth' {
+  interface User {
+    customClaims?: {
+      role: string;
+      [key: string]: string | number | boolean;
     };
+  }
+}
 
-    void setupAuth();
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  isOffline: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updateUserProfile: (displayName: string, photoURL?: string) => Promise<void>;
+  hasRole: (role: UserRole) => boolean;
+  hasPermission: (permission: Permission) => boolean;
+}
 
-    return (): void => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
+export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    setIsOffline(!navigator.onLine);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  const hasRole = (role: UserRole): boolean => {
-    if (!user || !user.role) {
-      return false;
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      console.error('Error signing in:', error);
+      throw error;
     }
-    return user.role === role;
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error('Error signing in with Google:', error);
+      throw error;
+    }
+  };
+
+  const signUp = async (email: string, password: string, displayName: string) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(userCredential.user, { displayName });
+    } catch (error) {
+      console.error('Error signing up:', error);
+      throw error;
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+    } catch (error) {
+      console.error('Error signing out:', error);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      throw error;
+    }
+  };
+
+  const updateUserProfile = async (displayName: string, photoURL?: string) => {
+    if (!auth.currentUser) return;
+
+    try {
+      await updateProfile(auth.currentUser, {
+        displayName,
+        photoURL: photoURL || auth.currentUser.photoURL,
+      });
+      // Force a refresh of the user object
+      setUser({ ...auth.currentUser });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
+  };
+
+  const hasRole = (role: UserRole): boolean => {
+    if (!user || !user.customClaims) return false;
+    return user.customClaims.role === role;
   };
 
   const hasPermission = (permission: Permission): boolean => {
-    if (!user || !user.role) {
-      return false;
-    }
-    const permissions = ROLE_PERMISSIONS[user.role];
+    if (!user || !user.customClaims?.role) return false;
+    const userRole = user.customClaims.role as UserRole;
+    const permissions = ROLE_PERMISSIONS[userRole];
     return permissions.includes(permission);
   };
 
+  const value = {
+    user,
+    loading,
+    isOffline,
+    signIn,
+    signInWithGoogle,
+    signUp,
+    signOut,
+    resetPassword,
+    updateUserProfile,
+    hasRole,
+    hasPermission,
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, hasRole, hasPermission }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>
   );
-};
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
+}
