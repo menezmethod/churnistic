@@ -1,41 +1,75 @@
-const nextJest = require('next/jest');
-
-const createJestConfig = nextJest({
-  dir: './',
-});
-
-const customJestConfig = {
+/** @type {import('jest').Config} */
+const config = {
+  preset: 'ts-jest',
+  testEnvironment: 'jsdom',
+  setupFiles: ['<rootDir>/jest.env.setup.js'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-  testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '\\.(css|less|sass|scss)$': 'identity-obj-proxy',
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+    '^@testing-library/jest-dom$': '<rootDir>/node_modules/@testing-library/jest-dom',
+    '^@testing-library/jest-dom/extend-expect$':
+      '<rootDir>/node_modules/@testing-library/jest-dom',
   },
+  transform: {
+    '^.+\\.(ts|tsx)$': [
+      'ts-jest',
+      {
+        tsconfig: 'tsconfig.test.json',
+        useESM: true,
+      },
+    ],
+    '^.+\\.(js|jsx)$': [
+      'babel-jest',
+      {
+        presets: ['next/babel'],
+      },
+    ],
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(jose|firebase-admin|jwks-rsa|@firebase|firebase|next|@trpc)/)',
+  ],
+  testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   collectCoverageFrom: [
-    'src/app/layout.tsx',
-    'src/app/page.tsx',
-    'src/theme/**/*.{ts,tsx}',
+    'src/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',
     '!src/**/*.stories.{js,jsx,ts,tsx}',
     '!src/**/*.test.{js,jsx,ts,tsx}',
-    '!src/**/__tests__/**/*',
+    '!src/types/**/*',
   ],
   coverageThreshold: {
     global: {
+      branches: 75,
+      functions: 75,
+      lines: 75,
+      statements: 75,
+    },
+    './src/server/': {
+      branches: 90,
+      functions: 90,
+      lines: 90,
+      statements: 90,
+    },
+    './src/app/': {
+      branches: 85,
+      functions: 85,
+      lines: 85,
+      statements: 85,
+    },
+    './src/components/': {
       branches: 80,
       functions: 80,
       lines: 80,
       statements: 80,
     },
-  },
-  testMatch: [
-    '<rootDir>/src/app/__tests__/layout.test.tsx',
-    '<rootDir>/src/app/__tests__/page.test.tsx',
-    '<rootDir>/src/theme/__tests__/theme.test.ts',
-  ],
-  transform: {
-    '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
+    './src/utils/': {
+      branches: 75,
+      functions: 75,
+      lines: 75,
+      statements: 75,
+    },
   },
 };
 
-module.exports = createJestConfig(customJestConfig); 
+module.exports = config;

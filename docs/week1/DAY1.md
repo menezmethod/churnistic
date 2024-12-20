@@ -1,12 +1,15 @@
 # Day 1: Project Setup & Infrastructure (Monday)
 
 ## Overview
+
 Focus on setting up the development environment and core infrastructure.
 
 ## Session Plan
 
 ### Morning Session (3 hours)
+
 #### 1. Repository Setup
+
 ```bash
 # Initialize repository
 git init
@@ -21,6 +24,7 @@ echo ".env.local" >> .gitignore
 Commit: `chore: initialize repository with gitignore`
 
 #### 2. Next.js Project Setup
+
 ```bash
 # Create Next.js project
 npx create-next-app@latest churnistic --typescript --eslint --app --src-dir --import-alias "@/*"
@@ -34,6 +38,7 @@ git commit -m "feat: initialize Next.js project with TypeScript"
 ```
 
 #### 3. Dependencies Installation
+
 ```bash
 # Install core dependencies
 npm install @prisma/client @trpc/server @trpc/client @trpc/react-query @tanstack/react-query zod firebase
@@ -50,7 +55,9 @@ npx husky-init && npm install
 Commit: `chore: add core dependencies including Material UI and development tools`
 
 ### Mid-Morning Session (2 hours)
+
 #### 4. Firebase Setup
+
 1. Create Firebase project in console
 2. Enable Authentication
 3. Configure auth providers:
@@ -59,6 +66,7 @@ Commit: `chore: add core dependencies including Material UI and development tool
    - GitHub
 
 #### 5. Environment Configuration
+
 ```bash
 # Create environment files
 touch .env.local .env.example
@@ -78,7 +86,9 @@ EOF
 Commit: `chore: add environment configuration`
 
 ### Afternoon Session (3 hours)
+
 #### 6. Project Structure Setup
+
 ```bash
 # Create directory structure
 mkdir -p src/{components,lib,types,styles,server,utils,theme}
@@ -100,7 +110,9 @@ touch src/theme/palette.ts
 Commit: `feat: set up project directory structure with MUI theme configuration`
 
 #### 7. Base Configuration Files
+
 1. TypeScript Configuration
+
 ```typescript
 // tsconfig.json additions
 {
@@ -114,18 +126,20 @@ Commit: `feat: set up project directory structure with MUI theme configuration`
 ```
 
 2. ESLint Configuration
+
 ```javascript
 // .eslintrc.js
 module.exports = {
   extends: ['next/core-web-vitals', 'prettier'],
   rules: {
     'no-unused-vars': 'error',
-    'no-console': 'warn'
-  }
-}
+    'no-console': 'warn',
+  },
+};
 ```
 
 3. Material UI Theme Setup
+
 ```typescript
 // src/theme/theme.ts
 import { createTheme } from '@mui/material/styles';
@@ -142,17 +156,21 @@ export const theme = createTheme({
 Commit: `chore: configure TypeScript, ESLint, and MUI theme`
 
 ### Evening Session (2 hours)
+
 #### 8. MongoDB Atlas Setup
+
 1. Create cluster
 2. Configure network access
 3. Create database user
 4. Get connection string
 5. Initialize Prisma:
+
 ```bash
 npx prisma init
 ```
 
 #### 9. Initial Prisma Schema
+
 ```prisma
 // prisma/schema.prisma
 datasource db {
@@ -180,17 +198,20 @@ Commit: `feat: add initial Prisma schema with User model`
 ## End of Day Tasks
 
 ### 1. GitHub Setup
+
 ```bash
 git remote add origin <repository-url>
 git push -u origin main
 ```
 
 ### 2. Pull Request
+
 ```markdown
 PR Title: Initial Project Setup
 
 Description:
 Sets up the foundational development environment:
+
 - Next.js project initialization
 - Development environment configuration
 - Firebase project setup
@@ -199,6 +220,7 @@ Sets up the foundational development environment:
 - Initial dependencies
 
 Changes:
+
 - Initialize Next.js with TypeScript
 - Configure ESLint and Prettier
 - Set up Firebase project
@@ -207,6 +229,7 @@ Changes:
 - Set up project structure
 
 Testing Steps:
+
 1. Clone repository
 2. Copy .env.example to .env.local and fill values
 3. Run npm install
@@ -215,6 +238,7 @@ Testing Steps:
 6. Verify Firebase configuration
 
 Dependencies Added:
+
 - Next.js 14
 - TypeScript
 - Material UI
@@ -224,6 +248,7 @@ Dependencies Added:
 - Development tools
 
 Infrastructure:
+
 - MongoDB Atlas cluster
 - Firebase project
 - GitHub repository
@@ -233,6 +258,7 @@ Closes #1 - Project Setup
 ```
 
 ## Day 1 Checklist
+
 - [ ] Repository Setup
 - [ ] Next.js Project
 - [ ] Dependencies
@@ -245,7 +271,8 @@ Closes #1 - Project Setup
 - [ ] Documentation
 
 ## Notes
+
 - Keep track of all credentials and access tokens
 - Document setup steps in README
 - Verify all configurations work together
-- Consider CI/CD setup for next day 
+- Consider CI/CD setup for next day

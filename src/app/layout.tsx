@@ -1,29 +1,50 @@
-import type { Metadata } from "next";
-import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { theme } from '@/theme/theme';
-import "./globals.css";
+import Box from '@mui/material/Box';
+import { Inter } from 'next/font/google';
 
-export const metadata: Metadata = {
-  title: "Churnistic - Credit Card Churning Tracker",
-  description: "Track and optimize your credit card churning strategy",
+import AppNavbar from '@/components/AppNavbar';
+
+import { ClientProviders } from './client-providers';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata = {
+  title: 'Churnistic - Credit Card Churning Tracker',
+  description: 'Track and optimize your credit card rewards and churning strategy',
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>): JSX.Element {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
-        <AppRouterCacheProvider>
-          <ThemeProvider theme={theme}>
-            <CssBaseline />
-            {children}
-          </ThemeProvider>
-        </AppRouterCacheProvider>
+      <body className={inter.className}>
+        <ClientProviders>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: '100vh',
+              width: '100%',
+              backgroundColor: 'background.default',
+            }}
+          >
+            <AppNavbar />
+            <Box
+              component="main"
+              sx={{
+                flex: 1,
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                backgroundColor: 'inherit',
+                px: { xs: 2, sm: 3, md: 4 },
+                py: { xs: 2, sm: 3 },
+                maxWidth: 'lg',
+                mx: 'auto',
+              }}
+            >
+              {children}
+            </Box>
+          </Box>
+        </ClientProviders>
       </body>
     </html>
   );

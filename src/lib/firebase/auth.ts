@@ -1,81 +1,213 @@
-import { 
-  signInWithEmailAndPassword,
+import {
+  signInWithEmailAndPassword as firebaseSignInWithEmail,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   signInWithPopup,
-  GithubAuthProvider,
-  User,
+  sendPasswordResetEmail,
   onAuthStateChanged,
-  UserCredential,
-  Auth,
-  Unsubscribe,
-  AuthError
+  type User,
+  type Unsubscribe,
+  type AuthError as FirebaseAuthError,
 } from 'firebase/auth';
+
 import { auth } from './config';
 
-interface AuthResponse {
+export interface AuthError {
+  code: string;
+  message: string;
+  originalError?: unknown;
+}
+
+export interface AuthResponse {
   user: User | null;
   error: AuthError | null;
 }
 
-interface SignOutResponse {
-  error: AuthError | null;
-}
+type AuthStateHandler = (authState: User | null) => void;
 
-// Sign in with email and password
-export const signInWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const validatePassword = (password: string): boolean => {
+  return password.length >= 6;
+};
+
+const createAuthError = (
+  code: string,
+  message: string,
+  originalError?: unknown
+): AuthError => {
+  return {
+    code,
+    message,
+    originalError,
+  };
+};
+
+export const signInWithEmail = async (
+  email: string,
+  password: string
+): Promise<AuthResponse> => {
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return { user: userCredential.user, error: null };
-  } catch (error) {
-    return { user: null, error: error as AuthError };
+    if (!email || !password) {
+      return {
+        user: null,
+        error: createAuthError('auth/invalid-input', 'Email and password are required'),
+      };
+    }
+
+    if (!validateEmail(email)) {
+      return {
+        user: null,
+        error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
+      };
+    }
+
+    if (!validatePassword(password)) {
+      return {
+        user: null,
+        error: createAuthError(
+          'auth/weak-password',
+          'Password should be at least 6 characters'
+        ),
+      };
+    }
+
+    const userCredential = await firebaseSignInWithEmail(auth, email, password);
+    return {
+      user: userCredential.user,
+      error: null,
+    };
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseAuthError;
+    return {
+      user: null,
+      error: createAuthError(
+        firebaseError.code || 'auth/wrong-password',
+        firebaseError.message || 'Invalid credentials',
+        error
+      ),
+    };
   }
 };
 
-// Sign up with email and password
-export const signUpWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
+export const signUpWithEmail = async (
+  email: string,
+  password: string
+): Promise<AuthResponse> => {
   try {
+    if (!email || !password) {
+      return {
+        user: null,
+        error: createAuthError('auth/invalid-input', 'Email and password are required'),
+      };
+    }
+
+    if (!validateEmail(email)) {
+      return {
+        user: null,
+        error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
+      };
+    }
+
+    if (!validatePassword(password)) {
+      return {
+        user: null,
+        error: createAuthError(
+          'auth/weak-password',
+          'Password should be at least 6 characters'
+        ),
+      };
+    }
+
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     return { user: userCredential.user, error: null };
-  } catch (error) {
-    return { user: null, error: error as AuthError };
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseAuthError;
+    return {
+      user: null,
+      error: createAuthError(
+        firebaseError.code || 'auth/unknown',
+        firebaseError.message || 'An unknown error occurred',
+        error
+      ),
+    };
   }
 };
 
-// Sign in with Google
+export const signOut = async (): Promise<{ error: AuthError | null }> => {
+  try {
+    await firebaseSignOut(auth);
+    return { error: null };
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseAuthError;
+    return {
+      error: createAuthError(
+        firebaseError.code || 'auth/network-error',
+        firebaseError.message || 'Network error',
+        error
+      ),
+    };
+  }
+};
+
 export const signInWithGoogle = async (): Promise<AuthResponse> => {
   try {
     const provider = new GoogleAuthProvider();
     const userCredential = await signInWithPopup(auth, provider);
     return { user: userCredential.user, error: null };
-  } catch (error) {
-    return { user: null, error: error as AuthError };
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseAuthError;
+    return {
+      user: null,
+      error: createAuthError(
+        firebaseError.code || 'auth/unknown',
+        firebaseError.message || 'An unknown error occurred',
+        error
+      ),
+    };
   }
 };
 
-// Sign in with GitHub
-export const signInWithGithub = async (): Promise<AuthResponse> => {
+export const resetPassword = async (
+  email: string
+): Promise<{ error: AuthError | null }> => {
   try {
-    const provider = new GithubAuthProvider();
-    const userCredential = await signInWithPopup(auth, provider);
-    return { user: userCredential.user, error: null };
-  } catch (error) {
-    return { user: null, error: error as AuthError };
-  }
-};
+    if (!email) {
+      return {
+        error: createAuthError('auth/invalid-input', 'Email is required'),
+      };
+    }
 
-// Sign out
-export const signOut = async (): Promise<SignOutResponse> => {
-  try {
-    await firebaseSignOut(auth);
+    if (!validateEmail(email)) {
+      return {
+        error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
+      };
+    }
+
+    await sendPasswordResetEmail(auth, email);
     return { error: null };
-  } catch (error) {
-    return { error: error as AuthError };
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseAuthError;
+    return {
+      error: createAuthError(
+        firebaseError.code || 'auth/user-not-found',
+        firebaseError.message || 'User not found',
+        error
+      ),
+    };
   }
 };
 
-// Auth state observer
-export const onAuthStateChange = (callback: (user: User | null) => void): Unsubscribe => {
+export const getCurrentUser = (): User | null => {
+  return auth.currentUser;
+};
+
+export const onAuthStateChange = (callback: AuthStateHandler): Unsubscribe => {
   return onAuthStateChanged(auth, callback);
-}; 
+};
+
+export { auth };

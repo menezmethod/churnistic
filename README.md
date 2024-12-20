@@ -1,163 +1,218 @@
 # Churnistic
 
-Churnistic is a platform that aggregates and analyzes real-world credit card churning success stories to provide actionable insights and personalized redemption strategies.
+A modern credit card churning tracker built with Next.js, TypeScript, and Material-UI.
 
-## 🎯 Core Mission
+## Development Workflow
 
-- Aggregate and analyze real-world churning success stories
-- Transform raw data into actionable trip plans
-- Provide personalized redemption strategies
-- Track financial opportunities (bank bonuses, investments)
-- Build a community-driven knowledge base
+### Quick Start
 
-## 🎁 Quick Start
-
-1. Prerequisites:
 ```bash
-# Install Node.js 18+
-# Install MongoDB 6+
-```
-
-2. Clone and Setup:
-```bash
-# Clone repository
-git clone https://github.com/menezmethod/churnistic.git
-cd churnistic
-
 # Install dependencies
 npm install
 
-# Set up environment variables
-cp .env.example .env.local
-# Edit .env.local with your credentials
-```
-
-3. Development:
-```bash
 # Start development server
 npm run dev
 
-# Run tests
-npm test
-
-# Run tests with coverage
-npm run test:coverage
+# Run code quality checks
+./scripts/fix-code.sh
 ```
 
-## 🧪 Testing
+### Code Quality Automation
 
-We maintain high test coverage requirements:
+We maintain high code quality standards through automated tools and checks. Our `fix-code.sh` script handles:
 
-- Business Logic: 90%+ coverage
-- API Routes: 85%+ coverage
-- UI Components: 80%+ coverage
-- Utility Functions: 75%+ coverage
+1. **Code Formatting**
 
-### Running Tests
+   - Prettier for consistent code style
+   - Automatic import sorting
+   - Configurable through `.prettierrc`
 
-```bash
-# Run all tests
-npm test
+2. **Linting**
 
-# Watch mode
-npm run test:watch
+   - ESLint with TypeScript support
+   - Automatic fixable error correction
+   - Custom rules for Next.js and React
 
-# Coverage report
-npm run test:coverage
+3. **Type Checking**
 
-# CI environment
-npm run test:ci
-```
+   - TypeScript strict mode enabled
+   - Path aliases for clean imports
+   - Comprehensive type definitions
 
-### Test Structure
+4. **Test Coverage Requirements**
+   - Business Logic: 90%+ coverage
+   - API Routes: 85%+ coverage
+   - UI Components: 80%+ coverage
+   - Utility Functions: 75%+ coverage
 
-```
-src/
-├── __tests__/          # Global test utilities
-├── components/
-│   └── __tests__/     # Component tests
-├── server/
-│   └── __tests__/     # API and business logic tests
-└── lib/
-    └── __tests__/     # Utility function tests
-```
+### LLM-Assisted Development
 
-## 📚 Documentation
+This project is developed with the assistance of Language Learning Models (LLMs). To maintain code quality and consistency:
 
-Our documentation is organized into the following sections:
+1. **Code Organization**
 
-- [Project Architecture](docs/architecture/README.md)
-- [Development Guide](docs/development/README.md)
-- [User Experience](docs/user-experience/README.md)
-- [Testing Strategy](docs/testing/README.md)
-- [Launch Plan](docs/launch/README.md)
-- [Growth Strategy](docs/growth/README.md)
+   - Clear directory structure
+   - Consistent file naming
+   - Modular component architecture
 
-## 🚀 Development Timeline
+2. **Documentation**
 
-### Phase 1: MVP (2 weeks)
-- Week 1: Foundation & Setup
-- Week 2: Core Features
+   - Inline comments for complex logic
+   - JSDoc for public APIs
+   - Comprehensive test cover
+   - Up-to-date README files
 
-### Phase 2: Enhancement (2 weeks)
-- Week 3: Feature Completion
-- Week 4: Polish & Launch
+3. **Best Practices**
 
-## 🛠 Tech Stack
+   - Component-driven development
+   - Atomic design principles
+   - Clean code principles
+   - SOLID principles
 
-- Frontend: Next.js + TypeScript
-- Backend: Node.js + TypeScript
-- Database: MongoDB
-- API: tRPC
-- Authentication: Firebase
-- Testing: Jest + Testing Library
-- IDE: Cursor
-- AI: Claude 3.5 Sonnet
+4. **Quality Gates**
+   - Pre-commit hooks for formatting
+   - GitHub Actions for CI/CD
+   - Automated test coverage checks
+   - Pull request templates
 
-## 🔑 Key Features
+### LLM-Friendly Error Output
 
-- Real user experiences vs theoretical maximums
-- Multi-source data aggregation
-- Personalized recommendations
-- Community validation
-- Real-time updates
+The `fix-code.sh` script provides structured output optimized for LLM parsing:
 
-## 👥 Target Audience
+1. **Section Markers**
 
-### Primary
-- Active churners
-- Travel hackers
-- Points/miles enthusiasts
+   ```
+   <<<<<<<<<< SECTION START: [SECTION_NAME]
+   [section content]
+   >>>>>>>>>> SECTION END: [SECTION_NAME]
+   ```
 
-### Secondary
-- Travel planners
-- Bank bonus seekers
-- Credit card optimizers
+2. **Error Format**
 
-## 📅 Contributing
+   ```
+   <<<<<<<<<< ERROR START
+   FILE: [file_path]
+   TYPE: [error_type]
+   LINE: [line_number]
+   COLUMN: [column_number]
+   MESSAGE: [error_message]
+   CODE_CONTEXT:
+   ```
 
-This project is optimized for single-developer workflow with AI assistance. However, contributions are welcome! See our [Contributing Guide](docs/development/CONTRIBUTING.md).
+   [code snippet]
 
-## 📝 Common Commands
+   ```
+   >>>>>>>>>>>> ERROR END
+   ```
+
+3. **Coverage Report**
+
+   ```
+   <<<<<<<<<< FILE: coverage/coverage-summary.json
+   [coverage data in JSON format]
+   >>>>>>>>>>>> END FILE
+   ```
+
+4. **Summary Format**
+   ```
+   <<<<<<<<<< SECTION START: SUMMARY
+   EXECUTION_TIME: [duration] seconds
+   TIMESTAMP: [ISO timestamp]
+   >>>>>>>>>> SECTION END: SUMMARY
+   ```
+
+This structured output helps LLMs to:
+
+- Precisely locate issues in the codebase
+- Understand the context of each error
+- Generate accurate fixes
+- Track test coverage requirements
+- Maintain code quality standards
+
+### Development Commands
 
 ```bash
 # Development
-npm run dev
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+
+# Code Quality
+npm run format       # Format code with Prettier
+npm run lint         # Run ESLint
+npm run lint:fix     # Fix ESLint issues
+npm run type-check   # Run TypeScript checks
 
 # Testing
-npm test
-npm run test:coverage
+npm run test         # Run tests
+npm run test:watch   # Run tests in watch mode
+npm run test:coverage # Run tests with coverage
 
-# Linting
-npm run lint
-
-# Build
-npm run build
-
-# Start production server
-npm start
+# All-in-one Quality Check
+./scripts/fix-code.sh # Run all quality checks
 ```
 
-## 📄 License
+### Directory Structure
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+```
+src/
+├── app/             # Next.js app router pages
+├── components/      # Reusable UI components
+├── lib/            # Core business logic
+├── server/         # API routes and server code
+├── theme/          # MUI theme customization
+├── types/          # TypeScript type definitions
+└── utils/          # Utility functions
+```
+
+### Contributing
+
+1. Create a feature branch from `main`
+2. Make your changes
+3. Run `./scripts/fix-code.sh` to ensure code quality
+4. Create a pull request
+5. Wait for review and CI checks
+
+## License
+
+MIT
+
+# Environment Setup
+
+## Environment Files
+
+The project uses several environment files for different purposes:
+
+1. `.env.local` - Local development environment variables
+2. `.env.test` - Test environment variables
+3. `cypress.env.json` - Cypress test environment variables
+
+For security reasons, these files are not committed to the repository. Example files are provided:
+
+- `.env.example` - Example local environment variables
+- `.env.test.example` - Example test environment variables
+- `cypress.env.example.json` - Example Cypress environment variables
+
+To set up your environment:
+
+1. Copy the example files:
+
+   ```bash
+   cp .env.example .env.local
+   cp .env.test.example .env.test
+   cp cypress.env.example.json cypress.env.json
+   ```
+
+2. Fill in the actual values in each file:
+   - Firebase credentials
+   - Database URLs
+   - Test account credentials
+   - Other API keys and secrets
+
+## Security Notes
+
+- Never commit sensitive data or credentials to the repository
+- Keep all environment files (`.env.*`, `cypress.env.json`) in `.gitignore`
+- Regularly rotate API keys and credentials
+- Use separate credentials for development, testing, and production
+- When setting up CI/CD, use secure environment variables

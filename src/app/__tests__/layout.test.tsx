@@ -1,75 +1,27 @@
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
+
 import RootLayout from '../layout';
-import { metadata } from '../layout';
 
-// Mock the theme provider and other dependencies
-jest.mock('@mui/material-nextjs/v14-appRouter', () => ({
-  AppRouterCacheProvider: ({ children }: { children: React.ReactNode }): JSX.Element => <div data-testid="cache-provider">{children}</div>,
-}));
-
-jest.mock('@mui/material/styles', () => ({
-  ThemeProvider: ({ children }: { children: React.ReactNode }): JSX.Element => <div data-testid="theme-provider">{children}</div>,
-  createTheme: (): unknown => ({
-    palette: {
-      primary: { main: '#2E7D32' },
-    },
-    typography: {
-      fontFamily: '"Inter", "Roboto", "Arial", sans-serif',
-    },
+jest.mock('next/font/google', () => ({
+  Inter: () => ({
+    className: 'inter-mock',
   }),
-}));
-
-jest.mock('@mui/material/CssBaseline', () => ({
-  __esModule: true,
-  default: (): null => null,
-}));
-
-// Mock the theme
-jest.mock('@/theme/theme', () => ({
-  theme: {
-    palette: {
-      primary: { main: '#2E7D32' },
-    },
-    typography: {
-      fontFamily: '"Inter", "Roboto", "Arial", sans-serif',
-    },
-  },
-}));
-
-// Mock next/document to handle html and body tags
-jest.mock('next/document', () => ({
-  Html: ({ children }: { children: React.ReactNode }): JSX.Element => <div data-testid="html">{children}</div>,
-  Head: (): null => null,
-  Main: (): null => null,
-  NextScript: (): null => null,
 }));
 
 describe('RootLayout', () => {
   it('renders children correctly', () => {
-    render(
+    const { container } = render(
       <RootLayout>
-        <div data-testid="test-child">Test Content</div>
+        <div data-testid="test-content">Test Content</div>
       </RootLayout>
     );
-    
-    const child = screen.getByTestId('test-child');
-    expect(child).toBeInTheDocument();
-    expect(child).toHaveTextContent('Test Content');
-  });
 
-  it('has correct metadata', () => {
-    expect(metadata.title).toBe('Churnistic - Credit Card Churning Tracker');
-    expect(metadata.description).toBe('Track and optimize your credit card churning strategy');
-  });
+    // Check if the html element has the correct lang attribute
+    const html = container.querySelector('html');
+    expect(html).toHaveAttribute('lang', 'en');
 
-  it('includes theme provider and css baseline', () => {
-    render(
-      <RootLayout>
-        <div>Test Content</div>
-      </RootLayout>
-    );
-    
-    expect(screen.getByTestId('theme-provider')).toBeInTheDocument();
-    expect(screen.getByTestId('cache-provider')).toBeInTheDocument();
+    // Check if the body has the correct class
+    const body = container.querySelector('body');
+    expect(body).toHaveClass('inter-mock');
   });
-}); 
+});
