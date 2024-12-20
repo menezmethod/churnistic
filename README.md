@@ -180,6 +180,7 @@ MIT
 # Environment Setup
 
 ## Environment Files
+
 The project uses several environment files for different purposes:
 
 1. `.env.local` - Local development environment variables
@@ -195,6 +196,7 @@ For security reasons, these files are not committed to the repository. Example f
 To set up your environment:
 
 1. Copy the example files:
+
    ```bash
    cp .env.example .env.local
    cp .env.test.example .env.test
@@ -208,6 +210,7 @@ To set up your environment:
    - Other API keys and secrets
 
 ## Security Notes
+
 - Never commit sensitive data or credentials to the repository
 - Keep all environment files (`.env.*`, `cypress.env.json`) in `.gitignore`
 - Regularly rotate API keys and credentials

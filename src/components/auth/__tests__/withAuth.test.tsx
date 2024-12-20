@@ -52,7 +52,7 @@ describe('withAuth HOC', () => {
     });
     render(<WrappedComponent />);
 
-    expect(mockPush).toHaveBeenCalledWith('/auth/signin');
+    expect(mockPush).toHaveBeenCalledWith('/signin');
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
   });
 
@@ -69,7 +69,7 @@ describe('withAuth HOC', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it('redirects to unauthorized page when user role is insufficient', () => {
+  it('redirects to dashboard when user role is insufficient', () => {
     const authOptions: AuthOptions = { requiredRole: 'admin' as UserRole };
     const WrappedWithRole = withAuth(TestComponent, authOptions);
     mockHasRole.mockReturnValue(false);
@@ -82,7 +82,7 @@ describe('withAuth HOC', () => {
 
     render(<WrappedWithRole />);
 
-    expect(mockPush).toHaveBeenCalledWith('/unauthorized');
+    expect(mockPush).toHaveBeenCalledWith('/dashboard');
     expect(mockHasRole).toHaveBeenCalledWith('admin');
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
   });

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import type { Permission, UserRole } from '@/types/auth';
+import type { Permission, UserRole } from '@/lib/auth/types';
 
 export interface AuthOptions {
   requiredRole?: UserRole;
@@ -19,7 +19,7 @@ export function withAuth<P extends object>(
   return function WithAuthComponent(props: P): JSX.Element | null {
     const { user, loading, hasRole, hasPermission } = useAuth();
     const router = useRouter();
-    const { requiredRole, requiredPermissions, redirectTo = '/auth/signin' } = options;
+    const { requiredRole, requiredPermissions = [], redirectTo = '/signin' } = options;
 
     useEffect(() => {
       if (!loading) {
@@ -28,18 +28,20 @@ export function withAuth<P extends object>(
           return;
         }
 
-        if (requiredRole && !hasRole(requiredRole)) {
-          router.push('/unauthorized');
-          return;
-        }
-
-        if (requiredPermissions) {
-          const hasAllPermissions = requiredPermissions.every((permission) =>
-            hasPermission(permission)
-          );
-          if (!hasAllPermissions) {
-            router.push('/unauthorized');
+        if (user) {
+          if (requiredRole && !hasRole(requiredRole)) {
+            router.push('/dashboard');
             return;
+          }
+
+          if (requiredPermissions.length > 0) {
+            const hasAllPermissions = requiredPermissions.every((permission) =>
+              hasPermission(permission)
+            );
+            if (!hasAllPermissions) {
+              router.push('/dashboard');
+              return;
+            }
           }
         }
       }
@@ -73,7 +75,7 @@ export function withAuth<P extends object>(
       return null;
     }
 
-    if (requiredPermissions) {
+    if (requiredPermissions.length > 0) {
       const hasAllPermissions = requiredPermissions.every((permission) =>
         hasPermission(permission)
       );

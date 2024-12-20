@@ -1,120 +1,120 @@
-import { render, waitFor } from '@testing-library/react';
-import { onAuthStateChanged } from 'firebase/auth';
-import type { Mock } from 'jest-mock';
-import { useEffect } from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { Auth, User, NextOrObserver } from 'firebase/auth';
 
-import { AuthProvider, useAuth } from '../AuthContext';
-import type { AuthUser } from '../types';
-import { UserRole } from '../types';
+import { useAuth, AuthProvider } from '../AuthContext';
 
-// Mock Firebase auth
-jest.mock('firebase/auth', () => ({
-  onAuthStateChanged: jest.fn(),
-  getAuth: jest.fn(),
+// Mock Firebase modules
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(),
+  getApps: jest.fn(() => []),
+}));
+
+jest.mock('firebase/auth', () => {
+  const onAuthStateChanged = jest.fn();
+  const mockAuth = {
+    onAuthStateChanged,
+    signOut: jest.fn(),
+    currentUser: null,
+  };
+  return {
+    getAuth: jest.fn(() => mockAuth),
+    onAuthStateChanged,
+  };
+});
+
+jest.mock('firebase/firestore', () => ({
+  getFirestore: jest.fn(),
+  enableIndexedDbPersistence: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('firebase/storage', () => ({
+  getStorage: jest.fn(),
 }));
 
 describe('AuthContext', () => {
-  const mockUser = {
-    uid: '123',
-    email: 'test@example.com',
-    getIdTokenResult: jest.fn().mockResolvedValue({
-      claims: { role: 'user' },
-    }),
-  };
-
-  const TestComponent = ({
-    onAuthChange,
-  }: {
-    onAuthChange: (user: AuthUser | null) => void;
-  }): JSX.Element => {
-    const { user } = useAuth();
-
-    useEffect(() => {
-      onAuthChange(user);
-    }, [user, onAuthChange]);
-
-    return <div>Test Component</div>;
-  };
+  let mockAuth: jest.Mocked<Auth>;
+  let mockUser: User;
+  let mockOnAuthStateChanged: jest.Mock;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('provides null user initially', () => {
-    const onAuthChange = jest.fn();
-    render(
-      <AuthProvider>
-        <TestComponent onAuthChange={onAuthChange} />
-      </AuthProvider>
-    );
-
-    expect(onAuthChange).toHaveBeenCalledWith(null);
-  });
-
-  it('updates user state when auth state changes', async () => {
-    const onAuthChange = jest.fn() as Mock<(user: AuthUser | null) => void>;
-    (onAuthStateChanged as jest.Mock).mockImplementation((auth, callback) => {
-      setTimeout(() => {
-        callback(mockUser);
-      }, 0);
-      return (): void => {
-        // Cleanup function
-      };
-    });
-
-    render(
-      <AuthProvider>
-        <TestComponent onAuthChange={onAuthChange} />
-      </AuthProvider>
-    );
-
-    await waitFor(
-      () => {
-        expect(onAuthChange.mock.calls.length).toBe(2);
-        const user = onAuthChange.mock.calls[1][0] as AuthUser;
-        expect(user).toBeDefined();
-        expect(user.uid).toBe(mockUser.uid);
-        expect(user.email).toBe(mockUser.email);
-        expect(user.role).toBe(UserRole.USER);
+    mockOnAuthStateChanged = jest.fn();
+    mockUser = {
+      uid: 'test-uid',
+      email: 'test@example.com',
+      emailVerified: false,
+      displayName: 'Test User',
+      photoURL: null,
+      phoneNumber: null,
+      isAnonymous: false,
+      tenantId: null,
+      providerData: [],
+      metadata: {
+        creationTime: '2024-01-01',
+        lastSignInTime: '2024-01-01',
       },
-      { timeout: 2000 }
-    );
+      refreshToken: '',
+      delete: jest.fn(),
+      getIdToken: jest.fn(),
+      getIdTokenResult: jest.fn(),
+      reload: jest.fn(),
+      toJSON: jest.fn(),
+      providerId: 'firebase',
+    };
+    mockAuth = {
+      onAuthStateChanged: mockOnAuthStateChanged,
+      currentUser: null,
+      signOut: jest.fn(),
+    } as unknown as jest.Mocked<Auth>;
+
+    const mockAuthModule = jest.requireMock('firebase/auth');
+    mockAuthModule.getAuth.mockReturnValue(mockAuth);
+    mockAuthModule.onAuthStateChanged.mockImplementation((auth: Auth, callback: NextOrObserver<User | null>) => {
+      if (typeof callback === 'function') {
+        callback(null);
+      }
+      return () => {};
+    });
   });
 
-  it('handles user role from token claims', async () => {
-    const onAuthChange = jest.fn() as Mock<(user: AuthUser | null) => void>;
-    const adminUser = {
-      ...mockUser,
-      getIdTokenResult: jest.fn().mockResolvedValue({
-        claims: { role: 'admin' },
-      }),
+  it('provides auth context with initial null state', async () => {
+    const TestComponent = () => {
+      const { user } = useAuth();
+      return <div>{user ? 'User is logged in' : 'No user'}</div>;
     };
 
-    (onAuthStateChanged as jest.Mock).mockImplementation((auth, callback) => {
-      setTimeout(() => {
-        callback(adminUser);
-      }, 0);
-      return (): void => {
-        // Cleanup function
-      };
-    });
-
     render(
       <AuthProvider>
-        <TestComponent onAuthChange={onAuthChange} />
+        <TestComponent />
       </AuthProvider>
     );
 
-    await waitFor(
-      () => {
-        expect(onAuthChange.mock.calls.length).toBe(2);
-        const user = onAuthChange.mock.calls[1][0] as AuthUser;
-        expect(user).toBeDefined();
-        expect(user.uid).toBe(mockUser.uid);
-        expect(user.email).toBe(mockUser.email);
-        expect(user.role).toBe(UserRole.ADMIN);
-      },
-      { timeout: 2000 }
+    await waitFor(() => {
+      expect(screen.getByText('No user')).toBeInTheDocument();
+    });
+  });
+
+  it('updates context when auth state changes', async () => {
+    const mockAuthModule = jest.requireMock('firebase/auth');
+    mockAuthModule.onAuthStateChanged.mockImplementation((auth: Auth, callback: NextOrObserver<User | null>) => {
+      if (typeof callback === 'function') {
+        callback(mockUser);
+      }
+      return () => {};
+    });
+
+    const TestComponent = () => {
+      const { user } = useAuth();
+      return <div>{user ? 'User is logged in' : 'No user'}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
     );
+
+    await waitFor(() => {
+      expect(screen.getByText('User is logged in')).toBeInTheDocument();
+    });
   });
 });

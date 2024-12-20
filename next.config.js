@@ -33,7 +33,7 @@ const nextConfig = {
         },
         {
           key: 'Permissions-Policy',
-          value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+          value: 'camera=(), microphone=(), geolocation=()',
         },
       ],
     },
@@ -42,7 +42,7 @@ const nextConfig = {
   swcMinify: true,
   // Optimize images
   images: {
-    domains: [],
+    domains: ['firebasestorage.googleapis.com'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
