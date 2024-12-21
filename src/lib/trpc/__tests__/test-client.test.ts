@@ -26,12 +26,19 @@ jest.mock('@trpc/client', () => ({
       getAll: {
         query: jest.fn(),
       },
+      getById: {
+        query: jest.fn(),
+      },
     },
   })),
   httpBatchLink: jest.fn(),
 }));
 
 describe('TRPC Test Client', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('testQuery', () => {
     it('should execute query and match expected data', async () => {
       const expectedData = { id: 1, name: 'Test' };
@@ -142,13 +149,12 @@ describe('TRPC Test Client', () => {
     });
 
     it('should test bank query', async () => {
-      const bankData = { id: 'acc123', name: 'Test Bank' };
-      (trpc.bank.getById.query as jest.Mock).mockResolvedValue(bankData);
-      const accountId = 'acc123';
+      const bankData = [{ id: 'acc123', name: 'Test Bank' }];
+      (trpc.bank.getAll.query as jest.Mock).mockResolvedValue(bankData);
 
       await testBankQuery();
 
-      expect(trpc.bank.getById.query).toHaveBeenCalledWith(accountId);
+      expect(trpc.bank.getAll.query).toHaveBeenCalled();
     });
   });
 });

@@ -72,17 +72,10 @@ export const cardRouter = router({
           });
 
           if (activeCards >= rule.maxCards) {
-            return {
-              success: false,
-              error: {
-                code: 'MAX_CARDS_EXCEEDED',
-                message: `Maximum of ${rule.maxCards} cards allowed from issuer`,
-                details: {
-                  maxCards: rule.maxCards,
-                  issuer: card.issuerId,
-                },
-              },
-            };
+            throw new TRPCError({
+              code: 'FORBIDDEN',
+              message: `Maximum of ${rule.maxCards} cards allowed from issuer`,
+            });
           }
         }
 
@@ -100,22 +93,15 @@ export const cardRouter = router({
           });
 
           if (recentApplication) {
-            return {
-              success: false,
-              error: {
-                code: 'COOLDOWN_PERIOD',
-                message: 'Cooldown period not met',
-                details: {
-                  cooldownPeriod: rule.cooldownPeriod,
-                  issuer: card.issuerId,
-                },
-              },
-            };
+            throw new TRPCError({
+              code: 'FORBIDDEN',
+              message: 'Cooldown period not met',
+            });
           }
         }
       }
 
-      return ctx.prisma.cardApplication.create({
+      const application = await ctx.prisma.cardApplication.create({
         data: {
           userId: ctx.session.uid,
           cardId: input.cardId,
@@ -126,6 +112,8 @@ export const cardRouter = router({
           annualFeePaid: false,
         },
       });
+
+      return application;
     }),
 
   // Update application status

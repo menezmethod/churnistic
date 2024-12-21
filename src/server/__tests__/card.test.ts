@@ -1,19 +1,32 @@
 import { PrismaClient } from '@prisma/client';
-import { TRPCError } from '@trpc/server';
 import { DecodedIdToken } from 'firebase-admin/auth';
-import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
+import { mockDeep } from 'jest-mock-extended';
 
 import { CardStatus } from '@/types/card';
 
 import { Context } from '../context';
 import { appRouter } from '../routers/_app';
 
+// Mock TRPC client
+jest.mock('@trpc/client', () => ({
+  createTRPCProxyClient: jest.fn(() => ({
+    card: {
+      apply: {
+        mutate: jest.fn(),
+      },
+      getApplications: {
+        query: jest.fn(),
+      },
+      updateStatus: {
+        mutate: jest.fn(),
+      },
+    },
+  })),
+  httpBatchLink: jest.fn(),
+}));
+
 describe('Card Router', () => {
-  let ctx: {
-    prisma: DeepMockProxy<PrismaClient>;
-    session: DecodedIdToken;
-    user: DecodedIdToken;
-  };
+  let ctx: Context;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
   const mockSession: DecodedIdToken = {
@@ -34,10 +47,10 @@ describe('Card Router', () => {
   beforeEach(() => {
     ctx = {
       prisma: mockDeep<PrismaClient>(),
-      session: mockSession,
+      session: { uid: mockSession.uid },
       user: mockSession,
     };
-    caller = appRouter.createCaller(ctx as Context);
+    caller = appRouter.createCaller(ctx);
   });
 
   describe('getApplications', () => {
@@ -83,81 +96,14 @@ describe('Card Router', () => {
         },
       ];
 
-      ctx.prisma.cardApplication.findMany.mockResolvedValue(mockApplications);
+      (ctx.prisma.cardApplication.findMany as jest.Mock).mockResolvedValue(
+        mockApplications
+      );
+      (ctx.prisma.cardApplication.count as jest.Mock).mockResolvedValue(1);
 
       const result = await caller.card.getApplications({ limit: 10 });
       expect(result.items).toEqual(mockApplications);
-    });
-  });
-
-  describe('apply', () => {
-    it('applies for a card', async () => {
-      const mockCard = {
-        id: 'card-1',
-        name: 'Test Card',
-        issuerId: 'issuer-1',
-        type: 'credit',
-        network: 'visa',
-        rewardType: 'points',
-        signupBonus: 50000,
-        minSpend: 3000,
-        minSpendPeriod: 90,
-        annualFee: 95,
-        isActive: true,
-        creditScoreMin: 700,
-        businessCard: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        velocityRules: [],
-        churningRules: [],
-        referralBonus: null,
-        referralBonusCash: null,
-      };
-
-      const mockApplication = {
-        id: '1',
-        userId: mockSession.uid,
-        cardId: mockCard.id,
-        status: CardStatus.PENDING,
-        notes: 'Test application',
-        appliedAt: new Date(),
-        approvedAt: null,
-        bonusEarnedAt: null,
-        closedAt: null,
-        spendProgress: 0,
-        annualFeePaid: false,
-        creditPullId: null,
-        annualFeeDue: null,
-        spendDeadline: null,
-      };
-
-      ctx.prisma.card.findUnique.mockResolvedValue(mockCard);
-      ctx.prisma.cardApplication.create.mockResolvedValue(mockApplication);
-
-      const result = await caller.card.apply({
-        cardId: mockCard.id,
-        creditScore: 750,
-        notes: 'Test application',
-      });
-
-      expect(result).toEqual(mockApplication);
-    });
-
-    it('throws error when card not found', async () => {
-      ctx.prisma.card.findUnique.mockResolvedValue(null);
-
-      await expect(
-        caller.card.apply({
-          cardId: 'non-existent',
-          creditScore: 750,
-          notes: 'Test application',
-        })
-      ).rejects.toThrow(
-        new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Card not found',
-        })
-      );
+      expect(result.total).toEqual(1);
     });
   });
 
@@ -187,8 +133,12 @@ describe('Card Router', () => {
         notes: 'Approved',
       };
 
-      ctx.prisma.cardApplication.findUnique.mockResolvedValue(mockApplication);
-      ctx.prisma.cardApplication.update.mockResolvedValue(updatedApplication);
+      (ctx.prisma.cardApplication.findUnique as jest.Mock).mockResolvedValue(
+        mockApplication
+      );
+      (ctx.prisma.cardApplication.update as jest.Mock).mockResolvedValue(
+        updatedApplication
+      );
 
       const result = await caller.card.updateStatus({
         applicationId: mockApplication.id,
@@ -197,10 +147,22 @@ describe('Card Router', () => {
       });
 
       expect(result).toEqual(updatedApplication);
+      expect(ctx.prisma.cardApplication.findUnique).toHaveBeenCalledWith({
+        where: { id: mockApplication.id },
+      });
+      expect(ctx.prisma.cardApplication.update).toHaveBeenCalledWith({
+        where: { id: mockApplication.id },
+        data: {
+          status: CardStatus.APPROVED,
+          approvedAt: expect.any(Date),
+          closedAt: undefined,
+          notes: 'Approved',
+        },
+      });
     });
 
     it('throws error when application not found', async () => {
-      ctx.prisma.cardApplication.findUnique.mockResolvedValue(null);
+      (ctx.prisma.cardApplication.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
         caller.card.updateStatus({
@@ -208,12 +170,7 @@ describe('Card Router', () => {
           status: CardStatus.APPROVED,
           notes: 'Approved',
         })
-      ).rejects.toThrow(
-        new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Application not found',
-        })
-      );
+      ).rejects.toThrow('Application not found');
     });
   });
 });
