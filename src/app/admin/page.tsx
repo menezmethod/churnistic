@@ -1,10 +1,18 @@
 'use client';
 
 import {
+  People as PeopleIcon,
+  PersonAdd as PersonAddIcon,
+  Security as SecurityIcon,
+  Assessment as AssessmentIcon,
+  MoreVert as MoreVertIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+} from '@mui/icons-material';
+import {
   Box,
   Container,
   Grid,
-  Paper,
   Typography,
   Card,
   CardContent,
@@ -18,15 +26,6 @@ import {
   Divider,
   LinearProgress,
 } from '@mui/material';
-import {
-  People as PeopleIcon,
-  PersonAdd as PersonAddIcon,
-  Security as SecurityIcon,
-  Assessment as AssessmentIcon,
-  MoreVert as MoreVertIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-} from '@mui/icons-material';
 import Link from 'next/link';
 
 const mockStats = {
@@ -185,7 +184,10 @@ export default function AdminDashboard() {
               />
               <CardContent>
                 {mockStats.usersByRole.map((item, index) => (
-                  <Box key={item.role} sx={{ mb: index !== mockStats.usersByRole.length - 1 ? 2 : 0 }}>
+                  <Box
+                    key={item.role}
+                    sx={{ mb: index !== mockStats.usersByRole.length - 1 ? 2 : 0 }}
+                  >
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="body2">{item.role}</Typography>
                       <Typography variant="body2" color="text.secondary">
@@ -199,10 +201,10 @@ export default function AdminDashboard() {
                         index === 0
                           ? 'primary'
                           : index === 1
-                          ? 'secondary'
-                          : index === 2
-                          ? 'warning'
-                          : 'error'
+                            ? 'secondary'
+                            : index === 2
+                              ? 'warning'
+                              : 'error'
                       }
                     />
                   </Box>
@@ -234,8 +236,8 @@ export default function AdminDashboard() {
                                 activity.type === 'create'
                                   ? 'success.main'
                                   : activity.type === 'update'
-                                  ? 'warning.main'
-                                  : 'error.main',
+                                    ? 'warning.main'
+                                    : 'error.main',
                             }}
                           >
                             {activity.type === 'create' ? (

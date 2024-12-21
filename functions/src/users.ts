@@ -13,7 +13,11 @@ const auth = admin.auth();
 // Update user role and custom claims
 export const updateUserRole = functions.https.onCall(async (data, context) => {
   // Verify admin access
-  if (!context.auth || !context.auth.token.role || context.auth.token.role !== UserRole.ADMIN) {
+  if (
+    !context.auth ||
+    !context.auth.token.role ||
+    context.auth.token.role !== UserRole.ADMIN
+  ) {
     throw new functions.https.HttpsError(
       'permission-denied',
       'Only admins can update user roles'
@@ -42,10 +46,7 @@ export const updateUserRole = functions.https.onCall(async (data, context) => {
     });
   } catch (error) {
     console.error('Error updating user role:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to update user role'
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to update user role');
   }
 });
 
@@ -65,10 +66,7 @@ export const sendEmail = functions.https.onCall(async (data, context) => {
     const user = userDoc.data();
 
     if (!user) {
-      throw new functions.https.HttpsError(
-        'not-found',
-        'User not found'
-      );
+      throw new functions.https.HttpsError('not-found', 'User not found');
     }
 
     // TODO: Implement your email service integration here
@@ -89,16 +87,17 @@ export const sendEmail = functions.https.onCall(async (data, context) => {
     });
   } catch (error) {
     console.error('Error sending email:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to send email'
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to send email');
   }
 });
 
 // Reset user password
 export const resetUserPassword = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !context.auth.token.role || context.auth.token.role !== UserRole.ADMIN) {
+  if (
+    !context.auth ||
+    !context.auth.token.role ||
+    context.auth.token.role !== UserRole.ADMIN
+  ) {
     throw new functions.https.HttpsError(
       'permission-denied',
       'Only admins can reset passwords'
@@ -116,10 +115,7 @@ export const resetUserPassword = functions.https.onCall(async (data, context) =>
     const user = userDoc.data();
 
     if (!user) {
-      throw new functions.https.HttpsError(
-        'not-found',
-        'User not found'
-      );
+      throw new functions.https.HttpsError('not-found', 'User not found');
     }
 
     // Send password reset email
@@ -138,16 +134,17 @@ export const resetUserPassword = functions.https.onCall(async (data, context) =>
     });
   } catch (error) {
     console.error('Error resetting password:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to reset password'
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to reset password');
   }
 });
 
 // Bulk update user roles
 export const bulkUpdateUserRoles = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !context.auth.token.role || context.auth.token.role !== UserRole.ADMIN) {
+  if (
+    !context.auth ||
+    !context.auth.token.role ||
+    context.auth.token.role !== UserRole.ADMIN
+  ) {
     throw new functions.https.HttpsError(
       'permission-denied',
       'Only admins can bulk update user roles'
@@ -177,16 +174,17 @@ export const bulkUpdateUserRoles = functions.https.onCall(async (data, context) 
     });
   } catch (error) {
     console.error('Error bulk updating user roles:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to bulk update user roles'
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to bulk update user roles');
   }
 });
 
 // Export user data
 export const exportUserData = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !context.auth.token.role || context.auth.token.role !== UserRole.ADMIN) {
+  if (
+    !context.auth ||
+    !context.auth.token.role ||
+    context.auth.token.role !== UserRole.ADMIN
+  ) {
     throw new functions.https.HttpsError(
       'permission-denied',
       'Only admins can export user data'
@@ -212,10 +210,7 @@ export const exportUserData = functions.https.onCall(async (data, context) => {
       user.createdAt,
     ]);
 
-    const csv = [
-      headers.join(','),
-      ...rows.map((row) => row.join(',')),
-    ].join('\n');
+    const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
 
     // Create audit log
     await db.collection('audit_logs').add({
@@ -227,9 +222,6 @@ export const exportUserData = functions.https.onCall(async (data, context) => {
     return csv;
   } catch (error) {
     console.error('Error exporting user data:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to export user data'
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to export user data');
   }
-}); 
+});

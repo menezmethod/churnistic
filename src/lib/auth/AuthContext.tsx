@@ -5,6 +5,7 @@ import {
   GoogleAuthProvider,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  signInWithCustomToken,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
@@ -13,9 +14,9 @@ import {
 } from 'firebase/auth';
 import { createContext, useContext, useEffect, useState } from 'react';
 
+import { ROLE_PERMISSIONS } from '@/lib/auth/permissions';
+import type { Permission, UserRole } from '@/lib/auth/types';
 import { auth } from '@/lib/firebase/config';
-
-import { Permission, UserRole } from './types';
 
 interface AuthContextType {
   user: User | null;
@@ -50,6 +51,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
 
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Get the ID token and set session cookie
+        const token = await user.getIdTokenResult();
+        setUser({ ...user, customClaims: token.claims as User['customClaims'] });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
+
   const refreshClaims = async () => {
     if (!auth.currentUser) return;
 
@@ -83,7 +111,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Update the user object with custom claims from session
         freshUser.customClaims = {
           role: session.role as UserRole,
-          permissions: (session.permissions as Permission[]) || [],
+          permissions:
+            (session.permissions as Permission[]) ||
+            ROLE_PERMISSIONS[session.role as UserRole],
           isSuperAdmin: session.isSuperAdmin as boolean,
         };
 
@@ -98,74 +128,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error refreshing claims:', error);
     }
   };
-
-  useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    setIsOffline(!navigator.onLine);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  useEffect(() => {
-    console.log('Setting up auth state listener');
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log(
-        'Auth state changed:',
-        user ? `User logged in: ${user.email}` : 'No user'
-      );
-
-      if (user) {
-        try {
-          // Force token refresh to get latest claims
-          await user.getIdToken(true);
-          // Get fresh token
-          const token = await user.getIdToken();
-
-          // Get session data from our API
-          const response = await fetch('/api/auth/session', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ token }),
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to refresh session');
-          }
-
-          const { session } = await response.json();
-          console.log('Session data:', session);
-
-          // Update the user object with custom claims from session
-          user.customClaims = {
-            role: session.role as UserRole,
-            permissions: (session.permissions as Permission[]) || [],
-            isSuperAdmin: session.isSuperAdmin as boolean,
-          };
-
-          console.log('Updated user object:', {
-            email: user.email,
-            claims: user.customClaims,
-          });
-        } catch (error) {
-          console.error('Error getting user claims:', error);
-        }
-      }
-
-      setUser(user);
-      setLoading(false);
-    });
-
-    return unsubscribe;
-  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -184,6 +146,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
+
+      // Verify if user exists in MongoDB
+      const verifyResponse = await fetch(`/api/users/verify/${result.user.uid}`);
+      const isNewUser = !verifyResponse.ok;
+
+      if (isNewUser) {
+        console.log('Creating new user in MongoDB after Google sign in');
+        // Create user in MongoDB if they don't exist
+        const createResponse = await fetch('/api/users', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            firebaseUid: result.user.uid,
+            email: result.user.email,
+            displayName: result.user.displayName || result.user.email?.split('@')[0],
+            photoURL: result.user.photoURL,
+          }),
+        });
+
+        if (!createResponse.ok) {
+          // If MongoDB creation fails, delete the Firebase user to maintain consistency
+          await result.user.delete();
+          throw new Error('Failed to create user in database');
+        }
+
+        // Initialize Firebase custom claims for new user
+        const initResponse = await fetch('/api/auth/initialize-claims', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            uid: result.user.uid,
+            email: result.user.email,
+          }),
+        });
+
+        if (!initResponse.ok) {
+          console.error('Failed to initialize user claims');
+          throw new Error('Failed to initialize user permissions');
+        }
+
+        const { token: customToken } = await initResponse.json();
+
+        // Sign in with the custom token to get the new claims
+        await signInWithCustomToken(auth, customToken);
+      }
+
+      // Force a token refresh to get the new claims
+      await result.user.getIdToken(true);
       await refreshClaims();
       console.log('Google sign in successful for user:', result.user.email);
     } catch (error) {
@@ -194,8 +208,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, displayName: string) => {
     try {
+      // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName });
+
+      // Create user in MongoDB
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firebaseUid: userCredential.user.uid,
+          email: userCredential.user.email,
+          displayName: displayName || userCredential.user.email?.split('@')[0],
+        }),
+      });
+
+      if (!response.ok) {
+        // If MongoDB creation fails, delete the Firebase user
+        await userCredential.user.delete();
+        throw new Error('Failed to create user in database');
+      }
+
+      // Initialize Firebase custom claims for new user
+      const initResponse = await fetch('/api/auth/initialize-claims', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid: userCredential.user.uid,
+          email: userCredential.user.email,
+        }),
+      });
+
+      if (!initResponse.ok) {
+        console.error('Failed to initialize user claims');
+        throw new Error('Failed to initialize user permissions');
+      }
+
+      const { token: customToken } = await initResponse.json();
+
+      // Sign in with the custom token to get the new claims
+      await signInWithCustomToken(auth, customToken);
+
+      // Force a token refresh to get the new claims
+      await userCredential.user.getIdToken(true);
       await refreshClaims();
       console.log('Sign up successful for user:', userCredential.user.email);
     } catch (error) {
@@ -228,10 +287,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!auth.currentUser) return;
 
     try {
+      // Update Firebase profile
       await updateProfile(auth.currentUser, {
         displayName,
         photoURL: photoURL || auth.currentUser.photoURL,
       });
+
+      // Update MongoDB profile
+      const response = await fetch(`/api/users/${auth.currentUser.uid}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          displayName,
+          photoURL: photoURL || auth.currentUser.photoURL,
+        }),
+      });
+
+      if (!response.ok) {
+        // If MongoDB update fails, revert Firebase changes
+        await updateProfile(auth.currentUser, {
+          displayName: user?.displayName || '',
+          photoURL: user?.photoURL || null,
+        });
+        throw new Error('Failed to update user in database');
+      }
+
       // Force a refresh of the user object
       setUser({ ...auth.currentUser });
       console.log('Profile updated for user:', auth.currentUser.email);
@@ -272,33 +354,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return true;
     }
 
-    const hasPermissionAccess =
-      user.customClaims.permissions?.includes(permission) ?? false;
+    // If permissions are missing, get them from the role
+    const userPermissions =
+      user.customClaims.permissions ||
+      (user.customClaims.role ? ROLE_PERMISSIONS[user.customClaims.role] : []);
+
+    const hasPermissionAccess = userPermissions?.includes(permission) ?? false;
     console.log('Checking permission access:', {
       requiredPermission: permission,
-      userPermissions: user.customClaims.permissions,
+      userPermissions,
       hasAccess: hasPermissionAccess,
     });
 
     return hasPermissionAccess;
   };
 
-  const value = {
-    user,
-    loading,
-    isOffline,
-    signIn,
-    signInWithGoogle,
-    signUp,
-    signOut,
-    resetPassword,
-    updateUserProfile,
-    hasRole,
-    hasPermission,
-    refreshClaims,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        isOffline,
+        signIn,
+        signInWithGoogle,
+        signUp,
+        signOut,
+        resetPassword,
+        updateUserProfile,
+        hasRole,
+        hasPermission,
+        refreshClaims,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

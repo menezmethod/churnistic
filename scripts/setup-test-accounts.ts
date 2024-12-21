@@ -76,13 +76,16 @@ async function setupTestAccounts() {
         // Set custom claims
         const claims = {
           role: account.role.toLowerCase(),
-          permissions: account.role === UserRole.admin ? [
-            'users.view',
-            'users.create',
-            'users.edit',
-            'users.delete',
-            'roles.assign',
-          ] : [],
+          permissions:
+            account.role === UserRole.admin
+              ? [
+                  'users.view',
+                  'users.create',
+                  'users.edit',
+                  'users.delete',
+                  'roles.assign',
+                ]
+              : [],
           ...(account.isSuperAdmin && { isSuperAdmin: true }),
         };
         await admin.auth().setCustomUserClaims(firebaseUser.uid, claims);

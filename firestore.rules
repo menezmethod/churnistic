@@ -3,20 +3,28 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Helper functions
-    function isAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
     
+    function getRole() {
+      return request.auth.token.role;
+    }
+    
+    function isOneOfRoles(roles) {
+      return isSignedIn() && (getRole() in roles);
+    }
+    
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.role == 'admin';
+      return isOneOfRoles(['admin']);
     }
     
     function isManager() {
-      return isAuthenticated() && request.auth.token.role == 'manager';
+      return isOneOfRoles(['manager']);
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     function canAccessUser(userId) {
@@ -24,38 +32,90 @@ service cloud.firestore {
     }
 
     function canModifyUser(userId) {
-      return isAdmin() || (isManager() && !willChangeRole());
+      return isOwner(userId) || isAdmin() || (isManager() && !willChangeRole());
     }
 
     function willChangeRole() {
       return request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
     }
+
+    function isValidNewDocument() {
+      return resource == null;
+    }
+
+    function isValidProfileUpdate() {
+      let allowedFields = [
+        'displayName',
+        'customDisplayName',
+        'bio',
+        'photoURL',
+        'emailPreferences',
+        'notifications',
+        'privacy',
+        'preferences',
+        'theme',
+        'language',
+        'timezone',
+        'updatedAt',
+        'createdAt'
+      ];
+      let changedFields = request.resource.data.diff(resource.data).affectedKeys();
+      return changedFields.hasAll(allowedFields) || !changedFields.hasAny(['role', 'email', 'uid', 'firebaseUid', 'status']);
+    }
     
     // Users collection
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAdmin();
-      allow update: if canModifyUser(userId);
+      // Allow read for authenticated users to enable user search/listing
+      allow read: if isSignedIn();
+      // Allow create for new users or admins
+      allow create: if isOwner(userId) || isAdmin();
+      // Users can modify their own profile data, admins can modify any data
+      allow update: if 
+        (isOwner(userId) && isValidProfileUpdate()) || 
+        isAdmin() || 
+        (isManager() && !willChangeRole());
+      // Only admins can delete user documents
       allow delete: if isAdmin();
 
       // User activity subcollection
       match /activity/{activityId} {
+        // Allow read for user and admins/managers
         allow read: if canAccessUser(userId);
+        // Allow write for owner and admins
         allow write: if isAdmin() || isOwner(userId);
       }
     }
     
-    // Audit logs collection
+    // Audit logs collection - for tracking important system events
     match /audit_logs/{logId} {
+      // Only admins can read audit logs
       allow read: if isAdmin();
-      allow create: if isAuthenticated();
+      // Any authenticated user can create audit logs
+      allow create: if isSignedIn();
+      // No one can update or delete audit logs
       allow update, delete: if false;
     }
 
-    // User settings collection
+    // User settings collection - for app-wide user preferences
     match /user_settings/{userId} {
+      // Allow read if user owns the settings or is admin/manager
       allow read: if canAccessUser(userId);
+      // Allow write if user owns the settings or is admin
       allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // Notification settings collection - for user notification preferences
+    match /notification_settings/{userId} {
+      // Only allow users to access their own notification settings
+      allow read, write: if isOwner(userId);
+    }
+
+    // System settings collection - for application-wide settings
+    match /system_settings/{settingId} {
+      // Anyone can read system settings
+      allow read: if isSignedIn();
+      // Only admins can modify system settings
+      allow write: if isAdmin();
     }
   }
 } 

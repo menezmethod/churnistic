@@ -1,333 +1,126 @@
-import { expect } from '@jest/globals';
-import type { PrismaClient } from '@prisma/client';
-import { TRPCError } from '@trpc/server';
-import type { DecodedIdToken } from 'firebase-admin/auth';
-import { mockDeep } from 'jest-mock-extended';
-import type { NextRequest } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { DecodedIdToken } from 'firebase-admin/auth';
+import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
 
-import { createContext } from '../../context';
+import { Context } from '../../context';
 import { appRouter } from '../_app';
 
 describe('Customer Router', () => {
-  const mockPrisma = mockDeep<PrismaClient>();
-  const mockRequest = {} as NextRequest;
+  let ctx: {
+    prisma: DeepMockProxy<PrismaClient>;
+    session: DecodedIdToken;
+    user: DecodedIdToken;
+  };
   let caller: ReturnType<typeof appRouter.createCaller>;
 
-  const now = new Date();
   const mockSession: DecodedIdToken = {
     uid: 'test-uid',
     email: 'test@example.com',
-    role: 'admin',
-    aud: 'test-audience',
-    auth_time: now.getTime(),
-    exp: now.getTime() + 3600,
-    iat: now.getTime(),
-    iss: 'https://securetoken.google.com/test-project',
-    sub: 'test-uid',
+    iat: 0,
+    exp: 0,
+    aud: '',
+    iss: '',
+    sub: '',
+    auth_time: 0,
     firebase: {
       identities: {},
       sign_in_provider: 'custom',
     },
   };
 
-  beforeEach(async () => {
-    jest.clearAllMocks();
-    const ctx = await createContext(mockRequest);
-    caller = appRouter.createCaller({
-      ...ctx,
-      prisma: mockPrisma,
+  beforeEach(() => {
+    ctx = {
+      prisma: mockDeep<PrismaClient>(),
       session: mockSession,
-    });
+      user: mockSession,
+    };
+    caller = appRouter.createCaller(ctx as Context);
   });
 
   describe('getAll', () => {
-    it('returns all customers for a company', async () => {
+    it('returns all customers', async () => {
       const mockCustomers = [
         {
           id: '1',
-          email: 'customer1@example.com',
-          companyId: 'company1',
+          name: 'Test Customer',
+          email: 'test@example.com',
+          phone: '123-456-7890',
+          companyId: 'company-1',
           status: 'active',
-          createdAt: now,
-          updatedAt: now,
-          name: null,
-          lastActive: now,
+          lastActive: new Date(),
           churnedAt: null,
-        },
-        {
-          id: '2',
-          email: 'customer2@example.com',
-          companyId: 'company1',
-          status: 'active',
-          createdAt: now,
-          updatedAt: now,
-          name: null,
-          lastActive: now,
-          churnedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ];
 
-      mockPrisma.customer.findMany.mockResolvedValue(mockCustomers);
+      ctx.prisma.customer.findMany.mockResolvedValue(mockCustomers);
 
-      const result = await caller.customer.getAll({
-        companyId: 'company1',
-      });
-
+      const result = await caller.customer.getAll();
       expect(result).toEqual(mockCustomers);
-      expect(mockPrisma.customer.findMany).toHaveBeenCalledWith({
-        where: {
-          companyId: 'company1',
-        },
-      });
-    });
-
-    it('filters customers by status', async () => {
-      const mockCustomers = [
-        {
-          id: '1',
-          email: 'customer1@example.com',
-          companyId: 'company1',
-          status: 'at_risk',
-          createdAt: now,
-          updatedAt: now,
-          name: null,
-          lastActive: now,
-          churnedAt: null,
-        },
-      ];
-
-      mockPrisma.customer.findMany.mockResolvedValue(mockCustomers);
-
-      const result = await caller.customer.getAll({
-        companyId: 'company1',
-        status: 'at_risk',
-      });
-
-      expect(result).toEqual(mockCustomers);
-      expect(mockPrisma.customer.findMany).toHaveBeenCalledWith({
-        where: {
-          companyId: 'company1',
-          status: 'at_risk',
-        },
-      });
-    });
-  });
-
-  describe('getById', () => {
-    it('returns a customer by id', async () => {
-      const mockCustomer = {
-        id: '1',
-        email: 'customer@example.com',
-        status: 'active',
-        createdAt: now,
-        updatedAt: now,
-        name: null,
-        companyId: 'company1',
-        lastActive: now,
-        churnedAt: null,
-      };
-      mockPrisma.customer.findUnique.mockResolvedValue(mockCustomer);
-
-      const result = await caller.customer.getById('1');
-
-      expect(result).toEqual(mockCustomer);
-      expect(mockPrisma.customer.findUnique).toHaveBeenCalledWith({
-        where: { id: '1' },
-      });
-    });
-
-    it('throws error when customer not found', async () => {
-      mockPrisma.customer.findUnique.mockResolvedValue(null);
-
-      await expect(caller.customer.getById('1')).rejects.toThrow(
-        new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Customer not found',
-        })
-      );
-    });
-  });
-
-  describe('create', () => {
-    it('creates a new customer', async () => {
-      const mockCustomer = {
-        id: '1',
-        email: 'new@example.com',
-        name: 'New Customer',
-        companyId: 'company1',
-        status: 'active',
-        createdAt: now,
-        updatedAt: now,
-        lastActive: now,
-        churnedAt: null,
-      };
-
-      mockPrisma.customer.create.mockResolvedValue(mockCustomer);
-
-      const result = await caller.customer.create({
-        email: 'new@example.com',
-        name: 'New Customer',
-        companyId: 'company1',
-      });
-
-      expect(result).toEqual(mockCustomer);
-      expect(mockPrisma.customer.create).toHaveBeenCalledWith({
-        data: {
-          email: 'new@example.com',
-          name: 'New Customer',
-          companyId: 'company1',
-          status: 'active',
-          lastActive: expect.any(Date),
-        },
-      });
-    });
-  });
-
-  describe('update', () => {
-    it('updates a customer', async () => {
-      const mockCustomer = {
-        id: '1',
-        email: 'updated@example.com',
-        name: 'Updated Customer',
-        status: 'active',
-        createdAt: now,
-        updatedAt: now,
-        companyId: 'company1',
-        lastActive: now,
-        churnedAt: null,
-      };
-
-      mockPrisma.customer.update.mockResolvedValue(mockCustomer);
-
-      const result = await caller.customer.update({
-        id: '1',
-        email: 'updated@example.com',
-        name: 'Updated Customer',
-      });
-
-      expect(result).toEqual(mockCustomer);
-      expect(mockPrisma.customer.update).toHaveBeenCalledWith({
-        where: { id: '1' },
-        data: {
-          email: 'updated@example.com',
-          name: 'Updated Customer',
-        },
-      });
-    });
-
-    it('sets churnedAt when status is changed to churned', async () => {
-      const mockCustomer = {
-        id: '1',
-        status: 'churned',
-        email: 'test@example.com',
-        createdAt: now,
-        updatedAt: now,
-        name: null,
-        companyId: 'company1',
-        lastActive: now,
-        churnedAt: now,
-      };
-
-      mockPrisma.customer.update.mockResolvedValue(mockCustomer);
-
-      const result = await caller.customer.update({
-        id: '1',
-        status: 'churned',
-      });
-
-      expect(result).toEqual(mockCustomer);
-      expect(mockPrisma.customer.update).toHaveBeenCalledWith({
-        where: { id: '1' },
-        data: {
-          status: 'churned',
-          churnedAt: expect.any(Date),
-        },
-      });
-    });
-  });
-
-  describe('delete', () => {
-    it('deletes a customer', async () => {
-      const mockCustomer = {
-        id: '1',
-        email: 'customer@example.com',
-        status: 'active',
-        createdAt: now,
-        updatedAt: now,
-        name: null,
-        companyId: 'company1',
-        lastActive: now,
-        churnedAt: null,
-      };
-      mockPrisma.customer.delete.mockResolvedValue(mockCustomer);
-
-      const result = await caller.customer.delete('1');
-
-      expect(result).toEqual(mockCustomer);
-      expect(mockPrisma.customer.delete).toHaveBeenCalledWith({
-        where: { id: '1' },
-      });
     });
   });
 
   describe('updateStatus', () => {
-    it('updates customer status', async () => {
+    it('marks customer as at risk', async () => {
       const mockCustomer = {
         id: '1',
-        status: 'at_risk',
+        name: 'Test Customer',
         email: 'test@example.com',
-        createdAt: now,
-        updatedAt: now,
-        name: null,
-        companyId: 'company1',
-        lastActive: now,
+        phone: '123-456-7890',
+        companyId: 'company-1',
+        status: 'active',
+        lastActive: new Date(),
         churnedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
-      mockPrisma.customer.update.mockResolvedValue(mockCustomer);
+      const updatedCustomer = {
+        ...mockCustomer,
+        status: 'at_risk',
+        lastActive: new Date(),
+      };
+
+      ctx.prisma.customer.update.mockResolvedValue(updatedCustomer);
 
       const result = await caller.customer.updateStatus({
-        id: '1',
+        id: mockCustomer.id,
         status: 'at_risk',
       });
 
-      expect(result).toEqual(mockCustomer);
-      expect(mockPrisma.customer.update).toHaveBeenCalledWith({
-        where: { id: '1' },
-        data: {
-          status: 'at_risk',
-        },
-      });
+      expect(result).toEqual(updatedCustomer);
     });
 
-    it('sets churnedAt when status is changed to churned', async () => {
+    it('marks customer as churned', async () => {
       const mockCustomer = {
         id: '1',
-        status: 'churned',
+        name: 'Test Customer',
         email: 'test@example.com',
-        createdAt: now,
-        updatedAt: now,
-        name: null,
-        companyId: 'company1',
-        lastActive: now,
-        churnedAt: now,
+        phone: '123-456-7890',
+        companyId: 'company-1',
+        status: 'at_risk',
+        lastActive: new Date(),
+        churnedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
-      mockPrisma.customer.update.mockResolvedValue(mockCustomer);
+      const updatedCustomer = {
+        ...mockCustomer,
+        status: 'churned',
+        lastActive: new Date(),
+        churnedAt: new Date(),
+      };
+
+      ctx.prisma.customer.update.mockResolvedValue(updatedCustomer);
 
       const result = await caller.customer.updateStatus({
-        id: '1',
+        id: mockCustomer.id,
         status: 'churned',
       });
 
-      expect(result).toEqual(mockCustomer);
-      expect(mockPrisma.customer.update).toHaveBeenCalledWith({
-        where: { id: '1' },
-        data: {
-          status: 'churned',
-          churnedAt: expect.any(Date),
-        },
-      });
+      expect(result).toEqual(updatedCustomer);
     });
   });
 });

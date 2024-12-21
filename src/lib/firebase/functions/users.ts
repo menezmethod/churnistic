@@ -1,23 +1,33 @@
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../config';
+
 import { UserRole } from '@/lib/auth/types';
+
+import { functions } from '../config';
 
 interface UpdateRoleData {
   userId: string;
   role: UserRole;
 }
 
+interface EmailTemplateData {
+  [key: string]: string | number | boolean;
+}
+
 interface SendEmailData {
   userId: string;
   template: 'ROLE_CHANGE' | 'ACCOUNT_DEACTIVATED' | 'PASSWORD_RESET';
-  data?: Record<string, any>;
+  data?: EmailTemplateData;
+}
+
+interface AuditLogDetails {
+  [key: string]: string | number | boolean;
 }
 
 interface AuditLogData {
   action: string;
   userId: string;
   performedBy: string;
-  details?: Record<string, any>;
+  details?: AuditLogDetails;
 }
 
 // Update user role and custom claims
@@ -27,10 +37,7 @@ export const updateUserRole = httpsCallable<UpdateRoleData, void>(
 );
 
 // Send email notifications
-export const sendEmail = httpsCallable<SendEmailData, void>(
-  functions,
-  'sendEmail'
-);
+export const sendEmail = httpsCallable<SendEmailData, void>(functions, 'sendEmail');
 
 // Create audit log
 export const createAuditLog = httpsCallable<AuditLogData, void>(
@@ -51,7 +58,4 @@ export const bulkUpdateUserRoles = httpsCallable<
 >(functions, 'bulkUpdateUserRoles');
 
 // Export user data
-export const exportUserData = httpsCallable<void, string>(
-  functions,
-  'exportUserData'
-); 
+export const exportUserData = httpsCallable<void, string>(functions, 'exportUserData');

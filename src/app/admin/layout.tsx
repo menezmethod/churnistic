@@ -1,53 +1,47 @@
 'use client';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-import { UserRole } from '@/lib/auth/types';
+import { Box } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Box, CircularProgress } from '@mui/material';
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const { user, hasRole, loading } = useAuth();
+import { useAuth } from '@/lib/auth/AuthContext';
+import { trpc } from '@/lib/trpc/client';
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Only redirect if we're sure about the auth state
-    if (!loading) {
+    const checkAdminAccess = async () => {
       if (!user) {
-        router.push('/signin');
+        router.push('/auth/signin');
         return;
       }
 
-      if (!hasRole(UserRole.ADMIN)) {
+      try {
+        const userProfile = await trpc.user.me.query();
+        if (!userProfile.isAdmin) {
+          router.push('/unauthorized');
+        }
+      } catch (error) {
+        console.error('Error checking admin access:', error);
         router.push('/unauthorized');
       }
-    }
-  }, [user, hasRole, loading, router]);
+    };
 
-  // Show loading state while checking auth
-  if (loading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
+    checkAdminAccess();
+  }, [user, router]);
 
-  // Don't render anything if not authenticated or not admin
-  if (!user || !hasRole(UserRole.ADMIN)) {
-    return null;
-  }
-
-  return <>{children}</>;
-} 
+  return (
+    <Box
+      component="main"
+      sx={{
+        flexGrow: 1,
+        p: 3,
+        width: '100%',
+      }}
+    >
+      {children}
+    </Box>
+  );
+}

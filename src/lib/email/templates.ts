@@ -140,4 +140,4 @@ export const welcomeTemplate = (user: User) => `
   </div>
 </body>
 </html>
-`; 
+`;

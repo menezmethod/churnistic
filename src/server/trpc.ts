@@ -1,57 +1,26 @@
-import { initTRPC } from '@trpc/server';
-import type { DecodedIdToken } from 'firebase-admin/auth';
-import { getAuth } from 'firebase-admin/auth';
-import { type NextRequest } from 'next/server';
+import { TRPCError, initTRPC } from '@trpc/server';
 
-import { initAdmin } from '@/lib/firebase/admin';
-import { prisma } from '@/lib/prisma/db';
+import { auth } from '@/lib/firebase/admin';
+import { initializeMiddleware } from '@/lib/middleware';
 
-// Initialize Firebase Admin
-initAdmin();
+import { Context } from './context';
 
-// Context type definition
-export interface CreateContextOptions {
-  session: DecodedIdToken | null;
-  prisma: typeof prisma;
-}
+const t = initTRPC.context<Context>().create();
 
-interface ContextOptions {
-  req: NextRequest;
-}
+const isAuthed = t.middleware(async ({ ctx, next }) => {
+  if (!ctx.user) {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'Not authenticated',
+    });
+  }
+  return next({
+    ctx: {
+      user: ctx.user,
+    },
+  });
+});
 
-export async function createContext({
-  req,
-}: ContextOptions): Promise<CreateContextOptions> {
-  const authHeader = req.headers.get('authorization');
-  const session = authHeader
-    ? await getAuth()
-        .verifyIdToken(authHeader.replace('Bearer ', ''))
-        .catch(() => null)
-    : null;
-
-  return {
-    session,
-    prisma,
-  };
-}
-
-const t = initTRPC.context<CreateContextOptions>().create();
-
-// Base router and procedure helpers
 export const router = t.router;
 export const publicProcedure = t.procedure;
-
-// Protected procedure
-export const protectedProcedure = t.procedure.use(
-  t.middleware(({ ctx, next }) => {
-    if (!ctx.session) {
-      throw new Error('UNAUTHORIZED');
-    }
-    return next({
-      ctx: {
-        ...ctx,
-        session: ctx.session,
-      },
-    });
-  })
-);
+export const protectedProcedure = t.procedure.use(isAuthed);
