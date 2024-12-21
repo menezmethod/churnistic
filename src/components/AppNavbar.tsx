@@ -47,7 +47,7 @@ export default function AppNavbar(): JSX.Element {
   const handleLogout = async (): Promise<void> => {
     try {
       await signOut();
-      router.push('/signin');
+      router.push('/auth/signin');
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -64,7 +64,7 @@ export default function AppNavbar(): JSX.Element {
   const menuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Cards', icon: <CreditCard />, path: '/cards' },
-    { text: 'Settings', icon: <Settings />, path: '/profile/preferences' },
+    { text: 'Settings', icon: <Settings />, path: '/settings' },
   ];
 
   const drawer = (
@@ -193,7 +193,7 @@ export default function AppNavbar(): JSX.Element {
                 <MenuItem
                   onClick={(): void => {
                     handleClose();
-                    router.push('/profile');
+                    router.push('/settings');
                   }}
                   sx={{
                     gap: 1.5,
@@ -225,7 +225,7 @@ export default function AppNavbar(): JSX.Element {
                 <MenuItem
                   onClick={(): void => {
                     handleClose();
-                    router.push('/profile/preferences');
+                    router.push('/settings');
                   }}
                   sx={{
                     gap: 1.5,
@@ -257,10 +257,7 @@ export default function AppNavbar(): JSX.Element {
               </Menu>
             </Box>
           ) : (
-            <Button
-              color="inherit"
-              onClick={(): void => router.push('/signin')}
-            >
+            <Button color="inherit" onClick={(): void => router.push('/auth/signin')}>
               Login
             </Button>
           )}

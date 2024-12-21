@@ -44,8 +44,10 @@ import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { useCallback, useEffect, useState, useRef } from 'react';
 
+import { withAuth } from '@/components/auth/withAuth';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { db, storage } from '@/lib/firebase/config';
+import { useNotificationSettings } from '@/lib/hooks/useNotificationSettings';
 import { useTheme } from '@/lib/theme/ThemeContext';
 
 // Our custom gray palette
@@ -187,6 +189,7 @@ const SettingsPage = (): JSX.Element => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
+  useNotificationSettings();
 
   const fetchProfile = useCallback(async (): Promise<void> => {
     if (!user) {
@@ -1882,4 +1885,4 @@ const SettingsPage = (): JSX.Element => {
   );
 };
 
-export default SettingsPage;
+export default withAuth(SettingsPage);

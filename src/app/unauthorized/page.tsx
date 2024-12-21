@@ -1,39 +1,40 @@
 'use client';
 
-import Button from '@mui/material/Button';
-import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-export default function UnauthorizedPage(): JSX.Element {
-  const router = useRouter();
+import { useAuth } from '@/lib/auth/AuthContext';
+
+export default function UnauthorizedPage() {
+  const { user } = useAuth();
 
   return (
-    <Container
-      maxWidth="sm"
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        textAlign: 'center',
-        gap: 3,
-      }}
-    >
-      <Typography variant="h2" component="h1" gutterBottom>
-        401
-      </Typography>
-      <Typography variant="h4" component="h2" gutterBottom>
-        Unauthorized Access
-      </Typography>
-      <Typography variant="body1" color="text.secondary" paragraph>
-        You don&apos;t have permission to access this page. Please contact your
-        administrator if you believe this is a mistake.
-      </Typography>
-      <Button variant="contained" onClick={() => router.push('/')} sx={{ marginTop: 2 }}>
-        Return to Home
-      </Button>
-    </Container>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full space-y-8 p-8">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Access Denied</h1>
+          <p className="text-lg text-gray-600 mb-8">
+            {user
+              ? "You don't have permission to access this page."
+              : 'Please sign in to access this page.'}
+          </p>
+          <div className="space-x-4">
+            <Link
+              href="/"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+            >
+              Go Home
+            </Link>
+            {!user && (
+              <Link
+                href="/auth/signin"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              >
+                Sign In
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

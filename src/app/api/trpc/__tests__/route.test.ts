@@ -1,7 +1,6 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { NextRequest } from 'next/server';
 
-
 import { createContext } from '@/server/context';
 import { appRouter } from '@/server/routers/_app';
 
@@ -200,7 +199,9 @@ describe('tRPC Route', () => {
       headers: { 'content-type': 'application/json' },
     });
 
-    let onErrorCallback: ((opts: { error: Error; type: string; path: string }) => void) | undefined;
+    let onErrorCallback:
+      | ((opts: { error: Error; type: string; path: string }) => void)
+      | undefined;
     mockFetchRequestHandler.mockImplementationOnce(({ onError }) => {
       onErrorCallback = onError;
       return mockResponse;

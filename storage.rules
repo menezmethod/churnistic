@@ -2,19 +2,29 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow users to read their own avatars
-    match /avatars/{userId}/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null 
-                   && request.auth.uid == userId
-                   && request.resource.size < 5 * 1024 * 1024 // 5MB max
-                   && request.resource.contentType.matches('image/.*')
-                   && request.resource.contentType.matches('image/(jpeg|png|gif)');
+    // Common functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'ADMIN';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Default deny
+    // User uploads
+    match /users/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isOwner(userId);
+    }
+
+    // Protected paths
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
   }
 } 
