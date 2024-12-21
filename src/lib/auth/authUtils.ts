@@ -12,13 +12,12 @@ export interface AuthContext {
 
 export async function createAuthContext(req: NextRequest): Promise<AuthContext> {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const sessionCookie = req.cookies.get('session')?.value;
+    if (!sessionCookie) {
       return { session: null };
     }
 
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await getAuth().verifyIdToken(token);
+    const decodedToken = await getAuth().verifySessionCookie(sessionCookie);
 
     return {
       session: {
@@ -26,7 +25,8 @@ export async function createAuthContext(req: NextRequest): Promise<AuthContext> 
         email: decodedToken.email || null,
       },
     };
-  } catch {
+  } catch (error) {
+    console.error('Auth error:', error);
     // Return null session for any auth errors
     return { session: null };
   }

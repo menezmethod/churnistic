@@ -73,7 +73,7 @@ export function SignIn(): JSX.Element {
 
   React.useEffect((): void => {
     if (user) {
-      router.push('/dashboard');
+      router.replace('/dashboard');
     }
   }, [user, router]);
 
