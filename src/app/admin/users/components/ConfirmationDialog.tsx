@@ -51,19 +51,14 @@ export default function ConfirmationDialog({
       aria-labelledby="confirmation-dialog-title"
       aria-describedby="confirmation-dialog-description"
     >
-      <DialogTitle id="confirmation-dialog-title">
-        {title}
-      </DialogTitle>
+      <DialogTitle id="confirmation-dialog-title">{title}</DialogTitle>
       <DialogContent>
         <DialogContentText id="confirmation-dialog-description">
           {message}
         </DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button
-          onClick={onCancel}
-          disabled={loading}
-        >
+        <Button onClick={onCancel} disabled={loading}>
           {cancelLabel}
         </Button>
         <Button
@@ -78,4 +73,4 @@ export default function ConfirmationDialog({
       </DialogActions>
     </Dialog>
   );
-} 
+}

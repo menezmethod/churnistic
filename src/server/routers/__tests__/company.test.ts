@@ -3,18 +3,16 @@ import type { PrismaClient } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import { mockDeep } from 'jest-mock-extended';
-import type { NextRequest } from 'next/server';
 
-import { createContext } from '../../context';
+import type { Context } from '../../context';
 import { appRouter } from '../_app';
 
 describe('Company Router', () => {
   const mockPrisma = mockDeep<PrismaClient>();
-  const mockRequest = {} as NextRequest;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
   const now = new Date();
-  const mockSession: DecodedIdToken = {
+  const mockUser: DecodedIdToken = {
     uid: 'test-uid',
     email: 'test@example.com',
     role: 'admin',
@@ -32,12 +30,14 @@ describe('Company Router', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    const ctx = await createContext(mockRequest);
-    caller = appRouter.createCaller({
-      ...ctx,
+    const ctx: Context = {
       prisma: mockPrisma,
-      session: mockSession,
-    });
+      session: {
+        uid: mockUser.uid,
+      },
+      user: mockUser,
+    };
+    caller = appRouter.createCaller(ctx);
   });
 
   describe('getAll', () => {

@@ -3,8 +3,8 @@ process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS = 'true';
 process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
 process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
 
+import { UserRole, ROLE_PERMISSIONS } from '../src/lib/auth/types';
 import { auth } from '../src/lib/firebase/admin';
-import { UserRole, Permission, ROLE_PERMISSIONS } from '../src/lib/auth/types';
 
 // Test users to set up
 const TEST_USERS = [
@@ -82,8 +82,13 @@ async function setUserRole(
 
       // Log current claims before update
       console.log('Current claims:', user.customClaims);
-    } catch (error: any) {
-      if (error.code === 'auth/user-not-found') {
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'auth/user-not-found'
+      ) {
         // Create the user if they don't exist
         console.log('User not found, creating new user...');
         user = await auth.createUser({

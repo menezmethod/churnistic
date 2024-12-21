@@ -201,10 +201,20 @@ const SettingsPage = (): JSX.Element => {
       const docRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(docRef);
 
+      const defaultPreferences = {
+        theme: 'system' as const,
+        language: 'en',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+
       if (docSnap.exists()) {
         const profileData = docSnap.data() as UserProfile;
+        // Ensure preferences exist and have default values
+        profileData.preferences = {
+          ...defaultPreferences,
+          ...profileData.preferences,
+        };
         setProfile(profileData);
-        setMode(profileData.preferences.theme);
       } else {
         const initialProfile = {
           displayName: user.displayName || '',
@@ -227,22 +237,19 @@ const SettingsPage = (): JSX.Element => {
             showEmail: false,
             showActivity: true,
           },
-          preferences: {
-            theme: 'system' as const,
-            language: 'en',
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          },
+          preferences: defaultPreferences,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
         await setDoc(docRef, initialProfile);
         setProfile(initialProfile);
-        setMode('system');
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
       setLoading(false);
     }
-  }, [user, setMode]);
+  }, [user]);
 
   useEffect(() => {
     void fetchProfile();
@@ -1469,7 +1476,7 @@ const SettingsPage = (): JSX.Element => {
                   variant={
                     profile?.preferences?.theme === option ? 'contained' : 'outlined'
                   }
-                  onClick={(): void => handleThemeChange(option)}
+                  onClick={() => handleThemeChange(option)}
                   sx={{
                     textTransform: 'capitalize',
                     px: 3,

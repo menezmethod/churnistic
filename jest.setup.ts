@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import '@testing-library/jest-dom';
+import React from 'react';
 
 import { TextDecoder, TextEncoder } from 'util';
 
@@ -48,76 +49,93 @@ Object.defineProperty(global, 'Request', {
 });
 
 // Mock Firebase
-const mockApp = {
-  name: '[DEFAULT]',
-  options: {},
-  _getProvider: jest.fn(),
-};
-
 jest.mock('firebase/app', () => ({
-  initializeApp: jest.fn(() => mockApp),
-  getApps: jest.fn(() => [mockApp]),
-  getApp: jest.fn(() => mockApp),
+  initializeApp: jest.fn(() => ({
+    name: '[DEFAULT]',
+    options: {
+      apiKey: 'test-api-key',
+      authDomain: 'test-auth-domain',
+      projectId: 'test-project-id',
+      storageBucket: 'test-storage-bucket',
+      messagingSenderId: 'test-messaging-sender-id',
+      appId: 'test-app-id',
+    },
+  })),
+  getApps: jest.fn(() => []),
+  getApp: jest.fn(() => ({
+    name: '[DEFAULT]',
+    options: {
+      apiKey: 'test-api-key',
+      authDomain: 'test-auth-domain',
+      projectId: 'test-project-id',
+      storageBucket: 'test-storage-bucket',
+      messagingSenderId: 'test-messaging-sender-id',
+      appId: 'test-app-id',
+    },
+  })),
+}));
+
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(() => ({
+    currentUser: null,
+    onAuthStateChanged: jest.fn(),
+    signInWithEmailAndPassword: jest.fn(),
+    signInWithPopup: jest.fn(),
+    signOut: jest.fn(),
+  })),
+  onAuthStateChanged: jest.fn(),
+  signInWithEmailAndPassword: jest.fn(),
+  signInWithPopup: jest.fn(),
+  signOut: jest.fn(),
+  GoogleAuthProvider: jest.fn(() => ({
+    addScope: jest.fn(),
+  })),
+  GithubAuthProvider: jest.fn(() => ({
+    addScope: jest.fn(),
+  })),
 }));
 
 jest.mock('firebase/firestore', () => ({
-  getFirestore: jest.fn(() => ({
-    type: 'firestore',
-    toJSON: () => ({}),
-  })),
-  enableIndexedDbPersistence: jest.fn(() => Promise.resolve()),
-  connectFirestoreEmulator: jest.fn(),
+  getFirestore: jest.fn(() => ({})),
+  collection: jest.fn(),
+  doc: jest.fn(),
+  getDoc: jest.fn(),
+  getDocs: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn(),
+  orderBy: jest.fn(),
+  limit: jest.fn(),
+  startAfter: jest.fn(),
+}));
+
+jest.mock('firebase/functions', () => ({
+  getFunctions: jest.fn(() => ({})),
+  httpsCallable: jest.fn(),
 }));
 
 jest.mock('firebase/storage', () => ({
-  getStorage: jest.fn(() => ({
-    type: 'storage',
-    toJSON: () => ({}),
-  })),
+  getStorage: jest.fn(() => ({})),
+  ref: jest.fn(),
+  uploadBytes: jest.fn(),
+  getDownloadURL: jest.fn(),
 }));
 
-jest.mock('firebase/auth', () => {
-  const mockAuth: Partial<Auth> = {
-    currentUser: null,
-    onAuthStateChanged: jest.fn(
-      (
-        nextOrObserver: NextOrObserver<User | null>,
-        _error?: ErrorFn,
-        _completed?: CompleteFn
-      ): Unsubscribe => {
-        if (typeof nextOrObserver === 'function') {
-          nextOrObserver(null);
-        }
-        return jest.fn();
-      }
-    ),
-  };
+// Mock next/navigation
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(() => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
+  })),
+  usePathname: jest.fn(() => '/'),
+}));
 
+// Mock next/link
+jest.mock('next/link', () => {
   return {
-    getAuth: jest.fn(() => mockAuth),
-    signInWithEmailAndPassword: jest.fn(),
-    createUserWithEmailAndPassword: jest.fn(),
-    signOut: jest.fn(),
-    onAuthStateChanged: jest.fn(
-      (
-        nextOrObserver: NextOrObserver<User | null>,
-        _error?: ErrorFn,
-        _completed?: CompleteFn
-      ): Unsubscribe => {
-        if (typeof nextOrObserver === 'function') {
-          nextOrObserver(null);
-        }
-        return jest.fn();
-      }
-    ),
-    GoogleAuthProvider: jest.fn(() => ({
-      addScope: jest.fn(),
-    })),
-    GithubAuthProvider: jest.fn(() => ({
-      addScope: jest.fn(),
-    })),
-    signInWithPopup: jest.fn(),
-    sendPasswordResetEmail: jest.fn(),
+    __esModule: true,
+    default: ({ children, href }: { children: React.ReactNode; href: string }) =>
+      React.createElement('a', { href }, children),
   };
 });
 

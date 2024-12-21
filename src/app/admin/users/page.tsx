@@ -1,9 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import {
   Box,
-  Card,
+  Button,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+  Paper,
+  Snackbar,
   Table,
   TableBody,
   TableCell,
@@ -12,22 +21,17 @@ import {
   TablePagination,
   TableRow,
   TableSortLabel,
-  Checkbox,
-  IconButton,
-  Avatar,
-  Chip,
-  Stack,
+  TextField,
+  Toolbar,
   Typography,
-  Snackbar,
-  Alert,
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import { useUsers, User } from './hooks/useUsers';
-import UserTableToolbar from './components/UserTableToolbar';
+import { visuallyHidden } from '@mui/utils';
+import { useState } from 'react';
+
+import { trpc } from '@/lib/trpc/client';
+
 import UserDetailsModal from './components/UserDetailsModal';
-import ConfirmationDialog from './components/ConfirmationDialog';
-import { formatDistanceToNow } from 'date-fns';
-import { UserRole } from '@/lib/auth/types';
+import type { User } from './hooks/useUsers';
 
 type Order = 'asc' | 'desc';
 
@@ -35,83 +39,61 @@ interface HeadCell {
   id: keyof User;
   label: string;
   numeric: boolean;
-  sortable: boolean;
 }
 
-const headCells: HeadCell[] = [
-  { id: 'displayName', label: 'Name', numeric: false, sortable: true },
-  { id: 'email', label: 'Email', numeric: false, sortable: true },
-  { id: 'role', label: 'Role', numeric: false, sortable: true },
-  { id: 'status', label: 'Status', numeric: false, sortable: true },
-  { id: 'createdAt', label: 'Created', numeric: false, sortable: true },
+const headCells: readonly HeadCell[] = [
+  {
+    id: 'email',
+    numeric: false,
+    label: 'Email',
+  },
+  {
+    id: 'displayName',
+    numeric: false,
+    label: 'Display Name',
+  },
+  {
+    id: 'createdAt',
+    numeric: false,
+    label: 'Created At',
+  },
+  {
+    id: 'updatedAt',
+    numeric: false,
+    label: 'Last Updated',
+  },
 ];
 
-interface EnhancedTableProps {
-  numSelected: number;
-  onRequestSort: (event: React.MouseEvent<unknown>, property: keyof User) => void;
-  onSelectAllClick: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  order: Order;
-  orderBy: string;
-  rowCount: number;
+function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
+  if (b[orderBy] < a[orderBy]) {
+    return -1;
+  }
+  if (b[orderBy] > a[orderBy]) {
+    return 1;
+  }
+  return 0;
 }
 
-function EnhancedTableHead(props: EnhancedTableProps) {
-  const { onSelectAllClick, order, orderBy, numSelected, rowCount, onRequestSort } = props;
-
-  const createSortHandler = (property: keyof User) => (event: React.MouseEvent<unknown>) => {
-    onRequestSort(event, property);
-  };
-
-  return (
-    <TableHead>
-      <TableRow>
-        <TableCell padding="checkbox">
-          <Checkbox
-            color="primary"
-            indeterminate={numSelected > 0 && numSelected < rowCount}
-            checked={rowCount > 0 && numSelected === rowCount}
-            onChange={onSelectAllClick}
-            inputProps={{
-              'aria-label': 'select all users',
-            }}
-          />
-        </TableCell>
-        {headCells.map((headCell) => (
-          <TableCell
-            key={headCell.id}
-            align={headCell.numeric ? 'right' : 'left'}
-            sortDirection={orderBy === headCell.id ? order : false}
-          >
-            {headCell.sortable ? (
-              <TableSortLabel
-                active={orderBy === headCell.id}
-                direction={orderBy === headCell.id ? order : 'asc'}
-                onClick={createSortHandler(headCell.id)}
-              >
-                {headCell.label}
-              </TableSortLabel>
-            ) : (
-              headCell.label
-            )}
-          </TableCell>
-        ))}
-        <TableCell>Actions</TableCell>
-      </TableRow>
-    </TableHead>
-  );
+function getComparator<Key extends keyof User>(
+  order: Order,
+  orderBy: Key
+): (a: { [key in Key]: User[Key] }, b: { [key in Key]: User[Key] }) => number {
+  return order === 'desc'
+    ? (a, b) => descendingComparator(a, b, orderBy)
+    : (a, b) => -descendingComparator(a, b, orderBy);
 }
 
 export default function UsersPage() {
   const [order, setOrder] = useState<Order>('desc');
   const [orderBy, setOrderBy] = useState<keyof User>('createdAt');
-  const [selected, setSelected] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [filters, setFilters] = useState({
-    role: '' as UserRole | '',
-    status: '' as 'active' | 'inactive' | '',
-    search: '',
+    email: '',
+    displayName: '',
   });
+
+  // State for user actions
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [snackbar, setSnackbar] = useState<{
@@ -124,53 +106,51 @@ export default function UsersPage() {
     severity: 'success',
   });
 
-  const { users, loading, error, totalCount, updateUser, deleteUser, updateUserStatus, bulkDelete, bulkUpdateStatus } = useUsers({
-    pageSize: rowsPerPage,
-    sortField: orderBy,
-    sortDirection: order,
-    filters: {
-      role: filters.role || undefined,
-      status: filters.status || undefined,
-      search: filters.search,
+  const { data: userData, refetch } = trpc.user.me.useQuery();
+  const users = userData ? [userData] : [];
+
+  const updateUserMutation = trpc.user.update.useMutation({
+    onSuccess: () => {
+      void refetch();
+      setSnackbar({
+        open: true,
+        message: 'User updated successfully',
+        severity: 'success',
+      });
+    },
+    onError: () => {
+      setSnackbar({
+        open: true,
+        message: 'Error updating user',
+        severity: 'error',
+      });
+    },
+  });
+  const deleteUserMutation = trpc.user.delete.useMutation({
+    onSuccess: () => {
+      void refetch();
+      setSnackbar({
+        open: true,
+        message: 'User deleted successfully',
+        severity: 'success',
+      });
+    },
+    onError: () => {
+      setSnackbar({
+        open: true,
+        message: 'Error deleting user',
+        severity: 'error',
+      });
     },
   });
 
-  const handleRequestSort = (event: React.MouseEvent<unknown>, property: keyof User) => {
+  const handleRequestSort = (property: keyof User) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
   };
 
-  const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.checked) {
-      const newSelected = users.map((n) => n.id);
-      setSelected(newSelected);
-      return;
-    }
-    setSelected([]);
-  };
-
-  const handleClick = (event: React.MouseEvent<unknown>, id: string) => {
-    const selectedIndex = selected.indexOf(id);
-    let newSelected: string[] = [];
-
-    if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selected, id);
-    } else if (selectedIndex === 0) {
-      newSelected = newSelected.concat(selected.slice(1));
-    } else if (selectedIndex === selected.length - 1) {
-      newSelected = newSelected.concat(selected.slice(0, -1));
-    } else if (selectedIndex > 0) {
-      newSelected = newSelected.concat(
-        selected.slice(0, selectedIndex),
-        selected.slice(selectedIndex + 1),
-      );
-    }
-
-    setSelected(newSelected);
-  };
-
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
 
@@ -187,213 +167,189 @@ export default function UsersPage() {
     setDeletingUser(user);
   };
 
-  const handleSaveUser = async (user: User) => {
-    try {
-      await updateUser(user.id, user);
-      setSnackbar({
-        open: true,
-        message: 'User updated successfully',
-        severity: 'success',
-      });
-      setEditingUser(null);
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Failed to update user',
-        severity: 'error',
-      });
-    }
-  };
-
   const handleConfirmDelete = async () => {
     if (!deletingUser) return;
 
     try {
-      await deleteUser(deletingUser.id);
-      setSnackbar({
-        open: true,
-        message: 'User deleted successfully',
-        severity: 'success',
-      });
+      await deleteUserMutation.mutateAsync();
       setDeletingUser(null);
-      setSelected([]);
     } catch (error) {
+      console.error('Error deleting user:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to delete user',
+        message: 'Error deleting user',
         severity: 'error',
       });
     }
   };
 
-  const handleBulkAction = async (action: 'delete' | 'activate' | 'deactivate') => {
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const handleUpdateUser = async (
+    _user: User,
+    data: { email?: string; displayName?: string; photoURL?: string }
+  ) => {
     try {
-      if (action === 'delete') {
-        await bulkDelete(selected);
-        setSnackbar({
-          open: true,
-          message: 'Users deleted successfully',
-          severity: 'success',
-        });
-      } else if (action === 'activate') {
-        await bulkUpdateStatus(selected, 'active');
-        setSnackbar({
-          open: true,
-          message: 'Users activated successfully',
-          severity: 'success',
-        });
-      } else if (action === 'deactivate') {
-        await bulkUpdateStatus(selected, 'inactive');
-        setSnackbar({
-          open: true,
-          message: 'Users deactivated successfully',
-          severity: 'success',
-        });
-      }
-      setSelected([]);
+      await updateUserMutation.mutateAsync(data);
     } catch (error) {
+      console.error('Error updating user:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to perform bulk action',
+        message: 'Error updating user',
         severity: 'error',
       });
     }
   };
 
-  const isSelected = (id: string) => selected.indexOf(id) !== -1;
-
-  if (error) {
+  const filteredUsers = users.filter((user) => {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="error">Error loading users: {error.message}</Typography>
-      </Box>
+      user.email.toLowerCase().includes(filters.email.toLowerCase()) &&
+      (user.displayName?.toLowerCase() ?? '').includes(filters.displayName.toLowerCase())
     );
-  }
+  });
+
+  const sortedUsers = [...filteredUsers].sort(getComparator(order, orderBy));
+  const paginatedUsers = sortedUsers.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   return (
-    <Box sx={{ width: '100%' }}>
-      <Card>
-        <UserTableToolbar
-          numSelected={selected.length}
-          onBulkAction={handleBulkAction}
-          filters={filters}
-          onFiltersChange={setFilters}
-        />
-        <TableContainer>
-          <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle">
-            <EnhancedTableHead
-              numSelected={selected.length}
-              order={order}
-              orderBy={orderBy}
-              onSelectAllClick={handleSelectAllClick}
-              onRequestSort={handleRequestSort}
-              rowCount={users.length}
+    <Container maxWidth="lg">
+      <Box sx={{ width: '100%', mb: 2 }}>
+        <Paper sx={{ width: '100%', mb: 2 }}>
+          <Toolbar
+            sx={{
+              pl: { sm: 2 },
+              pr: { xs: 1, sm: 1 },
+            }}
+          >
+            <Typography sx={{ flex: '1 1 100%' }} variant="h6" component="div">
+              Users
+            </Typography>
+          </Toolbar>
+          <Box sx={{ p: 2 }}>
+            <TextField
+              label="Filter by Email"
+              value={filters.email}
+              onChange={(e) => setFilters({ ...filters, email: e.target.value })}
+              size="small"
+              sx={{ mr: 2 }}
             />
-            <TableBody>
-              {users.map((user, index) => {
-                const isItemSelected = isSelected(user.id);
-                const labelId = `enhanced-table-checkbox-${index}`;
-
-                return (
-                  <TableRow
-                    hover
-                    onClick={(event) => handleClick(event, user.id)}
-                    role="checkbox"
-                    aria-checked={isItemSelected}
-                    tabIndex={-1}
-                    key={user.id}
-                    selected={isItemSelected}
-                  >
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        color="primary"
-                        checked={isItemSelected}
-                        inputProps={{
-                          'aria-labelledby': labelId,
-                        }}
-                      />
+            <TextField
+              label="Filter by Name"
+              value={filters.displayName}
+              onChange={(e) => setFilters({ ...filters, displayName: e.target.value })}
+              size="small"
+            />
+          </Box>
+          <TableContainer>
+            <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle" size="medium">
+              <TableHead>
+                <TableRow>
+                  {headCells.map((headCell) => (
+                    <TableCell
+                      key={headCell.id}
+                      align={headCell.numeric ? 'right' : 'left'}
+                      sortDirection={orderBy === headCell.id ? order : false}
+                    >
+                      <TableSortLabel
+                        active={orderBy === headCell.id}
+                        direction={orderBy === headCell.id ? order : 'asc'}
+                        onClick={() => handleRequestSort(headCell.id)}
+                      >
+                        {headCell.label}
+                        {orderBy === headCell.id ? (
+                          <Box component="span" sx={visuallyHidden}>
+                            {order === 'desc' ? 'sorted descending' : 'sorted ascending'}
+                          </Box>
+                        ) : null}
+                      </TableSortLabel>
                     </TableCell>
-                    <TableCell component="th" id={labelId} scope="row">
-                      <Stack direction="row" alignItems="center" spacing={2}>
-                        <Avatar src={user.photoURL} alt={user.displayName}>
-                          {user.displayName.charAt(0)}
-                        </Avatar>
-                        <Typography variant="body1">{user.displayName}</Typography>
-                        {user.businessVerified && (
-                          <Chip label="Business" size="small" color="primary" />
-                        )}
-                      </Stack>
-                    </TableCell>
+                  ))}
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedUsers.map((user) => (
+                  <TableRow hover key={user.id}>
                     <TableCell>{user.email}</TableCell>
+                    <TableCell>{user.displayName}</TableCell>
+                    <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(user.updatedAt).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <Chip
-                        label={user.role}
+                      <IconButton
                         size="small"
-                        color={user.role === UserRole.ADMIN ? 'secondary' : 'default'}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.status}
-                        size="small"
-                        color={user.status === 'active' ? 'success' : 'default'}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}
-                    </TableCell>
-                    <TableCell>
-                      <IconButton onClick={() => handleEditUser(user)} size="small">
+                        onClick={() => handleEditUser(user)}
+                        aria-label="edit"
+                      >
                         <EditIcon />
                       </IconButton>
-                      <IconButton onClick={() => handleDeleteUser(user)} size="small">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteUser(user)}
+                        aria-label="delete"
+                      >
                         <DeleteIcon />
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={totalCount}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </Card>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={filteredUsers.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </Paper>
+      </Box>
 
+      {/* Edit User Modal */}
       {editingUser && (
         <UserDetailsModal
           open={!!editingUser}
           user={editingUser}
           onClose={() => setEditingUser(null)}
-          onSave={handleSaveUser}
+          onSave={handleUpdateUser}
         />
       )}
 
-      <ConfirmationDialog
+      {/* Delete Confirmation Dialog */}
+      <Dialog
         open={!!deletingUser}
-        title="Delete User"
-        message={`Are you sure you want to delete ${deletingUser?.displayName}? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeletingUser(null)}
-        severity="error"
-      />
+        onClose={() => setDeletingUser(null)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">Confirm Delete</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Are you sure you want to delete this user? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeletingUser(null)}>Cancel</Button>
+          <Button onClick={handleConfirmDelete} autoFocus>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
+      {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
-      </Snackbar>
-    </Box>
+        onClose={handleCloseSnackbar}
+        message={snackbar.message}
+      />
+    </Container>
   );
-} 
+}

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { CircularProgress, Box, Typography } from '@mui/material';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
 
@@ -53,4 +54,4 @@ export default function AdminProtectedRoute({
   }
 
   return <>{children}</>;
-} 
+}

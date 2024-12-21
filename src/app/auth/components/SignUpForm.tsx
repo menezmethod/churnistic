@@ -1,144 +1,105 @@
-import { Alert, Button, Card, CardContent, TextField, Typography } from '@mui/material';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { Box, Button, TextField, Typography } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import { auth } from '@/lib/firebase/auth';
-import { compareStrings } from '@/lib/utils';
 
-export const SignUpForm = (): JSX.Element | null => {
+export default function SignUpForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { user } = useAuth();
+  const { signUp } = useAuth();
 
-  if (user) {
-    router.push('/dashboard');
-    return null;
-  }
-
-  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email.includes('@')) {
-      setError('Invalid email format');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
     try {
-      const passwordsMatch = compareStrings(password, confirmPassword);
-      if (!passwordsMatch) {
-        setError('Passwords do not match');
-        return;
-      }
-
-      // Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-
-      // Create user in MongoDB
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          firebaseUid: userCredential.user.uid,
-          email: userCredential.user.email,
-          displayName: userCredential.user.displayName || email.split('@')[0],
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create user in database');
-      }
-
+      await signUp(email, password, displayName);
       router.push('/dashboard');
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'An error occurred during sign up';
-      setError(errorMessage);
+    } catch (err) {
+      console.error('Sign up error:', err);
+      setError('Sign up failed');
     }
   };
 
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="h5" gutterBottom>
-          Sign Up
+    <Box
+      component="form"
+      onSubmit={handleSubmit}
+      sx={{ maxWidth: 400, mx: 'auto', mt: 4 }}
+    >
+      <Typography variant="h4" component="h1" gutterBottom data-testid="signup-title">
+        Sign Up
+      </Typography>
+
+      <TextField
+        fullWidth
+        margin="normal"
+        label="Display Name"
+        value={displayName}
+        onChange={(e) => setDisplayName(e.target.value)}
+        data-testid="displayname-input"
+        required
+      />
+
+      <TextField
+        fullWidth
+        margin="normal"
+        label="Email"
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        data-testid="email-input"
+        required
+      />
+
+      <TextField
+        fullWidth
+        margin="normal"
+        label="Password"
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        data-testid="password-input"
+        required
+      />
+
+      <TextField
+        fullWidth
+        margin="normal"
+        label="Confirm Password"
+        type="password"
+        value={confirmPassword}
+        onChange={(e) => setConfirmPassword(e.target.value)}
+        data-testid="confirm-password-input"
+        required
+      />
+
+      {error && (
+        <Typography color="error" data-testid="error-message">
+          {error}
         </Typography>
-        {error && (
-          <Alert severity="error" role="alert" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        <form
-          onSubmit={(e): void => {
-            void handleSubmit(e);
-          }}
-          role="form"
-        >
-          <TextField
-            id="email"
-            label="Email"
-            type="email"
-            required
-            fullWidth
-            margin="normal"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            inputProps={{
-              'aria-label': 'Email',
-            }}
-            data-testid="email-input"
-          />
-          <TextField
-            id="password"
-            label="Password"
-            type="password"
-            required
-            fullWidth
-            margin="normal"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            inputProps={{
-              'aria-label': 'Password',
-            }}
-            data-testid="password-input"
-          />
-          <TextField
-            id="confirm-password"
-            label="Confirm Password"
-            type="password"
-            required
-            fullWidth
-            margin="normal"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            inputProps={{
-              'aria-label': 'Confirm Password',
-            }}
-            data-testid="confirm-password-input"
-          />
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            fullWidth
-            data-testid="signup-button"
-          >
-            Sign Up
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+      )}
+
+      <Button
+        type="submit"
+        variant="contained"
+        color="primary"
+        fullWidth
+        sx={{ mt: 2 }}
+        data-testid="signup-button"
+      >
+        Sign Up
+      </Button>
+    </Box>
   );
-};
+}

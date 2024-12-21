@@ -5,10 +5,24 @@ import { router, protectedProcedure } from '../trpc';
 
 export const companyRouter = router({
   getAll: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'You must be logged in to access this resource',
+      });
+    }
+
     return ctx.prisma.company.findMany();
   }),
 
   getById: protectedProcedure.input(z.string()).query(async ({ ctx, input }) => {
+    if (!ctx.session) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'You must be logged in to access this resource',
+      });
+    }
+
     const company = await ctx.prisma.company.findUnique({
       where: { id: input },
     });
@@ -33,6 +47,13 @@ export const companyRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.session) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'You must be logged in to access this resource',
+        });
+      }
+
       return ctx.prisma.company.create({
         data: input,
       });
@@ -49,7 +70,15 @@ export const companyRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.session) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'You must be logged in to access this resource',
+        });
+      }
+
       const { id, ...data } = input;
+
       return ctx.prisma.company.update({
         where: { id },
         data,
@@ -57,6 +86,13 @@ export const companyRouter = router({
     }),
 
   delete: protectedProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
+    if (!ctx.session) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'You must be logged in to access this resource',
+      });
+    }
+
     return ctx.prisma.company.delete({
       where: { id: input },
     });

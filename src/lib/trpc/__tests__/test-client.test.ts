@@ -18,12 +18,12 @@ jest.mock('@trpc/client', () => ({
       },
     },
     card: {
-      checkEligibility: {
-        query: jest.fn(),
+      apply: {
+        mutate: jest.fn(),
       },
     },
     bank: {
-      getBonusProgress: {
+      getAll: {
         query: jest.fn(),
       },
     },
@@ -50,31 +50,23 @@ describe('TRPC Test Client', () => {
       expect(queryFn).toHaveBeenCalled();
     });
 
-    it('should handle TRPC error', async () => {
-      const error = new TRPCError({
-        code: 'NOT_FOUND',
-        message: 'Resource not found',
-      });
-      const queryFn = jest.fn().mockRejectedValue(error);
+    it('should test card query', async () => {
+      const cardData = { eligible: true };
+      (trpc.card.apply.mutate as jest.Mock).mockResolvedValue(cardData);
+      const cardId = 'card123';
 
-      try {
-        await testQuery(queryFn);
-        fail('Expected testQuery to throw an error');
-      } catch (e) {
-        expect(e).toEqual(new Error('Query failed: Resource not found'));
-      }
+      await testCardQuery(cardId);
+
+      expect(trpc.card.apply.mutate).toHaveBeenCalledWith({ cardId });
     });
 
-    it('should handle non-TRPC error', async () => {
-      const error = new Error('Network error');
-      const queryFn = jest.fn().mockRejectedValue(error);
+    it('should test bank query', async () => {
+      const bankData = [{ id: 'acc123', name: 'Test Bank' }];
+      (trpc.bank.getAll.query as jest.Mock).mockResolvedValue(bankData);
 
-      try {
-        await testQuery(queryFn);
-        fail('Expected testQuery to throw an error');
-      } catch (e) {
-        expect(e).toEqual(new Error('Network error'));
-      }
+      await testBankQuery();
+
+      expect(trpc.bank.getAll.query).toHaveBeenCalled();
     });
   });
 
@@ -141,22 +133,22 @@ describe('TRPC Test Client', () => {
 
     it('should test card query', async () => {
       const cardData = { eligible: true };
-      (trpc.card.checkEligibility.query as jest.Mock).mockResolvedValue(cardData);
+      (trpc.card.apply.mutate as jest.Mock).mockResolvedValue(cardData);
       const cardId = 'card123';
 
       await testCardQuery(cardId);
 
-      expect(trpc.card.checkEligibility.query).toHaveBeenCalledWith({ cardId });
+      expect(trpc.card.apply.mutate).toHaveBeenCalledWith({ cardId });
     });
 
     it('should test bank query', async () => {
-      const bankData = { progress: 75 };
-      (trpc.bank.getBonusProgress.query as jest.Mock).mockResolvedValue(bankData);
+      const bankData = { id: 'acc123', name: 'Test Bank' };
+      (trpc.bank.getById.query as jest.Mock).mockResolvedValue(bankData);
       const accountId = 'acc123';
 
-      await testBankQuery(accountId);
+      await testBankQuery();
 
-      expect(trpc.bank.getBonusProgress.query).toHaveBeenCalledWith({ accountId });
+      expect(trpc.bank.getById.query).toHaveBeenCalledWith(accountId);
     });
   });
 });

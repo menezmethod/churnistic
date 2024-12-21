@@ -10,6 +10,18 @@ export enum UserRole {
 }
 
 export enum Permission {
+  // Profile Management
+  VIEW_OWN_PROFILE = 'view:own_profile',
+  EDIT_OWN_PROFILE = 'edit:own_profile',
+  VIEW_OTHER_PROFILES = 'view:other_profiles',
+  EDIT_OTHER_PROFILES = 'edit:other_profiles',
+
+  // Settings Management
+  VIEW_OWN_SETTINGS = 'view:own_settings',
+  EDIT_OWN_SETTINGS = 'edit:own_settings',
+  VIEW_SYSTEM_SETTINGS = 'view:system_settings',
+  EDIT_SYSTEM_SETTINGS = 'edit:system_settings',
+
   // Card Management
   READ_CARDS = 'read:cards',
   WRITE_CARDS = 'write:cards',

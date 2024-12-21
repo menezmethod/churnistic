@@ -12,6 +12,13 @@ jest.mock('firebase/app', () => ({
 
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(),
+  onAuthStateChanged: jest.fn((auth, callback) => {
+    callback({
+      email: 'test@example.com',
+      getIdToken: () => Promise.resolve('test-token'),
+    });
+    return () => {};
+  }),
 }));
 
 jest.mock('firebase/firestore', () => ({

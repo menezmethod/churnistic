@@ -27,9 +27,10 @@ import {
   ListItemText,
   Divider,
 } from '@mui/material';
+import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
-import Link from 'next/link';
+
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
 
@@ -177,9 +178,7 @@ export default function AppNavbar() {
       >
         <Toolbar />
         <Box sx={{ overflow: 'auto' }}>
-          <List>
-            {renderMenuItems()}
-          </List>
+          <List>{renderMenuItems()}</List>
         </Box>
       </Drawer>
       <Toolbar />

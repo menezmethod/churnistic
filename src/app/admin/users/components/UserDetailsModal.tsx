@@ -12,16 +12,22 @@ import {
   Stack,
   FormControlLabel,
   Switch,
+  Typography,
 } from '@mui/material';
 import { useState } from 'react';
-import { User } from '../hooks/useUsers';
+
 import { UserRole } from '@/lib/auth/types';
 
+import type { User } from '../hooks/useUsers';
+
 interface UserDetailsModalProps {
+  user: User | null;
   open: boolean;
-  user: User;
   onClose: () => void;
-  onSave: (user: User) => Promise<void>;
+  onSave: (
+    user: User,
+    data: { email?: string; displayName?: string; photoURL?: string }
+  ) => Promise<void>;
 }
 
 export default function UserDetailsModal({
@@ -30,43 +36,50 @@ export default function UserDetailsModal({
   onClose,
   onSave,
 }: UserDetailsModalProps) {
-  const [formData, setFormData] = useState<User>(user);
+  const [formData, setFormData] = useState<User | null>(user);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (field: keyof User, value: any) => {
-    setFormData((prev) => ({
-      ...prev,
+  const handleChange = (field: keyof User, value: string | boolean) => {
+    if (!formData) return;
+    setFormData({
+      ...formData,
       [field]: value,
-    }));
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData) return;
     setLoading(true);
     try {
-      await onSave(formData);
+      await onSave(formData, {
+        email: formData.email,
+        displayName: formData.displayName ?? undefined,
+        photoURL: formData.photoURL ?? undefined,
+      });
       onClose();
-    } catch (error) {
-      console.error('Error saving user:', error);
+    } catch (err) {
+      console.error('Error updating user:', err);
+      setError('Failed to update user');
     } finally {
       setLoading(false);
     }
   };
 
+  if (!formData) return null;
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit}>
-        <DialogTitle>
-          {user.id ? 'Edit User' : 'Create User'}
-        </DialogTitle>
+        <DialogTitle>{formData.id ? 'Edit User' : 'Create User'}</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 2 }}>
             <TextField
               label="Display Name"
-              value={formData.displayName}
+              value={formData.displayName ?? ''}
               onChange={(e) => handleChange('displayName', e.target.value)}
               fullWidth
-              required
             />
             <TextField
               label="Email"
@@ -91,40 +104,20 @@ export default function UserDetailsModal({
                 ))}
               </Select>
             </FormControl>
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={formData.status}
-                onChange={(e) => handleChange('status', e.target.value)}
-                label="Status"
-                required
-              >
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="inactive">Inactive</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.businessVerified}
-                  onChange={(e) => handleChange('businessVerified', e.target.checked)}
-                />
-              }
-              label="Business Verified"
-            />
           </Stack>
+          {error && (
+            <Typography color="error" sx={{ mt: 2 }}>
+              {error}
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>Cancel</Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={loading}
-          >
+          <Button type="submit" variant="contained" disabled={loading}>
             Save
           </Button>
         </DialogActions>
       </form>
     </Dialog>
   );
-} 
+}

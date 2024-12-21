@@ -1,46 +1,51 @@
-import { jest } from '@jest/globals';
+import { Auth, User } from 'firebase/auth';
+import { Firestore } from 'firebase/firestore';
+import { Functions } from 'firebase/functions';
+import { Storage } from 'firebase/storage';
 
-export const mockFirebaseConfig = {
-  apiKey: 'test-api-key',
-  authDomain: 'test-auth-domain',
-  projectId: 'test-project-id',
-  storageBucket: 'test-storage-bucket',
-  messagingSenderId: 'test-messaging-sender-id',
-  appId: 'test-app-id',
+const mockUser: User = {
+  uid: 'test-uid',
+  email: 'test@example.com',
+  displayName: 'Test User',
+  emailVerified: true,
+  isAnonymous: false,
+  metadata: {},
+  providerData: [],
+  refreshToken: 'test-refresh-token',
+  tenantId: null,
+  delete: jest.fn(),
+  getIdToken: jest.fn(),
+  getIdTokenResult: jest.fn(),
+  reload: jest.fn(),
+  toJSON: jest.fn(),
+  phoneNumber: null,
+  photoURL: null,
+  providerId: 'password',
 };
 
-export const mockAuth = {
-  currentUser: null,
-  onAuthStateChanged: jest.fn(),
+export const auth = {
+  currentUser: mockUser,
+  onAuthStateChanged: jest.fn((callback) => {
+    callback(mockUser);
+    return () => {};
+  }),
   signInWithEmailAndPassword: jest.fn(),
-  signInWithPopup: jest.fn(),
+  createUserWithEmailAndPassword: jest.fn(),
   signOut: jest.fn(),
-};
+  sendPasswordResetEmail: jest.fn(),
+} as unknown as Auth;
 
-export const mockApp = {
-  name: '[DEFAULT]',
-  options: mockFirebaseConfig,
-};
+export const db = {
+  collection: jest.fn(),
+  doc: jest.fn(),
+} as unknown as Firestore;
 
-jest.mock('firebase/app', () => ({
-  initializeApp: jest.fn(() => mockApp),
-  getApps: jest.fn(() => []),
-  getApp: jest.fn(() => mockApp),
-}));
+export const functions = {
+  httpsCallable: jest.fn(),
+} as unknown as Functions;
 
-jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(() => mockAuth),
-  onAuthStateChanged: jest.fn(),
-  signInWithEmailAndPassword: jest.fn(),
-  signInWithPopup: jest.fn(),
-  signOut: jest.fn(),
-  GoogleAuthProvider: jest.fn(() => ({
-    addScope: jest.fn(),
-  })),
-  GithubAuthProvider: jest.fn(() => ({
-    addScope: jest.fn(),
-  })),
-}));
+export const storage = {
+  ref: jest.fn(),
+} as unknown as Storage;
 
-export { mockApp as app, mockAuth as auth };
-export default mockAuth;
+export const onAuthStateChanged = auth.onAuthStateChanged;

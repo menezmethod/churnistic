@@ -1,18 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+
 import { UserRole } from '@/lib/auth/types';
 
 export interface User {
   id: string;
   email: string;
-  displayName: string;
-  photoURL?: string;
-  role: UserRole;
-  status: 'active' | 'inactive';
+  displayName: string | null;
+  photoURL: string | null;
+  role: 'user' | 'admin' | 'manager' | 'analyst' | 'agent' | 'free_user';
+  status: string;
+  creditScore: number | null;
+  monthlyIncome: number | null;
   businessVerified: boolean;
   createdAt: string;
   updatedAt: string;
+  householdId: string | null;
+  firebaseUid: string;
 }
 
 interface UseUsersOptions {
@@ -51,70 +56,43 @@ export function useUsers({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
 
-  const buildQueryParams = () => {
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('limit', pageSize.toString());
-    params.append('sortField', sortField);
-    params.append('sortDirection', sortDirection);
-
-    if (filters.role) {
-      params.append('role', filters.role);
-    }
-    if (filters.status) {
-      params.append('status', filters.status);
-    }
-    if (filters.search) {
-      params.append('search', filters.search);
-    }
-
-    return params.toString();
-  };
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      console.log('Fetching users...');
-      console.log('Current state:', { page, pageSize, sortField, sortDirection, filters });
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: pageSize.toString(),
+        sortField,
+        sortDirection,
+        ...(filters.role && { role: filters.role }),
+        ...(filters.status && { status: filters.status }),
+        ...(filters.search && { search: filters.search }),
+      });
 
-      const queryParams = buildQueryParams();
-      console.log('Query params:', queryParams);
-      
       const response = await fetch(`/api/users?${queryParams}`);
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers));
-      
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('API Error:', errorData);
-        throw new Error(`Failed to fetch users: ${errorData.error} - ${errorData.details}`);
+        throw new Error('Failed to fetch users');
       }
 
       const data = await response.json();
-      console.log('Raw API response:', data);
-
-      setUsers((prev) => {
-        const newUsers = page === 1 ? data.users : [...prev, ...data.users];
-        console.log('Previous users state:', prev);
-        console.log('New users state:', newUsers);
-        return newUsers;
-      });
+      setUsers(data.users);
       setTotalCount(data.total);
-      setHasMore(data.hasMore);
-      setError(null);
     } catch (err) {
       console.error('Error fetching users:', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch users'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, sortField, sortDirection, filters]);
+
+  useEffect(() => {
+    void fetchUsers();
+  }, [fetchUsers]);
 
   const loadMore = async () => {
-    if (!hasMore || loading) return;
+    if (loading) return;
     setPage((prev) => prev + 1);
   };
 
@@ -222,17 +200,12 @@ export function useUsers({
     await fetchUsers();
   };
 
-  useEffect(() => {
-    console.log('Initial fetch triggered');
-    void fetchUsers();
-  }, [page, sortField, sortDirection, filters.role, filters.status, filters.search]);
-
   return {
     users,
     loading,
     error,
     totalCount,
-    hasMore,
+    hasMore: false,
     loadMore,
     updateUser,
     deleteUser,
@@ -241,4 +214,4 @@ export function useUsers({
     bulkDelete,
     refresh,
   };
-} 
+}

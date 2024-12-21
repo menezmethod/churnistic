@@ -3,7 +3,6 @@ import { useRouter } from 'next/navigation';
 
 import UnauthorizedPage from '../page';
 
-// Mock the modules
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }));
@@ -12,31 +11,33 @@ describe('UnauthorizedPage', () => {
   const mockPush = jest.fn();
 
   beforeEach(() => {
+    jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue({ push: mockPush });
-    mockPush.mockClear();
   });
 
   it('renders unauthorized message', () => {
     render(<UnauthorizedPage />);
-    expect(screen.getByText(/Unauthorized Access/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/You don't have permission to access this page/i)
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('error-title')).toHaveTextContent(/access denied/i);
+    expect(screen.getByTestId('error-message')).toHaveTextContent(
+      /please sign in to access this page/i
+    );
   });
 
-  it('renders return to home button', () => {
+  it('renders navigation buttons', () => {
     render(<UnauthorizedPage />);
-    expect(screen.getByText(/Return to Home/i)).toBeInTheDocument();
+    expect(screen.getByTestId('home-button')).toBeInTheDocument();
+    expect(screen.getByTestId('signin-button')).toBeInTheDocument();
   });
 
-  it('navigates to home page when return button is clicked', () => {
+  it('navigates to home page when home button is clicked', () => {
     render(<UnauthorizedPage />);
-    fireEvent.click(screen.getByText(/Return to Home/i));
+    fireEvent.click(screen.getByTestId('home-button'));
     expect(mockPush).toHaveBeenCalledWith('/');
   });
 
-  it('displays 401 error code', () => {
+  it('navigates to sign in page when sign in button is clicked', () => {
     render(<UnauthorizedPage />);
-    expect(screen.getByText('401')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('signin-button'));
+    expect(mockPush).toHaveBeenCalledWith('/auth/signin');
   });
 });

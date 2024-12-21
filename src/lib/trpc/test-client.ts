@@ -54,9 +54,9 @@ export async function testUserQuery(): Promise<void> {
 }
 
 export async function testCardQuery(cardId: string): Promise<void> {
-  return testQuery(async () => trpc.card.checkEligibility.query({ cardId }));
+  return testQuery(async () => trpc.card.apply.mutate({ cardId }));
 }
 
-export async function testBankQuery(accountId: string): Promise<void> {
-  return testQuery(async () => trpc.bank.getBonusProgress.query({ accountId }));
+export async function testBankQuery(): Promise<void> {
+  return testQuery(async () => trpc.bank.getAll.query());
 }
