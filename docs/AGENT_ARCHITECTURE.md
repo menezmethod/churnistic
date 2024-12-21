@@ -7,6 +7,7 @@ Based on Microsoft CEO Satya Nadella's vision, the future of software will shift
 ## Current Architecture
 
 Currently, Churnistic follows a traditional architecture:
+
 - Next.js frontend with UI components
 - TRPC API routes for business logic
 - Prisma for database operations
@@ -37,19 +38,19 @@ Replace API routes with agent tools:
 ```typescript
 const customerTools = {
   // Natural language search
-  "Find customers": async (query: string) => {
+  'Find customers': async (query: string) => {
     // Semantic search implementation
   },
-  
+
   // Automated analysis
-  "Analyze customer behavior": async (customerId: string) => {
+  'Analyze customer behavior': async (customerId: string) => {
     // AI-powered analysis
   },
-  
+
   // Automated actions
-  "Take action on customer": async (customerId: string, action: string) => {
+  'Take action on customer': async (customerId: string, action: string) => {
     // AI-driven action execution
-  }
+  },
 };
 ```
 
@@ -61,10 +62,10 @@ Instead of UI components, create natural language interfaces:
 interface AgentInterface {
   // Handle natural language commands
   handleCommand(command: string): Promise<Response>;
-  
+
   // Execute complex workflows
   executeWorkflow(workflow: string): Promise<WorkflowResult>;
-  
+
   // Generate insights
   generateInsights(context: string): Promise<Insights>;
 }
@@ -73,6 +74,7 @@ interface AgentInterface {
 ## Example Transformations
 
 ### Before (Current API Route):
+
 ```typescript
 export const customerRouter = router({
   getAll: protectedProcedure.query(async ({ ctx }) => {
@@ -83,29 +85,33 @@ export const customerRouter = router({
 ```
 
 ### After (Agent Tool):
+
 ```typescript
 export const customerAgent = {
   async handle(command: string) {
     // "Show me all customers at risk of churning"
     // "Analyze customer behavior for the last month"
     // "Take proactive actions for retention"
-  }
+  },
 };
 ```
 
 ## Implementation Steps
 
 1. **Data Layer Adaptation**
+
    - Keep your Prisma schema
    - Add semantic search capabilities
    - Enhance data models with AI-friendly attributes
 
 2. **Tool Creation**
+
    - Convert each router into a set of agent tools
    - Add natural language processing capabilities
    - Implement semantic understanding of commands
 
 3. **Agent Interface**
+
    - Create a command interpreter
    - Implement security and validation
    - Add context awareness
@@ -125,11 +131,13 @@ export const customerAgent = {
 ## Best Practices
 
 1. **Command Design**
+
    - Make commands intuitive and natural
    - Support variations in language
    - Provide clear feedback
 
 2. **Tool Design**
+
    - Keep tools atomic and focused
    - Implement proper error handling
    - Maintain audit logs
@@ -153,11 +161,13 @@ const result = await agent.process(`
 ## Migration Strategy
 
 1. **Phase 1: Tool Creation**
+
    - Convert existing routes to agent tools
    - Implement natural language processing
    - Create test suite for agent interactions
 
 2. **Phase 2: Agent Interface**
+
    - Develop command interpreter
    - Implement context management
    - Add security layers
@@ -177,4 +187,4 @@ const result = await agent.process(`
 
 ## Conclusion
 
-This transformation will position Churnistic for the future of software where agents handle complex operations based on natural language commands. The focus shifts from building UI components to creating robust, AI-powered tools that can understand and execute user intentions effectively. 
+This transformation will position Churnistic for the future of software where agents handle complex operations based on natural language commands. The focus shifts from building UI components to creating robust, AI-powered tools that can understand and execute user intentions effectively.

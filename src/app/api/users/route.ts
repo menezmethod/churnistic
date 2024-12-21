@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 
 import { UserRole } from '@/lib/auth/types';
 import { prisma } from '@/lib/prisma';
@@ -32,13 +33,13 @@ export async function GET(request: NextRequest) {
     });
 
     // Build where clause
-    const where = {
-      ...(role && { role }),
+    const where: Prisma.UserWhereInput = {
+      ...(role && { role: role as UserRole }),
       ...(status && { status }),
       ...(search && {
         OR: [
-          { displayName: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
+          { displayName: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
+          { email: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
         ],
       }),
     };
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           updatedAt: true,
         },
-      };
+      } satisfies Prisma.UserFindManyArgs;
       console.log('Prisma query:', JSON.stringify(query, null, 2));
 
       // Try a simpler query first
@@ -139,14 +140,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Create user in MongoDB
+    const userData: Prisma.UserCreateInput = {
+      firebaseUid,
+      email,
+      displayName: displayName || null,
+      role: UserRole.USER,
+      status: 'active',
+    };
+
     const user = await prisma.user.create({
-      data: {
-        firebaseUid,
-        email,
-        displayName,
-        role: UserRole.USER,
-        status: 'active',
-      },
+      data: userData,
     });
 
     return NextResponse.json(user);
