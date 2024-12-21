@@ -21,7 +21,22 @@ export const mockApp = {
   auth: (): typeof mockAuth => mockAuth,
 };
 
-export const initAdmin = jest.fn(() => mockApp);
+export const initAdmin = jest.fn();
+
+export const admin = {
+  auth: jest.fn(() => ({
+    verifyIdToken: jest.fn(),
+    createCustomToken: jest.fn(),
+    setCustomUserClaims: jest.fn(),
+  })),
+  firestore: jest.fn(() => ({
+    collection: jest.fn(),
+    doc: jest.fn(),
+  })),
+  storage: jest.fn(() => ({
+    bucket: jest.fn(),
+  })),
+};
 
 jest.mock('firebase-admin/app', () => ({
   getApps: jest.fn(() => []),

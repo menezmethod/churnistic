@@ -1,58 +1,37 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
-interface FirebaseAdminError extends Error {
-  code?: string;
-}
+// Set the emulator host explicitly
+process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
 
-const validateConfig = (): void => {
-  const requiredFields = {
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY,
-  };
+// The Admin SDK automatically connects to the emulator when FIREBASE_AUTH_EMULATOR_HOST is set
+const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+console.log('🔧 Using emulators:', useEmulators);
+console.log('🔧 Auth emulator host:', process.env.FIREBASE_AUTH_EMULATOR_HOST);
+console.log('🔧 Firestore emulator host:', process.env.FIRESTORE_EMULATOR_HOST);
 
-  const missingFields = Object.entries(requiredFields)
-    .filter(([, value]) => !value)
-    .map(([key]) => key);
-
-  if (missingFields.length > 0) {
-    const error = new Error(
-      `Missing required Firebase Admin config: ${missingFields.join(', ')}`
-    ) as FirebaseAdminError;
-    error.code = 'admin/invalid-config';
-    throw error;
-  }
-};
-
-const firebaseAdminConfig = {
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-  privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY
-    ? process.env.FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n')
-    : undefined,
-};
-
-export function initAdmin(): void {
-  try {
-    validateConfig();
-
-    if (getApps().length === 0) {
-      const app = initializeApp({
-        credential: cert(firebaseAdminConfig),
-      });
-      // eslint-disable-next-line no-console
-      console.info('Firebase Admin initialized successfully:', app.name);
-    } else {
-      // eslint-disable-next-line no-console
-      console.info('Firebase Admin already initialized');
-    }
-  } catch (error) {
-    const adminError = error as FirebaseAdminError;
-    // eslint-disable-next-line no-console
-    console.error('Firebase Admin initialization failed:', {
-      code: adminError.code,
-      message: adminError.message,
+if (!getApps().length) {
+  if (useEmulators) {
+    // In emulator mode, we don't need credentials
+    initializeApp({
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic',
     });
-    throw adminError;
+  } else {
+    // In production, we need proper credentials
+    initializeApp({
+      credential: cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      }),
+      projectId: process.env.FIREBASE_PROJECT_ID,
+    });
   }
 }
+
+const auth = getAuth();
+const db = getFirestore();
+
+export { auth, db };

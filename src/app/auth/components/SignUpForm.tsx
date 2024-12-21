@@ -1,125 +1,126 @@
-import { Alert, Button, Card, CardContent, TextField, Typography } from '@mui/material';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+'use client';
+
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Alert,
+  CircularProgress,
+} from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import { auth } from '@/lib/firebase/auth';
-import { compareStrings } from '@/lib/utils';
 
-export const SignUpForm = (): JSX.Element | null => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+export default function SignUpForm() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { signUp } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    displayName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
 
-  if (user) {
-    router.push('/dashboard');
-    return null;
-  }
-
-  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email.includes('@')) {
-      setError('Invalid email format');
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-
+    setLoading(true);
     try {
-      const passwordsMatch = compareStrings(password, confirmPassword);
-      if (!passwordsMatch) {
-        setError('Passwords do not match');
-        return;
-      }
-
-      await createUserWithEmailAndPassword(auth, email, password);
+      await signUp(formData.email, formData.password, formData.displayName);
       router.push('/dashboard');
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'An error occurred during sign up';
-      setError(errorMessage);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during sign up');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="h5" gutterBottom>
-          Sign Up
-        </Typography>
-        {error && (
-          <Alert severity="error" role="alert" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        <form
-          onSubmit={(e): void => {
-            void handleSubmit(e);
-          }}
-          role="form"
-        >
-          <TextField
-            id="email"
-            label="Email"
-            type="email"
-            required
-            fullWidth
-            margin="normal"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            inputProps={{
-              'aria-label': 'Email',
-            }}
-            data-testid="email-input"
-          />
-          <TextField
-            id="password"
-            label="Password"
-            type="password"
-            required
-            fullWidth
-            margin="normal"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            inputProps={{
-              'aria-label': 'Password',
-            }}
-            data-testid="password-input"
-          />
-          <TextField
-            id="confirm-password"
-            label="Confirm Password"
-            type="password"
-            required
-            fullWidth
-            margin="normal"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            inputProps={{
-              'aria-label': 'Confirm Password',
-            }}
-            data-testid="confirm-password-input"
-          />
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            fullWidth
-            data-testid="signup-button"
-          >
-            Sign Up
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <Box
+      component="form"
+      onSubmit={handleSubmit}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        width: '100%',
+        maxWidth: 400,
+        mx: 'auto',
+        p: 3,
+      }}
+    >
+      <Typography variant="h5" component="h1" gutterBottom textAlign="center">
+        Create Account
+      </Typography>
+
+      <TextField
+        label="Display Name"
+        required
+        fullWidth
+        value={formData.displayName}
+        onChange={(e) =>
+          setFormData((prev) => ({ ...prev, displayName: e.target.value }))
+        }
+        data-testid="displayname-input"
+      />
+
+      <TextField
+        label="Email"
+        type="email"
+        required
+        fullWidth
+        value={formData.email}
+        onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+        data-testid="email-input"
+      />
+
+      <TextField
+        label="Password"
+        type="password"
+        required
+        fullWidth
+        value={formData.password}
+        onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
+        data-testid="password-input"
+      />
+
+      <TextField
+        label="Confirm Password"
+        type="password"
+        required
+        fullWidth
+        value={formData.confirmPassword}
+        onChange={(e) =>
+          setFormData((prev) => ({ ...prev, confirmPassword: e.target.value }))
+        }
+        data-testid="confirm-password-input"
+      />
+
+      {error && (
+        <Alert severity="error" data-testid="error-alert">
+          {error}
+        </Alert>
+      )}
+
+      <Button
+        type="submit"
+        variant="contained"
+        fullWidth
+        disabled={loading}
+        data-testid="signup-button"
+      >
+        {loading ? <CircularProgress size={24} /> : 'Sign Up'}
+      </Button>
+    </Box>
   );
-};
+}

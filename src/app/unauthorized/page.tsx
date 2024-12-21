@@ -1,39 +1,55 @@
 'use client';
 
-import Button from '@mui/material/Button';
-import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
+import { Box, Button, Container, Typography } from '@mui/material';
 import { useRouter } from 'next/navigation';
 
-export default function UnauthorizedPage(): JSX.Element {
+export default function UnauthorizedPage() {
   const router = useRouter();
 
   return (
-    <Container
-      maxWidth="sm"
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        textAlign: 'center',
-        gap: 3,
-      }}
-    >
-      <Typography variant="h2" component="h1" gutterBottom>
-        401
-      </Typography>
-      <Typography variant="h4" component="h2" gutterBottom>
-        Unauthorized Access
-      </Typography>
-      <Typography variant="body1" color="text.secondary" paragraph>
-        You don&apos;t have permission to access this page. Please contact your
-        administrator if you believe this is a mistake.
-      </Typography>
-      <Button variant="contained" onClick={() => router.push('/')} sx={{ marginTop: 2 }}>
-        Return to Home
-      </Button>
+    <Container maxWidth="sm">
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '60vh',
+        }}
+      >
+        <Typography
+          variant="h4"
+          gutterBottom
+          data-testid="error-title"
+          sx={{ textAlign: 'center' }}
+        >
+          Access Denied
+        </Typography>
+        <Typography
+          variant="body1"
+          paragraph
+          data-testid="error-message"
+          sx={{ textAlign: 'center', mb: 4 }}
+        >
+          Please sign in to access this page.
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={() => router.push('/')}
+            data-testid="home-button"
+          >
+            Go to Home
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => router.push('/auth/signin')}
+            data-testid="signin-button"
+          >
+            Go to Sign In
+          </Button>
+        </Box>
+      </Box>
     </Container>
   );
 }

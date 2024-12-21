@@ -90,6 +90,7 @@ interface UserProfile {
   email: string;
   bio: string;
   photoURL: string | null;
+  role: string;
   updatedAt?: string;
   emailPreferences: {
     marketing: boolean;
@@ -161,6 +162,16 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
   },
 }));
 
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'system';
+  language: string;
+  timezone: string;
+  notifications: {
+    email: boolean;
+    push: boolean;
+  };
+}
+
 const SettingsPage = (): JSX.Element => {
   const { user } = useAuth();
   const { setMode } = useTheme();
@@ -201,14 +212,21 @@ const SettingsPage = (): JSX.Element => {
       if (docSnap.exists()) {
         const profileData = docSnap.data() as UserProfile;
         setProfile(profileData);
-        setMode(profileData.preferences.theme);
+        if (profileData.preferences?.theme) {
+          setMode(profileData.preferences.theme);
+        }
       } else {
-        const initialProfile = {
+        // Get the ID token result to access custom claims
+        const tokenResult = await user.getIdTokenResult();
+        const userRole = (tokenResult.claims.role as string) || 'user';
+
+        const initialProfile: UserProfile = {
           displayName: user.displayName || '',
           customDisplayName: user.displayName || '',
           email: user.email || '',
           bio: '',
           photoURL: user.photoURL || '',
+          role: userRole,
           emailPreferences: {
             marketing: true,
             security: true,
@@ -236,6 +254,8 @@ const SettingsPage = (): JSX.Element => {
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
+      setProfile(null);
+      setMode('system');
     } finally {
       setLoading(false);
     }
@@ -447,6 +467,31 @@ const SettingsPage = (): JSX.Element => {
               mb: 1,
             }}
           >
+            Role
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              fontSize: '0.875rem',
+              color: 'text.secondary',
+              mb: 2,
+              textTransform: 'capitalize',
+            }}
+          >
+            {profile?.role || 'user'}
+          </Typography>
+        </Box>
+
+        <Box>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: 'text.primary',
+              mb: 1,
+            }}
+          >
             Your photo{' '}
             <Box component="span" sx={{ color: 'error.main' }}>
               *
@@ -494,16 +539,6 @@ const SettingsPage = (): JSX.Element => {
                 }}
               >
                 {uploadingPhoto ? 'Uploading...' : 'Change photo'}
-              </Button>
-              <Button
-                color="error"
-                onClick={handleDeleteClick}
-                disabled={deletingAccount || deleteConfirmation !== 'DELETE'}
-                sx={{
-                  textTransform: 'none',
-                }}
-              >
-                {deletingAccount ? 'Deleting...' : 'Delete Account'}
               </Button>
             </Box>
           </Box>
@@ -1373,40 +1408,60 @@ const SettingsPage = (): JSX.Element => {
     ];
 
     const handlePreferenceChange = async (
-      field: string,
-      value: unknown
+      key: keyof UserPreferences,
+      value: string | boolean
     ): Promise<void> => {
       if (!user || !profile) {
+        console.warn('No user or profile found when updating preferences');
+        setSnackbar({
+          open: true,
+          message: 'Please sign in to update preferences',
+          severity: 'error',
+        });
         return;
       }
 
-      const docRef = doc(db, 'users', user.uid);
       try {
-        await updateDoc(docRef, {
-          [`preferences.${field}`]: value,
-          updatedAt: new Date().toISOString(),
+        // Create a new preferences object with default values if none exist
+        const currentPreferences = profile.preferences || {
+          theme: 'system',
+          language: 'en',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          notifications: {
+            email: true,
+            push: true,
+          },
+        };
+
+        // Update the specific preference
+        const updatedPreferences = {
+          ...currentPreferences,
+          [key]: value,
+        };
+
+        // Update the profile document
+        await updateDoc(doc(db, 'users', user.uid), {
+          preferences: updatedPreferences,
         });
 
+        // Update local state
         setProfile((prev) => {
-          if (!prev) {
-            return prev;
-          }
+          if (!prev) return null;
           return {
             ...prev,
-            preferences: {
-              ...prev.preferences,
-              [field]: value,
-            },
+            preferences: updatedPreferences,
           };
         });
 
-        if (field === 'theme') {
+        // Update theme mode if theme preference was changed
+        if (key === 'theme' && typeof value === 'string') {
           setMode(value as 'light' | 'dark' | 'system');
         }
 
+        // Show success message
         setSnackbar({
           open: true,
-          message: 'Preferences updated',
+          message: 'Preferences updated successfully',
           severity: 'success',
         });
       } catch (error) {
@@ -1421,11 +1476,26 @@ const SettingsPage = (): JSX.Element => {
 
     const handleThemeChange = (option: string): void => {
       if (!user || !profile) {
+        console.warn('No user or profile found when changing theme');
+        setSnackbar({
+          open: true,
+          message: 'Please sign in to change theme preferences',
+          severity: 'error',
+        });
         return;
       }
 
-      const themeMode = option as 'light' | 'dark' | 'system';
-      void handlePreferenceChange('theme', themeMode);
+      try {
+        const themeMode = option as 'light' | 'dark' | 'system';
+        void handlePreferenceChange('theme', themeMode);
+      } catch (error) {
+        console.error('Error changing theme:', error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to update theme preference',
+          severity: 'error',
+        });
+      }
     };
 
     const handleLanguageChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -1464,7 +1534,9 @@ const SettingsPage = (): JSX.Element => {
                 <Button
                   key={option}
                   variant={
-                    profile?.preferences?.theme === option ? 'contained' : 'outlined'
+                    (profile?.preferences?.theme || 'system') === option
+                      ? 'contained'
+                      : 'outlined'
                   }
                   onClick={(): void => handleThemeChange(option)}
                   sx={{
@@ -1482,8 +1554,7 @@ const SettingsPage = (): JSX.Element => {
                           color: 'text.primary',
                           borderColor: '#D0D5DD',
                           '&:hover': {
-                            borderColor: '#0B5CFF',
-                            bgcolor: 'transparent',
+                            borderColor: '#98A2B3',
                           },
                         }),
                   }}
@@ -1577,15 +1648,35 @@ const SettingsPage = (): JSX.Element => {
     if (!user || !profile) {
       return;
     }
+    setSaving(true);
+
     void (async (): Promise<void> => {
       try {
+        // Update Firestore
         const docRef = doc(db, 'users', user.uid);
         await updateDoc(docRef, {
-          ...profile,
+          customDisplayName: profile.customDisplayName,
+          displayName: profile.customDisplayName,
           updatedAt: new Date().toISOString(),
+        });
+
+        // Refresh the profile
+        await fetchProfile();
+
+        setSnackbar({
+          open: true,
+          message: 'Profile updated successfully',
+          severity: 'success',
         });
       } catch (error) {
         console.error('Error updating profile:', error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to update profile',
+          severity: 'error',
+        });
+      } finally {
+        setSaving(false);
       }
     })();
   };
@@ -1780,6 +1871,20 @@ const SettingsPage = (): JSX.Element => {
       fileInput.click();
     }
   };
+
+  // Initialize theme from profile preferences
+  useEffect(() => {
+    if (!profile) return;
+
+    try {
+      const theme = profile.preferences?.theme || 'system';
+      setMode(theme);
+    } catch (error) {
+      console.error('Error initializing theme:', error);
+      // Default to system theme if there's an error
+      setMode('system');
+    }
+  }, [profile, setMode]);
 
   if (loading) {
     return (

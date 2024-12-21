@@ -18,19 +18,28 @@ import {
   LinearProgress,
   Alert,
 } from '@mui/material';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { db } from '@/lib/firebase/config';
 
 interface UserProfile {
-  displayName: string;
-  customDisplayName: string;
+  id: string;
+  role: string;
   email: string;
-  username: string;
-  photoURL: string;
+  status: string;
+  displayName?: string;
+  customDisplayName?: string;
+  photoURL?: string;
+  firebaseUid: string;
+  creditScore: number | null;
+  monthlyIncome: number | null;
+  businessVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+  householdId: string | null;
 }
 
 interface CardApplication {
@@ -59,27 +68,62 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
-  // Fetch user profile
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!user) return;
+  const fetchProfile = useCallback(async (): Promise<void> => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
+    try {
+      const docRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(docRef);
 
-        if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
-        }
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-      } finally {
-        setLoading(false);
+      if (docSnap.exists()) {
+        const profileData = docSnap.data() as UserProfile;
+        setProfile(profileData);
+      } else {
+        // Create a new user profile if it doesn't exist
+        const initialProfile: UserProfile = {
+          id: user.uid,
+          role: 'user',
+          email: user.email || '',
+          status: 'active',
+          displayName: user.displayName || '',
+          customDisplayName: user.displayName || '',
+          photoURL: user.photoURL || '',
+          firebaseUid: user.uid,
+          creditScore: null,
+          monthlyIncome: null,
+          businessVerified: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          householdId: null,
+        };
+        await setDoc(docRef, initialProfile);
+        setProfile(initialProfile);
       }
-    };
-
-    fetchProfile();
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
+
+  useEffect(() => {
+    void fetchProfile();
+  }, [fetchProfile]);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <LinearProgress />
+      </Box>
+    );
+  }
+
+  if (!profile) {
+    return null;
+  }
 
   // Mock data for credit card applications
   const cardApplications: CardApplication[] = [
@@ -130,14 +174,6 @@ function DashboardPage() {
   // Calculate total potential bonuses
   const totalCardBonuses = cardApplications.reduce((sum, app) => sum + app.bonus, 0);
   const totalBankBonuses = bankBonuses.reduce((sum, bonus) => sum + bonus.bonus, 0);
-
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
-        <LinearProgress />
-      </Box>
-    );
-  }
 
   return (
     <Container
