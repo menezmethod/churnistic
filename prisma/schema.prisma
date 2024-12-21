@@ -13,12 +13,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  admin
+  manager
+  analyst
+  agent
+  user
+  free_user
+}
+
 model User {
   id                String    @id @default(auto()) @map("_id") @db.ObjectId
   firebaseUid       String    @unique
   email            String    @unique
   displayName      String?
   photoURL         String?
+  role             UserRole  @default(user)
+  status           String    @default("active") // "active" or "inactive"
   creditScore      Int?      
   monthlyIncome    Int?      
   businessVerified Boolean   @default(false)  // For business card applications

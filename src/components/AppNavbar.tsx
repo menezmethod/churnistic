@@ -1,12 +1,14 @@
 'use client';
 
 import {
-  Menu as MenuIcon,
   Dashboard,
   CreditCard,
   Settings,
+  People,
+  Security,
+  AdminPanelSettings,
   Logout,
-  ChevronLeft,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import {
   AppBar,
@@ -17,266 +19,170 @@ import {
   MenuItem,
   Avatar,
   Box,
-  Button,
   Drawer,
   List,
   ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
+  Divider,
 } from '@mui/material';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
-
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { UserRole } from '@/lib/auth/types';
 
-export default function AppNavbar(): JSX.Element {
-  const { user, signOut } = useAuth();
+interface MenuItemType {
+  text: string;
+  icon: JSX.Element;
+  path: string;
+}
+
+const regularMenuItems: MenuItemType[] = [
+  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  { text: 'Cards', icon: <CreditCard />, path: '/cards' },
+  { text: 'Settings', icon: <Settings />, path: '/settings' },
+];
+
+const adminMenuItems: MenuItemType[] = [
+  { text: 'User Management', icon: <People />, path: '/admin/users' },
+  { text: 'Role Management', icon: <Security />, path: '/admin/roles' },
+  { text: 'Admin Settings', icon: <AdminPanelSettings />, path: '/admin/settings' },
+];
+
+export default function AppNavbar() {
+  const { user, signOut, hasRole } = useAuth();
   const router = useRouter();
-
+  const pathname = usePathname();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const handleMenu = (event: React.MouseEvent<HTMLElement>): void => {
+  const isAdmin = hasRole(UserRole.ADMIN);
+
+  const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleClose = (): void => {
+  const handleClose = () => {
     setAnchorEl(null);
   };
 
-  const handleLogout = async (): Promise<void> => {
+  const handleLogout = async () => {
     try {
       await signOut();
-      router.push('/auth/signin');
+      router.push('/signin');
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
-  const handleDrawerToggle = (): void => {
-    setDrawerOpen(false);
-  };
-
-  const handleLogoutClick = (): void => {
-    void handleLogout();
-  };
-
-  const menuItems = [
-    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-    { text: 'Cards', icon: <CreditCard />, path: '/cards' },
-    { text: 'Settings', icon: <Settings />, path: '/settings' },
-  ];
-
-  const drawer = (
-    <Box sx={{ width: '100%' }} role="presentation">
-      <List>
-        <ListItem
-          sx={{
-            justifyContent: 'space-between',
-            py: 2,
-            px: 2,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Menu
-          </Typography>
-          <IconButton onClick={handleDrawerToggle}>
-            <ChevronLeft />
-          </IconButton>
-        </ListItem>
-        {menuItems.map((item) => (
-          <ListItem
-            button
-            key={item.text}
-            onClick={(): void => {
-              handleDrawerToggle();
-              router.push(item.path);
-            }}
-            sx={{
-              py: 1.5,
-              px: 2,
-              '&:hover': {
-                bgcolor: 'action.hover',
-              },
-            }}
+  const renderMenuItems = () => (
+    <>
+      {regularMenuItems.map((item) => (
+        <ListItem key={item.text} disablePadding>
+          <ListItemButton
+            component={Link}
+            href={item.path}
+            selected={pathname === item.path}
           >
-            <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-            <ListItemText
-              primary={item.text}
-              primaryTypographyProps={{
-                sx: { fontWeight: 500 },
-              }}
-            />
-          </ListItem>
-        ))}
-      </List>
-    </Box>
+            <ListItemIcon>{item.icon}</ListItemIcon>
+            <ListItemText primary={item.text} />
+          </ListItemButton>
+        </ListItem>
+      ))}
+      {isAdmin && (
+        <>
+          <Divider sx={{ my: 1 }} />
+          {adminMenuItems.map((item) => (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                component={Link}
+                href={item.path}
+                selected={pathname === item.path}
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.text} />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </>
+      )}
+    </>
   );
 
   return (
     <>
-      <AppBar position="static">
-        <Toolbar sx={{ px: { xs: 2, sm: 3, md: 4 }, minHeight: { xs: 64, sm: 70 } }}>
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+        <Toolbar>
           <IconButton
-            size="large"
-            edge="start"
             color="inherit"
-            aria-label="menu"
-            sx={{ mr: { xs: 1, sm: 2 } }}
-            onClick={(): void => setDrawerOpen(true)}
+            aria-label="open drawer"
+            edge="start"
+            onClick={() => setDrawerOpen(true)}
+            sx={{ mr: 2 }}
           >
             <MenuIcon />
           </IconButton>
-
-          <Typography
-            variant="h6"
-            component="div"
-            sx={{
-              flexGrow: 1,
-              fontSize: { xs: '1.125rem', sm: '1.25rem' },
-              fontWeight: 600,
-            }}
-          >
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Churnistic
           </Typography>
-
-          {user ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <IconButton
-                size="large"
-                aria-label="account of current user"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                onClick={handleMenu}
-                color="inherit"
-                sx={{
-                  p: { xs: 0.5, sm: 1 },
-                  '& .MuiAvatar-root': {
-                    width: { xs: 32, sm: 40 },
-                    height: { xs: 32, sm: 40 },
-                  },
-                }}
-              >
-                <Avatar
-                  src={user.photoURL || undefined}
-                  alt={user.displayName || 'User'}
-                />
-              </IconButton>
-              <Menu
-                id="menu-appbar"
-                anchorEl={anchorEl}
-                anchorOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'right',
-                }}
-                keepMounted
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                open={Boolean(anchorEl)}
-                onClose={handleClose}
-                PaperProps={{
-                  elevation: 2,
-                  sx: {
-                    mt: 1,
-                    minWidth: 200,
-                    '& .MuiMenuItem-root': {
-                      py: 1.5,
-                      px: 2,
-                    },
-                  },
-                }}
-              >
-                <MenuItem
-                  onClick={(): void => {
-                    handleClose();
-                    router.push('/settings');
-                  }}
-                  sx={{
-                    gap: 1.5,
-                    '&:hover': {
-                      bgcolor: 'action.hover',
-                    },
-                  }}
-                >
-                  <ListItemIcon>
-                    <Avatar
-                      src={user.photoURL || undefined}
-                      alt={user.displayName || 'User'}
-                      sx={{ width: 32, height: 32 }}
-                    />
-                  </ListItemIcon>
-                  <Box>
-                    <Typography variant="body1" sx={{ fontWeight: 500, mb: 0.25 }}>
-                      {user.displayName || 'User'}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ fontSize: '0.75rem' }}
-                    >
-                      {user.email}
-                    </Typography>
-                  </Box>
-                </MenuItem>
-                <MenuItem
-                  onClick={(): void => {
-                    handleClose();
-                    router.push('/settings');
-                  }}
-                  sx={{
-                    gap: 1.5,
-                    '&:hover': {
-                      bgcolor: 'action.hover',
-                    },
-                  }}
-                >
-                  <ListItemIcon>
-                    <Settings fontSize="small" />
-                  </ListItemIcon>
-                  Settings
-                </MenuItem>
-                <MenuItem
-                  onClick={handleLogoutClick}
-                  sx={{
-                    gap: 1.5,
-                    color: 'error.main',
-                    '&:hover': {
-                      bgcolor: 'error.lighter',
-                    },
-                  }}
-                >
-                  <ListItemIcon>
-                    <Logout fontSize="small" sx={{ color: 'inherit' }} />
-                  </ListItemIcon>
-                  Logout
-                </MenuItem>
-              </Menu>
-            </Box>
-          ) : (
-            <Button color="inherit" onClick={(): void => router.push('/auth/signin')}>
-              Login
-            </Button>
-          )}
+          <IconButton
+            size="large"
+            aria-label="account of current user"
+            aria-controls="menu-appbar"
+            aria-haspopup="true"
+            onClick={handleMenu}
+            color="inherit"
+          >
+            <Avatar alt={user?.email || ''} src={user?.photoURL || ''} />
+          </IconButton>
+          <Menu
+            id="menu-appbar"
+            anchorEl={anchorEl}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            keepMounted
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            open={Boolean(anchorEl)}
+            onClose={handleClose}
+          >
+            <MenuItem onClick={handleLogout}>
+              <ListItemIcon>
+                <Logout fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Logout</ListItemText>
+            </MenuItem>
+          </Menu>
         </Toolbar>
       </AppBar>
-
       <Drawer
+        variant="temporary"
         anchor="left"
         open={drawerOpen}
-        onClose={handleDrawerToggle}
-        PaperProps={{
-          sx: {
-            width: { xs: '85%', sm: 280 },
-            maxWidth: 320,
+        onClose={() => setDrawerOpen(false)}
+        sx={{
+          width: 250,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: 250,
+            boxSizing: 'border-box',
           },
         }}
       >
-        {drawer}
+        <Toolbar />
+        <Box sx={{ overflow: 'auto' }}>
+          <List>
+            {renderMenuItems()}
+          </List>
+        </Box>
       </Drawer>
+      <Toolbar />
     </>
   );
 }

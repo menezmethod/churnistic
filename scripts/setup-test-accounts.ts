@@ -1,107 +1,125 @@
+import { PrismaClient, UserRole } from '@prisma/client';
 import * as admin from 'firebase-admin';
-import { UserRole } from '../src/lib/auth/types';
 
-// Initialize Firebase Admin
-const serviceAccount = require('../service-account.json');
+const prisma = new PrismaClient();
+
+// Initialize Firebase Admin with emulator
+process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  projectId: 'churnistic',
 });
 
 const testAccounts = [
   {
+    email: 'menezfd@gmail.com',
+    password: 'testpass123',
+    displayName: 'Luis Gimenez',
+    role: 'admin' as UserRole,
+    isSuperAdmin: true,
+  },
+  {
     email: 'admin@test.com',
     password: 'testpass123',
     displayName: 'Test Admin',
-    role: UserRole.ADMIN,
+    role: 'admin' as UserRole,
   },
   {
     email: 'manager@test.com',
     password: 'testpass123',
     displayName: 'Test Manager',
-    role: UserRole.MANAGER,
+    role: 'manager' as UserRole,
   },
   {
     email: 'analyst@test.com',
     password: 'testpass123',
     displayName: 'Test Analyst',
-    role: UserRole.ANALYST,
+    role: 'analyst' as UserRole,
   },
   {
     email: 'agent@test.com',
     password: 'testpass123',
     displayName: 'Test Agent',
-    role: UserRole.AGENT,
+    role: 'agent' as UserRole,
   },
   {
     email: 'user@test.com',
     password: 'testpass123',
     displayName: 'Test User',
-    role: UserRole.USER,
+    role: 'user' as UserRole,
   },
   {
     email: 'free@test.com',
     password: 'testpass123',
     displayName: 'Test Free User',
-    role: UserRole.FREE_USER,
+    role: 'free_user' as UserRole,
   },
 ];
 
 async function setupTestAccounts() {
   try {
-    for (const account of testAccounts) {
-      // Create or update user
-      let user;
-      try {
-        user = await admin.auth().getUserByEmail(account.email);
-        console.log(`Updating existing user: ${account.email}`);
-      } catch {
-        user = await admin.auth().createUser({
-          email: account.email,
-          password: account.password,
+    // First, create or get Firebase users
+    const firebaseUsers = await Promise.all(
+      testAccounts.map(async (account) => {
+        let firebaseUser;
+        try {
+          firebaseUser = await admin.auth().getUserByEmail(account.email);
+          console.log(`Firebase user exists: ${account.email}`);
+        } catch {
+          firebaseUser = await admin.auth().createUser({
+            email: account.email,
+            password: account.password,
+            displayName: account.displayName,
+          });
+          console.log(`Created Firebase user: ${account.email}`);
+        }
+
+        // Set custom claims
+        const claims = {
+          role: account.role.toLowerCase(),
+          permissions: account.role === UserRole.admin ? [
+            'users.view',
+            'users.create',
+            'users.edit',
+            'users.delete',
+            'roles.assign',
+          ] : [],
+          ...(account.isSuperAdmin && { isSuperAdmin: true }),
+        };
+        await admin.auth().setCustomUserClaims(firebaseUser.uid, claims);
+        console.log(`Set claims for user: ${account.email}`, claims);
+
+        return { ...account, firebaseUid: firebaseUser.uid };
+      })
+    );
+
+    // Then, create or update MongoDB users
+    for (const account of firebaseUsers) {
+      const user = await prisma.user.upsert({
+        where: { email: account.email },
+        update: {
           displayName: account.displayName,
-        });
-        console.log(`Created new user: ${account.email}`);
-      }
-
-      // Set custom claims (role)
-      await admin.auth().setCustomUserClaims(user.uid, { role: account.role });
-      console.log(`Set role ${account.role} for user: ${account.email}`);
-
-      // Create initial profile document
-      const userDoc = admin.firestore().doc(`users/${user.uid}`);
-      await userDoc.set(
-        {
+          role: account.role,
+          status: 'active',
+          firebaseUid: account.firebaseUid,
+        },
+        create: {
           email: account.email,
           displayName: account.displayName,
           role: account.role,
-          notifications: {
-            creditCardAlerts: true,
-            bankBonusAlerts: true,
-            investmentAlerts: true,
-            riskAlerts: true,
-          },
-          privacy: {
-            profileVisibility: 'public',
-            showEmail: false,
-            showActivity: true,
-          },
-          preferences: {
-            theme: 'system',
-            language: 'en',
-            timezone: 'UTC',
-          },
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          status: 'active',
+          businessVerified: false,
+          firebaseUid: account.firebaseUid,
         },
-        { merge: true }
-      );
-      console.log(`Created/updated profile for: ${account.email}`);
+      });
+      console.log(`Created/updated MongoDB user: ${user.email} with role ${user.role}`);
     }
 
     console.log('All test accounts have been set up successfully!');
+    await prisma.$disconnect();
     process.exit(0);
   } catch (error) {
     console.error('Error setting up test accounts:', error);
+    await prisma.$disconnect();
     process.exit(1);
   }
 }

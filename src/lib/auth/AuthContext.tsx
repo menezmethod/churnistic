@@ -14,6 +14,7 @@ import {
 import { createContext, useContext, useEffect, useState } from 'react';
 
 import { auth } from '@/lib/firebase/config';
+
 import { Permission, UserRole } from './types';
 
 interface AuthContextType {
@@ -264,20 +265,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('No user or custom claims found');
       return false;
     }
-    
+
     // Super admins have all permissions
     if (user.customClaims.isSuperAdmin) {
       console.log('User is super admin, granting all permissions');
       return true;
     }
-    
-    const hasPermissionAccess = user.customClaims.permissions?.includes(permission) ?? false;
+
+    const hasPermissionAccess =
+      user.customClaims.permissions?.includes(permission) ?? false;
     console.log('Checking permission access:', {
       requiredPermission: permission,
       userPermissions: user.customClaims.permissions,
       hasAccess: hasPermissionAccess,
     });
-    
+
     return hasPermissionAccess;
   };
 

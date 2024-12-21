@@ -25,56 +25,14 @@ function decodeToken(token: string) {
   }
 }
 
-// Test data for emulator mode
-const testUserClaims: Record<string, CustomClaims> = {
-  'menezfd@gmail.com': {
-    role: UserRole.ADMIN,
-    permissions: [
-      Permission.READ_CARDS,
-      Permission.WRITE_CARDS,
-      Permission.DELETE_CARDS,
-      Permission.READ_BANK_ACCOUNTS,
-      Permission.WRITE_BANK_ACCOUNTS,
-      Permission.DELETE_BANK_ACCOUNTS,
-      Permission.READ_INVESTMENTS,
-      Permission.WRITE_INVESTMENTS,
-      Permission.DELETE_INVESTMENTS,
-      Permission.VIEW_BASIC_ANALYTICS,
-      Permission.VIEW_ADVANCED_ANALYTICS,
-      Permission.EXPORT_ANALYTICS,
-      Permission.VIEW_RISK_SCORES,
-      Permission.MANAGE_RISK_RULES,
-      Permission.READ_USERS,
-      Permission.WRITE_USERS,
-      Permission.DELETE_USERS,
-      Permission.MANAGE_SETTINGS,
-      Permission.VIEW_LOGS,
-      Permission.USE_API,
-      Permission.MANAGE_API_KEYS,
-      Permission.MANAGE_NOTIFICATIONS,
-      Permission.RECEIVE_CREDIT_CARD_ALERTS,
-      Permission.RECEIVE_BANK_BONUS_ALERTS,
-      Permission.RECEIVE_INVESTMENT_ALERTS,
-      Permission.RECEIVE_RISK_ALERTS,
-    ],
-    isSuperAdmin: true,
-  },
-};
-
 // Helper function to get user claims
-async function getUserClaims(uid: string, email?: string): Promise<CustomClaims> {
-  if (useEmulators && email) {
-    // In emulator mode, use test data
-    const claims = testUserClaims[email];
-    if (claims) {
-      console.log('Using test claims for emulator:', claims);
-      return claims;
-    }
-    // If no test data found, return default user claims
+async function getUserClaims(uid: string, decodedToken?: any): Promise<CustomClaims> {
+  if (useEmulators && decodedToken) {
+    // In emulator mode, use the claims from the token
     return {
-      role: UserRole.USER,
-      permissions: [Permission.READ_CARDS],
-      isSuperAdmin: false,
+      role: decodedToken.role as UserRole,
+      permissions: decodedToken.permissions || [],
+      isSuperAdmin: decodedToken.isSuperAdmin || false,
     };
   }
 
@@ -105,8 +63,8 @@ export async function GET() {
         if (!decodedToken) {
           return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
         }
-        // In emulator mode, get claims from test data
-        customClaims = await getUserClaims(decodedToken.user_id, decodedToken.email);
+        // In emulator mode, get claims from the token
+        customClaims = await getUserClaims(decodedToken.user_id, decodedToken);
       } else {
         decodedToken = await auth.verifyIdToken(session.value);
         customClaims = await getUserClaims(decodedToken.uid);
@@ -149,8 +107,8 @@ export async function POST(request: Request) {
         if (!decodedToken) {
           return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
         }
-        // In emulator mode, get claims from test data
-        customClaims = await getUserClaims(decodedToken.user_id, decodedToken.email);
+        // In emulator mode, get claims from the token
+        customClaims = await getUserClaims(decodedToken.user_id, decodedToken);
       } else {
         decodedToken = await auth.verifyIdToken(token);
         customClaims = await getUserClaims(decodedToken.uid);
