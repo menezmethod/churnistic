@@ -15,9 +15,7 @@ export function ClientProviders({ children }: ClientProvidersProps): JSX.Element
     <Providers>
       <ThemeProvider>
         <AuthProvider>
-          <TRPCProvider>
-            {children}
-          </TRPCProvider>
+          <TRPCProvider>{children}</TRPCProvider>
         </AuthProvider>
       </ThemeProvider>
     </Providers>

@@ -1,9 +1,17 @@
 import { PrismaClient } from '@prisma/client';
-import { DecodedIdToken } from 'firebase-admin/auth';
+import type { DecodedIdToken } from 'firebase-admin/auth';
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
 
 import { Context } from '../context';
 import { appRouter } from '../routers/_app';
+
+// Mock Firebase Firestore
+const mockDoc = jest.fn();
+const mockUpdateDoc = jest.fn();
+jest.mock('firebase/firestore', () => ({
+  doc: mockDoc,
+  updateDoc: mockUpdateDoc,
+}));
 
 describe('User Router', () => {
   let ctx: {
@@ -70,7 +78,7 @@ describe('User Router', () => {
         firebaseUid: mockSession.uid,
         email: 'test@example.com',
         displayName: 'Updated User',
-        customDisplayName: null,
+        customDisplayName: 'Updated User',
         photoURL: 'https://example.com/new-photo.jpg',
         role: 'user' as const,
         status: 'active',
@@ -83,14 +91,23 @@ describe('User Router', () => {
       };
 
       ctx.prisma.user.update.mockResolvedValue(mockUser);
+      mockDoc.mockReturnValue('mocked-doc-ref');
+      mockUpdateDoc.mockResolvedValue(undefined);
 
       const result = await caller.user.update({
         displayName: 'Updated User',
+        customDisplayName: 'Updated User',
         email: 'test@example.com',
         photoURL: 'https://example.com/new-photo.jpg',
       });
 
       expect(result).toEqual(mockUser);
+      expect(mockDoc).toHaveBeenCalled();
+      expect(mockUpdateDoc).toHaveBeenCalledWith('mocked-doc-ref', {
+        displayName: 'Updated User',
+        customDisplayName: 'Updated User',
+        updatedAt: expect.any(String),
+      });
     });
   });
 

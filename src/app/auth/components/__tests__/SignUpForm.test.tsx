@@ -32,7 +32,7 @@ describe('SignUpForm', () => {
 
   it('renders sign up form correctly', () => {
     render(<SignUpForm />);
-    expect(screen.getByTestId('signup-title')).toBeInTheDocument();
+    expect(screen.getByText('Create Account')).toBeInTheDocument();
     expect(screen.getByTestId('displayname-input')).toBeInTheDocument();
     expect(screen.getByTestId('email-input')).toBeInTheDocument();
     expect(screen.getByTestId('password-input')).toBeInTheDocument();
@@ -45,18 +45,23 @@ describe('SignUpForm', () => {
 
     render(<SignUpForm />);
 
-    fireEvent.change(screen.getByTestId('displayname-input'), {
-      target: { value: 'Test User' },
-    });
-    fireEvent.change(screen.getByTestId('email-input'), {
-      target: { value: 'test@example.com' },
-    });
-    fireEvent.change(screen.getByTestId('password-input'), {
-      target: { value: 'password123' },
-    });
-    fireEvent.change(screen.getByTestId('confirm-password-input'), {
-      target: { value: 'password123' },
-    });
+    const displayNameInput = screen
+      .getByTestId('displayname-input')
+      .querySelector('input');
+    const emailInput = screen.getByTestId('email-input').querySelector('input');
+    const passwordInput = screen.getByTestId('password-input').querySelector('input');
+    const confirmPasswordInput = screen
+      .getByTestId('confirm-password-input')
+      .querySelector('input');
+
+    if (!displayNameInput || !emailInput || !passwordInput || !confirmPasswordInput) {
+      throw new Error('Input elements not found');
+    }
+
+    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
 
     fireEvent.click(screen.getByTestId('signup-button'));
 
@@ -73,25 +78,28 @@ describe('SignUpForm', () => {
   it('shows error when passwords do not match', async () => {
     render(<SignUpForm />);
 
-    fireEvent.change(screen.getByTestId('displayname-input'), {
-      target: { value: 'Test User' },
-    });
-    fireEvent.change(screen.getByTestId('email-input'), {
-      target: { value: 'test@example.com' },
-    });
-    fireEvent.change(screen.getByTestId('password-input'), {
-      target: { value: 'password123' },
-    });
-    fireEvent.change(screen.getByTestId('confirm-password-input'), {
-      target: { value: 'differentpassword' },
-    });
+    const displayNameInput = screen
+      .getByTestId('displayname-input')
+      .querySelector('input');
+    const emailInput = screen.getByTestId('email-input').querySelector('input');
+    const passwordInput = screen.getByTestId('password-input').querySelector('input');
+    const confirmPasswordInput = screen
+      .getByTestId('confirm-password-input')
+      .querySelector('input');
+
+    if (!displayNameInput || !emailInput || !passwordInput || !confirmPasswordInput) {
+      throw new Error('Input elements not found');
+    }
+
+    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'differentpassword' } });
 
     fireEvent.click(screen.getByTestId('signup-button'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('error-message')).toHaveTextContent(
-        'Passwords do not match'
-      );
+      expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
       expect(mockSignUp).not.toHaveBeenCalled();
     });
   });
@@ -101,23 +109,28 @@ describe('SignUpForm', () => {
 
     render(<SignUpForm />);
 
-    fireEvent.change(screen.getByTestId('displayname-input'), {
-      target: { value: 'Test User' },
-    });
-    fireEvent.change(screen.getByTestId('email-input'), {
-      target: { value: 'test@example.com' },
-    });
-    fireEvent.change(screen.getByTestId('password-input'), {
-      target: { value: 'password123' },
-    });
-    fireEvent.change(screen.getByTestId('confirm-password-input'), {
-      target: { value: 'password123' },
-    });
+    const displayNameInput = screen
+      .getByTestId('displayname-input')
+      .querySelector('input');
+    const emailInput = screen.getByTestId('email-input').querySelector('input');
+    const passwordInput = screen.getByTestId('password-input').querySelector('input');
+    const confirmPasswordInput = screen
+      .getByTestId('confirm-password-input')
+      .querySelector('input');
+
+    if (!displayNameInput || !emailInput || !passwordInput || !confirmPasswordInput) {
+      throw new Error('Input elements not found');
+    }
+
+    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
 
     fireEvent.click(screen.getByTestId('signup-button'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('error-message')).toHaveTextContent('Sign up failed');
+      expect(screen.getByText('Sign up failed')).toBeInTheDocument();
     });
   });
 });

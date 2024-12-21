@@ -1,33 +1,47 @@
-import { Box, Button, TextField, Typography } from '@mui/material';
+'use client';
+
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Alert,
+  CircularProgress,
+} from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function SignUpForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const { signUp } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    displayName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
+    setLoading(true);
     try {
-      await signUp(email, password, displayName);
+      await signUp(formData.email, formData.password, formData.displayName);
       router.push('/dashboard');
     } catch (err) {
-      console.error('Sign up error:', err);
-      setError('Sign up failed');
+      setError(err instanceof Error ? err.message : 'An error occurred during sign up');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -35,70 +49,77 @@ export default function SignUpForm() {
     <Box
       component="form"
       onSubmit={handleSubmit}
-      sx={{ maxWidth: 400, mx: 'auto', mt: 4 }}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        width: '100%',
+        maxWidth: 400,
+        mx: 'auto',
+        p: 3,
+      }}
     >
-      <Typography variant="h4" component="h1" gutterBottom data-testid="signup-title">
-        Sign Up
+      <Typography variant="h5" component="h1" gutterBottom textAlign="center">
+        Create Account
       </Typography>
 
       <TextField
-        fullWidth
-        margin="normal"
         label="Display Name"
-        value={displayName}
-        onChange={(e) => setDisplayName(e.target.value)}
-        data-testid="displayname-input"
         required
+        fullWidth
+        value={formData.displayName}
+        onChange={(e) =>
+          setFormData((prev) => ({ ...prev, displayName: e.target.value }))
+        }
+        data-testid="displayname-input"
       />
 
       <TextField
-        fullWidth
-        margin="normal"
         label="Email"
         type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        data-testid="email-input"
         required
+        fullWidth
+        value={formData.email}
+        onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+        data-testid="email-input"
       />
 
       <TextField
-        fullWidth
-        margin="normal"
         label="Password"
         type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        data-testid="password-input"
         required
+        fullWidth
+        value={formData.password}
+        onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
+        data-testid="password-input"
       />
 
       <TextField
-        fullWidth
-        margin="normal"
         label="Confirm Password"
         type="password"
-        value={confirmPassword}
-        onChange={(e) => setConfirmPassword(e.target.value)}
-        data-testid="confirm-password-input"
         required
+        fullWidth
+        value={formData.confirmPassword}
+        onChange={(e) =>
+          setFormData((prev) => ({ ...prev, confirmPassword: e.target.value }))
+        }
+        data-testid="confirm-password-input"
       />
 
       {error && (
-        <Typography color="error" data-testid="error-message">
+        <Alert severity="error" data-testid="error-alert">
           {error}
-        </Typography>
+        </Alert>
       )}
 
       <Button
         type="submit"
         variant="contained"
-        color="primary"
         fullWidth
-        sx={{ mt: 2 }}
+        disabled={loading}
         data-testid="signup-button"
       >
-        Sign Up
+        {loading ? <CircularProgress size={24} /> : 'Sign Up'}
       </Button>
     </Box>
   );
