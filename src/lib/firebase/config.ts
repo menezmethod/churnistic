@@ -40,7 +40,9 @@ if (useEmulators) {
   connectAuthEmulator(auth, `http://${authEmulatorHost}:${authEmulatorPort}`, {
     disableWarnings: false,
   });
-  console.log(`🔑 Connecting to Auth Emulator at: ${authEmulatorHost}:${authEmulatorPort}`);
+  console.log(
+    `🔑 Connecting to Auth Emulator at: ${authEmulatorHost}:${authEmulatorPort}`
+  );
 
   // Functions Emulator
   const functionsEmulatorHost = 'localhost';

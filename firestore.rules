@@ -2,49 +2,60 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Common functions
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
     
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.role == 'ADMIN';
+      return isAuthenticated() && request.auth.token.role == 'admin';
     }
     
+    function isManager() {
+      return isAuthenticated() && request.auth.token.role == 'manager';
+    }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function hasPermission(permission) {
-      return isAuthenticated() && 
-        (request.auth.token.permissions is list && 
-         request.auth.token.permissions.hasAny([permission]));
+    function canAccessUser(userId) {
+      return isOwner(userId) || isAdmin() || isManager();
     }
 
-    function canManageNotifications() {
-      return hasPermission('manage:notifications') || isAdmin();
+    function canModifyUser(userId) {
+      return isAdmin() || (isManager() && !willChangeRole());
     }
 
-    function canReceiveNotificationType(type) {
-      return hasPermission('receive:' + type + '_alerts') || isAdmin();
+    function willChangeRole() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
     }
-
-    // User profiles and settings
+    
+    // Users collection
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || isOwner(userId);
-      
-      // Notification settings
-      match /notifications/{setting} {
-        allow read: if isOwner(userId) || canManageNotifications();
-        allow write: if (isOwner(userId) && canReceiveNotificationType(setting)) || canManageNotifications();
+      allow create: if isAdmin();
+      allow update: if canModifyUser(userId);
+      allow delete: if isAdmin();
+
+      // User activity subcollection
+      match /activity/{activityId} {
+        allow read: if canAccessUser(userId);
+        allow write: if isAdmin() || isOwner(userId);
       }
     }
+    
+    // Audit logs collection
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
 
-    // Protected collections
-    match /{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+    // User settings collection
+    match /user_settings/{userId} {
+      allow read: if canAccessUser(userId);
+      allow write: if isOwner(userId) || isAdmin();
     }
   }
 } 

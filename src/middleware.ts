@@ -1,105 +1,119 @@
-import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
-import { UserRole, Permission, ROLE_PERMISSIONS } from '@/lib/auth/types';
+import { verifySession } from '@/lib/auth/session';
 
-type RouteConfig = {
-  role?: UserRole;
-  permissions?: Permission[];
-};
+// Paths that require authentication
+const protectedPaths = ['/dashboard', '/admin', '/api/users'];
 
-// Define protected routes with their required roles/permissions
-const protectedRoutes: Record<string, RouteConfig> = {
-  '/admin': {
-    role: UserRole.ADMIN,
-  },
-  '/api/admin': {
-    role: UserRole.ADMIN,
-  },
-  '/cards': {
-    permissions: [Permission.READ_CARDS],
-  },
-  '/dashboard': {
-    permissions: [Permission.VIEW_BASIC_ANALYTICS],
-  },
-  '/settings': {
-    permissions: [Permission.MANAGE_SETTINGS],
-  },
+// Role-based permissions mapping
+const rolePermissions = {
+  admin: [
+    'read:cards',
+    'write:cards',
+    'delete:cards',
+    'read:bank_accounts',
+    'write:bank_accounts',
+    'delete:bank_accounts',
+    'read:investments',
+    'write:investments',
+    'delete:investments',
+    'view:basic_analytics',
+    'view:advanced_analytics',
+    'export:analytics',
+    'view:risk_scores',
+    'manage:risk_rules',
+    'read:users',
+    'write:users',
+    'delete:users',
+    'manage:settings',
+    'view:logs',
+    'use:api',
+    'manage:api_keys',
+    'manage:notifications',
+    'receive:credit_card_alerts',
+    'receive:bank_bonus_alerts',
+    'receive:investment_alerts',
+    'receive:risk_alerts',
+  ],
 };
 
 export async function middleware(request: NextRequest) {
-  // Get the pathname
   const path = request.nextUrl.pathname;
+  console.log('Middleware - Processing request for path:', path);
 
   // Check if path is protected
-  const protectedPath = Object.keys(protectedRoutes).find((route) =>
-    path.startsWith(route)
-  );
+  const isProtectedPath = protectedPaths.some((prefix) => path.startsWith(prefix));
+  console.log('Protected path match:', isProtectedPath ? path : 'none');
 
-  if (!protectedPath) {
+  if (!isProtectedPath) {
     return NextResponse.next();
   }
 
-  // Get the session cookie
-  const session = request.cookies.get('__session')?.value;
+  // Check for session cookie
+  const sessionCookie = request.cookies.get('__session');
+  console.log('Session cookie present:', !!sessionCookie);
 
-  if (!session) {
-    return NextResponse.redirect(new URL('/auth/signin', request.url));
+  if (!sessionCookie) {
+    const signInUrl = new URL('/auth/signin', request.url);
+    signInUrl.searchParams.set('callbackUrl', request.url);
+    return NextResponse.redirect(signInUrl);
   }
 
-  try {
-    // Verify the session by making a request to our API
-    const response = await fetch(new URL('/api/auth/session', request.url), {
-      headers: {
-        Cookie: `__session=${session}`,
-      },
+  console.log('Verifying session...');
+  const response = await verifySession(request);
+  console.log('Session verification response status:', response.status);
+
+  if (!response.ok) {
+    console.log('Session verification failed, redirecting to signin');
+    const signInUrl = new URL('/auth/signin', request.url);
+    signInUrl.searchParams.set('callbackUrl', request.url);
+    return NextResponse.redirect(signInUrl);
+  }
+
+  const session = await response.json();
+  console.log('Session data:', session);
+
+  // Get user's role-based permissions
+  const userRolePermissions =
+    rolePermissions[session.role as keyof typeof rolePermissions] || [];
+  const userPermissions = [...(session.permissions || []), ...userRolePermissions];
+
+  // For /admin paths, check if user has admin role
+  if (path.startsWith('/admin') && session.role !== 'admin') {
+    console.log('Access denied - not an admin');
+    return new NextResponse('Access denied', { status: 403 });
+  }
+
+  // For /api/users path, check if user has required permissions
+  if (path === '/api/users' && !userPermissions.includes('read:users')) {
+    console.log('Access denied - missing read:users permission');
+    return new NextResponse('Access denied', { status: 403 });
+  }
+
+  // For /dashboard path, check if user has required permissions
+  if (path === '/dashboard') {
+    const requiredPermissions = ['view:basic_analytics'];
+    const hasRequiredPermissions = requiredPermissions.every((p) =>
+      userPermissions.includes(p)
+    );
+
+    console.log('Permission check:', {
+      userPermissions,
+      requiredPermissions,
+      hasRequiredPermissions,
     });
 
-    if (!response.ok) {
-      return NextResponse.redirect(new URL('/auth/signin', request.url));
+    if (!hasRequiredPermissions) {
+      console.log('Access denied - missing required permissions');
+      return new NextResponse('Access denied', { status: 403 });
     }
-
-    const data = await response.json();
-    const userRole = data.role as UserRole;
-    const isSuperAdmin = data.isSuperAdmin === true;
-    const routeConfig = protectedRoutes[protectedPath];
-
-    // Super admins have access to all routes
-    if (isSuperAdmin) {
-      return NextResponse.next();
-    }
-
-    // Check role-based access
-    if (routeConfig.role && userRole !== routeConfig.role && userRole !== UserRole.ADMIN) {
-      return NextResponse.redirect(new URL('/unauthorized', request.url));
-    }
-
-    // Check permission-based access
-    if (routeConfig.permissions) {
-      const userPermissions = ROLE_PERMISSIONS[userRole];
-      const hasRequiredPermissions = routeConfig.permissions.every((permission) =>
-        userPermissions.includes(permission)
-      );
-
-      if (!hasRequiredPermissions) {
-        return NextResponse.redirect(new URL('/unauthorized', request.url));
-      }
-    }
-
-    return NextResponse.next();
-  } catch (error) {
-    console.error('Session verification failed:', error);
-    return NextResponse.redirect(new URL('/auth/signin', request.url));
   }
+
+  console.log('Access granted');
+  return NextResponse.next();
 }
 
-// Specify which paths should trigger the middleware
 export const config = {
-  matcher: [
-    '/admin/:path*',
-    '/api/admin/:path*',
-    '/cards/:path*',
-    '/dashboard/:path*',
-    '/settings/:path*',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

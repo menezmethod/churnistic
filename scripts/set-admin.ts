@@ -64,16 +64,22 @@ async function verifyUserClaims(email: string) {
   }
 }
 
-async function setUserRole(email: string, role: UserRole, displayName: string, password: string, isSuperAdmin = false) {
+async function setUserRole(
+  email: string,
+  role: UserRole,
+  displayName: string,
+  password: string,
+  isSuperAdmin = false
+) {
   try {
     console.log(`\nSetting up user: ${email} with role: ${role}`);
-    
+
     let user;
     try {
       // Try to get the user first
       user = await auth.getUserByEmail(email);
       console.log('User found:', user.uid);
-      
+
       // Log current claims before update
       console.log('Current claims:', user.customClaims);
     } catch (error: any) {
@@ -97,16 +103,16 @@ async function setUserRole(email: string, role: UserRole, displayName: string, p
       permissions: ROLE_PERMISSIONS[role],
       ...(isSuperAdmin && { isSuperAdmin: true }),
     };
-    
+
     await auth.setCustomUserClaims(user.uid, claims);
     console.log(`Setting claims:`, claims);
-    
+
     // Verify the claims were set correctly
     const updatedClaims = await verifyUserClaims(email);
     if (!updatedClaims) {
       throw new Error('Failed to verify updated claims');
     }
-    
+
     return true;
   } catch (error) {
     console.error(`Error setting ${role} role:`, error);
@@ -116,7 +122,7 @@ async function setUserRole(email: string, role: UserRole, displayName: string, p
 
 async function setupAllUsers() {
   console.log('Setting up all test users...');
-  
+
   for (const user of TEST_USERS) {
     const success = await setUserRole(
       user.email,
@@ -130,14 +136,14 @@ async function setupAllUsers() {
       process.exit(1);
     }
   }
-  
+
   console.log('\nVerifying all user claims:');
   for (const user of TEST_USERS) {
     await verifyUserClaims(user.email);
   }
-  
+
   console.log('\nSuccessfully set up all test users');
   process.exit(0);
 }
 
-setupAllUsers(); 
+setupAllUsers();

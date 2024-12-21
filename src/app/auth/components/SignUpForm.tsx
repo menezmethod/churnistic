@@ -41,7 +41,26 @@ export const SignUpForm = (): JSX.Element | null => {
         return;
       }
 
-      await createUserWithEmailAndPassword(auth, email, password);
+      // Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+      // Create user in MongoDB
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firebaseUid: userCredential.user.uid,
+          email: userCredential.user.email,
+          displayName: userCredential.user.displayName || email.split('@')[0],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create user in database');
+      }
+
       router.push('/dashboard');
     } catch (error: unknown) {
       const errorMessage =
