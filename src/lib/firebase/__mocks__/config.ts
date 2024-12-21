@@ -1,7 +1,7 @@
 import { Auth, User } from 'firebase/auth';
 import { Firestore } from 'firebase/firestore';
 import { Functions } from 'firebase/functions';
-import { Storage } from 'firebase/storage';
+import type { FirebaseStorage } from 'firebase/storage';
 
 const mockUser: User = {
   uid: 'test-uid',
@@ -46,6 +46,6 @@ export const functions = {
 
 export const storage = {
   ref: jest.fn(),
-} as unknown as Storage;
+} as unknown as FirebaseStorage;
 
 export const onAuthStateChanged = auth.onAuthStateChanged;

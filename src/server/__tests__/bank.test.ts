@@ -62,6 +62,8 @@ describe('Bank Router', () => {
         iat: 0,
         exp: 0,
         sub: 'test-uid',
+        aud: 'test-project',
+        iss: 'https://securetoken.google.com/test-project',
         firebase: {
           identities: {},
           sign_in_provider: 'custom',
