@@ -1,5 +1,8 @@
 import { TRPCError } from '@trpc/server';
+import { doc, updateDoc } from 'firebase/firestore';
 import { z } from 'zod';
+
+import { db } from '@/lib/firebase/config';
 
 import { router, protectedProcedure } from '../trpc';
 
@@ -23,6 +26,11 @@ export const userRouter = router({
       });
     }
 
+    // If customDisplayName exists, use it as displayName
+    if (user.customDisplayName) {
+      user.displayName = user.customDisplayName;
+    }
+
     return user;
   }),
 
@@ -30,6 +38,7 @@ export const userRouter = router({
     .input(
       z.object({
         displayName: z.string().optional(),
+        customDisplayName: z.string().optional(),
         email: z.string().email().optional(),
         photoURL: z.string().optional(),
       })
@@ -42,10 +51,25 @@ export const userRouter = router({
         });
       }
 
+      // Update MongoDB
       const user = await ctx.prisma.user.update({
         where: { firebaseUid: ctx.session.uid },
-        data: input,
+        data: {
+          ...input,
+          // If customDisplayName is provided, use it as displayName too
+          displayName: input.customDisplayName || input.displayName,
+        },
       });
+
+      // Update Firestore
+      if (input.customDisplayName || input.displayName) {
+        const docRef = doc(db, 'users', ctx.session.uid);
+        await updateDoc(docRef, {
+          displayName: input.customDisplayName || input.displayName,
+          customDisplayName: input.customDisplayName,
+          updatedAt: new Date().toISOString(),
+        });
+      }
 
       return user;
     }),

@@ -5,14 +5,10 @@ import {
   DialogActions,
   Button,
   TextField,
-  FormControl,
-  InputLabel,
+  Box,
+  Typography,
   Select,
   MenuItem,
-  Stack,
-  FormControlLabel,
-  Switch,
-  Typography,
 } from '@mui/material';
 import { useState } from 'react';
 
@@ -74,7 +70,7 @@ export default function UserDetailsModal({
       <form onSubmit={handleSubmit}>
         <DialogTitle>{formData.id ? 'Edit User' : 'Create User'}</DialogTitle>
         <DialogContent>
-          <Stack spacing={3} sx={{ mt: 2 }}>
+          <Box spacing={3} sx={{ mt: 2 }}>
             <TextField
               label="Display Name"
               value={formData.displayName ?? ''}
@@ -89,8 +85,10 @@ export default function UserDetailsModal({
               required
               type="email"
             />
-            <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
+            <Box fullWidth>
+              <Box component="label" htmlFor="role" sx={{ display: 'block' }}>
+                Role
+              </Box>
               <Select
                 value={formData.role}
                 onChange={(e) => handleChange('role', e.target.value)}
@@ -103,8 +101,8 @@ export default function UserDetailsModal({
                   </MenuItem>
                 ))}
               </Select>
-            </FormControl>
-          </Stack>
+            </Box>
+          </Box>
           {error && (
             <Typography color="error" sx={{ mt: 2 }}>
               {error}

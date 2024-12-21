@@ -1,26 +1,22 @@
-import { TRPCError, initTRPC } from '@trpc/server';
-
-import { auth } from '@/lib/firebase/admin';
-import { initializeMiddleware } from '@/lib/middleware';
+import { initTRPC } from '@trpc/server';
+import { OpenApiMeta } from 'trpc-openapi';
 
 import { Context } from './context';
 
-const t = initTRPC.context<Context>().create();
-
-const isAuthed = t.middleware(async ({ ctx, next }) => {
-  if (!ctx.user) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'Not authenticated',
-    });
-  }
-  return next({
-    ctx: {
-      user: ctx.user,
-    },
-  });
-});
+const t = initTRPC.context<Context>().meta<OpenApiMeta>().create();
 
 export const router = t.router;
 export const publicProcedure = t.procedure;
-export const protectedProcedure = t.procedure.use(isAuthed);
+export const protectedProcedure = t.procedure.use(
+  t.middleware(({ ctx, next }) => {
+    if (!ctx.session) {
+      throw new Error('Not authenticated');
+    }
+    return next({
+      ctx: {
+        ...ctx,
+        session: ctx.session,
+      },
+    });
+  })
+);

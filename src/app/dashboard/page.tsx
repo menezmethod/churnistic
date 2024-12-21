@@ -23,14 +23,22 @@ import { useState, useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { trpc } from '@/lib/trpc/client';
-import { CardStatus } from '@/types/card';
 
 interface UserProfile {
-  displayName: string;
-  customDisplayName: string;
+  id: string;
+  role: string;
   email: string;
-  username: string;
-  photoURL: string;
+  status: string;
+  displayName?: string;
+  photoURL?: string;
+  firebaseUid: string;
+  creditScore: number | null;
+  monthlyIncome: number | null;
+  businessVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+  householdId: string | null;
+  customDisplayName?: string;
 }
 
 interface CardApplication {
