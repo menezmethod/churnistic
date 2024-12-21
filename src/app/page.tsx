@@ -1,18 +1,31 @@
 'use client';
 
-import { Box, Button, Container, Typography } from '@mui/material';
+import { Box, Button, Container, Typography, LinearProgress } from '@mui/material';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function HomePage() {
   const { user } = useAuth();
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
-  if (user) {
-    router.push('/dashboard');
-    return null;
+  useEffect(() => {
+    if (user) {
+      router.replace('/dashboard');
+    } else {
+      setLoading(false);
+    }
+  }, [user, router]);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <LinearProgress />
+      </Box>
+    );
   }
 
   return (
