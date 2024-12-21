@@ -44,10 +44,8 @@ import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { useCallback, useEffect, useState, useRef } from 'react';
 
-import { withAuth } from '@/components/auth/withAuth';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { db, storage } from '@/lib/firebase/config';
-import { useNotificationSettings } from '@/lib/hooks/useNotificationSettings';
 import { useTheme } from '@/lib/theme/ThemeContext';
 
 // Our custom gray palette
@@ -92,6 +90,7 @@ interface UserProfile {
   email: string;
   bio: string;
   photoURL: string | null;
+  role: string;
   updatedAt?: string;
   emailPreferences: {
     marketing: boolean;
@@ -189,7 +188,6 @@ const SettingsPage = (): JSX.Element => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
-  useNotificationSettings();
 
   const fetchProfile = useCallback(async (): Promise<void> => {
     if (!user) {
@@ -201,27 +199,22 @@ const SettingsPage = (): JSX.Element => {
       const docRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(docRef);
 
-      const defaultPreferences = {
-        theme: 'system' as const,
-        language: 'en',
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      };
-
       if (docSnap.exists()) {
         const profileData = docSnap.data() as UserProfile;
-        // Ensure preferences exist and have default values
-        profileData.preferences = {
-          ...defaultPreferences,
-          ...profileData.preferences,
-        };
         setProfile(profileData);
+        setMode(profileData.preferences.theme);
       } else {
-        const initialProfile = {
+        // Get the ID token result to access custom claims
+        const tokenResult = await user.getIdTokenResult();
+        const userRole = (tokenResult.claims.role as string) || 'user';
+
+        const initialProfile: UserProfile = {
           displayName: user.displayName || '',
           customDisplayName: user.displayName || '',
           email: user.email || '',
           bio: '',
           photoURL: user.photoURL || '',
+          role: userRole,
           emailPreferences: {
             marketing: true,
             security: true,
@@ -237,19 +230,22 @@ const SettingsPage = (): JSX.Element => {
             showEmail: false,
             showActivity: true,
           },
-          preferences: defaultPreferences,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          preferences: {
+            theme: 'system' as const,
+            language: 'en',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
         };
         await setDoc(docRef, initialProfile);
         setProfile(initialProfile);
+        setMode('system');
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, setMode]);
 
   useEffect(() => {
     void fetchProfile();
@@ -457,6 +453,31 @@ const SettingsPage = (): JSX.Element => {
               mb: 1,
             }}
           >
+            Role
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              fontSize: '0.875rem',
+              color: 'text.secondary',
+              mb: 2,
+              textTransform: 'capitalize',
+            }}
+          >
+            {profile?.role || 'user'}
+          </Typography>
+        </Box>
+
+        <Box>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: 'text.primary',
+              mb: 1,
+            }}
+          >
             Your photo{' '}
             <Box component="span" sx={{ color: 'error.main' }}>
               *
@@ -504,16 +525,6 @@ const SettingsPage = (): JSX.Element => {
                 }}
               >
                 {uploadingPhoto ? 'Uploading...' : 'Change photo'}
-              </Button>
-              <Button
-                color="error"
-                onClick={handleDeleteClick}
-                disabled={deletingAccount || deleteConfirmation !== 'DELETE'}
-                sx={{
-                  textTransform: 'none',
-                }}
-              >
-                {deletingAccount ? 'Deleting...' : 'Delete Account'}
               </Button>
             </Box>
           </Box>
@@ -1476,7 +1487,7 @@ const SettingsPage = (): JSX.Element => {
                   variant={
                     profile?.preferences?.theme === option ? 'contained' : 'outlined'
                   }
-                  onClick={() => handleThemeChange(option)}
+                  onClick={(): void => handleThemeChange(option)}
                   sx={{
                     textTransform: 'capitalize',
                     px: 3,
@@ -1587,15 +1598,35 @@ const SettingsPage = (): JSX.Element => {
     if (!user || !profile) {
       return;
     }
+    setSaving(true);
+
     void (async (): Promise<void> => {
       try {
+        // Update Firestore
         const docRef = doc(db, 'users', user.uid);
         await updateDoc(docRef, {
-          ...profile,
+          customDisplayName: profile.customDisplayName,
+          displayName: profile.customDisplayName,
           updatedAt: new Date().toISOString(),
+        });
+
+        // Refresh the profile
+        await fetchProfile();
+
+        setSnackbar({
+          open: true,
+          message: 'Profile updated successfully',
+          severity: 'success',
         });
       } catch (error) {
         console.error('Error updating profile:', error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to update profile',
+          severity: 'error',
+        });
+      } finally {
+        setSaving(false);
       }
     })();
   };
@@ -1892,4 +1923,4 @@ const SettingsPage = (): JSX.Element => {
   );
 };
 
-export default withAuth(SettingsPage);
+export default SettingsPage;
