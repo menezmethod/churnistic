@@ -11,28 +11,29 @@ import { trpc } from '@/lib/trpc/client';
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const router = useRouter();
+  const { data: userProfile, isLoading } = trpc.user.me.useQuery();
 
   useEffect(() => {
-    const checkAdminAccess = async () => {
-      if (!user) {
-        router.push('/auth/signin');
-        return;
-      }
+    if (!user) {
+      router.push('/auth/signin');
+      return;
+    }
 
-      try {
-        const userProfile = await trpc.user.me.useQuery();
-        if (userProfile.data?.role !== UserRole.ADMIN) {
-          router.push('/unauthorized');
-          return null;
-        }
-      } catch (error) {
-        console.error('Error checking admin access:', error);
-        router.push('/unauthorized');
-      }
-    };
+    if (!isLoading && userProfile?.role !== UserRole.ADMIN) {
+      router.push('/unauthorized');
+      return;
+    }
+  }, [user, router, userProfile, isLoading]);
 
-    checkAdminAccess();
-  }, [user, router]);
+  // Show nothing while checking authentication
+  if (isLoading || !user) {
+    return null;
+  }
+
+  // Show nothing if not admin
+  if (userProfile?.role !== UserRole.ADMIN) {
+    return null;
+  }
 
   return (
     <Box
