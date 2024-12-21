@@ -5,7 +5,7 @@ import { useTheme, ThemeProvider } from '../ThemeContext';
 // Mock component to test useTheme hook
 function TestComponent(): JSX.Element {
   const { mode, setMode } = useTheme();
-  
+
   return (
     <div>
       <div data-testid="theme-mode">{mode}</div>
@@ -43,7 +43,7 @@ describe('ThemeContext', () => {
         <TestComponent />
       </ThemeProvider>
     );
-    
+
     expect(screen.getByTestId('theme-mode')).toHaveTextContent('system');
   });
 
@@ -53,17 +53,17 @@ describe('ThemeContext', () => {
         <TestComponent />
       </ThemeProvider>
     );
-    
+
     fireEvent.click(screen.getByText('Set Dark'));
     expect(screen.getByTestId('theme-mode')).toHaveTextContent('dark');
-    
+
     fireEvent.click(screen.getByText('Set Light'));
     expect(screen.getByTestId('theme-mode')).toHaveTextContent('light');
   });
 
   it('detects system theme changes', () => {
     let mediaQueryCallback: ((e: MediaQueryListEvent) => void) | null = null;
-    
+
     // Mock addEventListener to capture the callback
     window.matchMedia = jest.fn().mockImplementation((query) => ({
       matches: false,
@@ -99,11 +99,11 @@ describe('ThemeContext', () => {
   it('throws error when useTheme is used outside ThemeProvider', () => {
     // Suppress console.error for this test
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
+
     expect(() => {
       render(<TestComponent />);
     }).toThrow('useTheme must be used within a ThemeProvider');
-    
+
     consoleSpy.mockRestore();
   });
 
@@ -113,13 +113,13 @@ describe('ThemeContext', () => {
         <TestComponent />
       </ThemeProvider>
     );
-    
+
     expect(screen.getByTestId('theme-mode')).toHaveTextContent('dark');
   });
 
   it('maintains theme mode after system theme changes', () => {
     let mediaQueryCallback: ((e: MediaQueryListEvent) => void) | null = null;
-    
+
     window.matchMedia = jest.fn().mockImplementation((query) => ({
       matches: false,
       media: query,
@@ -176,4 +176,4 @@ describe('ThemeContext', () => {
     unmount();
     expect(removeEventListener).toHaveBeenCalled();
   });
-}); 
+});

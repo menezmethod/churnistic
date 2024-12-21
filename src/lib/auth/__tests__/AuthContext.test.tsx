@@ -68,12 +68,14 @@ describe('AuthContext', () => {
 
     const mockAuthModule = jest.requireMock('firebase/auth');
     mockAuthModule.getAuth.mockReturnValue(mockAuth);
-    mockAuthModule.onAuthStateChanged.mockImplementation((auth: Auth, callback: NextOrObserver<User | null>) => {
-      if (typeof callback === 'function') {
-        callback(null);
+    mockAuthModule.onAuthStateChanged.mockImplementation(
+      (auth: Auth, callback: NextOrObserver<User | null>) => {
+        if (typeof callback === 'function') {
+          callback(null);
+        }
+        return () => {};
       }
-      return () => {};
-    });
+    );
   });
 
   it('provides auth context with initial null state', async () => {
@@ -95,12 +97,14 @@ describe('AuthContext', () => {
 
   it('updates context when auth state changes', async () => {
     const mockAuthModule = jest.requireMock('firebase/auth');
-    mockAuthModule.onAuthStateChanged.mockImplementation((auth: Auth, callback: NextOrObserver<User | null>) => {
-      if (typeof callback === 'function') {
-        callback(mockUser);
+    mockAuthModule.onAuthStateChanged.mockImplementation(
+      (auth: Auth, callback: NextOrObserver<User | null>) => {
+        if (typeof callback === 'function') {
+          callback(mockUser);
+        }
+        return () => {};
       }
-      return () => {};
-    });
+    );
 
     const TestComponent = () => {
       const { user } = useAuth();
