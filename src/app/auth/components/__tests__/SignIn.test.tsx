@@ -26,6 +26,7 @@ jest.mock('@/lib/firebase/auth', () => ({
 describe('SignIn Component', () => {
   const mockRouter = {
     push: jest.fn(),
+    replace: jest.fn(),
   };
 
   beforeEach(() => {
@@ -98,16 +99,9 @@ describe('SignIn Component', () => {
     (useAuth as jest.Mock).mockReturnValue({ user: { email: 'test@example.com' } });
 
     render(<SignIn />);
-    const emailInput = screen.getByLabelText('Email');
-    const passwordInput = screen.getByLabelText('Password');
-    const submitButton = screen.getByRole('button', { name: 'Sign in' });
-
-    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
-    fireEvent.change(passwordInput, { target: { value: 'password123' } });
-    fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(mockRouter.push).toHaveBeenCalledWith('/dashboard');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/dashboard');
     });
   });
 

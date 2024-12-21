@@ -54,7 +54,7 @@ export async function testUserQuery(): Promise<void> {
 }
 
 export async function testCardQuery(cardId: string): Promise<void> {
-  return testQuery(async () => trpc.card.apply.mutate({ cardId }));
+  return testMutation(async () => trpc.card.apply.mutate({ cardId }));
 }
 
 export async function testBankQuery(): Promise<void> {
