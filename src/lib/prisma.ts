@@ -13,14 +13,6 @@ const prismaClientSingleton = () => {
         url: process.env.DATABASE_URL,
       },
     },
-  }).$extends({
-    query: {
-      $allOperations({ query, args }) {
-        // Disable query cache
-        args = { ...args };
-        return query(args);
-      },
-    },
   });
 };
 
