@@ -781,7 +781,8 @@ const SettingsPage = (): JSX.Element => {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 2 }}>
                   {passwordError && (
                     <Alert severity="error" sx={{ mb: 2 }}>
-                      {passwordError}
+                      <AlertTitle>Error</AlertTitle>
+                      <Box component="div">{passwordError}</Box>
                     </Alert>
                   )}
                   <StyledTextField
@@ -860,14 +861,16 @@ const SettingsPage = (): JSX.Element => {
               }}
             >
               <AlertTitle>Warning: This action cannot be undone</AlertTitle>
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                When you delete your account:
-                <ul style={{ marginTop: '8px', paddingLeft: '20px' }}>
-                  <li>All your data will be permanently deleted</li>
-                  <li>You will lose access to all your projects and settings</li>
-                  <li>This action cannot be reversed</li>
-                </ul>
-              </Typography>
+              <Box component="div">
+                <Typography variant="body2">When you delete your account:</Typography>
+                <Box component="div" sx={{ mt: 1 }}>
+                  <ul style={{ marginLeft: '20px' }}>
+                    <li>All your data will be permanently deleted</li>
+                    <li>You will lose access to all your projects and settings</li>
+                    <li>This action cannot be reversed</li>
+                  </ul>
+                </Box>
+              </Box>
               <Button
                 variant="outlined"
                 color="error"
@@ -875,7 +878,7 @@ const SettingsPage = (): JSX.Element => {
                 sx={{
                   textTransform: 'none',
                   fontSize: '0.875rem',
-                  mt: 1,
+                  mt: 2,
                 }}
               >
                 Delete account

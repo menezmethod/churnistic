@@ -1,4 +1,10 @@
-import { type App, type AppOptions, cert, getApps, initializeApp } from 'firebase-admin/app';
+import {
+  type App,
+  type AppOptions,
+  cert,
+  getApps,
+  initializeApp,
+} from 'firebase-admin/app';
 import { type Auth, getAuth } from 'firebase-admin/auth';
 import { type Firestore, getFirestore } from 'firebase-admin/firestore';
 
@@ -42,7 +48,7 @@ function getAdminConfig(): AppOptions {
       credential: cert(serviceAccount),
       projectId,
     };
-  } catch (error) {
+  } catch {
     throw new Error(
       'Invalid service account key format. Please ensure the key is properly formatted JSON.'
     );
@@ -54,7 +60,7 @@ export function initializeAdminAuth(): Auth {
     if (!adminApp) {
       const config = getAdminConfig();
       const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-      
+
       console.log('Initializing Admin App:', {
         projectId: config.projectId,
         useEmulators,
@@ -77,7 +83,7 @@ export function initializeAdminAuth(): Auth {
 
 export function initializeAdminDb(): Firestore {
   const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-  
+
   if (useEmulators) {
     throw new Error(
       'Firestore Admin is not available in emulator mode. Please use the Firestore emulator instead.'

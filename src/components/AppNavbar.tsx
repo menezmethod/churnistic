@@ -6,9 +6,16 @@ import {
   Settings,
   People,
   Security,
-  AdminPanelSettings,
   Logout,
   Menu as MenuIcon,
+  AccountBalance,
+  Analytics,
+  Notifications,
+  Business,
+  AccountBalanceWallet,
+  TrendingUp,
+  Assessment,
+  Help,
 } from '@mui/icons-material';
 import {
   AppBar,
@@ -26,47 +33,124 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
+  Badge,
+  useTheme,
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-import { UserRole } from '@/lib/auth/types';
+import { useAuth, UserRole } from '@/lib/auth/AuthContext';
 
 interface MenuItemType {
   text: string;
   icon: JSX.Element;
   path: string;
+  badge?: number;
+  roles?: UserRole[];
+  description?: string;
 }
 
-const regularMenuItems: MenuItemType[] = [
+const mainMenuItems: MenuItemType[] = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-  { text: 'Cards', icon: <CreditCard />, path: '/cards' },
-  { text: 'Settings', icon: <Settings />, path: '/settings' },
+  {
+    text: 'Credit Cards',
+    icon: <CreditCard />,
+    path: '/cards',
+    badge: 2, // For new card offers
+  },
+  {
+    text: 'Bank Accounts',
+    icon: <AccountBalance />,
+    path: '/bank-accounts',
+    badge: 1, // For new bank bonuses
+  },
+  {
+    text: 'Investments',
+    icon: <TrendingUp />,
+    path: '/investments',
+  },
 ];
 
-const adminMenuItems: MenuItemType[] = [
-  { text: 'User Management', icon: <People />, path: '/admin/users' },
-  { text: 'Role Management', icon: <Security />, path: '/admin/roles' },
-  { text: 'Admin Settings', icon: <AdminPanelSettings />, path: '/admin/settings' },
+const analyticsMenuItems: MenuItemType[] = [
+  {
+    text: 'Analytics',
+    icon: <Analytics />,
+    path: '/analytics',
+    roles: [UserRole.ADMIN],
+  },
+  {
+    text: 'Reports',
+    icon: <Assessment />,
+    path: '/reports',
+    roles: [UserRole.ADMIN],
+  },
+];
+
+const managementMenuItems: MenuItemType[] = [
+  {
+    text: 'User Management',
+    icon: <People />,
+    path: '/admin/users',
+    roles: [UserRole.ADMIN],
+  },
+  {
+    text: 'Role Management',
+    icon: <Security />,
+    path: '/admin/roles',
+    roles: [UserRole.ADMIN],
+  },
+  {
+    text: 'Business Settings',
+    icon: <Business />,
+    path: '/admin/business',
+    roles: [UserRole.ADMIN],
+  },
+];
+
+const accountMenuItems: MenuItemType[] = [
+  { 
+    text: 'Account Settings', 
+    icon: <Settings />, 
+    path: '/settings',
+    description: 'Profile, preferences, and security' 
+  },
+  { 
+    text: 'Help & Support', 
+    icon: <Help />, 
+    path: '/help',
+    description: 'Documentation and support' 
+  },
 ];
 
 export default function AppNavbar() {
   const { user, signOut, hasRole } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(
+    null
+  );
 
   const isAdmin = hasRole(UserRole.ADMIN);
+  const isAnalyst = hasRole(UserRole.USER);
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
+  const handleNotificationsMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationsAnchorEl(event.currentTarget);
+  };
+
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleNotificationsClose = () => {
+    setNotificationsAnchorEl(null);
   };
 
   const handleLogout = async () => {
@@ -78,43 +162,99 @@ export default function AppNavbar() {
     }
   };
 
+  const renderMenuItem = (item: MenuItemType) => {
+    // Check if the user has the required role to see this item
+    if (item.roles && !item.roles.some((role) => hasRole(role))) {
+      return null;
+    }
+
+    return (
+      <ListItem key={item.text} disablePadding>
+        <ListItemButton
+          component={Link}
+          href={item.path}
+          selected={pathname === item.path}
+          sx={{
+            borderRadius: 1,
+            mx: 1,
+            '&.Mui-selected': {
+              backgroundColor: theme.palette.primary.main + '20',
+              '&:hover': {
+                backgroundColor: theme.palette.primary.main + '30',
+              },
+            },
+          }}
+        >
+          <ListItemIcon>
+            {item.badge ? (
+              <Badge badgeContent={item.badge} color="error">
+                {item.icon}
+              </Badge>
+            ) : (
+              item.icon
+            )}
+          </ListItemIcon>
+          <ListItemText primary={item.text} />
+        </ListItemButton>
+      </ListItem>
+    );
+  };
+
   const renderMenuItems = () => (
     <>
-      {regularMenuItems.map((item) => (
-        <ListItem key={item.text} disablePadding>
-          <ListItemButton
-            component={Link}
-            href={item.path}
-            selected={pathname === item.path}
-          >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItemButton>
-        </ListItem>
-      ))}
-      {isAdmin && (
+      <Box sx={{ mb: 2, px: 2 }}>
+        <Typography variant="subtitle2" color="text.secondary">
+          MAIN MENU
+        </Typography>
+      </Box>
+      {mainMenuItems.map(renderMenuItem)}
+
+      <Divider sx={{ my: 2 }} />
+
+      {(isAdmin || isAnalyst) && (
         <>
-          <Divider sx={{ my: 1 }} />
-          {adminMenuItems.map((item) => (
-            <ListItem key={item.text} disablePadding>
-              <ListItemButton
-                component={Link}
-                href={item.path}
-                selected={pathname === item.path}
-              >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.text} />
-              </ListItemButton>
-            </ListItem>
-          ))}
+          <Box sx={{ mb: 2, px: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              ANALYTICS
+            </Typography>
+          </Box>
+          {analyticsMenuItems.map(renderMenuItem)}
+          <Divider sx={{ my: 2 }} />
         </>
       )}
+
+      {isAdmin && (
+        <>
+          <Box sx={{ mb: 2, px: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              ADMINISTRATION
+            </Typography>
+          </Box>
+          {managementMenuItems.map(renderMenuItem)}
+          <Divider sx={{ my: 2 }} />
+        </>
+      )}
+
+      <Box sx={{ mb: 2, px: 2 }}>
+        <Typography variant="subtitle2" color="text.secondary">
+          ACCOUNT
+        </Typography>
+      </Box>
+      {accountMenuItems.map(renderMenuItem)}
     </>
   );
 
   return (
     <>
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+      <AppBar
+        position="fixed"
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backgroundColor: theme.palette.background.paper,
+          color: theme.palette.text.primary,
+          boxShadow: theme.shadows[1],
+        }}
+      >
         <Toolbar>
           <IconButton
             color="inherit"
@@ -125,19 +265,102 @@ export default function AppNavbar() {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+          <Typography
+            variant="h6"
+            noWrap
+            component={Link}
+            href="/dashboard"
+            sx={{
+              flexGrow: 1,
+              textDecoration: 'none',
+              color: 'inherit',
+              fontWeight: 600,
+            }}
+          >
             Churnistic
           </Typography>
+
+          {/* Notifications */}
           <IconButton
             size="large"
-            aria-label="account of current user"
+            aria-label="show notifications"
+            aria-controls="notifications-menu"
+            aria-haspopup="true"
+            onClick={handleNotificationsMenu}
+            color="inherit"
+            sx={{ mr: 1 }}
+          >
+            <Badge badgeContent={3} color="error">
+              <Notifications />
+            </Badge>
+          </IconButton>
+
+          {/* User Menu */}
+          <IconButton
+            size="large"
+            aria-label="account menu"
             aria-controls="menu-appbar"
             aria-haspopup="true"
             onClick={handleMenu}
             color="inherit"
           >
-            <Avatar alt={user?.email || ''} src={user?.photoURL || ''} />
+            <Avatar
+              alt={user?.email || ''}
+              src={user?.photoURL || ''}
+              sx={{
+                width: 32,
+                height: 32,
+                border: `2px solid ${theme.palette.primary.main}`,
+              }}
+            />
           </IconButton>
+
+          {/* Notifications Menu */}
+          <Menu
+            id="notifications-menu"
+            anchorEl={notificationsAnchorEl}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            keepMounted
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            open={Boolean(notificationsAnchorEl)}
+            onClose={handleNotificationsClose}
+          >
+            <MenuItem onClick={handleNotificationsClose}>
+              <ListItemIcon>
+                <CreditCard fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary="New Card Offer Available"
+                secondary="Chase Sapphire Preferred - 80,000 points"
+              />
+            </MenuItem>
+            <MenuItem onClick={handleNotificationsClose}>
+              <ListItemIcon>
+                <AccountBalance fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary="Bank Bonus Alert"
+                secondary="Citi - $700 checking bonus"
+              />
+            </MenuItem>
+            <MenuItem onClick={handleNotificationsClose}>
+              <ListItemIcon>
+                <AccountBalanceWallet fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary="Spend Reminder"
+                secondary="$2,000 remaining for Chase bonus"
+              />
+            </MenuItem>
+          </Menu>
+
+          {/* User Menu */}
           <Menu
             id="menu-appbar"
             anchorEl={anchorEl}
@@ -152,32 +375,90 @@ export default function AppNavbar() {
             }}
             open={Boolean(anchorEl)}
             onClose={handleClose}
+            PaperProps={{
+              sx: {
+                width: 320,
+                maxWidth: '100%',
+              },
+            }}
           >
-            <MenuItem onClick={handleLogout}>
-              <ListItemIcon>
+            <Box sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <Avatar
+                  alt={user?.email || ''}
+                  src={user?.photoURL || ''}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    mr: 2,
+                    border: `2px solid ${theme.palette.primary.main}`,
+                  }}
+                />
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    {user?.displayName || user?.email}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {isAdmin ? 'Administrator' : 'User'}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+            <Divider />
+            {accountMenuItems.map((item) => (
+              <MenuItem
+                key={item.text}
+                onClick={() => {
+                  handleClose();
+                  router.push(item.path);
+                }}
+                sx={{ py: 1.5 }}
+              >
+                <ListItemIcon sx={{ color: 'text.primary' }}>{item.icon}</ListItemIcon>
+                <Box>
+                  <Typography variant="body1">{item.text}</Typography>
+                  {item.description && (
+                    <Typography variant="body2" color="text.secondary">
+                      {item.description}
+                    </Typography>
+                  )}
+                </Box>
+              </MenuItem>
+            ))}
+            <Divider />
+            <MenuItem onClick={handleLogout} sx={{ py: 1.5 }}>
+              <ListItemIcon sx={{ color: 'error.main' }}>
                 <Logout fontSize="small" />
               </ListItemIcon>
-              <ListItemText>Logout</ListItemText>
+              <Box>
+                <Typography variant="body1" color="error">Sign Out</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  End your current session
+                </Typography>
+              </Box>
             </MenuItem>
           </Menu>
         </Toolbar>
       </AppBar>
+
       <Drawer
         variant="temporary"
         anchor="left"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         sx={{
-          width: 250,
+          width: 280,
           flexShrink: 0,
           '& .MuiDrawer-paper': {
-            width: 250,
+            width: 280,
             boxSizing: 'border-box',
+            borderRight: 'none',
+            boxShadow: theme.shadows[8],
           },
         }}
       >
         <Toolbar />
-        <Box sx={{ overflow: 'auto' }}>
+        <Box sx={{ overflow: 'auto', py: 2 }}>
           <List>{renderMenuItems()}</List>
         </Box>
       </Drawer>
