@@ -1,394 +1,241 @@
 # Churnistic MVP Development Plan
 
-## MVP Scope (4 Weeks)
+## Core Principles
 
-### Core Features
+1. Speed of Development
+   - Focus on essential features first
+   - Leverage existing APIs and services
+   - Use proven, stable tech stack
+   - Rapid iterations with user feedback
 
-1. Customer Data Integration
+2. Minimal User Input
+   - Automated data collection where possible
+   - Smart defaults based on location
+   - One-click actions for common tasks
+   - Intelligent form prefilling
 
-   - CSV upload for historical customer data
-   - Basic data validation and cleaning
-   - Customer profile creation
+## MVP Features (Prioritized)
 
-2. Churn Prediction Engine
+1. Essential Tracking
+   - Bank bonus database (automated scraping)
+     - DoC daily scraping
+     - Reddit r/churning thread monitoring
+     - Automatic categorization
+   - Quick-add interface
+     - One-click application tracking
+     - Smart date suggestions
+     - Auto-populated requirements
 
-   - Basic ML model for churn prediction
-   - Key indicators monitoring
-   - Risk score calculation
+2. Automated Monitoring
+   - Email notifications
+     - New bonus alerts
+     - Requirement deadlines
+     - Success confirmations
+   - Browser extension
+     - Auto-capture application details
+     - Quick bonus tracking
+     - Requirement completion
 
-3. Dashboard & Analytics
+3. Smart Assistant
+   - Personalized recommendations
+     - Location-based filtering
+     - Bank relationship aware
+     - Cool-down period tracking
+   - Automated requirement tracking
+     - Bank statement analysis
+     - Transaction categorization
+     - Progress calculations
 
-   - Customer risk overview
-   - Churn metrics visualization
-   - Basic filtering and sorting
+4. Basic Points Integration
+   - Manual balance tracking
+   - Simple redemption suggestions
+   - Major program support only
+   - Basic transfer partner info
 
-4. Alert System
-   - High-risk customer notifications
-   - Email alerts for stakeholders
-   - Basic alert configuration
+## Future Features (Post-MVP)
+
+1. Advanced Points & Travel
+   - AI trip planning
+   - Award space monitoring
+   - Dynamic valuations
+   - Complex routing
+
+2. Community Features
+   - Success stories
+   - Data points
+   - Method sharing
+   - Trip reports
+
+3. Advanced Analytics
+   - ROI calculations
+   - Time investment analysis
+   - Risk assessment
+   - Pattern recognition
 
 ## Data Models
 
-### Customer
+### Core Models (MVP)
 
 ```typescript
-interface Customer {
+interface User {
   id: string;
+  firebaseUid: string;
   email: string;
-  company: string;
-  industry: string;
-  subscriptionTier: 'basic' | 'pro' | 'enterprise';
-  subscriptionStart: Date;
-  lastBillingDate: Date;
-  monthlyRevenue: number;
-  status: 'active' | 'churned' | 'at_risk';
-  createdAt: Date;
-  updatedAt: Date;
+  profile: {
+    location: {
+      state: string;
+      nearbyStates: string[];
+    };
+    preferences: {
+      emailNotifications: boolean;
+      pushNotifications: boolean;
+      riskTolerance: 'low' | 'medium' | 'high';
+    };
+  };
 }
-```
 
-### Activity
-
-```typescript
-interface Activity {
+interface BankBonus {
   id: string;
-  customerId: string;
-  type: 'login' | 'feature_use' | 'support_ticket' | 'billing_issue';
-  timestamp: Date;
-  metadata: {
-    feature?: string;
-    duration?: number;
-    severity?: 'low' | 'medium' | 'high';
-    resolution?: string;
+  bankId: string;
+  title: string;
+  amount: number;
+  type: 'checking' | 'savings' | 'business' | 'credit_card';
+  requirements: {
+    directDeposit?: {
+      amount: number;
+      frequency: 'one-time' | 'monthly';
+      period: number;
+    };
+    balance?: {
+      amount: number;
+      duration: number;
+    };
+    transactions?: {
+      count: number;
+      type: string;
+      period: number;
+    };
+  };
+  restrictions: {
+    states: string[];
+    expiration?: Date;
+    mustBeNew: boolean;
+    newPeriod?: number;
+  };
+  source: {
+    url: string;
+    dateFound: Date;
+    lastVerified: Date;
+  };
+}
+
+interface UserBonus {
+  id: string;
+  userId: string;
+  bonusId: string;
+  status: 'planned' | 'in_progress' | 'completed';
+  startDate: Date;
+  targetDate: Date;
+  autoTracking: {
+    enabled: boolean;
+    emailForwards?: string[];
+    statementSync?: boolean;
+  };
+  progress: {
+    requirements: Record<string, {
+      completed: boolean;
+      value: number;
+      lastChecked: Date;
+    }>;
+    nextDeadline?: Date;
+    estimatedCompletion?: Date;
   };
 }
 ```
 
-### ChurnRisk
+### Future Models (Post-MVP)
 
 ```typescript
-interface ChurnRisk {
-  id: string;
-  customerId: string;
-  score: number; // 0-100
-  indicators: {
-    activityDecline?: boolean;
-    billingIssues?: boolean;
-    supportTickets?: boolean;
-    featureAdoption?: boolean;
-  };
-  trend: 'improving' | 'stable' | 'declining';
-  lastUpdated: Date;
-}
-```
-
-### Alert
-
-```typescript
-interface Alert {
-  id: string;
-  customerId: string;
-  type: 'high_risk' | 'declining_usage' | 'billing_warning';
-  severity: 'low' | 'medium' | 'high';
-  status: 'new' | 'acknowledged' | 'resolved';
-  createdAt: Date;
-  resolvedAt?: Date;
-}
+// Points tracking, travel goals, and community features
+// will be added post-MVP
 ```
 
 ## Sprint Plan
 
-### Week 1: Foundation
+### Week 1: Foundation & Core Features
 
 ```mermaid
 gantt
-    title Week 1: Foundation
+    title Week 1: Foundation & Core Features
     dateFormat  YYYY-MM-DD
     section Backend
     Project Setup           :2024-01-01, 1d
-    Database Schema         :2024-01-02, 2d
-    Basic API Structure     :2024-01-03, 3d
+    Basic Schema           :2024-01-02, 1d
+    Scraping Setup        :2024-01-03, 2d
     section Frontend
     Next.js Setup          :2024-01-01, 1d
-    Auth Implementation    :2024-01-02, 2d
-    Basic UI Components    :2024-01-04, 2d
+    Auth Flow             :2024-01-02, 1d
+    Quick Add UI          :2024-01-03, 2d
 ```
 
-#### Key PRs:
-
-1. `feat: Initial project setup (#1)`
-
-   - Next.js + TypeScript setup
-   - MongoDB connection
-   - Basic API structure
-
-2. `feat: Authentication system (#2)`
-
-   - User registration/login
-   - JWT implementation
-   - Protected routes
-
-3. `feat: Core data models (#3)`
-   - Customer schema
-   - Activity tracking
-   - Risk assessment
-
-### Week 2: Data Integration
+### Week 2: Automation & Tracking
 
 ```mermaid
 gantt
-    title Week 2: Data Integration
+    title Week 2: Automation & Tracking
     dateFormat  YYYY-MM-DD
     section Backend
-    CSV Upload API         :2024-01-08, 2d
-    Data Validation       :2024-01-09, 2d
-    Data Processing      :2024-01-10, 3d
+    Auto Scraping         :2024-01-08, 2d
+    Notifications        :2024-01-10, 2d
     section Frontend
-    Upload Interface      :2024-01-08, 2d
-    Data Preview         :2024-01-10, 2d
-    Validation UI        :2024-01-11, 2d
+    Tracking UI          :2024-01-08, 2d
+    Email Setup          :2024-01-10, 2d
 ```
 
-#### Key PRs:
-
-1. `feat: CSV upload system (#4)`
-
-   - File upload component
-   - Data validation
-   - Error handling
-
-2. `feat: Customer data processing (#5)`
-
-   - Data transformation
-   - Profile creation
-   - Activity logging
-
-3. `feat: Data validation UI (#6)`
-   - Preview interface
-   - Error reporting
-   - Success confirmation
-
-### Week 3: Prediction Engine
+### Week 3: Smart Features
 
 ```mermaid
 gantt
-    title Week 3: Prediction Engine
+    title Week 3: Smart Features
     dateFormat  YYYY-MM-DD
     section Backend
-    Risk Model Setup      :2024-01-15, 2d
-    Score Calculation     :2024-01-16, 2d
-    Alert System         :2024-01-17, 3d
+    Recommendations      :2024-01-15, 2d
+    Auto Tracking       :2024-01-17, 2d
     section Frontend
-    Risk Dashboard       :2024-01-15, 3d
-    Alert Interface      :2024-01-17, 3d
+    Dashboard           :2024-01-15, 2d
+    Progress UI         :2024-01-17, 2d
 ```
 
-#### Key PRs:
-
-1. `feat: Churn prediction model (#7)`
-
-   - Risk scoring algorithm
-   - Indicator analysis
-   - Trend calculation
-
-2. `feat: Risk dashboard (#8)`
-
-   - Risk visualization
-   - Customer filtering
-   - Trend analysis
-
-3. `feat: Alert system (#9)`
-   - Alert generation
-   - Email notifications
-   - Alert management UI
-
-### Week 4: Analytics & Polish
+### Week 4: Polish & Launch
 
 ```mermaid
 gantt
-    title Week 4: Analytics & Polish
+    title Week 4: Polish & Launch
     dateFormat  YYYY-MM-DD
     section Backend
-    Analytics API         :2024-01-22, 3d
-    Performance Opt      :2024-01-24, 2d
-    Testing             :2024-01-25, 2d
+    Performance         :2024-01-22, 2d
+    Bug Fixes          :2024-01-24, 2d
     section Frontend
-    Analytics UI         :2024-01-22, 3d
-    UX Improvements     :2024-01-24, 2d
-    Bug Fixes           :2024-01-25, 2d
+    UI Polish          :2024-01-22, 2d
+    Mobile UI          :2024-01-24, 2d
 ```
-
-#### Key PRs:
-
-1. `feat: Analytics dashboard (#10)`
-
-   - Metrics visualization
-   - Export functionality
-   - Custom reports
-
-2. `feat: Performance optimization (#11)`
-
-   - Query optimization
-   - Caching implementation
-   - Load testing
-
-3. `feat: Final polish (#12)`
-   - Bug fixes
-   - UI improvements
-   - Documentation
 
 ## Technical Stack
 
-### Frontend
-
+### Frontend (Minimal Setup)
 - Next.js 14
 - TypeScript
 - Tailwind CSS
 - shadcn/ui components
-- React Query
-- Recharts
 
-### Backend
-
-- Node.js
-- Express
+### Backend (Essential Only)
+- tRPC
+- Prisma
 - MongoDB
-- Redis (caching)
-- JWT authentication
+- Firebase Auth
+- Cheerio (scraping)
 
-### DevOps
-
-- GitHub Actions
-- Docker
-- AWS (EC2, S3, SES)
+### Infrastructure
+- Vercel
 - MongoDB Atlas
-
-## API Endpoints
-
-### Customer Management
-
-```typescript
-// POST /api/customers/upload
-// Upload customer data CSV
-interface UploadResponse {
-  processed: number;
-  failed: number;
-  errors?: string[];
-}
-
-// GET /api/customers
-// List customers with filters
-interface CustomerListParams {
-  status?: 'active' | 'churned' | 'at_risk';
-  riskScore?: number;
-  page?: number;
-  limit?: number;
-}
-
-// GET /api/customers/:id/risk
-// Get customer risk details
-interface RiskDetails {
-  score: number;
-  indicators: string[];
-  recommendations: string[];
-  history: {
-    date: Date;
-    score: number;
-  }[];
-}
-```
-
-### Analytics
-
-```typescript
-// GET /api/analytics/overview
-interface AnalyticsOverview {
-  totalCustomers: number;
-  atRiskCount: number;
-  churnRate: number;
-  revenueAtRisk: number;
-}
-
-// GET /api/analytics/trends
-interface ChurnTrends {
-  daily: {
-    date: Date;
-    churnCount: number;
-    newCustomers: number;
-  }[];
-  riskDistribution: {
-    low: number;
-    medium: number;
-    high: number;
-  };
-}
-```
-
-## Deployment
-
-### Infrastructure Setup
-
-```mermaid
-graph TD
-    subgraph "AWS Infrastructure"
-        ALB[Application Load Balancer]
-        EC2[EC2 Instances]
-        S3[S3 Bucket]
-        SES[Simple Email Service]
-    end
-
-    subgraph "Database"
-        MDB[MongoDB Atlas]
-        RDS[Redis Cache]
-    end
-
-    ALB --> EC2
-    EC2 --> MDB
-    EC2 --> RDS
-    EC2 --> S3
-    EC2 --> SES
-```
-
-### CI/CD Pipeline
-
-```mermaid
-graph TD
-    subgraph "CI Pipeline"
-        PR[Pull Request] --> Tests
-        Tests --> Lint
-        Lint --> Build
-    end
-
-    subgraph "CD Pipeline"
-        Build --> Stage[Deploy to Staging]
-        Stage --> E2E[E2E Tests]
-        E2E --> Prod[Deploy to Production]
-    end
-```
-
-## Launch Checklist
-
-### Pre-launch
-
-- [ ] Security audit
-- [ ] Performance testing
-- [ ] Data backup system
-- [ ] Monitoring setup
-- [ ] Documentation
-- [ ] User guides
-
-### Launch Day
-
-- [ ] Database migration
-- [ ] DNS configuration
-- [ ] SSL certificates
-- [ ] Initial deployment
-- [ ] Smoke testing
-- [ ] Team communication
-
-### Post-launch
-
-- [ ] Monitor metrics
-- [ ] Gather feedback
-- [ ] Address issues
-- [ ] Plan iterations
+- Firebase

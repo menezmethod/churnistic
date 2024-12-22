@@ -1,266 +1,315 @@
-# Day 5: Testing, Documentation & Deployment Prep (Friday)
+# Day 5: Mobile UI, Testing & Deployment (Friday)
 
-## Overview
+## Core Principles
 
-Focus on implementing tests, finalizing documentation, and preparing for deployment.
+1. Minimal User Input
+   - Mobile-first design
+   - Touch-friendly UI
+   - Quick actions
+   - Automated testing
 
-## Session Plan
+2. Fast Development
+   - Reusable components
+   - Automated deployment
+   - CI/CD pipeline
+   - Documentation
 
-### Morning Session (3 hours)
+## Morning Session (4 hours)
 
-#### 1. Test Environment Setup
-
-```bash
-# Install testing dependencies
-npm install -D jest @testing-library/react @testing-library/jest-dom @testing-library/user-event
-npm install -D @testing-library/react-hooks msw
-npm install -D ts-jest @types/jest jest-environment-jsdom
-
-# Configure Jest
-cat << EOF > jest.config.js
-const nextJest = require('next/jest')
-
-const createJestConfig = nextJest({
-  dir: './',
-})
-
-const customJestConfig = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testEnvironment: 'jest-environment-jsdom',
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
-  },
-}
-
-module.exports = createJestConfig(customJestConfig)
-EOF
-
-# Create Jest setup file
-cat << EOF > jest.setup.js
-import '@testing-library/jest-dom'
-import { server } from './src/mocks/server'
-
-beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
-EOF
-```
-
-Commit: `chore: set up testing environment with Jest and Testing Library`
-
-#### 2. API Mocking Setup
+### 1. Mobile UI Components
 
 ```typescript
-// src/mocks/handlers.ts
+// src/components/mobile/bottom-nav.tsx
+'use client';
+
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { 
+  HomeIcon, 
+  CreditCardIcon, 
+  BankIcon, 
+  ChartIcon 
+} from 'lucide-react';
+
+export function BottomNav() {
+  const pathname = usePathname();
+
+  const links = [
+    {
+      href: '/dashboard',
+      icon: HomeIcon,
+      label: 'Home'
+    },
+    {
+      href: '/dashboard/cards',
+      icon: CreditCardIcon,
+      label: 'Cards'
+    },
+    {
+      href: '/dashboard/banks',
+      icon: BankIcon,
+      label: 'Banks'
+    },
+    {
+      href: '/dashboard/analytics',
+      icon: ChartIcon,
+      label: 'Analytics'
+    }
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t md:hidden">
+      <div className="grid grid-cols-4 h-16">
+        {links.map(link => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className={`flex flex-col items-center justify-center ${
+              pathname === link.href ? 'text-blue-600' : 'text-gray-600'
+            }`}
+          >
+            <link.icon className="h-6 w-6" />
+            <span className="text-xs mt-1">{link.label}</span>
+          </Link>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+// src/components/mobile/swipe-card.tsx
+'use client';
+
+import { useState } from 'react';
+import { motion, PanInfo } from 'framer-motion';
+
+interface SwipeCardProps {
+  onSwipe: (direction: 'left' | 'right') => void;
+  children: React.ReactNode;
+}
+
+export function SwipeCard({ onSwipe, children }: SwipeCardProps) {
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const handleDragStart = (e: MouseEvent | TouchEvent | PointerEvent) => {
+    setDragStart({
+      x: e instanceof TouchEvent ? e.touches[0].clientX : e.clientX,
+      y: e instanceof TouchEvent ? e.touches[0].clientY : e.clientY
+    });
+  };
+
+  const handleDragEnd = (e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const threshold = 100;
+    const direction = info.offset.x > threshold ? 'right' : 
+                     info.offset.x < -threshold ? 'left' : null;
+    
+    if (direction) {
+      onSwipe(direction);
+    }
+  };
+
+  return (
+    <motion.div
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      className="touch-none"
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// src/components/mobile/pull-to-refresh.tsx
+'use client';
+
+import { useState } from 'react';
+import { motion, useMotionValue, useTransform } from 'framer-motion';
+
+interface PullToRefreshProps {
+  onRefresh: () => Promise<void>;
+  children: React.ReactNode;
+}
+
+export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
+  const [refreshing, setRefreshing] = useState(false);
+  const y = useMotionValue(0);
+  const opacity = useTransform(y, [0, 50], [0, 1]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await onRefresh();
+    setRefreshing(false);
+  };
+
+  return (
+    <motion.div
+      drag="y"
+      dragConstraints={{ top: 0, bottom: 0 }}
+      onDragEnd={(e, info) => {
+        if (info.offset.y > 50 && !refreshing) {
+          handleRefresh();
+        }
+      }}
+    >
+      <motion.div
+        style={{ opacity }}
+        className="flex justify-center py-2"
+      >
+        {refreshing ? 'Refreshing...' : 'Pull to refresh'}
+      </motion.div>
+      {children}
+    </motion.div>
+  );
+}
+```
+
+### 2. Mobile Layouts
+
+```typescript
+// src/app/layout.tsx
+import { BottomNav } from '@/components/mobile/bottom-nav';
+
+export default function RootLayout({
+  children
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <main className="pb-16 md:pb-0">
+          {children}
+        </main>
+        <BottomNav />
+      </body>
+    </html>
+  );
+}
+
+// src/app/dashboard/cards/page.tsx
+import { SwipeCard } from '@/components/mobile/swipe-card';
+import { PullToRefresh } from '@/components/mobile/pull-to-refresh';
+
+export default function CardsPage() {
+  const handleSwipe = (direction: 'left' | 'right') => {
+    // Handle card swipe
+  };
+
+  const handleRefresh = async () => {
+    // Refresh card data
+  };
+
+  return (
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="p-4">
+        <h1 className="text-2xl font-bold mb-4">Credit Cards</h1>
+        
+        <div className="space-y-4">
+          {cards.map(card => (
+            <SwipeCard key={card.id} onSwipe={handleSwipe}>
+              <div className="p-4 bg-white rounded-lg shadow">
+                <h3 className="font-medium">{card.name}</h3>
+                <p className="text-sm text-gray-500">{card.bank}</p>
+                <div className="mt-2">
+                  <span className="text-green-600">${card.bonus}</span>
+                  <span className="mx-2">•</span>
+                  <span>{card.spend} spend required</span>
+                </div>
+              </div>
+            </SwipeCard>
+          ))}
+        </div>
+      </div>
+    </PullToRefresh>
+  );
+}
+```
+
+## Afternoon Session (4 hours)
+
+### 3. Testing Setup
+
+```typescript
+// src/tests/setup.ts
+import '@testing-library/jest-dom';
+import { server } from './mocks/server';
+
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+// src/tests/mocks/handlers.ts
 import { rest } from 'msw';
 
 export const handlers = [
-  rest.post('/api/trpc/customer.list', (req, res, ctx) => {
+  rest.get('/api/trpc/card.list', (req, res, ctx) => {
     return res(
       ctx.json({
-        result: {
-          data: {
-            customers: [
-              {
-                id: '1',
-                name: 'Test Company',
-                email: 'test@example.com',
-                status: 'active',
-                riskScore: 30,
-              },
-            ],
-            total: 1,
-            pages: 1,
-          },
-        },
+        cards: [
+          {
+            id: '1',
+            name: 'Chase Sapphire Preferred',
+            bank: 'Chase',
+            bonus: 60000,
+            spend: 4000
+          }
+        ]
       })
     );
   }),
+  
+  rest.post('/api/trpc/card.apply', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        applicationId: '123'
+      })
+    );
+  })
 ];
 
-// src/mocks/server.ts
-import { setupServer } from 'msw/node';
-import { handlers } from './handlers';
+// src/tests/components/card-list.test.tsx
+import { render, screen } from '@testing-library/react';
+import { CardList } from '@/components/cards/card-list';
 
-export const server = setupServer(...handlers);
-```
+describe('CardList', () => {
+  it('renders cards correctly', async () => {
+    render(<CardList />);
+    
+    expect(await screen.findByText('Chase Sapphire Preferred')).toBeInTheDocument();
+    expect(screen.getByText('$60,000')).toBeInTheDocument();
+    expect(screen.getByText('$4,000 spend required')).toBeInTheDocument();
+  });
+});
 
-Commit: `feat: add API mocking with MSW`
-
-#### 3. Component Tests
-
-```typescript
-// src/components/customers/__tests__/customer-list.test.tsx
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { CustomerList } from '../customer-list'
-import { trpc } from '@/lib/trpc/client'
-
-jest.mock('@/lib/trpc/client', () => ({
-  customer: {
-    list: {
-      useQuery: jest.fn(),
-    },
-  },
-}))
-
-describe('CustomerList', () => {
-  it('renders customer list with search and pagination', async () => {
-    const mockData = {
-      customers: [
-        {
-          id: '1',
-          name: 'Test Company',
-          email: 'test@example.com',
-          status: 'active',
-          riskScore: 30,
-        },
-      ],
-      total: 1,
-      pages: 1,
-    }
-
-    ;(trpc.customer.list.useQuery as jest.Mock).mockReturnValue({
-      data: mockData,
-      isLoading: false,
-    })
-
-    render(<CustomerList />)
-
-    expect(screen.getByPlaceholderText('Search customers...')).toBeInTheDocument()
-    expect(screen.getByText('Test Company')).toBeInTheDocument()
-  })
-
-  it('handles search functionality', async () => {
-    render(<CustomerList />)
-    const searchInput = screen.getByPlaceholderText('Search customers...')
-
-    fireEvent.change(searchInput, { target: { value: 'test' } })
-
-    await waitFor(() => {
-      expect(trpc.customer.list.useQuery).toHaveBeenCalledWith(
-        expect.objectContaining({
-          search: 'test',
-        })
-      )
-    })
-  })
-})
-
-// src/lib/analytics/__tests__/risk-calculator.test.ts
-import { calculateRiskScore } from '../risk-calculator'
-
-describe('Risk Calculator', () => {
-  it('calculates high risk score for inactive customers', () => {
-    const factors = {
-      activityLevel: 10,
-      supportTickets: 5,
-      billingIssues: true,
-      featureUsage: 20,
-    }
-
-    const score = calculateRiskScore(factors)
-    expect(score).toBeGreaterThan(70)
-  })
-
-  it('calculates low risk score for active customers', () => {
-    const factors = {
-      activityLevel: 90,
-      supportTickets: 0,
-      billingIssues: false,
-      featureUsage: 80,
-    }
-
-    const score = calculateRiskScore(factors)
-    expect(score).toBeLessThan(30)
-  })
-})
-```
-
-Commit: `feat: add component and utility tests`
-
-### Mid-Morning Session (2 hours)
-
-#### 4. Integration Tests
-
-```typescript
-// src/tests/integration/customer-flow.test.tsx
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { CustomerDashboard } from '@/app/dashboard/customers/page'
-import { AuthProvider } from '@/lib/firebase/auth-context'
-import { trpc } from '@/lib/trpc/client'
-
-jest.mock('@/lib/trpc/client')
-
-describe('Customer Management Flow', () => {
+// cypress/e2e/card-application.cy.ts
+describe('Card Application', () => {
   beforeEach(() => {
-    // Mock authentication
-    const mockUser = {
-      uid: '123',
-      email: 'test@example.com',
-    }
+    cy.login();
+    cy.visit('/dashboard/cards');
+  });
 
-    jest.spyOn(AuthProvider, 'useAuth').mockReturnValue({
-      user: mockUser,
-      loading: false,
-    })
-  })
+  it('allows users to apply for a card', () => {
+    cy.contains('Chase Sapphire Preferred')
+      .parent()
+      .within(() => {
+        cy.contains('Apply').click();
+      });
 
-  it('completes full customer management flow', async () => {
-    // Mock API responses
-    const mockCustomer = {
-      id: '1',
-      name: 'New Customer',
-      email: 'customer@example.com',
-      status: 'active',
-      riskScore: 0,
-    }
+    cy.get('form').within(() => {
+      cy.get('input[name="income"]').type('75000');
+      cy.get('input[name="address"]').type('123 Main St');
+      cy.contains('Submit').click();
+    });
 
-    trpc.customer.create.useMutation.mockReturnValue({
-      mutate: jest.fn().mockResolvedValue(mockCustomer),
-      isLoading: false,
-    })
-
-    render(<CustomerDashboard />)
-
-    // Test customer creation
-    fireEvent.click(screen.getByText('Add Customer'))
-    fireEvent.change(screen.getByLabelText('Name'), {
-      target: { value: 'New Customer' },
-    })
-    fireEvent.change(screen.getByLabelText('Email'), {
-      target: { value: 'customer@example.com' },
-    })
-    fireEvent.click(screen.getByText('Create'))
-
-    await waitFor(() => {
-      expect(screen.getByText('Customer created successfully')).toBeInTheDocument()
-    })
-
-    // Test customer search
-    fireEvent.change(screen.getByPlaceholderText('Search customers...'), {
-      target: { value: 'New Customer' },
-    })
-
-    await waitFor(() => {
-      expect(screen.getByText('New Customer')).toBeInTheDocument()
-    })
-
-    // Test customer details view
-    fireEvent.click(screen.getByText('View Details'))
-
-    await waitFor(() => {
-      expect(screen.getByText('Customer Details')).toBeInTheDocument()
-      expect(screen.getByText('Risk Analysis')).toBeInTheDocument()
-    })
-  })
-})
+    cy.contains('Application submitted successfully').should('be.visible');
+  });
+});
 ```
 
-Commit: `feat: add integration tests for customer flows`
-
-### Afternoon Session (3 hours)
-
-#### 5. Deployment Configuration
+### 4. Deployment Setup
 
 ```yaml
 # .github/workflows/ci.yml
@@ -268,214 +317,130 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
         with:
           node-version: '18'
-          cache: 'npm'
       - run: npm ci
-      - run: npm run test
       - run: npm run lint
+      - run: npm run test
       - run: npm run build
 
   deploy:
     needs: test
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
         with:
           node-version: '18'
-          cache: 'npm'
       - run: npm ci
       - run: npm run build
-      # Add deployment steps here
-
-# docker/Dockerfile
-FROM node:18-alpine AS base
-
-FROM base AS deps
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npm run build
-
-FROM base AS runner
-WORKDIR /app
-ENV NODE_ENV production
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-EXPOSE 3000
-CMD ["node", "server.js"]
+      - uses: vercel/actions/cli@v2
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.ORG_ID }}
+          vercel-project-id: ${{ secrets.PROJECT_ID }}
+          vercel-args: '--prod'
 
 # docker-compose.yml
 version: '3.8'
+
 services:
   app:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
+    build: .
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY}
-      # Add other environment variables
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/churnistic
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=churnistic
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:6
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+
+# Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+ENV NODE_ENV=production
+CMD ["npm", "start"]
 ```
 
-Commit: `feat: add CI/CD and Docker configuration`
+## End of Day Verification
 
-### Evening Session (2 hours)
+### 1. Test Mobile UI
 
-#### 6. Documentation Updates
+```bash
+# Run Storybook for mobile components
+npm run storybook
 
-```markdown
-# README.md Updates
-
-## Development
-
-- Add testing instructions
-- Document deployment process
-- Update environment variables
-
-## API Documentation
-
-- Document all endpoints
-- Add request/response examples
-- Include error handling
-
-## Contributing Guidelines
-
-- PR process
-- Code style
-- Testing requirements
+# Test responsive design
+npm run dev
+open http://localhost:3000
 ```
 
-Commit: `docs: update documentation with testing and deployment guides`
+### 2. Run Test Suite
 
-## Pull Requests
+```bash
+# Unit tests
+npm run test
 
-### PR #8: Testing Implementation
+# E2E tests
+npm run cypress
 
-````markdown
-PR Title: feat: Comprehensive Test Suite
-
-Description:
-Implements comprehensive testing infrastructure:
-
-- Jest and Testing Library setup
-- Component tests
-- Integration tests
-- API mocking
-- CI configuration
-
-Changes:
-
-- Add test configuration
-- Create test utilities
-- Implement component tests
-- Add integration tests
-- Set up CI pipeline
-
-Testing Steps:
-
-1. Run test suite:
-   ```bash
-   npm run test
-   ```
-````
-
-2. Verify coverage:
-   ```bash
-   npm run test:coverage
-   ```
-3. Check CI pipeline:
-   - Push to feature branch
-   - Verify tests pass
-   - Check coverage reports
-
-Coverage Requirements:
-
-- Components: 80%
-- Utils: 90%
-- API Routes: 85%
-
-Related Issues:
-Closes #8 - Test Infrastructure
-
-````
-
-### PR #9: Deployment Configuration
-```markdown
-PR Title: feat: Deployment Setup
-
-Description:
-Sets up deployment infrastructure:
-- Docker configuration
-- CI/CD pipeline
-- Environment management
-- Production optimizations
-
-Changes:
-- Add Dockerfile
-- Create docker-compose config
-- Set up GitHub Actions
-- Add deployment documentation
-
-Deployment Steps:
-1. Build Docker image:
-   ```bash
-   docker build -t churnistic .
-````
-
-2. Run containers:
-   ```bash
-   docker-compose up -d
-   ```
-3. Verify deployment:
-   - Check health endpoints
-   - Verify environment variables
-   - Test production build
-
-Infrastructure:
-
-- Docker containers
-- GitHub Actions
-- MongoDB Atlas
-- Firebase hosting
-
-Related Issues:
-Closes #9 - Deployment Configuration
-
+# Coverage report
+npm run test:coverage
 ```
 
-## Day 5 Checklist
-- [ ] Test Environment Setup
-- [ ] Component Tests
-- [ ] Integration Tests
-- [ ] Deployment Config
-- [ ] Documentation Updates
-- [ ] Final Review
-- [ ] Deployment Prep
+### 3. Verify Deployment
 
-## Notes
-- Ensure all tests are passing
-- Document deployment process
-- Update environment variables
-- Plan for monitoring setup
+```bash
+# Build and run Docker
+docker-compose up --build
+
+# Test production build
+npm run build
+npm run start
+```
+
+## Next Steps
+
+1. Week 2 Planning
+2. Feature Prioritization
+3. Performance Optimization
+4. User Feedback Collection
 ```
