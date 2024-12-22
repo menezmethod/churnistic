@@ -1,482 +1,423 @@
-# Day 4: Customer Dashboard & Analytics (Thursday)
+# Day 4: Analytics & Bank Integration (Thursday)
 
-## Overview
+## Core Principles
 
-Focus on implementing the customer dashboard, analytics foundation, and risk calculation system.
+1. Minimal User Input
+   - Automated data analysis
+   - Smart visualizations
+   - Quick insights
+   - Easy filtering
 
-## Session Plan
+2. Fast Development
+   - Chart components
+   - Data hooks
+   - Reusable filters
+   - Quick exports
 
-### Morning Session (3 hours)
+## Morning Session (4 hours)
 
-#### 1. Customer Dashboard Page
-
-```typescript
-// src/app/dashboard/customers/page.tsx
-import { Suspense } from 'react';
-import { CustomerList } from '@/components/customers/customer-list';
-import { CustomerStats } from '@/components/customers/customer-stats';
-import { NewCustomerButton } from '@/components/customers/new-customer-button';
-
-export default function CustomersPage() {
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Customers</h1>
-        <NewCustomerButton />
-      </div>
-
-      <Suspense fallback={<div>Loading stats...</div>}>
-        <CustomerStats />
-      </Suspense>
-
-      <Suspense fallback={<div>Loading customers...</div>}>
-        <CustomerList />
-      </Suspense>
-    </div>
-  );
-}
-```
-
-Commit: `feat: implement customers dashboard page`
-
-#### 2. Customer List Component
+### 1. Analytics Dashboard
 
 ```typescript
-// src/components/customers/customer-list.tsx
-'use client';
+// src/components/analytics/bonus-chart.tsx
+import { Line } from 'react-chartjs-2';
+import { trpc } from '@/lib/trpc';
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { DataTable } from '@/components/ui/data-table';
-import { trpc } from '@/lib/trpc/client';
-
-export function CustomerList() {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
-
-  const { data, isLoading } = trpc.customer.list.useQuery({
-    page,
-    limit: 10,
-    search,
+export function BonusChart() {
+  const { data } = trpc.analytics.getBonusStats.useQuery({
+    timeframe: '6months'
   });
 
-  const columns = [
-    {
-      key: 'name',
-      header: 'Name',
-      cell: (row) => (
-        <div className="flex items-center">
-          <span className="font-medium">{row.name}</span>
-          <span className="ml-2 text-gray-500">{row.company}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'riskScore',
-      header: 'Risk Score',
-      cell: (row) => (
-        <div className={`inline-flex px-2 py-1 rounded-full ${
-          row.riskScore > 70 ? 'bg-red-100 text-red-800' :
-          row.riskScore > 30 ? 'bg-yellow-100 text-yellow-800' :
-          'bg-green-100 text-green-800'
-        }`}>
-          {row.riskScore}%
-        </div>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      cell: (row) => (
-        <span className={`capitalize ${
-          row.status === 'active' ? 'text-green-600' :
-          row.status === 'at_risk' ? 'text-yellow-600' :
-          'text-red-600'
-        }`}>
-          {row.status.replace('_', ' ')}
-        </span>
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      cell: (row) => (
-        <button
-          onClick={() => router.push(`/dashboard/customers/${row.id}`)}
-          className="text-blue-600 hover:text-blue-800"
-        >
-          View Details
-        </button>
-      ),
-    },
-  ];
+  const chartData = {
+    labels: data?.map(d => d.month) ?? [],
+    datasets: [
+      {
+        label: 'Total Earned',
+        data: data?.map(d => d.earned) ?? [],
+        borderColor: 'rgb(75, 192, 192)',
+        tension: 0.1
+      },
+      {
+        label: 'Pending',
+        data: data?.map(d => d.pending) ?? [],
+        borderColor: 'rgb(255, 159, 64)',
+        tension: 0.1
+      }
+    ]
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between">
-        <input
-          type="text"
-          placeholder="Search customers..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="px-4 py-2 border rounded-lg"
-        />
-      </div>
+    <div className="p-4 bg-white rounded-lg shadow">
+      <h3 className="text-lg font-medium mb-4">Bonus Earnings</h3>
+      <Line data={chartData} options={chartOptions} />
+    </div>
+  );
+}
 
-      <DataTable
-        columns={columns}
-        data={data?.customers ?? []}
-        loading={isLoading}
-      />
+// src/components/analytics/bank-stats.tsx
+export function BankStats() {
+  const { data: stats } = trpc.analytics.getBankStats.useQuery();
 
-      {data && (
-        <Pagination
-          currentPage={page}
-          totalPages={data.pages}
-          onPageChange={setPage}
-        />
-      )}
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {stats?.map(bank => (
+        <div key={bank.name} className="p-4 bg-white rounded-lg shadow">
+          <h4 className="font-medium">{bank.name}</h4>
+          <p className="text-2xl font-bold">${bank.totalEarned}</p>
+          <div className="mt-2 text-sm text-gray-500">
+            <span>{bank.successRate}% success rate</span>
+            <span className="mx-2">•</span>
+            <span>{bank.bonusCount} bonuses</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 ```
 
-Commit: `feat: add customer list component with search and filtering`
-
-### Mid-Morning Session (2 hours)
-
-#### 3. Customer Stats Component
+### 2. Analytics Service
 
 ```typescript
-// src/components/customers/customer-stats.tsx
-'use client';
+// src/server/services/analytics.ts
+import { prisma } from '@/lib/prisma';
 
-import { trpc } from '@/lib/trpc/client';
-import { Card } from '@/components/ui/card';
-import { TrendingUpIcon, TrendingDownIcon } from 'lucide-react';
+export class AnalyticsService {
+  async getBonusStats(userId: string, timeframe: string) {
+    const startDate = this.getStartDate(timeframe);
+    
+    const bonuses = await prisma.bonus.findMany({
+      where: {
+        userId,
+        createdAt: { gte: startDate }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
 
-export function CustomerStats() {
-  const { data } = trpc.customer.stats.useQuery();
+    return this.aggregateByMonth(bonuses);
+  }
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <Card>
-        <div className="p-6">
-          <h3 className="text-sm font-medium text-gray-500">Total Customers</h3>
-          <p className="mt-2 text-3xl font-semibold">{data?.totalCustomers}</p>
-          <div className="mt-2 text-sm text-gray-600">
-            <span className="text-green-600">↑ {data?.newThisMonth}</span> this month
-          </div>
-        </div>
-      </Card>
+  async getBankStats(userId: string) {
+    const bonuses = await prisma.bonus.findMany({
+      where: { userId },
+      include: { bank: true }
+    });
 
-      <Card>
-        <div className="p-6">
-          <h3 className="text-sm font-medium text-gray-500">At Risk</h3>
-          <p className="mt-2 text-3xl font-semibold text-red-600">
-            {data?.atRiskCount}
-          </p>
-          <div className="mt-2 text-sm text-gray-600">
-            {data?.atRiskPercentage}% of total
-          </div>
-        </div>
-      </Card>
+    return this.aggregateByBank(bonuses);
+  }
 
-      <Card>
-        <div className="p-6">
-          <h3 className="text-sm font-medium text-gray-500">Revenue at Risk</h3>
-          <p className="mt-2 text-3xl font-semibold text-yellow-600">
-            ${data?.revenueAtRisk.toLocaleString()}
-          </p>
-          <div className="mt-2 text-sm text-gray-600">
-            Monthly recurring revenue
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
+  private getStartDate(timeframe: string): Date {
+    const date = new Date();
+    switch (timeframe) {
+      case '1month':
+        date.setMonth(date.getMonth() - 1);
+        break;
+      case '6months':
+        date.setMonth(date.getMonth() - 6);
+        break;
+      case '1year':
+        date.setFullYear(date.getFullYear() - 1);
+        break;
+      default:
+        date.setMonth(date.getMonth() - 6);
+    }
+    return date;
+  }
+
+  private aggregateByMonth(bonuses: any[]) {
+    const months: Record<string, { earned: number; pending: number }> = {};
+    
+    bonuses.forEach(bonus => {
+      const month = new Date(bonus.createdAt).toLocaleString('default', { 
+        month: 'short', 
+        year: 'numeric' 
+      });
+      
+      if (!months[month]) {
+        months[month] = { earned: 0, pending: 0 };
+      }
+      
+      if (bonus.status === 'completed') {
+        months[month].earned += bonus.amount;
+      } else {
+        months[month].pending += bonus.amount;
+      }
+    });
+
+    return Object.entries(months).map(([month, stats]) => ({
+      month,
+      ...stats
+    }));
+  }
+
+  private aggregateByBank(bonuses: any[]) {
+    const banks: Record<string, {
+      totalEarned: number;
+      bonusCount: number;
+      successCount: number;
+    }> = {};
+
+    bonuses.forEach(bonus => {
+      const bankName = bonus.bank.name;
+      
+      if (!banks[bankName]) {
+        banks[bankName] = {
+          totalEarned: 0,
+          bonusCount: 0,
+          successCount: 0
+        };
+      }
+      
+      banks[bankName].bonusCount++;
+      
+      if (bonus.status === 'completed') {
+        banks[bankName].totalEarned += bonus.amount;
+        banks[bankName].successCount++;
+      }
+    });
+
+    return Object.entries(banks).map(([name, stats]) => ({
+      name,
+      ...stats,
+      successRate: Math.round((stats.successCount / stats.bonusCount) * 100)
+    }));
+  }
 }
 ```
 
-Commit: `feat: add customer statistics component`
+## Afternoon Session (4 hours)
 
-### Afternoon Session (3 hours)
-
-#### 4. Risk Calculation System
+### 3. Bank Integration
 
 ```typescript
-// src/lib/analytics/risk-calculator.ts
-interface RiskFactors {
-  activityLevel: number; // 0-100
-  supportTickets: number; // Count of open tickets
-  billingIssues: boolean;
-  featureUsage: number; // 0-100
-}
+// src/server/services/plaid.ts
+import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 
-export function calculateRiskScore(factors: RiskFactors): number {
-  const weights = {
-    activityLevel: 0.4,
-    supportTickets: 0.2,
-    billingIssues: 0.2,
-    featureUsage: 0.2,
-  };
+export class PlaidService {
+  private client: PlaidApi;
 
-  const scores = {
-    activityLevel: normalizeActivityScore(factors.activityLevel),
-    supportTickets: normalizeTicketScore(factors.supportTickets),
-    billingIssues: factors.billingIssues ? 100 : 0,
-    featureUsage: factors.featureUsage,
-  };
-
-  return Object.entries(weights).reduce((total, [factor, weight]) => {
-    return total + scores[factor as keyof typeof scores] * weight;
-  }, 0);
-}
-
-function normalizeActivityScore(level: number): number {
-  return Math.max(0, 100 - level); // Lower activity = higher risk
-}
-
-function normalizeTicketScore(tickets: number): number {
-  return Math.min(100, tickets * 20); // More tickets = higher risk
-}
-
-// src/server/routers/analytics.ts
-export const analyticsRouter = router({
-  calculateRisk: protectedProcedure
-    .input(
-      z.object({
-        customerId: z.string(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const [activities, tickets, billing] = await Promise.all([
-        prisma.activity.findMany({
-          where: {
-            customerId: input.customerId,
-            timestamp: {
-              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-            },
-          },
-        }),
-        prisma.supportTicket.count({
-          where: {
-            customerId: input.customerId,
-            status: 'open',
-          },
-        }),
-        prisma.billingIssue.findFirst({
-          where: {
-            customerId: input.customerId,
-            resolved: false,
-          },
-        }),
-      ]);
-
-      const riskFactors = {
-        activityLevel: calculateActivityLevel(activities),
-        supportTickets: tickets,
-        billingIssues: !!billing,
-        featureUsage: calculateFeatureUsage(activities),
-      };
-
-      const riskScore = calculateRiskScore(riskFactors);
-
-      await prisma.churnRisk.upsert({
-        where: { customerId: input.customerId },
-        update: {
-          score: riskScore,
-          indicators: riskFactors,
-          trend: determineTrend(riskScore, activities),
+  constructor() {
+    const config = new Configuration({
+      basePath: PlaidEnvironments[process.env.PLAID_ENV as keyof typeof PlaidEnvironments],
+      baseOptions: {
+        headers: {
+          'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID,
+          'PLAID-SECRET': process.env.PLAID_SECRET,
         },
-        create: {
-          customerId: input.customerId,
-          score: riskScore,
-          indicators: riskFactors,
-          trend: 'new',
-        },
+      },
+    });
+
+    this.client = new PlaidApi(config);
+  }
+
+  async createLinkToken(userId: string) {
+    const response = await this.client.linkTokenCreate({
+      user: { client_user_id: userId },
+      client_name: 'Churnistic',
+      products: ['transactions'],
+      country_codes: ['US'],
+      language: 'en'
+    });
+
+    return response.data;
+  }
+
+  async exchangePublicToken(publicToken: string) {
+    const response = await this.client.itemPublicTokenExchange({
+      public_token: publicToken
+    });
+
+    return response.data;
+  }
+
+  async getTransactions(accessToken: string, startDate: string, endDate: string) {
+    const response = await this.client.transactionsGet({
+      access_token: accessToken,
+      start_date: startDate,
+      end_date: endDate
+    });
+
+    return response.data;
+  }
+}
+
+// src/server/routers/bank.ts
+export const bankRouter = router({
+  createLinkToken: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      const plaid = new PlaidService();
+      return plaid.createLinkToken(ctx.user.id);
+    }),
+
+  setAccessToken: protectedProcedure
+    .input(z.object({
+      publicToken: z.string(),
+      bankId: z.string()
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const plaid = new PlaidService();
+      const { access_token } = await plaid.exchangePublicToken(input.publicToken);
+
+      return prisma.bankConnection.create({
+        data: {
+          userId: ctx.user.id,
+          bankId: input.bankId,
+          accessToken: access_token,
+          status: 'active'
+        }
+      });
+    }),
+
+  syncTransactions: protectedProcedure
+    .input(z.object({
+      bankId: z.string(),
+      startDate: z.string(),
+      endDate: z.string()
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const connection = await prisma.bankConnection.findFirst({
+        where: {
+          userId: ctx.user.id,
+          bankId: input.bankId
+        }
       });
 
-      return { riskScore, factors: riskFactors };
-    }),
+      if (!connection) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Bank connection not found'
+        });
+      }
+
+      const plaid = new PlaidService();
+      const { transactions } = await plaid.getTransactions(
+        connection.accessToken,
+        input.startDate,
+        input.endDate
+      );
+
+      // Store transactions
+      await prisma.transaction.createMany({
+        data: transactions.map(t => ({
+          userId: ctx.user.id,
+          bankId: input.bankId,
+          amount: t.amount,
+          date: new Date(t.date),
+          description: t.name,
+          category: t.category[0],
+          pending: t.pending
+        }))
+      });
+
+      return transactions.length;
+    })
 });
 ```
 
-Commit: `feat: implement risk calculation system`
-
-### Evening Session (2 hours)
-
-#### 5. Customer Profile Page
+### 4. Bank Connection UI
 
 ```typescript
-// src/app/dashboard/customers/[id]/page.tsx
-import { Suspense } from 'react';
-import { CustomerHeader } from './customer-header';
-import { CustomerActivity } from './customer-activity';
-import { RiskAnalysis } from './risk-analysis';
-import { NotFound } from '@/components/not-found';
+// src/components/banks/connect-bank.tsx
+'use client';
 
-export default async function CustomerPage({ params }: { params: { id: string } }) {
-  const customer = await prisma.customer.findUnique({
-    where: { id: params.id },
-    include: {
-      churnRisk: true,
-      activities: {
-        take: 10,
-        orderBy: { timestamp: 'desc' },
-      },
-    },
+import { usePlaidLink } from 'react-plaid-link';
+import { trpc } from '@/lib/trpc';
+
+export function ConnectBank({ bankId }: { bankId: string }) {
+  const { data: linkToken } = trpc.bank.createLinkToken.useQuery();
+  const setAccessToken = trpc.bank.setAccessToken.useMutation();
+
+  const { open, ready } = usePlaidLink({
+    token: linkToken?.link_token,
+    onSuccess: async (public_token) => {
+      await setAccessToken.mutateAsync({
+        publicToken: public_token,
+        bankId
+      });
+    }
   });
 
-  if (!customer) {
-    return <NotFound message="Customer not found" />;
-  }
+  return (
+    <Button
+      onClick={() => open()}
+      disabled={!ready}
+      loading={!linkToken}
+    >
+      Connect Bank
+    </Button>
+  );
+}
+
+// src/app/dashboard/banks/page.tsx
+export default function BanksPage() {
+  const { data: banks } = trpc.bank.list.useQuery();
+  const { data: connections } = trpc.bank.getConnections.useQuery();
 
   return (
     <div className="space-y-6">
-      <CustomerHeader customer={customer} />
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Suspense fallback={<div>Loading activity...</div>}>
-            <CustomerActivity customerId={customer.id} />
-          </Suspense>
-        </div>
-
-        <div>
-          <Suspense fallback={<div>Loading risk analysis...</div>}>
-            <RiskAnalysis customer={customer} />
-          </Suspense>
-        </div>
+      <h1 className="text-2xl font-bold">Connected Banks</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {banks?.map(bank => {
+          const isConnected = connections?.some(c => c.bankId === bank.id);
+          
+          return (
+            <div key={bank.id} className="p-4 bg-white rounded-lg shadow">
+              <h3 className="font-medium">{bank.name}</h3>
+              {isConnected ? (
+                <Badge>Connected</Badge>
+              ) : (
+                <ConnectBank bankId={bank.id} />
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 ```
 
-Commit: `feat: add customer profile page with activity and risk analysis`
+## End of Day Verification
 
-## Pull Requests
+### 1. Test Analytics
 
-### PR #6: Customer Dashboard Implementation
+```bash
+# Check analytics endpoints
+curl http://localhost:3000/api/trpc/analytics.getBonusStats \
+  -H "Content-Type: application/json" \
+  -d '{"timeframe": "6months"}'
 
-```markdown
-PR Title: feat: Customer Dashboard and Management
-
-Description:
-Implements the core customer management features:
-
-- Customer dashboard with stats
-- Customer list with search and filtering
-- New customer creation flow
-- Customer profile pages
-- Basic analytics integration
-
-Changes:
-
-- Add customer dashboard page
-- Create customer list component
-- Implement customer statistics
-- Add new customer dialog
-- Create customer profile view
-- Set up basic analytics
-
-Testing Steps:
-
-1. Start development server
-2. Test customer list:
-   - Verify pagination works
-   - Test search functionality
-   - Check sorting and filtering
-3. Test customer creation:
-   - Create new customer
-   - Verify validation
-   - Check error handling
-4. Test customer profile:
-   - View customer details
-   - Check activity history
-   - Verify risk analysis
-
-UI/UX Considerations:
-
-- Responsive design for all views
-- Loading states and error handling
-- Intuitive navigation
-- Clear data visualization
-
-Performance Considerations:
-
-- Pagination for large datasets
-- Optimistic updates
-- Proper query invalidation
-- Efficient data fetching
-
-Related Issues:
-Closes #6 - Customer Dashboard Implementation
+# Verify charts
+npm run test src/components/analytics
 ```
 
-### PR #7: Analytics Foundation
+### 2. Verify Bank Integration
 
-````markdown
-PR Title: feat: Analytics Foundation and Risk Calculation
+```bash
+# Test Plaid connection
+npm run test:integration src/server/services/plaid.test.ts
 
-Description:
-Sets up the foundation for analytics and risk calculation:
-
-- Basic risk calculation algorithm
-- Analytics data structures
-- Initial metrics tracking
-- Data visualization setup
-
-Changes:
-
-- Add analytics router
-- Implement risk calculation
-- Create analytics components
-- Set up data aggregation
-- Add visualization utilities
-
-Testing Steps:
-
-1. Generate test data:
-   ```bash
-   npx prisma db seed
-   ```
-````
-
-2. Verify calculations:
-   - Check risk scores
-   - Verify metrics
-   - Test aggregations
-3. Test visualizations:
-   - View charts
-   - Check responsiveness
-   - Verify data updates
-
-Analytics Features:
-
-- Customer risk scoring
-- Activity analysis
-- Revenue impact
-- Trend identification
-
-Related Issues:
-Closes #7 - Analytics Foundation
-
+# Check transaction sync
+curl -X POST http://localhost:3000/api/trpc/bank.syncTransactions \
+  -H "Content-Type: application/json" \
+  -d '{"bankId": "test", "startDate": "2024-01-01", "endDate": "2024-01-31"}'
 ```
 
-## Day 4 Checklist
-- [ ] Customer Dashboard Page
-- [ ] Customer List Component
-- [ ] Customer Stats
-- [ ] Risk Calculation System
-- [ ] Customer Profile
-- [ ] Analytics Foundation
-- [ ] Testing & Documentation
+### 3. UI Testing
 
-## Notes
-- Monitor performance with larger datasets
-- Consider caching strategy for analytics
-- Plan for more advanced risk indicators
-- Document risk calculation methodology
+```bash
+# Run Storybook
+npm run storybook
+
+# Test bank connection flow
+npm run cypress
+```
+
+## Next Steps
+
+1. Mobile UI (Day 5)
+2. Final Testing (Day 5)
+3. Deployment Prep (Day 5)
+4. Documentation (Day 5)
 ```

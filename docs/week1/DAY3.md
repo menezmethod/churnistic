@@ -1,360 +1,368 @@
-# Day 3: API Foundation & UI Framework (Wednesday)
+# Day 3: User Interface & Notifications (Wednesday)
 
-## Overview
+## Core Principles
 
-Focus on building the API infrastructure with tRPC and setting up the core UI components.
+1. Minimal User Input
+   - One-click actions
+   - Smart defaults
+   - Auto-refresh
+   - Clear feedback
 
-## Session Plan
+2. Fast Development
+   - Reusable components
+   - Simple layouts
+   - Quick iterations
+   - Rapid testing
 
-### Morning Session (3 hours)
+## Morning Session (4 hours)
 
-#### 1. tRPC Server Setup
-
-```typescript
-// src/server/trpc.ts
-import { initTRPC, TRPCError } from '@trpc/server';
-import { auth } from '@/lib/firebase/admin';
-import { cookies } from 'next/headers';
-
-const t = initTRPC.create();
-
-const isAuthenticated = t.middleware(async ({ next }) => {
-  const session = cookies().get('session')?.value;
-
-  if (!session) {
-    throw new TRPCError({ code: 'UNAUTHORIZED' });
-  }
-
-  try {
-    const decodedToken = await auth.verifySessionCookie(session);
-    return next({
-      ctx: {
-        userId: decodedToken.uid,
-      },
-    });
-  } catch {
-    throw new TRPCError({ code: 'UNAUTHORIZED' });
-  }
-});
-
-export const router = t.router;
-export const publicProcedure = t.procedure;
-export const protectedProcedure = t.procedure.use(isAuthenticated);
-```
-
-Commit: `feat: set up tRPC server with authentication`
-
-#### 2. Customer Router Implementation
+### 1. Dashboard Layout
 
 ```typescript
-// src/server/routers/customer.ts
-import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
-import { prisma } from '@/lib/prisma';
+// src/app/dashboard/layout.tsx
+import { Sidebar } from '@/components/layout/sidebar';
+import { Header } from '@/components/layout/header';
 
-export const customerRouter = router({
-  list: protectedProcedure
-    .input(
-      z.object({
-        page: z.number().default(1),
-        limit: z.number().default(10),
-        search: z.string().optional(),
-      })
-    )
-    .query(async ({ input }) => {
-      const skip = (input.page - 1) * input.limit;
-      const where = input.search
-        ? {
-            OR: [
-              { name: { contains: input.search, mode: 'insensitive' } },
-              { email: { contains: input.search, mode: 'insensitive' } },
-              { company: { contains: input.search, mode: 'insensitive' } },
-            ],
-          }
-        : {};
-
-      const [customers, total] = await Promise.all([
-        prisma.customer.findMany({
-          where,
-          skip,
-          take: input.limit,
-          include: {
-            churnRisk: true,
-            _count: {
-              select: { activities: true },
-            },
-          },
-        }),
-        prisma.customer.count({ where }),
-      ]);
-
-      return {
-        customers,
-        total,
-        pages: Math.ceil(total / input.limit),
-      };
-    }),
-
-  create: protectedProcedure
-    .input(
-      z.object({
-        name: z.string(),
-        email: z.string().email(),
-        company: z.string(),
-        industry: z.string(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      return prisma.customer.create({
-        data: input,
-      });
-    }),
-});
-```
-
-Commit: `feat: implement customer API router`
-
-### Mid-Morning Session (2 hours)
-
-#### 3. UI Component Setup
-
-```bash
-# Install shadcn-ui
-npx shadcn-ui@latest init
-
-# Add core components
-npx shadcn-ui@latest add button
-npx shadcn-ui@latest add input
-npx shadcn-ui@latest add card
-npx shadcn-ui@latest add dialog
-npx shadcn-ui@latest add dropdown-menu
-npx shadcn-ui@latest add table
-```
-
-```typescript
-// src/components/ui/data-table.tsx
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-
-interface DataTableProps<T> {
-  columns: Array<{
-    key: keyof T;
-    header: string;
-    cell?: (row: T) => React.ReactNode;
-  }>;
-  data: T[];
-  loading?: boolean;
-}
-
-export function DataTable<T>({ columns, data, loading }: DataTableProps<T>) {
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
+export default function DashboardLayout({
+  children
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          {columns.map((column) => (
-            <TableHead key={column.key as string}>{column.header}</TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {data.map((row, i) => (
-          <TableRow key={i}>
-            {columns.map((column) => (
-              <TableCell key={column.key as string}>
-                {column.cell ? column.cell(row) : row[column.key]}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-}
-```
-
-Commit: `feat: add core UI components and data table`
-
-### Afternoon Session (3 hours)
-
-#### 4. Layout Implementation
-
-```typescript
-// src/components/layout/dashboard-layout.tsx
-import { SideNav } from './side-nav';
-import { TopBar } from './top-bar';
-
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-gray-100">
-      <TopBar />
-      <div className="flex">
-        <SideNav />
-        <main className="flex-1 p-6">{children}</main>
+    <div className="flex h-screen">
+      <Sidebar />
+      <div className="flex-1 flex flex-col">
+        <Header />
+        <main className="flex-1 p-6 overflow-auto">
+          {children}
+        </main>
       </div>
     </div>
   );
 }
 
-// src/components/layout/side-nav.tsx
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Customers', href: '/dashboard/customers', icon: UsersIcon },
-  { name: 'Analytics', href: '/dashboard/analytics', icon: ChartBarIcon },
-  { name: 'Settings', href: '/dashboard/settings', icon: CogIcon },
-];
+// src/components/layout/sidebar.tsx
+export function Sidebar() {
+  const menuItems = [
+    { label: 'Overview', href: '/dashboard', icon: HomeIcon },
+    { label: 'Active Bonuses', href: '/dashboard/bonuses', icon: DollarIcon },
+    { label: 'Banks', href: '/dashboard/banks', icon: BankIcon },
+    { label: 'Progress', href: '/dashboard/progress', icon: ChartIcon },
+    { label: 'Settings', href: '/dashboard/settings', icon: SettingsIcon }
+  ];
+
+  return (
+    <aside className="w-64 border-r bg-gray-50">
+      <nav className="space-y-1">
+        {menuItems.map(item => (
+          <SidebarItem key={item.href} {...item} />
+        ))}
+      </nav>
+    </aside>
+  );
+}
 ```
 
-Commit: `feat: implement dashboard layout components`
-
-### Evening Session (2 hours)
-
-#### 5. API Documentation
+### 2. Dashboard Components
 
 ```typescript
-// src/types/api.ts
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  pages: number;
-  currentPage: number;
+// src/components/dashboard/bonus-card.tsx
+interface BonusCardProps {
+  bank: string;
+  amount: number;
+  requirements: any[];
+  progress: number;
+  daysLeft: number;
 }
 
-export interface CustomerResponse {
-  id: string;
-  name: string;
-  email: string;
-  company: string;
-  industry: string;
-  status: string;
-  riskScore: number;
-  churnRisk?: {
-    score: number;
-    trend: string;
-    indicators: Record<string, boolean>;
-  };
-  activityCount: number;
-  createdAt: string;
-  updatedAt: string;
+export function BonusCard({
+  bank,
+  amount,
+  requirements,
+  progress,
+  daysLeft
+}: BonusCardProps) {
+  return (
+    <div className="rounded-lg border p-4 hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className="font-medium">{bank}</h3>
+          <p className="text-2xl font-bold">${amount}</p>
+        </div>
+        <Badge>{daysLeft} days left</Badge>
+      </div>
+      
+      <Progress value={progress} className="mt-4" />
+      
+      <div className="mt-4 space-y-2">
+        {requirements.map((req, i) => (
+          <RequirementItem key={i} {...req} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// src/components/dashboard/stats-grid.tsx
+export function StatsGrid() {
+  const stats = [
+    {
+      label: 'Active Bonuses',
+      value: '5',
+      change: '+2 this week',
+      trend: 'up'
+    },
+    {
+      label: 'Total Earned',
+      value: '$2,500',
+      change: '+$500 this month',
+      trend: 'up'
+    },
+    {
+      label: 'Success Rate',
+      value: '92%',
+      change: '+5% vs last month',
+      trend: 'up'
+    },
+    {
+      label: 'Pending Payout',
+      value: '$1,200',
+      change: '3 bonuses',
+      trend: 'neutral'
+    }
+  ];
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {stats.map(stat => (
+        <StatCard key={stat.label} {...stat} />
+      ))}
+    </div>
+  );
 }
 ```
 
-Commit: `feat: add API type definitions and documentation`
+## Afternoon Session (4 hours)
 
-## Pull Requests
+### 3. Email Notification System
 
-### PR #4: API Foundation
+```typescript
+// src/server/services/email.ts
+import { createTransport } from 'nodemailer';
+import { render } from '@react-email/render';
+import { BonusEmail } from '@/emails/bonus';
 
-````markdown
-PR Title: feat: API Foundation with tRPC
+export class EmailService {
+  private transporter;
 
-Description:
-Implements the core API infrastructure using tRPC:
+  constructor() {
+    this.transporter = createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT!),
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+  }
 
-- Server setup with authentication
-- Customer router implementation
-- Type-safe API endpoints
-- API documentation
+  async sendBonusReminder({
+    to,
+    bonus,
+    daysLeft
+  }: {
+    to: string;
+    bonus: any;
+    daysLeft: number;
+  }) {
+    const html = render(
+      <BonusEmail
+        bank={bonus.bank}
+        amount={bonus.amount}
+        daysLeft={daysLeft}
+        requirements={bonus.requirements}
+      />
+    );
 
-Changes:
+    await this.transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to,
+      subject: `Action Required: ${bonus.bank} Bonus Deadline in ${daysLeft} Days`,
+      html
+    });
+  }
 
-- Add tRPC server configuration
-- Implement customer router
-- Add authentication middleware
-- Create API type definitions
-- Add API documentation
+  async sendNewBonusAlert({
+    to,
+    bonus
+  }: {
+    to: string;
+    bonus: any;
+  }) {
+    const html = render(
+      <NewBonusEmail
+        bank={bonus.bank}
+        amount={bonus.amount}
+        requirements={bonus.requirements}
+      />
+    );
 
-Testing Steps:
+    await this.transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to,
+      subject: `New ${bonus.bank} Bonus: Earn $${bonus.amount}`,
+      html
+    });
+  }
+}
 
-1. Start development server
-2. Test authenticated endpoints:
-   ```bash
-   curl -X POST http://localhost:3000/api/trpc/customer.list \
-     -H "Content-Type: application/json" \
-     -H "Cookie: session=<valid-session>" \
-     -d '{"page": 1, "limit": 10}'
-   ```
-````
+// src/server/jobs/notifications.ts
+export async function sendDailyNotifications() {
+  const email = new EmailService();
+  
+  // 1. Find users with bonuses nearing deadline
+  const deadlineBonuses = await prisma.bonus.findMany({
+    where: {
+      status: 'in_progress',
+      expirationDate: {
+        lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      }
+    },
+    include: { user: true }
+  });
 
-3. Verify error handling:
-   - Test without authentication
-   - Test with invalid inputs
-   - Test pagination
+  // 2. Send reminders
+  for (const bonus of deadlineBonuses) {
+    const daysLeft = Math.ceil(
+      (bonus.expirationDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    );
 
-API Endpoints Added:
+    await email.sendBonusReminder({
+      to: bonus.user.email,
+      bonus,
+      daysLeft
+    });
+  }
 
-- customer.list: Get paginated customer list
-- customer.create: Create new customer
-- customer.get: Get customer details
-- customer.update: Update customer details
+  // 3. Find and notify about new bonuses
+  const newBonuses = await prisma.bonus.findMany({
+    where: {
+      createdAt: {
+        gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+      }
+    }
+  });
 
-Related Issues:
-Closes #4 - API Foundation Implementation
+  const users = await prisma.user.findMany({
+    where: {
+      notificationPreferences: {
+        newBonuses: true
+      }
+    }
+  });
 
-````
+  for (const bonus of newBonuses) {
+    for (const user of users) {
+      await email.sendNewBonusAlert({
+        to: user.email,
+        bonus
+      });
+    }
+  }
+}
+```
 
-### PR #5: UI Framework
-```markdown
-PR Title: feat: UI Framework and Layout Components
+### 4. Notification Preferences
 
-Description:
-Sets up the core UI framework and layout components:
-- shadcn/ui integration
-- Dashboard layout
-- Reusable components
-- Type-safe UI components
+```typescript
+// src/app/dashboard/settings/notifications/page.tsx
+'use client';
 
-Changes:
-- Add shadcn/ui components
-- Create dashboard layout
-- Implement navigation
-- Add data table component
-- Create type definitions
+import { useState } from 'react';
+import { Switch } from '@/components/ui/switch';
+import { trpc } from '@/lib/trpc';
 
-Testing Steps:
-1. Start development server
-2. Verify component styling:
-   - Check dark/light mode
-   - Test responsive layout
-   - Verify component interactions
-3. Test layout functionality:
-   - Navigation works
-   - Sidebar collapses
-   - Header is fixed
+export default function NotificationSettings() {
+  const [preferences, setPreferences] = useState({
+    newBonuses: true,
+    deadlineReminders: true,
+    progressUpdates: true,
+    successStories: false
+  });
 
-UI Components Added:
-- DataTable
-- DashboardLayout
-- SideNav
-- TopBar
-- Common UI components
+  const updatePreferences = trpc.user.updateNotificationPreferences.useMutation();
 
-Related Issues:
-Closes #5 - UI Framework Implementation
-````
+  const handleChange = (key: keyof typeof preferences) => {
+    const newPreferences = {
+      ...preferences,
+      [key]: !preferences[key]
+    };
+    setPreferences(newPreferences);
+    updatePreferences.mutate(newPreferences);
+  };
 
-## Day 3 Checklist
+  return (
+    <div className="max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Notification Preferences</h1>
+      
+      <div className="space-y-6">
+        {Object.entries(preferences).map(([key, value]) => (
+          <div key={key} className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium">{formatKey(key)}</h3>
+              <p className="text-sm text-gray-500">
+                {getDescription(key)}
+              </p>
+            </div>
+            <Switch
+              checked={value}
+              onCheckedChange={() => handleChange(key as any)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
 
-- [ ] tRPC Server Setup
-- [ ] Customer Router
-- [ ] UI Components
-- [ ] Layout Implementation
-- [ ] API Documentation
-- [ ] Testing & Validation
-- [ ] PR Reviews & Merges
+## End of Day Verification
 
-## Notes
+### 1. Test Dashboard
 
-- Document API endpoints thoroughly
-- Consider rate limiting for API routes
-- Test component accessibility
-- Plan for error boundary implementation
+```bash
+# Start dev server
+npm run dev
+
+# Check responsive layout
+open http://localhost:3000/dashboard
+```
+
+### 2. Verify Email System
+
+```bash
+# Test email sending
+curl -X POST http://localhost:3000/api/trpc/email.test \
+  -H "Content-Type: application/json" \
+  -d '{"to": "test@example.com"}'
+
+# Run notification job
+npm run job:notifications
+```
+
+### 3. Check Components
+
+```bash
+# Run component tests
+npm test src/components/dashboard
+
+# Check storybook
+npm run storybook
+```
+
+## Next Steps
+
+1. Analytics Dashboard (Day 4)
+2. Bank Integration (Day 4)
+3. Mobile UI (Day 5)
+4. Final Testing (Day 5)
