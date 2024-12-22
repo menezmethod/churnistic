@@ -9,7 +9,7 @@ export const router = t.router;
 export const publicProcedure = t.procedure;
 export const protectedProcedure = t.procedure.use(
   t.middleware(({ ctx, next }) => {
-    if (!ctx.session?.uid) {
+    if (!ctx.session) {
       throw new TRPCError({
         code: 'UNAUTHORIZED',
         message: 'Not authenticated',

@@ -1,12 +1,11 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { Permission, UserRole } from '@/lib/auth/types';
-import { ROLE_PERMISSIONS } from '@/lib/auth/types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -25,90 +24,56 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, loading, hasRole, hasPermission } = useAuth();
   const router = useRouter();
-
-  console.log('ProtectedRoute render:', {
-    loading,
-    user: user
-      ? {
-          uid: user.uid,
-          email: user.email,
-          customClaims: user.customClaims,
-        }
-      : null,
-    requiredRole,
-    requiredPermissions,
-  });
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (!loading) {
-      console.log('Auth state settled:', {
-        hasUser: !!user,
-        userDetails: user
-          ? {
-              uid: user.uid,
-              email: user.email,
-              customClaims: user.customClaims,
-            }
-          : null,
-      });
+    if (loading) return;
 
-      if (!user) {
-        console.log('No user found, redirecting to:', redirectTo);
-        router.replace(redirectTo);
-        return;
-      }
-
-      if (requiredRole && !hasRole(requiredRole)) {
-        console.log('User lacks required role:', {
-          required: requiredRole,
-          userRole: user.customClaims?.role,
-        });
-        router.replace('/unauthorized');
-        return;
-      }
-
-      if (requiredPermissions) {
-        const userPermissions = user.customClaims?.role
-          ? ROLE_PERMISSIONS[user.customClaims.role as UserRole]
-          : [];
-        console.log('Checking permissions:', {
-          required: requiredPermissions,
-          userHas: userPermissions,
-        });
-
-        const hasAllPermissions = requiredPermissions.every((permission) =>
-          hasPermission(permission)
-        );
-        if (!hasAllPermissions) {
-          console.log('User lacks required permissions');
-          router.replace('/unauthorized');
-          return;
-        }
-      }
-
-      console.log('Access granted to protected route');
+    if (!user) {
+      router.push(redirectTo);
+      return;
     }
+
+    if (requiredRole && !hasRole(requiredRole)) {
+      router.push('/unauthorized');
+      return;
+    }
+
+    if (requiredPermissions) {
+      const hasAllPermissions = requiredPermissions.every((permission) =>
+        hasPermission(permission)
+      );
+      if (!hasAllPermissions) {
+        router.push('/unauthorized');
+        return;
+      }
+    }
+
+    setIsAuthorized(true);
   }, [
-    loading,
     user,
+    loading,
     requiredRole,
     requiredPermissions,
-    router,
-    redirectTo,
     hasRole,
     hasPermission,
+    router,
+    redirectTo,
   ]);
 
-  if (loading) {
-    console.log('Showing loading spinner');
-    return loadingComponent || <LoadingSpinner />;
+  if (loading || isAuthorized === null) {
+    return (
+      loadingComponent || (
+        <div className="flex items-center justify-center">
+          <LoadingSpinner />
+        </div>
+      )
+    );
   }
 
-  if (!user) {
-    console.log('No user, rendering null');
+  if (!isAuthorized) {
     return null;
   }
 
-  console.log('Rendering protected content');
-  return <>{children}</>;
+  return <div data-testid="protected-content">{children}</div>;
 }

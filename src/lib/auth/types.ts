@@ -195,6 +195,13 @@ export interface AuthContextType {
   loading: boolean;
   hasRole: (role: UserRole) => boolean;
   hasPermission: (permission: Permission) => boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithGithub: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  isOnline: boolean;
 }
 
 export interface Session {

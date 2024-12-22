@@ -38,10 +38,14 @@ describe('SignUpForm', () => {
 
     render(<SignUpForm />);
 
-    const displayNameInput = screen.getByTestId('displayname-input').querySelector('input');
+    const displayNameInput = screen
+      .getByTestId('displayname-input')
+      .querySelector('input');
     const emailInput = screen.getByTestId('email-input').querySelector('input');
     const passwordInput = screen.getByTestId('password-input').querySelector('input');
-    const confirmPasswordInput = screen.getByTestId('confirm-password-input').querySelector('input');
+    const confirmPasswordInput = screen
+      .getByTestId('confirm-password-input')
+      .querySelector('input');
 
     if (!displayNameInput || !emailInput || !passwordInput || !confirmPasswordInput) {
       throw new Error('Required inputs not found');
@@ -56,10 +60,7 @@ describe('SignUpForm', () => {
     fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(mockSignUp).toHaveBeenCalledWith(
-        'test@example.com',
-        'password123'
-      );
+      expect(mockSignUp).toHaveBeenCalledWith('test@example.com', 'password123');
       expect(mockPush).toHaveBeenCalledWith('/dashboard');
     });
   });
@@ -69,7 +70,9 @@ describe('SignUpForm', () => {
 
     const emailInput = screen.getByTestId('email-input').querySelector('input');
     const passwordInput = screen.getByTestId('password-input').querySelector('input');
-    const confirmPasswordInput = screen.getByTestId('confirm-password-input').querySelector('input');
+    const confirmPasswordInput = screen
+      .getByTestId('confirm-password-input')
+      .querySelector('input');
 
     if (!emailInput || !passwordInput || !confirmPasswordInput) {
       throw new Error('Required inputs not found');
@@ -83,7 +86,9 @@ describe('SignUpForm', () => {
     fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(screen.getByTestId('error-alert')).toHaveTextContent('Passwords do not match');
+      expect(screen.getByTestId('error-alert')).toHaveTextContent(
+        'Passwords do not match'
+      );
     });
   });
 
@@ -94,7 +99,9 @@ describe('SignUpForm', () => {
 
     const emailInput = screen.getByTestId('email-input').querySelector('input');
     const passwordInput = screen.getByTestId('password-input').querySelector('input');
-    const confirmPasswordInput = screen.getByTestId('confirm-password-input').querySelector('input');
+    const confirmPasswordInput = screen
+      .getByTestId('confirm-password-input')
+      .querySelector('input');
 
     if (!emailInput || !passwordInput || !confirmPasswordInput) {
       throw new Error('Required inputs not found');

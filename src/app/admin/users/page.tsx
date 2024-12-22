@@ -171,7 +171,7 @@ export default function UsersPage() {
     if (!deletingUser) return;
 
     try {
-      await deleteUserMutation.mutateAsync();
+      await deleteUserMutation.mutateAsync({ id: deletingUser.id });
       setDeletingUser(null);
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -192,7 +192,7 @@ export default function UsersPage() {
     data: { email?: string; displayName?: string; photoURL?: string }
   ) => {
     try {
-      await updateUserMutation.mutateAsync(data);
+      await updateUserMutation.mutateAsync({ id: _user.id, ...data });
     } catch (error) {
       console.error('Error updating user:', error);
       setSnackbar({

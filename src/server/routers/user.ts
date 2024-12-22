@@ -1,8 +1,8 @@
+import { Prisma } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
-import { doc, updateDoc } from 'firebase/firestore';
 import { z } from 'zod';
 
-import { db } from '@/lib/firebase/config';
+import { UserRole } from '@/lib/auth/types';
 
 import { router, protectedProcedure } from '../trpc';
 
@@ -11,12 +11,12 @@ export const userRouter = router({
     if (!ctx.session) {
       throw new TRPCError({
         code: 'UNAUTHORIZED',
-        message: 'You must be logged in to access this resource',
+        message: 'Not authenticated',
       });
     }
 
     const user = await ctx.prisma.user.findUnique({
-      where: { firebaseUid: ctx.session.uid },
+      where: { id: ctx.session.uid },
     });
 
     if (!user) {
@@ -26,66 +26,137 @@ export const userRouter = router({
       });
     }
 
-    // If customDisplayName exists, use it as displayName
-    if (user.customDisplayName) {
-      user.displayName = user.customDisplayName;
-    }
-
     return user;
   }),
 
-  update: protectedProcedure
-    .input(
-      z.object({
-        displayName: z.string().optional(),
-        customDisplayName: z.string().optional(),
-        email: z.string().email().optional(),
-        photoURL: z.string().optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      if (!ctx.session) {
+  getById: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      if (!ctx.session?.role || ctx.session.role !== UserRole.ADMIN) {
         throw new TRPCError({
           code: 'UNAUTHORIZED',
-          message: 'You must be logged in to access this resource',
+          message: 'Not authorized',
         });
       }
 
-      // Update MongoDB
-      const user = await ctx.prisma.user.update({
-        where: { firebaseUid: ctx.session.uid },
-        data: {
-          ...input,
-          // If customDisplayName is provided, use it as displayName too
-          displayName: input.customDisplayName || input.displayName,
-        },
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: input.id },
       });
 
-      // Update Firestore
-      if (input.customDisplayName || input.displayName) {
-        const docRef = doc(db, 'users', ctx.session.uid);
-        await updateDoc(docRef, {
-          displayName: input.customDisplayName || input.displayName,
-          customDisplayName: input.customDisplayName,
-          updatedAt: new Date().toISOString(),
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
         });
       }
 
       return user;
     }),
 
-  delete: protectedProcedure.mutation(async ({ ctx }) => {
-    if (!ctx.session) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: 'You must be logged in to access this resource',
+  update: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        displayName: z.string().optional(),
+        email: z.string().email().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.session) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Not authenticated',
+        });
+      }
+
+      // Check if user exists
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: input.id },
       });
-    }
 
-    await ctx.prisma.user.delete({
-      where: { firebaseUid: ctx.session.uid },
-    });
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
+        });
+      }
 
-    return { success: true };
-  }),
+      // Check if user is authorized to update
+      if (ctx.session.uid !== input.id && ctx.session.role !== UserRole.ADMIN) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Not authorized',
+        });
+      }
+
+      const updatedUser = await ctx.prisma.user.update({
+        where: { id: input.id },
+        data: {
+          displayName: input.displayName,
+          email: input.email,
+        },
+      });
+
+      return updatedUser;
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.session?.role || ctx.session.role !== UserRole.ADMIN) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Not authorized',
+        });
+      }
+
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: input.id },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
+        });
+      }
+
+      return ctx.prisma.user.delete({
+        where: { id: input.id },
+      });
+    }),
+
+  list: protectedProcedure
+    .input(
+      z
+        .object({
+          limit: z.number().optional(),
+          offset: z.number().optional(),
+          search: z.string().optional(),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      if (!ctx.session?.role || ctx.session.role !== UserRole.ADMIN) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Not authorized',
+        });
+      }
+
+      const where: Prisma.UserWhereInput | undefined = input?.search
+        ? {
+            OR: [
+              { displayName: { contains: input.search, mode: 'insensitive' } },
+              { email: { contains: input.search, mode: 'insensitive' } },
+            ],
+          }
+        : undefined;
+
+      return ctx.prisma.user.findMany({
+        ...(input?.limit && { take: input.limit }),
+        ...(input?.offset && { skip: input.offset }),
+        ...(where && { where }),
+      });
+    }),
 });

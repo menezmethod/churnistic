@@ -1,34 +1,27 @@
 import type { PrismaClient } from '@prisma/client';
-import type { DecodedIdToken } from 'firebase-admin/auth';
 import { mockDeep } from 'jest-mock-extended';
+import type { NextRequest } from 'next/server';
+
+import { type Session, UserRole } from '@/lib/auth/types';
 
 import type { Context } from '../context';
 import { appRouter } from '../routers/_app';
 
 describe('tRPC Router', () => {
   const mockPrisma = mockDeep<PrismaClient>();
-  const mockUser: DecodedIdToken = {
+  const mockUser: Session = {
     uid: 'test-uid',
     email: 'test@example.com',
-    aud: 'test-audience',
-    auth_time: Date.now(),
-    exp: Date.now() + 3600,
-    iat: Date.now(),
-    iss: 'https://securetoken.google.com/test-project',
-    sub: 'test-uid',
-    firebase: {
-      identities: {},
-      sign_in_provider: 'custom',
-    },
+    role: UserRole.USER,
   };
 
   const createAuthContext = async (): Promise<Context> => {
     return {
       prisma: mockPrisma,
-      session: {
-        uid: mockUser.uid,
-      },
+      session: mockUser,
       user: mockUser,
+      req: {} as NextRequest,
+      res: undefined,
     };
   };
 
