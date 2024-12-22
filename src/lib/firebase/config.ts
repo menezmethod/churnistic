@@ -1,17 +1,9 @@
-import { type FirebaseApp, getApps, initializeApp } from 'firebase/app';
-import { type Auth, type User, connectAuthEmulator, getAuth } from 'firebase/auth';
-import {
-  type Firestore,
-  connectFirestoreEmulator,
-  getFirestore,
-} from 'firebase/firestore';
-import {
-  type FirebaseStorage,
-  connectStorageEmulator,
-  getStorage,
-} from 'firebase/storage';
+import { getApps, initializeApp } from 'firebase/app';
+import { type User, connectAuthEmulator, getAuth } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import { connectStorageEmulator, getStorage } from 'firebase/storage';
 
-import { type FirebaseError } from '@/types/firebase';
+import { type FirebaseError } from '@/types';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -38,15 +30,6 @@ if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
   console.log('📦 Connecting to Storage Emulator at: localhost:9199');
   connectStorageEmulator(storage, 'localhost', 9199);
 }
-
-interface FirebaseContext {
-  app: FirebaseApp;
-  auth: Auth;
-  db: Firestore;
-  storage: FirebaseStorage;
-}
-
-let firebaseApp: FirebaseContext | undefined;
 
 export async function manageSessionCookie(user: User | null): Promise<void> {
   if (user) {

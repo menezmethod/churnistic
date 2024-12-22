@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 import { verifySession } from '@/lib/auth/session';
 import { getAdminAuth } from '@/lib/firebase/admin-app';
-import { type FirebaseError } from '@/types/firebase';
+import { type FirebaseError } from '@/types';
 
 const SESSION_COOKIE_NAME = 'session';
 const COOKIE_OPTIONS = {
