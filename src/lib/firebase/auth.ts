@@ -160,7 +160,7 @@ export const signInWithGoogle = async (): Promise<AuthResponse> => {
     provider.setCustomParameters({
       prompt: 'select_account',
     });
-    
+
     console.log('Starting Google sign in...');
     const userCredential = await signInWithPopup(auth, provider);
     console.log('Google sign in successful:', {
@@ -168,7 +168,7 @@ export const signInWithGoogle = async (): Promise<AuthResponse> => {
       email: userCredential.user.email,
       displayName: userCredential.user.displayName,
     });
-    
+
     return { user: userCredential.user, error: null };
   } catch (error: unknown) {
     console.error('Google sign in error in auth.ts:', {

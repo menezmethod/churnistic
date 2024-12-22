@@ -100,7 +100,7 @@ async function makeRequest(url: string, options: RequestInit): Promise<Response>
     const response = await fetch(url, options);
     const contentType = response.headers.get('content-type');
     const isJson = contentType && contentType.includes('application/json');
-    
+
     if (!response.ok) {
       const errorData = isJson ? await response.json() : await response.text();
       console.error('Request failed:', {
@@ -135,13 +135,13 @@ export async function manageSessionCookie(user: any) {
       console.log('Starting session creation for user:', {
         email: user.email,
         uid: user.uid,
-        emailVerified: user.emailVerified
+        emailVerified: user.emailVerified,
       });
 
       const idToken = await user.getIdToken(true);
       console.log('ID token obtained successfully:', {
         tokenLength: idToken.length,
-        tokenPrefix: idToken.substring(0, 10) + '...'
+        tokenPrefix: idToken.substring(0, 10) + '...',
       });
 
       console.log('Sending request to session API...');
@@ -156,7 +156,7 @@ export async function manageSessionCookie(user: any) {
       console.log('Session API response received:', {
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
+        headers: Object.fromEntries(response.headers.entries()),
       });
 
       const contentType = response.headers.get('content-type');
@@ -166,7 +166,7 @@ export async function manageSessionCookie(user: any) {
       try {
         const text = await response.text();
         console.log('Raw response text:', text);
-        
+
         try {
           responseData = text ? JSON.parse(text) : {};
           console.log('Parsed response data:', responseData);
@@ -188,12 +188,13 @@ export async function manageSessionCookie(user: any) {
           headers: Object.fromEntries(response.headers.entries()),
         };
         console.error('Session creation failed:', errorDetails);
-        
-        const errorMessage = typeof responseData === 'object' && responseData?.error
-          ? responseData.error
-          : typeof responseData === 'string' && responseData
-            ? responseData
-            : `Session creation failed with status ${response.status}`;
+
+        const errorMessage =
+          typeof responseData === 'object' && responseData?.error
+            ? responseData.error
+            : typeof responseData === 'string' && responseData
+              ? responseData
+              : `Session creation failed with status ${response.status}`;
 
         throw new Error(errorMessage);
       }
@@ -204,7 +205,7 @@ export async function manageSessionCookie(user: any) {
         name: error.name,
         message: error.message,
         stack: error.stack,
-        cause: error.cause
+        cause: error.cause,
       });
       throw error;
     }
@@ -220,7 +221,7 @@ export async function manageSessionCookie(user: any) {
         console.error('Session deletion failed:', {
           status: response.status,
           statusText: response.statusText,
-          error: errorData
+          error: errorData,
         });
         throw new Error('Failed to delete session');
       }
@@ -230,7 +231,7 @@ export async function manageSessionCookie(user: any) {
       console.error('Session deletion error:', {
         name: error.name,
         message: error.message,
-        stack: error.stack
+        stack: error.stack,
       });
       throw error;
     }
