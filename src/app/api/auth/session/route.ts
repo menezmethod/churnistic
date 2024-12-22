@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 
 import { verifySession } from '@/lib/auth/session';
 import { getAdminAuth } from '@/lib/firebase/admin-app';
+import { type FirebaseError } from '@/types/firebase';
 
 const SESSION_COOKIE_NAME = 'session';
 const COOKIE_OPTIONS = {
@@ -57,16 +58,17 @@ export async function POST(request: NextRequest) {
     try {
       auth = getAdminAuth();
       console.log('Session API - Admin auth initialized successfully');
-    } catch (adminError: any) {
+    } catch (error) {
+      const adminError = error as FirebaseError;
       console.error('Session API - Failed to initialize admin auth:', {
-        error: adminError?.message,
-        code: adminError?.code,
-        stack: adminError?.stack,
+        error: adminError.message,
+        code: adminError.code,
+        stack: adminError.stack,
       });
       return NextResponse.json(
         {
           error: 'Firebase admin initialization failed',
-          details: adminError?.message || 'Could not initialize Firebase Admin',
+          details: adminError.message || 'Could not initialize Firebase Admin',
         },
         { status: 500 }
       );
@@ -96,16 +98,17 @@ export async function POST(request: NextRequest) {
         try {
           sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
           console.log('Session API - Session cookie created successfully');
-        } catch (cookieError: any) {
+        } catch (error) {
+          const cookieError = error as FirebaseError;
           console.error('Session API - Failed to create session cookie:', {
-            error: cookieError?.message,
-            code: cookieError?.code,
-            stack: cookieError?.stack,
+            error: cookieError.message,
+            code: cookieError.code,
+            stack: cookieError.stack,
           });
           return NextResponse.json(
             {
               error: 'Failed to create session cookie',
-              details: cookieError?.message || 'Could not create session cookie',
+              details: cookieError.message || 'Could not create session cookie',
             },
             { status: 401 }
           );
@@ -131,33 +134,35 @@ export async function POST(request: NextRequest) {
 
       console.log('Session API - Response prepared successfully');
       return response;
-    } catch (error: any) {
+    } catch (error) {
+      const authError = error as FirebaseError;
       console.error('Session API - Authentication error:', {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack,
-        code: error?.code,
+        name: authError.name,
+        message: authError.message,
+        stack: authError.stack,
+        code: authError.code,
       });
 
       return NextResponse.json(
         {
           error: 'Authentication failed',
-          details: error?.message || 'Failed to authenticate user',
+          details: authError.message || 'Failed to authenticate user',
         },
         { status: 401 }
       );
     }
-  } catch (error: any) {
+  } catch (error) {
+    const serverError = error as Error;
     console.error('Session API - Unexpected error:', {
-      name: error?.name,
-      message: error?.message,
-      stack: error?.stack,
+      name: serverError.name,
+      message: serverError.message,
+      stack: serverError.stack,
     });
 
     return NextResponse.json(
       {
         error: 'Internal server error',
-        details: error?.message || 'An unexpected error occurred',
+        details: serverError.message || 'An unexpected error occurred',
       },
       { status: 500 }
     );
@@ -193,7 +198,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   const response = NextResponse.json({ status: 'success' });
   response.cookies.delete(SESSION_COOKIE_NAME);
   return response;

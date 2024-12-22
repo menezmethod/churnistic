@@ -1,7 +1,17 @@
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { Auth, connectAuthEmulator, getAuth } from 'firebase/auth';
-import { connectFirestoreEmulator, Firestore, getFirestore } from 'firebase/firestore';
-import { connectStorageEmulator, FirebaseStorage, getStorage } from 'firebase/storage';
+import { type FirebaseApp, getApps, initializeApp } from 'firebase/app';
+import { type Auth, type User, connectAuthEmulator, getAuth } from 'firebase/auth';
+import {
+  type Firestore,
+  connectFirestoreEmulator,
+  getFirestore,
+} from 'firebase/firestore';
+import {
+  type FirebaseStorage,
+  connectStorageEmulator,
+  getStorage,
+} from 'firebase/storage';
+
+import { type FirebaseError } from '@/types/firebase';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -38,98 +48,7 @@ interface FirebaseContext {
 
 let firebaseApp: FirebaseContext | undefined;
 
-export function initializeFirebase(): FirebaseContext {
-  if (firebaseApp) {
-    return firebaseApp;
-  }
-
-  const apps = getApps();
-  if (!apps.length) {
-    console.log('🔧 Initializing Firebase with config:', {
-      projectId: firebaseConfig.projectId,
-      useEmulators: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true',
-    });
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const storage = getStorage(app);
-
-    if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-      console.log('🔧 Connecting to Firebase emulators');
-      connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-      connectFirestoreEmulator(db, 'localhost', 8080);
-      connectStorageEmulator(storage, 'localhost', 9199);
-    }
-
-    firebaseApp = { app, auth, db, storage };
-    return firebaseApp;
-  }
-
-  const app = apps[0];
-  firebaseApp = {
-    app,
-    auth: getAuth(app),
-    db: getFirestore(app),
-    storage: getStorage(app),
-  };
-  return firebaseApp;
-}
-
-export function getFirebaseApp(): FirebaseContext {
-  if (!firebaseApp) {
-    return initializeFirebase();
-  }
-  return firebaseApp;
-}
-
-interface SessionResponse {
-  status?: string;
-  error?: string;
-  details?: string;
-  stack?: string;
-  customClaims?: {
-    role: string;
-    permissions: string[];
-    isSuperAdmin: boolean;
-  };
-}
-
-async function makeRequest(url: string, options: RequestInit): Promise<Response> {
-  try {
-    const response = await fetch(url, options);
-    const contentType = response.headers.get('content-type');
-    const isJson = contentType && contentType.includes('application/json');
-
-    if (!response.ok) {
-      const errorData = isJson ? await response.json() : await response.text();
-      console.error('Request failed:', {
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        contentType,
-        errorData,
-        headers: Object.fromEntries(response.headers.entries()),
-      });
-      throw new Error(
-        isJson && typeof errorData === 'object' && 'details' in errorData
-          ? String(errorData.details)
-          : `Request failed: ${response.status} ${response.statusText}`
-      );
-    }
-
-    return response;
-  } catch (error) {
-    console.error('Network request failed:', {
-      url,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    throw error;
-  }
-}
-
-export async function manageSessionCookie(user: any) {
+export async function manageSessionCookie(user: User | null): Promise<void> {
   if (user) {
     try {
       console.log('Starting session creation for user:', {
@@ -167,15 +86,10 @@ export async function manageSessionCookie(user: any) {
         const text = await response.text();
         console.log('Raw response text:', text);
 
-        try {
-          responseData = text ? JSON.parse(text) : {};
-          console.log('Parsed response data:', responseData);
-        } catch (parseError) {
-          console.log('Failed to parse response as JSON:', text);
-          responseData = text;
-        }
-      } catch (readError) {
-        console.error('Error reading response:', readError);
+        responseData = text ? JSON.parse(text) : {};
+        console.log('Parsed response data:', responseData);
+      } catch (error) {
+        console.error('Error reading response:', error);
         responseData = null;
       }
 
@@ -201,11 +115,12 @@ export async function manageSessionCookie(user: any) {
 
       console.log('Session created successfully:', responseData);
     } catch (error) {
+      const sessionError = error as FirebaseError;
       console.error('Session management error:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-        cause: error.cause,
+        name: sessionError.name,
+        message: sessionError.message,
+        stack: sessionError.stack,
+        cause: sessionError.cause,
       });
       throw error;
     }
@@ -228,10 +143,11 @@ export async function manageSessionCookie(user: any) {
 
       console.log('Session deleted successfully');
     } catch (error) {
+      const deleteError = error as Error;
       console.error('Session deletion error:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
+        name: deleteError.name,
+        message: deleteError.message,
+        stack: deleteError.stack,
       });
       throw error;
     }
