@@ -3,8 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-import { useSession } from '@/lib/hooks/useSession';
 import { FirebaseAuth } from '@/components/FirebaseAuth';
+import { useSession } from '@/lib/hooks/useSession';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,4 +17,4 @@ export default function LoginPage() {
   }, [isLoading, isAuthenticated, router]);
 
   return <FirebaseAuth />;
-} 
+}

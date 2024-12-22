@@ -26,7 +26,10 @@ export async function verifySession(sessionCookie: string): Promise<SessionData 
       try {
         // In emulator mode, verify the ID token directly
         decodedToken = await auth.verifyIdToken(sessionCookie);
-        console.log('Session token verified in emulator mode for user:', decodedToken.uid);
+        console.log(
+          'Session token verified in emulator mode for user:',
+          decodedToken.uid
+        );
       } catch (error) {
         console.error('Failed to verify token in emulator mode:', error);
         return null;
@@ -57,4 +60,3 @@ export async function verifySession(sessionCookie: string): Promise<SessionData 
     return null;
   }
 }
-

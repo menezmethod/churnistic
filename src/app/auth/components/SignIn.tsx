@@ -150,7 +150,7 @@ export function SignIn(): JSX.Element {
           message: error.message,
           originalError: error.originalError,
         });
-        
+
         // Handle specific error cases
         if (error.code === 'auth/popup-closed-by-user') {
           setEmailError(true);

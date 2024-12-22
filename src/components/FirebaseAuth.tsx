@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { GoogleAuthProvider } from 'firebase/auth';
-import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth';
-import { useRouter } from 'next/navigation';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth';
 
 import { auth, db } from '@/lib/firebase/client-app';
 import { manageSessionCookie } from '@/lib/firebase/config';
@@ -76,4 +76,4 @@ export function FirebaseAuth() {
       <StyledFirebaseAuth uiConfig={uiConfig} firebaseAuth={auth} />
     </Box>
   );
-} 
+}

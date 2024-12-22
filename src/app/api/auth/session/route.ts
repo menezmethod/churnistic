@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { UserRole } from '@/lib/auth/AuthContext';
 import { verifySession } from '@/lib/auth/session';
 import { getAdminAuth } from '@/lib/firebase/admin-app';
 
@@ -17,7 +16,7 @@ const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 export async function POST(request: NextRequest) {
   try {
     console.log('Session API - Received POST request');
-    
+
     // Log environment variables (safely)
     console.log('Session API - Environment check:', {
       useEmulators: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true',
@@ -25,13 +24,13 @@ export async function POST(request: NextRequest) {
       hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
       nodeEnv: process.env.NODE_ENV,
     });
-    
+
     let body;
     try {
       body = await request.json();
       console.log('Session API - Request body parsed:', {
         idToken: body.idToken ? `${body.idToken.substring(0, 10)}...` : 'missing',
-        bodyKeys: Object.keys(body)
+        bodyKeys: Object.keys(body),
       });
     } catch (parseError) {
       console.error('Session API - Failed to parse request body:', parseError);
@@ -45,7 +44,10 @@ export async function POST(request: NextRequest) {
     if (!idToken) {
       console.error('Session API - No ID token provided in request');
       return NextResponse.json(
-        { error: 'No ID token provided', details: 'ID token is required in request body' },
+        {
+          error: 'No ID token provided',
+          details: 'ID token is required in request body',
+        },
         { status: 400 }
       );
     }
@@ -62,9 +64,9 @@ export async function POST(request: NextRequest) {
         stack: adminError?.stack,
       });
       return NextResponse.json(
-        { 
+        {
           error: 'Firebase admin initialization failed',
-          details: adminError?.message || 'Could not initialize Firebase Admin'
+          details: adminError?.message || 'Could not initialize Firebase Admin',
         },
         { status: 500 }
       );
@@ -84,7 +86,9 @@ export async function POST(request: NextRequest) {
       let sessionCookie;
 
       if (useEmulators) {
-        console.log('Session API - Using emulator mode, using ID token as session cookie');
+        console.log(
+          'Session API - Using emulator mode, using ID token as session cookie'
+        );
         // In emulator mode, use the ID token directly
         sessionCookie = idToken;
       } else {
@@ -99,9 +103,9 @@ export async function POST(request: NextRequest) {
             stack: cookieError?.stack,
           });
           return NextResponse.json(
-            { 
+            {
               error: 'Failed to create session cookie',
-              details: cookieError?.message || 'Could not create session cookie'
+              details: cookieError?.message || 'Could not create session cookie',
             },
             { status: 401 }
           );
@@ -109,16 +113,16 @@ export async function POST(request: NextRequest) {
       }
 
       // Create the response with the session cookie
-      const response = NextResponse.json({ 
+      const response = NextResponse.json({
         status: 'success',
         user: {
           uid: decodedToken.uid,
           email: decodedToken.email,
           emailVerified: decodedToken.email_verified,
           role: decodedToken.role || 'user',
-        }
+        },
       });
-      
+
       // Set the cookie in the response
       response.cookies.set(SESSION_COOKIE_NAME, sessionCookie, {
         ...COOKIE_OPTIONS,
@@ -136,9 +140,9 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json(
-        { 
+        {
           error: 'Authentication failed',
-          details: error?.message || 'Failed to authenticate user'
+          details: error?.message || 'Failed to authenticate user',
         },
         { status: 401 }
       );
@@ -151,9 +155,9 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
-        details: error?.message || 'An unexpected error occurred'
+        details: error?.message || 'An unexpected error occurred',
       },
       { status: 500 }
     );
@@ -163,7 +167,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-    
+
     if (!sessionCookie) {
       return NextResponse.json({ user: null }, { status: 401 });
     }
@@ -181,7 +185,7 @@ export async function GET(request: NextRequest) {
         emailVerified: sessionData.email_verified,
         displayName: sessionData.name,
         photoURL: sessionData.picture,
-      }
+      },
     });
   } catch (error) {
     console.error('Error getting session:', error);
