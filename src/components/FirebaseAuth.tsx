@@ -1,7 +1,7 @@
 'use client';
 
 import { Box, CircularProgress } from '@mui/material';
-import { GoogleAuthProvider } from 'firebase/auth';
+import { GoogleAuthProvider, UserCredential } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -23,41 +23,45 @@ export function FirebaseAuth() {
     signInOptions: [GoogleAuthProvider.PROVIDER_ID],
     signInFlow: 'popup',
     callbacks: {
-      signInSuccessWithAuthResult: async (authResult) => {
-        try {
-          const { user } = authResult;
+      signInSuccessWithAuthResult: (authResult: UserCredential): boolean => {
+        // Handle the sign-in success
+        (async () => {
+          try {
+            const { user } = authResult;
 
-          // Get or create user profile
-          const userRef = doc(db, 'users', user.uid);
-          const userSnap = await getDoc(userRef);
+            // Get or create user profile
+            const userRef = doc(db, 'users', user.uid);
+            const userSnap = await getDoc(userRef);
 
-          if (!userSnap.exists()) {
-            const newProfile: UserProfile = {
-              id: user.uid,
-              role: 'user',
-              email: user.email || '',
-              status: 'active',
-              displayName: user.displayName || user.email?.split('@')[0] || '',
-              customDisplayName: user.displayName || user.email?.split('@')[0] || '',
-              photoURL: user.photoURL || '',
-              firebaseUid: user.uid,
-              creditScore: null,
-              monthlyIncome: null,
-              businessVerified: false,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              householdId: null,
-            };
-            await setDoc(userRef, newProfile);
+            if (!userSnap.exists()) {
+              const newProfile: UserProfile = {
+                id: user.uid,
+                role: 'user',
+                email: user.email || '',
+                status: 'active',
+                displayName: user.displayName || user.email?.split('@')[0] || '',
+                customDisplayName: user.displayName || user.email?.split('@')[0] || '',
+                photoURL: user.photoURL || '',
+                firebaseUid: user.uid,
+                creditScore: null,
+                monthlyIncome: null,
+                businessVerified: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                householdId: null,
+              };
+              await setDoc(userRef, newProfile);
+            }
+
+            // Create session
+            await manageSessionCookie(user);
+
+            router.push('/dashboard');
+          } catch (error) {
+            console.error('Authentication error:', error);
           }
+        })();
 
-          // Create session
-          await manageSessionCookie(user);
-
-          router.push('/dashboard');
-        } catch (error) {
-          console.error('Authentication error:', error);
-        }
         return false;
       },
     },

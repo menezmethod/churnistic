@@ -1,6 +1,7 @@
 import { getApps, initializeApp } from 'firebase/app';
 import { type User, connectAuthEmulator, getAuth } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
 import { connectStorageEmulator, getStorage } from 'firebase/storage';
 
 import { type FirebaseError } from '@/types';
@@ -19,6 +20,7 @@ const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app);
 
 // Connect to emulators if enabled
 if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
@@ -29,6 +31,8 @@ if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
   connectFirestoreEmulator(db, 'localhost', 8080);
   console.log('📦 Connecting to Storage Emulator at: localhost:9199');
   connectStorageEmulator(storage, 'localhost', 9199);
+  console.log('⚡ Connecting to Functions Emulator at: localhost:5001');
+  connectFunctionsEmulator(functions, 'localhost', 5001);
 }
 
 export async function manageSessionCookie(user: User | null): Promise<void> {

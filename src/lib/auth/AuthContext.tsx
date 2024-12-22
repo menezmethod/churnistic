@@ -15,33 +15,16 @@ import { signOut } from '@/lib/firebase/auth';
 import { auth } from '@/lib/firebase/client-app';
 import { manageSessionCookie } from '@/lib/firebase/config';
 
-export enum UserRole {
-  ADMIN = 'admin',
-  USER = 'user',
-}
+import { Permission, UserRole } from './types';
 
-export enum Permission {
-  MANAGE_USERS = 'manage_users',
-  MANAGE_ROLES = 'manage_roles',
-  VIEW_ADMIN = 'view_admin',
-}
-
-export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  [UserRole.ADMIN]: [
-    Permission.MANAGE_USERS,
-    Permission.MANAGE_ROLES,
-    Permission.VIEW_ADMIN,
-  ],
-  [UserRole.USER]: [],
-} as const;
-
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
   loading: boolean;
   isOnline: boolean;
   hasRole: (role: UserRole) => boolean;
   hasPermission: (permission: Permission) => boolean;
   signOut: () => Promise<void>;
+  signUp?: (email: string, password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -112,77 +95,59 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       }
 
       // If permissions are missing, get them from the role
-      const userPermissions =
-        user.customClaims.permissions ||
-        (user.customClaims.role ? ROLE_PERMISSIONS[user.customClaims.role] : []);
+      const userPermissions = user.customClaims.permissions || [];
 
-      return userPermissions?.includes(permission) ?? false;
+      return userPermissions.includes(permission);
     },
     [user]
   );
 
-  const handleSignOut = async (): Promise<void> => {
-    try {
-      await signOut();
-      router.push('/auth/signin');
-    } catch (error) {
-      console.error('Error signing out:', error);
-      throw error; // Re-throw to allow handling by the caller
-    }
-  };
-
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          await manageSessionCookie(user);
+          setUser(user);
+        } catch (error) {
+          console.error('Error managing session:', error);
+          setUser(null);
+        }
+      } else {
+        try {
+          await manageSessionCookie(null);
+          setUser(null);
+        } catch (error) {
+          console.error('Error clearing session:', error);
+        }
+      }
+      setLoading(false);
+    });
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      try {
-        if (user) {
-          // Get the ID token result to get custom claims
-          const idTokenResult = await user.getIdTokenResult();
-          // Add custom claims to the user object
-          user.customClaims = {
-            role: idTokenResult.claims.role as UserRole,
-            permissions: idTokenResult.claims.permissions as Permission[],
-            isSuperAdmin: idTokenResult.claims.isSuperAdmin as boolean,
-          };
-          await manageSessionCookie(user);
-          setUser(user);
-        } else {
-          await manageSessionCookie(null);
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Error in auth state change:', error);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    });
-
     return () => {
+      unsubscribe();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      unsubscribe();
     };
-  }, [handleOnline, handleOffline, router]);
+  }, [handleOffline, handleOnline]);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        isOnline,
-        hasRole,
-        hasPermission,
-        signOut: handleSignOut,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = {
+    user,
+    loading,
+    isOnline,
+    hasRole,
+    hasPermission,
+    signOut: async () => {
+      await signOut();
+      router.push('/signin');
+    },
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
+
+export { UserRole };
+

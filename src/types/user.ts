@@ -1,10 +1,10 @@
 import type { User as PrismaUser } from '@prisma/client';
 
-export type User = PrismaUser & {
+export type DatabaseUser = PrismaUser & {
   businessVerified: boolean;
 };
 
-export type UserWithoutPassword = Omit<User, 'password'>;
+export type UserWithoutPassword = Omit<DatabaseUser, 'password'>;
 
 export interface UserProfile {
   id: string;
@@ -42,9 +42,9 @@ export interface UserProfile {
   }[];
 }
 
-export type UserSettings = Pick<User, 'creditScore' | 'monthlyIncome'>;
+export type UserSettings = Pick<DatabaseUser, 'creditScore' | 'monthlyIncome'>;
 
-export type UserWithHousehold = User & {
+export type UserWithHousehold = DatabaseUser & {
   household: {
     id: string;
     name: string;
@@ -53,18 +53,18 @@ export type UserWithHousehold = User & {
 
 export interface User {
   uid: string;
-  email: string | null;
+  email: string;
   displayName: string | null;
   photoURL: string | null;
-  role?: string;
-  customDisplayName?: string;
+  role: string;
+  customDisplayName: string | null;
 }
 
-export interface SessionUser extends User {
-  role?: string;
-  customDisplayName?: string;
-  photoURL: string | null;
-  displayName: string | null;
-  email: string | null;
+export interface SessionUser {
   uid: string;
+  email: string;
+  displayName: string | null;
+  photoURL: string | null;
+  role: string;
+  customDisplayName: string | null;
 }

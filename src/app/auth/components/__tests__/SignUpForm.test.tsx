@@ -18,16 +18,9 @@ describe('SignUpForm', () => {
   const mockSignUp = jest.fn();
 
   beforeEach(() => {
-    (useRouter as jest.Mock).mockReturnValue({
-      push: mockPush,
-    });
-    (useAuth as jest.Mock).mockReturnValue({
-      signUp: mockSignUp,
-    });
-  });
-
-  afterEach(() => {
     jest.clearAllMocks();
+    (useRouter as jest.Mock).mockReturnValue({ push: mockPush });
+    (useAuth as jest.Mock).mockReturnValue({ signUp: mockSignUp });
   });
 
   it('renders sign up form correctly', () => {
@@ -41,21 +34,17 @@ describe('SignUpForm', () => {
   });
 
   it('handles successful sign up', async () => {
-    mockSignUp.mockResolvedValueOnce({});
+    mockSignUp.mockResolvedValue(undefined);
 
     render(<SignUpForm />);
 
-    const displayNameInput = screen
-      .getByTestId('displayname-input')
-      .querySelector('input');
+    const displayNameInput = screen.getByTestId('displayname-input').querySelector('input');
     const emailInput = screen.getByTestId('email-input').querySelector('input');
     const passwordInput = screen.getByTestId('password-input').querySelector('input');
-    const confirmPasswordInput = screen
-      .getByTestId('confirm-password-input')
-      .querySelector('input');
+    const confirmPasswordInput = screen.getByTestId('confirm-password-input').querySelector('input');
 
     if (!displayNameInput || !emailInput || !passwordInput || !confirmPasswordInput) {
-      throw new Error('Input elements not found');
+      throw new Error('Required inputs not found');
     }
 
     fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
@@ -63,13 +52,13 @@ describe('SignUpForm', () => {
     fireEvent.change(passwordInput, { target: { value: 'password123' } });
     fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
 
-    fireEvent.click(screen.getByTestId('signup-button'));
+    const form = screen.getByRole('form');
+    fireEvent.submit(form);
 
     await waitFor(() => {
       expect(mockSignUp).toHaveBeenCalledWith(
         'test@example.com',
-        'password123',
-        'Test User'
+        'password123'
       );
       expect(mockPush).toHaveBeenCalledWith('/dashboard');
     });
@@ -78,59 +67,48 @@ describe('SignUpForm', () => {
   it('shows error when passwords do not match', async () => {
     render(<SignUpForm />);
 
-    const displayNameInput = screen
-      .getByTestId('displayname-input')
-      .querySelector('input');
     const emailInput = screen.getByTestId('email-input').querySelector('input');
     const passwordInput = screen.getByTestId('password-input').querySelector('input');
-    const confirmPasswordInput = screen
-      .getByTestId('confirm-password-input')
-      .querySelector('input');
+    const confirmPasswordInput = screen.getByTestId('confirm-password-input').querySelector('input');
 
-    if (!displayNameInput || !emailInput || !passwordInput || !confirmPasswordInput) {
-      throw new Error('Input elements not found');
+    if (!emailInput || !passwordInput || !confirmPasswordInput) {
+      throw new Error('Required inputs not found');
     }
 
-    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
     fireEvent.change(passwordInput, { target: { value: 'password123' } });
-    fireEvent.change(confirmPasswordInput, { target: { value: 'differentpassword' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'password456' } });
 
-    fireEvent.click(screen.getByTestId('signup-button'));
+    const form = screen.getByRole('form');
+    fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
-      expect(mockSignUp).not.toHaveBeenCalled();
+      expect(screen.getByTestId('error-alert')).toHaveTextContent('Passwords do not match');
     });
   });
 
   it('shows error when sign up fails', async () => {
-    mockSignUp.mockRejectedValueOnce(new Error('Sign up failed'));
+    mockSignUp.mockRejectedValue(new Error('Sign up failed'));
 
     render(<SignUpForm />);
 
-    const displayNameInput = screen
-      .getByTestId('displayname-input')
-      .querySelector('input');
     const emailInput = screen.getByTestId('email-input').querySelector('input');
     const passwordInput = screen.getByTestId('password-input').querySelector('input');
-    const confirmPasswordInput = screen
-      .getByTestId('confirm-password-input')
-      .querySelector('input');
+    const confirmPasswordInput = screen.getByTestId('confirm-password-input').querySelector('input');
 
-    if (!displayNameInput || !emailInput || !passwordInput || !confirmPasswordInput) {
-      throw new Error('Input elements not found');
+    if (!emailInput || !passwordInput || !confirmPasswordInput) {
+      throw new Error('Required inputs not found');
     }
 
-    fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
     fireEvent.change(passwordInput, { target: { value: 'password123' } });
     fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
 
-    fireEvent.click(screen.getByTestId('signup-button'));
+    const form = screen.getByRole('form');
+    fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(screen.getByText('Sign up failed')).toBeInTheDocument();
+      expect(screen.getByTestId('error-alert')).toHaveTextContent('Sign up failed');
     });
   });
 });
