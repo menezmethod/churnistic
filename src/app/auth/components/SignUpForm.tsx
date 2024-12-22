@@ -36,7 +36,10 @@ export default function SignUpForm() {
 
     setLoading(true);
     try {
-      await signUp(formData.email, formData.password, formData.displayName);
+      if (!signUp) {
+        throw new Error('Sign up function not available');
+      }
+      await signUp(formData.email, formData.password);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during sign up');
@@ -49,6 +52,7 @@ export default function SignUpForm() {
     <Box
       component="form"
       onSubmit={handleSubmit}
+      role="form"
       sx={{
         display: 'flex',
         flexDirection: 'column',

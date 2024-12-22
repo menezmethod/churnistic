@@ -1,133 +1,142 @@
-import { initializeApp, getApps } from 'firebase/app';
-import {
-  getAuth,
-  connectAuthEmulator,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-} from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
-import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getApps, initializeApp } from 'firebase/app';
+import { type User, connectAuthEmulator, getAuth } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
+import { connectStorageEmulator, getStorage } from 'firebase/storage';
+
+import { type FirebaseError } from '@/types';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic',
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase if it hasn't been initialized yet
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
-
-// Get Firebase services
+// Initialize Firebase Auth
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const functions = getFunctions(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app);
 
-// Check if we're in development mode and should use emulators
-const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-
-if (useEmulators) {
+// Connect to emulators if enabled
+if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
   console.log('🔧 Using Firebase Emulator Suite');
-
-  // Auth Emulator
-  const authEmulatorHost = 'localhost';
-  const authEmulatorPort = 9099;
-  connectAuthEmulator(auth, `http://${authEmulatorHost}:${authEmulatorPort}`, {
-    disableWarnings: false,
-  });
-  console.log(
-    `🔑 Connecting to Auth Emulator at: ${authEmulatorHost}:${authEmulatorPort}`
-  );
-
-  // Functions Emulator
-  const functionsEmulatorHost = 'localhost';
-  const functionsEmulatorPort = 5001;
-  connectFunctionsEmulator(functions, functionsEmulatorHost, functionsEmulatorPort);
-  console.log('⚡ Connecting to Functions Emulator');
-
-  // Firestore Emulator
-  const firestoreEmulatorHost = 'localhost';
-  const firestoreEmulatorPort = 8080;
-  connectFirestoreEmulator(db, firestoreEmulatorHost, firestoreEmulatorPort);
-  console.log('📚 Connecting to Firestore Emulator');
-
-  // Storage Emulator
-  const storageEmulatorHost = 'localhost';
-  const storageEmulatorPort = 9199;
-  connectStorageEmulator(storage, storageEmulatorHost, storageEmulatorPort);
-  console.log('📦 Connecting to Storage Emulator');
+  console.log('🔑 Connecting to Auth Emulator at: localhost:9099');
+  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+  console.log('📚 Connecting to Firestore Emulator at: localhost:8080');
+  connectFirestoreEmulator(db, 'localhost', 8080);
+  console.log('📦 Connecting to Storage Emulator at: localhost:9199');
+  connectStorageEmulator(storage, 'localhost', 9199);
+  console.log('⚡ Connecting to Functions Emulator at: localhost:5001');
+  connectFunctionsEmulator(functions, 'localhost', 5001);
 }
 
-// Helper function to check if we're in a browser environment
-const isBrowser = typeof window !== 'undefined';
+export async function manageSessionCookie(user: User | null): Promise<void> {
+  if (user) {
+    try {
+      console.log('Starting session creation for user:', {
+        email: user.email,
+        uid: user.uid,
+        emailVerified: user.emailVerified,
+      });
 
-// Helper function to manage session cookie
-const manageSessionCookie = async (token: string | null) => {
-  if (!isBrowser) return;
+      const idToken = await user.getIdToken(true);
+      console.log('ID token obtained successfully:', {
+        tokenLength: idToken.length,
+        tokenPrefix: idToken.substring(0, 10) + '...',
+      });
 
-  try {
-    if (token) {
-      // Set session cookie
+      console.log('Sending request to session API...');
       const response = await fetch('/api/auth/session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idToken }),
       });
-      if (!response.ok) {
-        throw new Error('Failed to set session cookie');
-      }
-    } else {
-      // Clear session cookie
-      await fetch('/api/auth/session', { method: 'DELETE' });
-    }
-  } catch (error) {
-    console.error('Error managing session cookie:', error);
-  }
-};
 
-// Auth state observer
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    console.log('👤 User signed in:', user.email);
-    // Get the ID token and set session cookie
-    try {
-      const token = await user.getIdToken();
-      await manageSessionCookie(token);
+      console.log('Session API response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+      });
+
+      const contentType = response.headers.get('content-type');
+      console.log('Response content type:', contentType);
+
+      let responseData;
+      try {
+        const text = await response.text();
+        console.log('Raw response text:', text);
+
+        responseData = text ? JSON.parse(text) : {};
+        console.log('Parsed response data:', responseData);
+      } catch (error) {
+        console.error('Error reading response:', error);
+        responseData = null;
+      }
+
+      if (!response.ok) {
+        const errorDetails = {
+          status: response.status,
+          statusText: response.statusText,
+          contentType,
+          responseData,
+          headers: Object.fromEntries(response.headers.entries()),
+        };
+        console.error('Session creation failed:', errorDetails);
+
+        const errorMessage =
+          typeof responseData === 'object' && responseData?.error
+            ? responseData.error
+            : typeof responseData === 'string' && responseData
+              ? responseData
+              : `Session creation failed with status ${response.status}`;
+
+        throw new Error(errorMessage);
+      }
+
+      console.log('Session created successfully:', responseData);
     } catch (error) {
-      console.error('Error getting ID token:', error);
+      const sessionError = error as FirebaseError;
+      console.error('Session management error:', {
+        name: sessionError.name,
+        message: sessionError.message,
+        stack: sessionError.stack,
+        cause: sessionError.cause,
+      });
+      throw error;
     }
   } else {
-    console.log('👋 User signed out');
-    // Clear the session cookie
-    await manageSessionCookie(null);
-  }
-});
+    try {
+      console.log('Attempting to delete session...');
+      const response = await fetch('/api/auth/session', {
+        method: 'DELETE',
+      });
 
-// Sign in helper function
-export const signIn = async (email: string, password: string) => {
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return userCredential.user;
-  } catch (error) {
-    console.error('Error signing in:', error);
-    throw error;
-  }
-};
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Session deletion failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        });
+        throw new Error('Failed to delete session');
+      }
 
-// Sign out helper function
-export const signOut = async () => {
-  try {
-    await firebaseSignOut(auth);
-    await manageSessionCookie(null);
-  } catch (error) {
-    console.error('Error signing out:', error);
-    throw error;
+      console.log('Session deleted successfully');
+    } catch (error) {
+      const deleteError = error as Error;
+      console.error('Session deletion error:', {
+        name: deleteError.name,
+        message: deleteError.message,
+        stack: deleteError.stack,
+      });
+      throw error;
+    }
   }
-};
-
-export default app;
+}

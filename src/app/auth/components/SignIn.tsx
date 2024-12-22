@@ -145,12 +145,38 @@ export function SignIn(): JSX.Element {
     try {
       const { error } = await signInWithGoogle();
       if (error) {
+        console.error('Google sign in error:', {
+          code: error.code,
+          message: error.message,
+          originalError: error.originalError,
+        });
+
+        // Handle specific error cases
+        if (error.code === 'auth/popup-closed-by-user') {
+          setEmailError(true);
+          setEmailErrorMessage('Sign in was cancelled. Please try again.');
+        } else if (error.code === 'auth/popup-blocked') {
+          setEmailError(true);
+          setEmailErrorMessage('Pop-up was blocked. Please allow pop-ups and try again.');
+        } else if (error.code === 'auth/unauthorized-domain') {
+          setEmailError(true);
+          setEmailErrorMessage('This domain is not authorized for Google sign-in.');
+        } else {
+          setEmailError(true);
+          setEmailErrorMessage(`Google sign in failed: ${error.message}`);
+        }
         throw error;
       }
     } catch (error) {
-      console.error('Google sign in error:', error);
-      setEmailError(true);
-      setEmailErrorMessage('An error occurred with Google sign in. Please try again.');
+      console.error('Google sign in error:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      if (!emailError) {
+        setEmailError(true);
+        setEmailErrorMessage('An error occurred with Google sign in. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

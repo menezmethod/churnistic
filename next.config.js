@@ -3,6 +3,19 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        stream: false,
+        crypto: false,
+        fs: false,
+        os: false,
+        path: false,
+      };
+    }
+    return config;
+  },
   headers: async () => [
     {
       source: '/:path*',
@@ -38,8 +51,6 @@ const nextConfig = {
       ],
     },
   ],
-  // Enable SWC minification
-  swcMinify: true,
   // Optimize images
   images: {
     domains: ['firebasestorage.googleapis.com'],
