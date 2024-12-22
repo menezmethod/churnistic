@@ -40,7 +40,8 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
 
-import { useAuth, UserRole } from '@/lib/auth/AuthContext';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { UserRole } from '@/lib/auth/types';
 
 interface MenuItemType {
   text: string;
