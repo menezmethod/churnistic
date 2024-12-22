@@ -36,6 +36,30 @@ describe('AppNavbar', () => {
     expect(screen.getByText('Churnistic')).toBeInTheDocument();
   });
 
+  it('shows sign in and sign up buttons when logged out', () => {
+    render(<AppNavbar />);
+    expect(screen.getByText('Sign In')).toBeInTheDocument();
+    expect(screen.getByText('Sign Up')).toBeInTheDocument();
+  });
+
+  it('shows sign up link in drawer when logged out', () => {
+    render(<AppNavbar />);
+    const menuButton = screen.getByLabelText('open drawer');
+    fireEvent.click(menuButton);
+    const signUpLinks = screen.getAllByText('Sign Up');
+    expect(signUpLinks.length).toBeGreaterThan(0);
+  });
+
+  it('hides protected menu items when logged out', () => {
+    render(<AppNavbar />);
+    const menuButton = screen.getByLabelText('open drawer');
+    fireEvent.click(menuButton);
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.queryByText('Credit Cards')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bank Accounts')).not.toBeInTheDocument();
+    expect(screen.queryByText('Investments')).not.toBeInTheDocument();
+  });
+
   it('renders user avatar when user is logged in', () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: {
@@ -50,11 +74,24 @@ describe('AppNavbar', () => {
     expect(screen.getByLabelText('account menu')).toBeInTheDocument();
   });
 
-  it('opens drawer when menu button is clicked', () => {
+  it('shows protected menu items when logged in', () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      user: {
+        email: 'test@example.com',
+        photoURL: null,
+      },
+      signOut: mockSignOut,
+      hasRole: (role: UserRole) => role === UserRole.USER,
+    });
+
     render(<AppNavbar />);
     const menuButton = screen.getByLabelText('open drawer');
     fireEvent.click(menuButton);
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Credit Cards')).toBeInTheDocument();
+    expect(screen.getByText('Bank Accounts')).toBeInTheDocument();
+    expect(screen.getByText('Investments')).toBeInTheDocument();
+    expect(screen.queryByText('Sign Up')).not.toBeInTheDocument();
   });
 
   it('shows admin menu items when user is admin', () => {

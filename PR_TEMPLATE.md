@@ -34,4 +34,4 @@ This PR establishes a comprehensive test suite for the application, including un
 - [x] I have made corresponding changes to the documentation
 - [x] My changes generate no new warnings
 - [x] I have added tests that prove my fix is effective
-- [x] New and existing unit tests pass locally with my changes
+- [x] New and existing unit tests pass locally with my changes 

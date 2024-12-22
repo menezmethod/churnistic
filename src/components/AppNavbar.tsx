@@ -16,6 +16,8 @@ import {
   TrendingUp,
   Assessment,
   Help,
+  PersonAdd,
+  Login,
 } from '@mui/icons-material';
 import {
   AppBar,
@@ -35,6 +37,7 @@ import {
   Divider,
   Badge,
   useTheme,
+  Button,
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
@@ -50,26 +53,47 @@ interface MenuItemType {
   badge?: number;
   roles?: UserRole[];
   description?: string;
+  requiresAuth?: boolean;
+  hideWhenAuth?: boolean;
 }
 
 const mainMenuItems: MenuItemType[] = [
-  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard', requiresAuth: true },
   {
     text: 'Credit Cards',
     icon: <CreditCard />,
     path: '/cards',
-    badge: 2, // For new card offers
+    badge: 2,
+    requiresAuth: true,
   },
   {
     text: 'Bank Accounts',
     icon: <AccountBalance />,
     path: '/bank-accounts',
-    badge: 1, // For new bank bonuses
+    badge: 1,
+    requiresAuth: true,
   },
   {
     text: 'Investments',
     icon: <TrendingUp />,
     path: '/investments',
+    requiresAuth: true,
+  },
+  {
+    text: 'Sign Up',
+    icon: <PersonAdd />,
+    path: '/auth/signup',
+    requiresAuth: false,
+    hideWhenAuth: true,
+    description: 'Create a new account',
+  },
+  {
+    text: 'Sign In',
+    icon: <Login />,
+    path: '/auth/signin',
+    requiresAuth: false,
+    hideWhenAuth: true,
+    description: 'Access your account',
   },
 ];
 
@@ -115,6 +139,7 @@ const accountMenuItems: MenuItemType[] = [
     icon: <Settings />,
     path: '/settings',
     description: 'Profile, preferences, and security',
+    requiresAuth: true,
   },
   {
     text: 'Help & Support',
@@ -169,6 +194,11 @@ export default function AppNavbar() {
       return null;
     }
 
+    // Check if the item requires authentication
+    if (item.requiresAuth && !user) {
+      return null;
+    }
+
     return (
       <ListItem key={item.text} disablePadding>
         <ListItemButton
@@ -208,31 +238,37 @@ export default function AppNavbar() {
           MAIN MENU
         </Typography>
       </Box>
-      {mainMenuItems.map(renderMenuItem)}
+      {mainMenuItems
+        .filter((item) => (!item.hideWhenAuth || !user) && (!item.requiresAuth || user))
+        .map(renderMenuItem)}
 
-      <Divider sx={{ my: 2 }} />
-
-      {(isAdmin || isAnalyst) && (
+      {user && (
         <>
-          <Box sx={{ mb: 2, px: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              ANALYTICS
-            </Typography>
-          </Box>
-          {analyticsMenuItems.map(renderMenuItem)}
           <Divider sx={{ my: 2 }} />
-        </>
-      )}
 
-      {isAdmin && (
-        <>
-          <Box sx={{ mb: 2, px: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              ADMINISTRATION
-            </Typography>
-          </Box>
-          {managementMenuItems.map(renderMenuItem)}
-          <Divider sx={{ my: 2 }} />
+          {(isAdmin || isAnalyst) && (
+            <>
+              <Box sx={{ mb: 2, px: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  ANALYTICS
+                </Typography>
+              </Box>
+              {analyticsMenuItems.map(renderMenuItem)}
+              <Divider sx={{ my: 2 }} />
+            </>
+          )}
+
+          {isAdmin && (
+            <>
+              <Box sx={{ mb: 2, px: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  ADMINISTRATION
+                </Typography>
+              </Box>
+              {managementMenuItems.map(renderMenuItem)}
+              <Divider sx={{ my: 2 }} />
+            </>
+          )}
         </>
       )}
 
@@ -241,7 +277,9 @@ export default function AppNavbar() {
           ACCOUNT
         </Typography>
       </Box>
-      {accountMenuItems.map(renderMenuItem)}
+      {accountMenuItems
+        .filter((item) => !item.requiresAuth || user)
+        .map(renderMenuItem)}
     </>
   );
 
@@ -270,7 +308,7 @@ export default function AppNavbar() {
             variant="h6"
             noWrap
             component={Link}
-            href="/dashboard"
+            href={user ? '/dashboard' : '/'}
             sx={{
               flexGrow: 1,
               textDecoration: 'none',
@@ -282,165 +320,210 @@ export default function AppNavbar() {
           </Typography>
 
           {/* Notifications */}
-          <IconButton
-            size="large"
-            aria-label="show notifications"
-            aria-controls="notifications-menu"
-            aria-haspopup="true"
-            onClick={handleNotificationsMenu}
-            color="inherit"
-            sx={{ mr: 1 }}
-          >
-            <Badge badgeContent={3} color="error">
-              <Notifications />
-            </Badge>
-          </IconButton>
+          {user && (
+            <IconButton
+              size="large"
+              aria-label="show notifications"
+              aria-controls="notifications-menu"
+              aria-haspopup="true"
+              onClick={handleNotificationsMenu}
+              color="inherit"
+              sx={{ mr: 1 }}
+            >
+              <Badge badgeContent={3} color="error">
+                <Notifications />
+              </Badge>
+            </IconButton>
+          )}
 
           {/* User Menu */}
-          <IconButton
-            size="large"
-            aria-label="account menu"
-            aria-controls="menu-appbar"
-            aria-haspopup="true"
-            onClick={handleMenu}
-            color="inherit"
-          >
-            <Avatar
-              alt={user?.email || ''}
-              src={user?.photoURL || ''}
-              sx={{
-                width: 32,
-                height: 32,
-                border: `2px solid ${theme.palette.primary.main}`,
-              }}
-            />
-          </IconButton>
+          {user ? (
+            <IconButton
+              size="large"
+              aria-label="account menu"
+              aria-controls="menu-appbar"
+              aria-haspopup="true"
+              onClick={handleMenu}
+              color="inherit"
+            >
+              <Avatar
+                alt={user?.email || ''}
+                src={user?.photoURL || ''}
+                sx={{
+                  width: 32,
+                  height: 32,
+                  border: `2px solid ${theme.palette.primary.main}`,
+                }}
+              />
+            </IconButton>
+          ) : (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                component={Link}
+                href="/auth/signin"
+                color="inherit"
+                startIcon={<Login />}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+              >
+                Sign In
+              </Button>
+              <Button
+                component={Link}
+                href="/auth/signup"
+                color="primary"
+                variant="contained"
+                startIcon={<PersonAdd />}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  boxShadow: 'none',
+                  '&:hover': {
+                    boxShadow: 'none',
+                  },
+                }}
+              >
+                Sign Up
+              </Button>
+            </Box>
+          )}
 
           {/* Notifications Menu */}
-          <Menu
-            id="notifications-menu"
-            anchorEl={notificationsAnchorEl}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            keepMounted
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            open={Boolean(notificationsAnchorEl)}
-            onClose={handleNotificationsClose}
-          >
-            <MenuItem onClick={handleNotificationsClose}>
-              <ListItemIcon>
-                <CreditCard fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary="New Card Offer Available"
-                secondary="Chase Sapphire Preferred - 80,000 points"
-              />
-            </MenuItem>
-            <MenuItem onClick={handleNotificationsClose}>
-              <ListItemIcon>
-                <AccountBalance fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary="Bank Bonus Alert"
-                secondary="Citi - $700 checking bonus"
-              />
-            </MenuItem>
-            <MenuItem onClick={handleNotificationsClose}>
-              <ListItemIcon>
-                <AccountBalanceWallet fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary="Spend Reminder"
-                secondary="$2,000 remaining for Chase bonus"
-              />
-            </MenuItem>
-          </Menu>
+          {user && (
+            <Menu
+              id="notifications-menu"
+              anchorEl={notificationsAnchorEl}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+              keepMounted
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              open={Boolean(notificationsAnchorEl)}
+              onClose={handleNotificationsClose}
+            >
+              <MenuItem onClick={handleNotificationsClose}>
+                <ListItemIcon>
+                  <CreditCard fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="New Card Offer Available"
+                  secondary="Chase Sapphire Preferred - 80,000 points"
+                />
+              </MenuItem>
+              <MenuItem onClick={handleNotificationsClose}>
+                <ListItemIcon>
+                  <AccountBalance fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Bank Bonus Alert"
+                  secondary="Citi - $700 checking bonus"
+                />
+              </MenuItem>
+              <MenuItem onClick={handleNotificationsClose}>
+                <ListItemIcon>
+                  <AccountBalanceWallet fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Spend Reminder"
+                  secondary="$2,000 remaining for Chase bonus"
+                />
+              </MenuItem>
+            </Menu>
+          )}
 
           {/* User Menu */}
-          <Menu
-            id="menu-appbar"
-            anchorEl={anchorEl}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            keepMounted
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            open={Boolean(anchorEl)}
-            onClose={handleClose}
-            PaperProps={{
-              sx: {
-                width: 320,
-                maxWidth: '100%',
-              },
-            }}
-          >
-            <Box sx={{ p: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Avatar
-                  alt={user?.email || ''}
-                  src={user?.photoURL || ''}
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    mr: 2,
-                    border: `2px solid ${theme.palette.primary.main}`,
-                  }}
-                />
+          {user && (
+            <Menu
+              id="menu-appbar"
+              anchorEl={anchorEl}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+              keepMounted
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              open={Boolean(anchorEl)}
+              onClose={handleClose}
+              PaperProps={{
+                sx: {
+                  width: 320,
+                  maxWidth: '100%',
+                },
+              }}
+            >
+              <Box sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Avatar
+                    alt={user?.email || ''}
+                    src={user?.photoURL || ''}
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      mr: 2,
+                      border: `2px solid ${theme.palette.primary.main}`,
+                    }}
+                  />
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                      {user?.displayName || user?.email}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {isAdmin ? 'Administrator' : 'User'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+              <Divider />
+              {accountMenuItems
+                .filter((item) => !item.requiresAuth || user)
+                .map((item) => (
+                  <MenuItem
+                    key={item.text}
+                    onClick={() => {
+                      handleClose();
+                      router.push(item.path);
+                    }}
+                    sx={{ py: 1.5 }}
+                  >
+                    <ListItemIcon sx={{ color: 'text.primary' }}>{item.icon}</ListItemIcon>
+                    <Box>
+                      <Typography variant="body1">{item.text}</Typography>
+                      {item.description && (
+                        <Typography variant="body2" color="text.secondary">
+                          {item.description}
+                        </Typography>
+                      )}
+                    </Box>
+                  </MenuItem>
+                ))}
+              <Divider />
+              <MenuItem onClick={handleLogout} sx={{ py: 1.5 }}>
+                <ListItemIcon sx={{ color: 'error.main' }}>
+                  <Logout fontSize="small" />
+                </ListItemIcon>
                 <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    {user?.displayName || user?.email}
+                  <Typography variant="body1" color="error">
+                    Sign Out
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {isAdmin ? 'Administrator' : 'User'}
+                    End your current session
                   </Typography>
                 </Box>
-              </Box>
-            </Box>
-            <Divider />
-            {accountMenuItems.map((item) => (
-              <MenuItem
-                key={item.text}
-                onClick={() => {
-                  handleClose();
-                  router.push(item.path);
-                }}
-                sx={{ py: 1.5 }}
-              >
-                <ListItemIcon sx={{ color: 'text.primary' }}>{item.icon}</ListItemIcon>
-                <Box>
-                  <Typography variant="body1">{item.text}</Typography>
-                  {item.description && (
-                    <Typography variant="body2" color="text.secondary">
-                      {item.description}
-                    </Typography>
-                  )}
-                </Box>
               </MenuItem>
-            ))}
-            <Divider />
-            <MenuItem onClick={handleLogout} sx={{ py: 1.5 }}>
-              <ListItemIcon sx={{ color: 'error.main' }}>
-                <Logout fontSize="small" />
-              </ListItemIcon>
-              <Box>
-                <Typography variant="body1" color="error">
-                  Sign Out
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  End your current session
-                </Typography>
-              </Box>
-            </MenuItem>
-          </Menu>
+            </Menu>
+          )}
         </Toolbar>
       </AppBar>
 

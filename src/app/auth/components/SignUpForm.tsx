@@ -7,11 +7,15 @@ import {
   Typography,
   Alert,
   CircularProgress,
+  Divider,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { signInWithGoogle } from '@/lib/firebase/auth';
+
+import { GoogleIcon } from '../components/icons';
 
 export default function SignUpForm() {
   const router = useRouter();
@@ -48,6 +52,31 @@ export default function SignUpForm() {
     }
   };
 
+  const handleGoogleSignUp = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        if (error.code === 'auth/popup-closed-by-user') {
+          setError('Sign up was cancelled. Please try again.');
+        } else if (error.code === 'auth/popup-blocked') {
+          setError('Pop-up was blocked. Please allow pop-ups and try again.');
+        } else if (error.code === 'auth/unauthorized-domain') {
+          setError('This domain is not authorized for Google sign-up.');
+        } else {
+          setError(`Google sign up failed: ${error.message}`);
+        }
+      } else {
+        router.push('/dashboard');
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'An error occurred during Google sign up. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Box
       component="form"
@@ -67,6 +96,28 @@ export default function SignUpForm() {
         Create Account
       </Typography>
 
+      <Button
+        fullWidth
+        variant="outlined"
+        onClick={handleGoogleSignUp}
+        startIcon={<GoogleIcon />}
+        disabled={loading}
+        sx={{
+          py: 1,
+          mb: 1,
+          borderRadius: 2,
+          textTransform: 'none',
+          '&:hover': {
+            borderColor: 'primary.main',
+            backgroundColor: 'rgba(66, 133, 244, 0.04)',
+          },
+        }}
+      >
+        Sign up with Google
+      </Button>
+
+      <Divider sx={{ my: 1 }}>or</Divider>
+
       <TextField
         label="Display Name"
         required
@@ -76,6 +127,7 @@ export default function SignUpForm() {
           setFormData((prev) => ({ ...prev, displayName: e.target.value }))
         }
         data-testid="displayname-input"
+        disabled={loading}
       />
 
       <TextField
@@ -86,6 +138,7 @@ export default function SignUpForm() {
         value={formData.email}
         onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
         data-testid="email-input"
+        disabled={loading}
       />
 
       <TextField
@@ -96,6 +149,7 @@ export default function SignUpForm() {
         value={formData.password}
         onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
         data-testid="password-input"
+        disabled={loading}
       />
 
       <TextField
@@ -108,6 +162,7 @@ export default function SignUpForm() {
           setFormData((prev) => ({ ...prev, confirmPassword: e.target.value }))
         }
         data-testid="confirm-password-input"
+        disabled={loading}
       />
 
       {error && (
@@ -122,8 +177,13 @@ export default function SignUpForm() {
         fullWidth
         disabled={loading}
         data-testid="signup-button"
+        sx={{
+          py: 1,
+          borderRadius: 2,
+          textTransform: 'none',
+        }}
       >
-        {loading ? <CircularProgress size={24} /> : 'Sign Up'}
+        {loading ? <CircularProgress size={24} /> : 'Sign Up with Email'}
       </Button>
     </Box>
   );
