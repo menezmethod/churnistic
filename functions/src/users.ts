@@ -1,5 +1,6 @@
-import { onCall } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
+import { onCall } from 'firebase-functions/v2/https';
+
 import { UserRole } from '@/lib/auth/types';
 
 // Initialize Firebase Admin
@@ -8,7 +9,6 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-const auth = admin.auth();
 
 interface UpdateUserRoleData {
   userId: string;
@@ -19,10 +19,6 @@ interface SendEmailData {
   userId: string;
   template: string;
   data: Record<string, unknown>;
-}
-
-interface DeleteUserData {
-  userId: string;
 }
 
 interface BulkUpdateRoleData {

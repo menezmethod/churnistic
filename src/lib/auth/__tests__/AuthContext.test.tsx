@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { onAuthStateChanged } from 'firebase/auth';
 
+import { manageSessionCookie } from '@/lib/firebase/config';
 import { ThemeProvider } from '@/lib/theme/ThemeContext';
 
 import { AuthProvider, useAuth } from '../AuthContext';
@@ -19,6 +20,7 @@ jest.mock('@/lib/firebase/config', () => ({
   db: {},
   functions: {},
   storage: {},
+  manageSessionCookie: jest.fn(),
 }));
 
 const TestComponent = () => {
@@ -33,6 +35,7 @@ const TestComponent = () => {
 describe('AuthContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (manageSessionCookie as jest.Mock).mockResolvedValue(undefined);
   });
 
   it('initializes with null user', async () => {

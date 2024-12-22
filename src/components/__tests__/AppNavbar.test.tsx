@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { UserRole } from '@/lib/auth/types';
 
 import AppNavbar from '../AppNavbar';
 
@@ -26,7 +27,7 @@ describe('AppNavbar', () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: null,
       signOut: mockSignOut,
-      hasRole: jest.fn().mockReturnValue(false),
+      hasRole: (role: UserRole) => role === UserRole.USER,
     });
   });
 
@@ -42,11 +43,11 @@ describe('AppNavbar', () => {
         photoURL: null,
       },
       signOut: mockSignOut,
-      hasRole: jest.fn().mockReturnValue(false),
+      hasRole: (role: UserRole) => role === UserRole.USER,
     });
 
     render(<AppNavbar />);
-    expect(screen.getByLabelText('account of current user')).toBeInTheDocument();
+    expect(screen.getByLabelText('account menu')).toBeInTheDocument();
   });
 
   it('opens drawer when menu button is clicked', () => {
@@ -63,7 +64,7 @@ describe('AppNavbar', () => {
         photoURL: null,
       },
       signOut: mockSignOut,
-      hasRole: jest.fn().mockReturnValue(true),
+      hasRole: (role: UserRole) => role === UserRole.ADMIN,
     });
 
     render(<AppNavbar />);
@@ -82,13 +83,13 @@ describe('AppNavbar', () => {
         // Simulate successful sign out
         return Promise.resolve();
       }),
-      hasRole: jest.fn().mockReturnValue(false),
+      hasRole: (role: UserRole) => role === UserRole.USER,
     });
 
     render(<AppNavbar />);
-    const accountButton = screen.getByLabelText('account of current user');
+    const accountButton = screen.getByLabelText('account menu');
     fireEvent.click(accountButton);
-    const logoutButton = screen.getByText('Logout');
+    const logoutButton = screen.getByText('Sign Out');
     await fireEvent.click(logoutButton);
 
     expect(mockSignOut).toHaveBeenCalled();
