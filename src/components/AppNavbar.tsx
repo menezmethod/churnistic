@@ -110,17 +110,17 @@ const managementMenuItems: MenuItemType[] = [
 ];
 
 const accountMenuItems: MenuItemType[] = [
-  { 
-    text: 'Account Settings', 
-    icon: <Settings />, 
+  {
+    text: 'Account Settings',
+    icon: <Settings />,
     path: '/settings',
-    description: 'Profile, preferences, and security' 
+    description: 'Profile, preferences, and security',
   },
-  { 
-    text: 'Help & Support', 
-    icon: <Help />, 
+  {
+    text: 'Help & Support',
+    icon: <Help />,
     path: '/help',
-    description: 'Documentation and support' 
+    description: 'Documentation and support',
   },
 ];
 
@@ -432,7 +432,9 @@ export default function AppNavbar() {
                 <Logout fontSize="small" />
               </ListItemIcon>
               <Box>
-                <Typography variant="body1" color="error">Sign Out</Typography>
+                <Typography variant="body1" color="error">
+                  Sign Out
+                </Typography>
                 <Typography variant="body2" color="text.secondary">
                   End your current session
                 </Typography>
