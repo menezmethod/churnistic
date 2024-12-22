@@ -157,9 +157,27 @@ export const signOut = async (): Promise<{ error: AuthError | null }> => {
 export const signInWithGoogle = async (): Promise<AuthResponse> => {
   try {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account',
+    });
+    
+    console.log('Starting Google sign in...');
     const userCredential = await signInWithPopup(auth, provider);
+    console.log('Google sign in successful:', {
+      uid: userCredential.user.uid,
+      email: userCredential.user.email,
+      displayName: userCredential.user.displayName,
+    });
+    
     return { user: userCredential.user, error: null };
   } catch (error: unknown) {
+    console.error('Google sign in error in auth.ts:', {
+      error,
+      code: error instanceof Error ? (error as FirebaseAuthError).code : 'unknown',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
     const firebaseError = error as FirebaseAuthError;
     return {
       user: null,
