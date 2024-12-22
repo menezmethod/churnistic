@@ -2,6 +2,6 @@
 
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
-export default function CardsLayout({ children }: { children: React.ReactNode }) {
+export default function BankAccountsLayout({ children }: { children: React.ReactNode }) {
   return <ProtectedRoute>{children}</ProtectedRoute>;
-}
+} 
