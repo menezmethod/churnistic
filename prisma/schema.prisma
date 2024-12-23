@@ -301,7 +301,7 @@ model Customer {
 model Cache {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   key       String   @unique
-  data      String   // JSON stringified data
-  createdAt DateTime @default(now())
+  data      String
   updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }

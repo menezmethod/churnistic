@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 const WINDOW_SIZE_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_REQUESTS_PER_WINDOW = 100; // Reddit's OAuth limit
 const MIN_REQUEST_INTERVAL = 100; // Minimum 100ms between requests for bursting
+const USER_AGENT = 'Churnistic/1.0.0';
 
 interface RateLimitInfo {
   used: number;
@@ -16,7 +17,7 @@ interface RequestTracker {
   lastRequest: number;
 }
 
-interface RedditPost {
+export interface RedditPost {
   id: string;
   title: string;
   selftext: string;
@@ -25,7 +26,7 @@ interface RedditPost {
   author: string;
 }
 
-interface RedditComment {
+export interface RedditComment {
   id: string;
   body: string;
   author: string;
@@ -77,6 +78,13 @@ export class RedditAPI {
       remaining,
       resetTime: Date.now() + resetSeconds * 1000,
     };
+
+    // Log rate limit info for monitoring
+    console.log('Rate limit info:', {
+      used,
+      remaining,
+      resetTime: new Date(this.requestTracker.rateLimitInfo.resetTime).toISOString(),
+    });
   }
 
   private canMakeRequest(): boolean {
@@ -89,15 +97,18 @@ export class RedditAPI {
         remaining: MAX_REQUESTS_PER_WINDOW,
         resetTime: now + WINDOW_SIZE_MS,
       };
+      console.log('Rate limit window reset');
     }
 
     // Check if we have remaining requests
     if (this.requestTracker.rateLimitInfo.remaining <= 0) {
+      console.warn('Rate limit exceeded, waiting for reset');
       return false;
     }
 
     // Ensure minimum interval between requests for bursting
     if (now - this.requestTracker.lastRequest < MIN_REQUEST_INTERVAL) {
+      console.warn('Request interval too short, waiting');
       return false;
     }
 
@@ -106,18 +117,10 @@ export class RedditAPI {
 
   private async ensureAccessToken(): Promise<string> {
     if (this.accessToken && Date.now() < this.tokenExpiry) {
-      console.log(
-        'Using existing access token:',
-        this.accessToken.substring(0, 10) + '...'
-      );
       return this.accessToken;
     }
 
     if (!process.env.REDDIT_CLIENT_ID || !process.env.REDDIT_CLIENT_SECRET) {
-      console.error('Missing Reddit credentials:', {
-        hasClientId: !!process.env.REDDIT_CLIENT_ID,
-        hasClientSecret: !!process.env.REDDIT_CLIENT_SECRET,
-      });
       throw new Error('Reddit OAuth credentials not configured');
     }
 
@@ -125,38 +128,35 @@ export class RedditAPI {
     const auth = Buffer.from(
       `${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`
     ).toString('base64');
-    const response = await fetch('https://www.reddit.com/api/v1/access_token', {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': process.env.REDDIT_USER_AGENT || 'Churnistic/1.0.0',
-      },
-      body: 'grant_type=client_credentials',
-    });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Reddit OAuth error:', error);
-      console.error('Response status:', response.status);
-      console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-      throw new Error(
-        `Failed to obtain Reddit access token: ${response.status} ${error}`
-      );
+    try {
+      const response = await fetch('https://www.reddit.com/api/v1/access_token', {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': process.env.REDDIT_USER_AGENT || USER_AGENT,
+        },
+        body: 'grant_type=client_credentials',
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to obtain Reddit access token: ${response.status} ${error}`);
+      }
+
+      const data = (await response.json()) as RedditOAuthResponse;
+      if (!data.access_token) {
+        throw new Error('No access token in Reddit response');
+      }
+
+      this.accessToken = data.access_token;
+      this.tokenExpiry = Date.now() + data.expires_in * 1000;
+      return data.access_token;
+    } catch (error) {
+      console.error('Error obtaining Reddit access token:', error);
+      throw error;
     }
-
-    const data = (await response.json()) as RedditOAuthResponse;
-    if (!data.access_token) {
-      console.error('Invalid OAuth response:', data);
-      throw new Error('No access token in Reddit response');
-    }
-
-    console.log('Obtained new access token:', data.access_token.substring(0, 10) + '...');
-    console.log('Token expires in:', data.expires_in, 'seconds');
-
-    this.accessToken = data.access_token;
-    this.tokenExpiry = Date.now() + data.expires_in * 1000;
-    return data.access_token;
   }
 
   async getWeeklyThreads(): Promise<RedditPost[]> {
@@ -164,46 +164,38 @@ export class RedditAPI {
       throw new Error('Rate limit exceeded. Please try again later.');
     }
 
-    const accessToken = await this.ensureAccessToken();
-    // Try to get the most recent threads
-    const url = 'https://oauth.reddit.com/r/churning/new.json?limit=10';
+    try {
+      const accessToken = await this.ensureAccessToken();
+      const url = 'https://oauth.reddit.com/r/churning/new.json?limit=10';
 
-    console.log('Fetching weekly threads from URL:', url);
-    console.log('Using access token:', accessToken.substring(0, 10) + '...');
-
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'User-Agent': process.env.REDDIT_USER_AGENT || 'Churnistic/1.0.0',
-      },
-    });
-
-    this.updateRateLimits(response.headers);
-    this.requestTracker.lastRequest = Date.now();
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Reddit API error:', error);
-      console.error('Response status:', response.status);
-      console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-      throw new Error(`Error fetching data from Reddit: ${response.status} ${error}`);
-    }
-
-    const data = (await response.json()) as RedditListing<RedditPost>;
-    console.log('Found total threads:', data.data.children.length);
-
-    // Return all threads for now, let the UI handle filtering if needed
-    const threads = data.data.children.map((child) => {
-      console.log('Thread:', {
-        title: child.data.title,
-        author: child.data.author,
-        created: new Date(child.data.created_utc * 1000).toISOString(),
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'User-Agent': process.env.REDDIT_USER_AGENT || USER_AGENT,
+        },
       });
-      return child.data;
-    });
 
-    console.log('Returning threads:', threads.length);
-    return threads;
+      this.updateRateLimits(response.headers);
+      this.requestTracker.lastRequest = Date.now();
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Error fetching data from Reddit: ${response.status} ${error}`);
+      }
+
+      const data = (await response.json()) as RedditListing<RedditPost>;
+      const threads = data.data.children.map((child) => child.data);
+
+      console.log('Retrieved weekly threads:', {
+        count: threads.length,
+        titles: threads.map((t) => t.title),
+      });
+
+      return threads;
+    } catch (error) {
+      console.error('Error fetching weekly threads:', error);
+      throw error;
+    }
   }
 
   async getPostComments(postId: string): Promise<RedditComment[]> {
@@ -211,37 +203,41 @@ export class RedditAPI {
       throw new Error('Rate limit exceeded. Please try again later.');
     }
 
-    const accessToken = await this.ensureAccessToken();
-    const url = `https://oauth.reddit.com/r/churning/comments/${postId}.json`;
+    try {
+      const accessToken = await this.ensureAccessToken();
+      const url = `https://oauth.reddit.com/r/churning/comments/${postId}.json`;
 
-    console.log('Fetching comments with token:', accessToken);
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'User-Agent': process.env.REDDIT_USER_AGENT || 'Churnistic/1.0.0',
-      },
-    });
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'User-Agent': process.env.REDDIT_USER_AGENT || USER_AGENT,
+        },
+      });
 
-    this.updateRateLimits(response.headers);
-    this.requestTracker.lastRequest = Date.now();
+      this.updateRateLimits(response.headers);
+      this.requestTracker.lastRequest = Date.now();
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Reddit API error:', error);
-      throw new Error('Error fetching comments from Reddit');
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Error fetching comments from Reddit: ${response.status} ${error}`);
+      }
+
+      const data = (await response.json()) as [
+        RedditListing<RedditPost>,
+        RedditListing<RedditComment>,
+      ];
+
+      const comments = data[1].data.children.map((child) => child.data).slice(0, 10);
+      console.log('Retrieved comments:', {
+        postId,
+        count: comments.length,
+      });
+
+      return comments;
+    } catch (error) {
+      console.error('Error fetching post comments:', error);
+      throw error;
     }
-
-    const data = (await response.json()) as [
-      RedditListing<RedditPost>,
-      RedditListing<RedditComment>,
-    ];
-    console.log(
-      'Reddit comments response:',
-      JSON.stringify(data[1].data.children.slice(0, 2), null, 2)
-    );
-
-    // Get top 10 comments for better analysis
-    return data[1].data.children.map((child) => child.data).slice(0, 10);
   }
 }
 

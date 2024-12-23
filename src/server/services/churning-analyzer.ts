@@ -2,30 +2,30 @@
 import { Groq } from 'groq-sdk';
 
 // Internal dependencies
-import { RedditAPI } from '../api/reddit';
+import { RedditAPI, RedditPost, RedditComment } from '../api/reddit';
+
+// Constants
+const MAX_TEXT_LENGTH = 1000;
+const MAX_COMMENT_LENGTH = 500;
+const MAX_THREADS_TO_ANALYZE = 3;
+const MODEL_NAME = 'llama-3.1-8b-instant';
 
 // Types
-interface RedditThread {
-  id: string;
-  title: string;
-  selftext: string;
+export interface CreditCardOpportunities {
+  signupBonuses: string[];
+  strategies: string[];
+  redemptions: string[];
 }
 
-interface RedditComment {
-  body: string;
+export interface BankAccountOpportunities {
+  bonuses: string[];
+  requirements: string[];
+  tips: string[];
 }
 
 export interface ChurningAnalysis {
-  creditCardOpportunities: {
-    signupBonuses: string[];
-    strategies: string[];
-    redemptions: string[];
-  };
-  bankAccountOpportunities: {
-    bonuses: string[];
-    requirements: string[];
-    tips: string[];
-  };
+  creditCardOpportunities: CreditCardOpportunities;
+  bankAccountOpportunities: BankAccountOpportunities;
   actionableOpportunities: string[];
 }
 
@@ -43,47 +43,116 @@ export class ChurningAnalyzer {
     this.redditApi = new RedditAPI();
   }
 
-  private truncateText(text: string, maxLength: number = 1000): string {
-    if (text.length <= maxLength) return text;
-    return text.slice(0, maxLength) + '...';
+  private truncateText(text: string, maxLength: number = MAX_TEXT_LENGTH): string {
+    if (!text) return '';
+    return text.length <= maxLength ? text : `${text.slice(0, maxLength)}...`;
   }
 
-  private formatThreadData(threads: RedditThread[], comments: RedditComment[][]): string {
+  private formatThreadData(threads: RedditPost[], comments: RedditComment[][]): string {
     let formattedData = '';
-    for (let i = 0; i < Math.min(3, threads.length); i++) {
+
+    for (let i = 0; i < Math.min(MAX_THREADS_TO_ANALYZE, threads.length); i++) {
       const thread = threads[i];
       formattedData += `Thread ${i + 1}:\n`;
       formattedData += `Title: ${thread.title}\n`;
       formattedData += `Content: ${this.truncateText(thread.selftext)}\n`;
 
-      if (comments[i] && comments[i].length > 0) {
+      if (comments[i]?.length > 0) {
         formattedData += 'Top Comments:\n';
         comments[i].forEach((comment, idx) => {
-          formattedData += `Comment ${idx + 1}: ${this.truncateText(comment.body, 500)}\n`;
+          formattedData += `Comment ${idx + 1}: ${this.truncateText(
+            comment.body,
+            MAX_COMMENT_LENGTH
+          )}\n`;
         });
       }
       formattedData += '\n';
     }
+
     return formattedData;
+  }
+
+  private parseAnalysisResponse(content: string): ChurningAnalysis {
+    const analysis: ChurningAnalysis = {
+      creditCardOpportunities: {
+        signupBonuses: [],
+        strategies: [],
+        redemptions: [],
+      },
+      bankAccountOpportunities: {
+        bonuses: [],
+        requirements: [],
+        tips: [],
+      },
+      actionableOpportunities: [],
+    };
+
+    const sections = content.split(/\d+\.\s+/);
+    sections.forEach((section) => {
+      const lines = section.split('\n');
+
+      if (section.includes('Credit Card Opportunities')) {
+        lines.forEach((line) => {
+          const cleanLine = line.replace(/^[^:]+:\s*/, '').trim();
+          if (!cleanLine) return;
+
+          if (line.includes('Signup Bonus')) {
+            analysis.creditCardOpportunities.signupBonuses.push(cleanLine);
+          } else if (line.includes('Application Strateg')) {
+            analysis.creditCardOpportunities.strategies.push(cleanLine);
+          } else if (line.includes('Redemption')) {
+            analysis.creditCardOpportunities.redemptions.push(cleanLine);
+          }
+        });
+      } else if (section.includes('Bank Account Opportunities')) {
+        lines.forEach((line) => {
+          const cleanLine = line.replace(/^[^:]+:\s*/, '').trim();
+          if (!cleanLine) return;
+
+          if (line.includes('Bonus')) {
+            analysis.bankAccountOpportunities.bonuses.push(cleanLine);
+          } else if (line.includes('Requirement')) {
+            analysis.bankAccountOpportunities.requirements.push(cleanLine);
+          } else if (line.includes('Tip') || line.includes('Strateg')) {
+            analysis.bankAccountOpportunities.tips.push(cleanLine);
+          }
+        });
+      } else if (section.includes('Actionable Opportunities')) {
+        lines.forEach((line) => {
+          const cleanLine = line.trim();
+          if (cleanLine && !cleanLine.includes('Actionable Opportunities')) {
+            analysis.actionableOpportunities.push(cleanLine);
+          }
+        });
+      }
+    });
+
+    return analysis;
   }
 
   async analyzeThreads(): Promise<ChurningAnalysis> {
     try {
       // Get weekly threads
+      console.log('Fetching weekly threads...');
       const threads = await this.redditApi.getWeeklyThreads();
       if (!threads.length) {
         throw new Error('No weekly threads found to analyze.');
       }
 
       // Get comments for each thread
+      console.log('Fetching comments for threads...');
       const comments = await Promise.all(
-        threads.slice(0, 3).map((thread) => this.redditApi.getPostComments(thread.id))
+        threads
+          .slice(0, MAX_THREADS_TO_ANALYZE)
+          .map((thread) => this.redditApi.getPostComments(thread.id))
       );
 
       // Format the data
+      console.log('Formatting thread data for analysis...');
       const formattedData = this.formatThreadData(threads, comments);
 
       // Get analysis from Groq
+      console.log('Requesting analysis from Groq...');
       const chatCompletion = await this.groq.chat.completions.create({
         messages: [
           {
@@ -115,7 +184,7 @@ Here's the data to analyze:
 ${formattedData}`,
           },
         ],
-        model: 'llama-3.1-8b-instant',
+        model: MODEL_NAME,
         temperature: 0.5,
         max_tokens: 2000,
         top_p: 1,
@@ -128,64 +197,8 @@ ${formattedData}`,
       }
 
       // Parse the response into structured format
-      const analysis: ChurningAnalysis = {
-        creditCardOpportunities: {
-          signupBonuses: [],
-          strategies: [],
-          redemptions: [],
-        },
-        bankAccountOpportunities: {
-          bonuses: [],
-          requirements: [],
-          tips: [],
-        },
-        actionableOpportunities: [],
-      };
-
-      // Split content into sections and parse
-      const sections = content.split(/\d+\.\s+/);
-      sections.forEach((section) => {
-        if (section.includes('Credit Card Opportunities')) {
-          const lines = section.split('\n');
-          lines.forEach((line) => {
-            if (line.includes('Signup Bonus')) {
-              analysis.creditCardOpportunities.signupBonuses.push(
-                line.replace(/^[^:]+:\s*/, '')
-              );
-            } else if (line.includes('Application Strateg')) {
-              analysis.creditCardOpportunities.strategies.push(
-                line.replace(/^[^:]+:\s*/, '')
-              );
-            } else if (line.includes('Redemption')) {
-              analysis.creditCardOpportunities.redemptions.push(
-                line.replace(/^[^:]+:\s*/, '')
-              );
-            }
-          });
-        } else if (section.includes('Bank Account Opportunities')) {
-          const lines = section.split('\n');
-          lines.forEach((line) => {
-            if (line.includes('Bonus')) {
-              analysis.bankAccountOpportunities.bonuses.push(
-                line.replace(/^[^:]+:\s*/, '')
-              );
-            } else if (line.includes('Requirement')) {
-              analysis.bankAccountOpportunities.requirements.push(
-                line.replace(/^[^:]+:\s*/, '')
-              );
-            } else if (line.includes('Tip') || line.includes('Strateg')) {
-              analysis.bankAccountOpportunities.tips.push(line.replace(/^[^:]+:\s*/, ''));
-            }
-          });
-        } else if (section.includes('Actionable Opportunities')) {
-          const lines = section.split('\n');
-          lines.forEach((line) => {
-            if (line.trim() && !line.includes('Actionable Opportunities')) {
-              analysis.actionableOpportunities.push(line.trim());
-            }
-          });
-        }
-      });
+      console.log('Parsing analysis response...');
+      const analysis = this.parseAnalysisResponse(content);
 
       return analysis;
     } catch (error) {
