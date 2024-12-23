@@ -3,6 +3,7 @@
 ## Core Principles
 
 1. Speed of Development
+
    - Focus on essential features first
    - Leverage existing APIs and services
    - Use proven, stable tech stack
@@ -17,6 +18,7 @@
 ## MVP Features (Prioritized)
 
 1. Essential Tracking
+
    - Bank bonus database (automated scraping)
      - DoC daily scraping
      - Reddit r/churning thread monitoring
@@ -27,6 +29,7 @@
      - Auto-populated requirements
 
 2. Automated Monitoring
+
    - Email notifications
      - New bonus alerts
      - Requirement deadlines
@@ -37,6 +40,7 @@
      - Requirement completion
 
 3. Smart Assistant
+
    - Personalized recommendations
      - Location-based filtering
      - Bank relationship aware
@@ -55,12 +59,14 @@
 ## Future Features (Post-MVP)
 
 1. Advanced Points & Travel
+
    - AI trip planning
    - Award space monitoring
    - Dynamic valuations
    - Complex routing
 
 2. Community Features
+
    - Success stories
    - Data points
    - Method sharing
@@ -142,11 +148,14 @@ interface UserBonus {
     statementSync?: boolean;
   };
   progress: {
-    requirements: Record<string, {
-      completed: boolean;
-      value: number;
-      lastChecked: Date;
-    }>;
+    requirements: Record<
+      string,
+      {
+        completed: boolean;
+        value: number;
+        lastChecked: Date;
+      }
+    >;
     nextDeadline?: Date;
     estimatedCompletion?: Date;
   };
@@ -223,12 +232,14 @@ gantt
 ## Technical Stack
 
 ### Frontend (Minimal Setup)
+
 - Next.js 14
 - TypeScript
 - Tailwind CSS
 - shadcn/ui components
 
 ### Backend (Essential Only)
+
 - tRPC
 - Prisma
 - MongoDB
@@ -236,6 +247,7 @@ gantt
 - Cheerio (scraping)
 
 ### Infrastructure
+
 - Vercel
 - MongoDB Atlas
 - Firebase

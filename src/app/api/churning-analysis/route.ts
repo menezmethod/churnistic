@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import { ChurningAnalyzer } from '@/server/services/churning-analyzer';
 
 export async function GET() {
@@ -13,4 +14,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-} 
+}

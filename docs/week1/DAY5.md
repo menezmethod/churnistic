@@ -3,6 +3,7 @@
 ## Core Principles
 
 1. Minimal User Input
+
    - Mobile-first design
    - Touch-friendly UI
    - Quick actions
@@ -24,11 +25,11 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  HomeIcon, 
-  CreditCardIcon, 
-  BankIcon, 
-  ChartIcon 
+import {
+  HomeIcon,
+  CreditCardIcon,
+  BankIcon,
+  ChartIcon
 } from 'lucide-react';
 
 export function BottomNav() {
@@ -100,9 +101,9 @@ export function SwipeCard({ onSwipe, children }: SwipeCardProps) {
 
   const handleDragEnd = (e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 100;
-    const direction = info.offset.x > threshold ? 'right' : 
+    const direction = info.offset.x > threshold ? 'right' :
                      info.offset.x < -threshold ? 'left' : null;
-    
+
     if (direction) {
       onSwipe(direction);
     }
@@ -205,7 +206,7 @@ export default function CardsPage() {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="p-4">
         <h1 className="text-2xl font-bold mb-4">Credit Cards</h1>
-        
+
         <div className="space-y-4">
           {cards.map(card => (
             <SwipeCard key={card.id} onSwipe={handleSwipe}>
@@ -259,7 +260,7 @@ export const handlers = [
       })
     );
   }),
-  
+
   rest.post('/api/trpc/card.apply', (req, res, ctx) => {
     return res(
       ctx.json({
@@ -277,7 +278,7 @@ import { CardList } from '@/components/cards/card-list';
 describe('CardList', () => {
   it('renders cards correctly', async () => {
     render(<CardList />);
-    
+
     expect(await screen.findByText('Chase Sapphire Preferred')).toBeInTheDocument();
     expect(screen.getByText('$60,000')).toBeInTheDocument();
     expect(screen.getByText('$4,000 spend required')).toBeInTheDocument();
@@ -443,4 +444,7 @@ npm run start
 2. Feature Prioritization
 3. Performance Optimization
 4. User Feedback Collection
+
+```
+
 ```

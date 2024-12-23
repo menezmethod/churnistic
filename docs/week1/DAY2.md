@@ -3,6 +3,7 @@
 ## Core Principles
 
 1. Minimal User Input
+
    - API-based data collection
    - Smart data processing
    - Quick tracking
@@ -28,7 +29,7 @@ const RedditPost = z.object({
   permalink: z.string(),
   created_utc: z.number(),
   score: z.number(),
-  author: z.string()
+  author: z.string(),
 });
 
 export class RedditAPI {
@@ -40,41 +41,35 @@ export class RedditAPI {
   }
 
   async getChurningPosts(options: {
-    timeframe: 'day' | 'week' | 'month',
-    flair?: string
+    timeframe: 'day' | 'week' | 'month';
+    flair?: string;
   }) {
     const params = new URLSearchParams({
       sort: 'new',
       limit: '100',
       restrict_sr: 'on',
       t: options.timeframe,
-      ...(options.flair && { q: `flair:"${options.flair}"` })
+      ...(options.flair && { q: `flair:"${options.flair}"` }),
     });
 
-    const response = await fetch(
-      `${this.baseUrl}/r/churning/search.json?${params}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'User-Agent': 'Churnistic/1.0.0'
-        }
-      }
-    );
+    const response = await fetch(`${this.baseUrl}/r/churning/search.json?${params}`, {
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        'User-Agent': 'Churnistic/1.0.0',
+      },
+    });
 
     const data = await response.json();
-    return z.array(RedditPost).parse(data.data.children.map(c => c.data));
+    return z.array(RedditPost).parse(data.data.children.map((c) => c.data));
   }
 
   async getPostComments(postId: string) {
-    const response = await fetch(
-      `${this.baseUrl}/r/churning/comments/${postId}.json`,
-      {
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'User-Agent': 'Churnistic/1.0.0'
-        }
-      }
-    );
+    const response = await fetch(`${this.baseUrl}/r/churning/comments/${postId}.json`, {
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        'User-Agent': 'Churnistic/1.0.0',
+      },
+    });
 
     return response.json();
   }
@@ -89,30 +84,24 @@ export class DocAPI {
       categories: '5', // Bank bonus category ID
       per_page: '100',
       orderby: 'date',
-      status: 'publish'
+      status: 'publish',
     });
 
-    const response = await fetch(
-      `${this.baseUrl}/posts?${params}`,
-      {
-        headers: {
-          'User-Agent': 'Churnistic/1.0.0'
-        }
-      }
-    );
+    const response = await fetch(`${this.baseUrl}/posts?${params}`, {
+      headers: {
+        'User-Agent': 'Churnistic/1.0.0',
+      },
+    });
 
     return response.json();
   }
 
   async getPost(id: number) {
-    const response = await fetch(
-      `${this.baseUrl}/posts/${id}`,
-      {
-        headers: {
-          'User-Agent': 'Churnistic/1.0.0'
-        }
-      }
-    );
+    const response = await fetch(`${this.baseUrl}/posts/${id}`, {
+      headers: {
+        'User-Agent': 'Churnistic/1.0.0',
+      },
+    });
 
     return response.json();
   }
@@ -166,8 +155,8 @@ export class BonusProcessor {
       source: {
         url: `https://reddit.com${post.permalink}`,
         type: 'reddit',
-        dateFound: new Date(post.created_utc * 1000)
-      }
+        dateFound: new Date(post.created_utc * 1000),
+      },
     };
   }
 
@@ -185,14 +174,14 @@ export class BonusProcessor {
       source: {
         url: post.link,
         type: 'doc',
-        dateFound: new Date(post.date)
-      }
+        dateFound: new Date(post.date),
+      },
     };
   }
 
   private extractRequirements(text: string) {
     const requirements = [];
-    
+
     // Direct deposit detection
     const ddMatch = text.match(/direct deposit.{0,50}(\$[\d,]+)/i);
     if (ddMatch) {
@@ -200,8 +189,8 @@ export class BonusProcessor {
         type: 'directDeposit',
         details: {
           amount: parseInt(ddMatch[1].replace(/[$,]/g, '')),
-          frequency: 'monthly' // Default, can be refined
-        }
+          frequency: 'monthly', // Default, can be refined
+        },
       });
     }
 
@@ -212,8 +201,8 @@ export class BonusProcessor {
         type: 'balance',
         details: {
           amount: parseInt(balanceMatch[1].replace(/[$,]/g, '')),
-          duration: 60 // Default 60 days, can be refined
-        }
+          duration: 60, // Default 60 days, can be refined
+        },
       });
     }
 
@@ -257,7 +246,7 @@ export async function collectNewBonuses() {
   // 1. Collect from Reddit
   const redditPosts = await reddit.getChurningPosts({
     timeframe: 'day',
-    flair: 'Bank Account Bonus'
+    flair: 'Bank Account Bonus',
   });
 
   // 2. Collect from DoC
@@ -265,23 +254,23 @@ export async function collectNewBonuses() {
 
   // 3. Process all bonuses
   const bonuses = await Promise.all([
-    ...redditPosts.map(post => processor.processRedditPost(post)),
-    ...docPosts.map(post => processor.processDocPost(post))
+    ...redditPosts.map((post) => processor.processRedditPost(post)),
+    ...docPosts.map((post) => processor.processDocPost(post)),
   ]);
 
   // 4. Filter valid bonuses and remove duplicates
   const validBonuses = bonuses
     .filter((bonus): bonus is ProcessedBonus => bonus !== null)
-    .filter(bonus => bonus.amount >= 100); // Minimum bonus amount
+    .filter((bonus) => bonus.amount >= 100); // Minimum bonus amount
 
   // 5. Store in database
   for (const bonus of validBonuses) {
     await prisma.bonus.upsert({
       where: {
-        sourceUrl: bonus.source.url
+        sourceUrl: bonus.source.url,
       },
       update: {
-        lastSeen: new Date()
+        lastSeen: new Date(),
       },
       create: {
         bank: bonus.bank,
@@ -291,8 +280,8 @@ export async function collectNewBonuses() {
         sourceUrl: bonus.source.url,
         sourceType: bonus.source.type,
         dateFound: bonus.source.dateFound,
-        status: 'active'
-      }
+        status: 'active',
+      },
     });
   }
 
@@ -308,17 +297,21 @@ export async function collectNewBonuses() {
 // src/server/routers/bonus.ts
 export const bonusRouter = router({
   updateProgress: protectedProcedure
-    .input(z.object({
-      bonusId: z.string(),
-      transactions: z.array(z.object({
-        date: z.date(),
-        amount: z.number(),
-        description: z.string()
-      }))
-    }))
+    .input(
+      z.object({
+        bonusId: z.string(),
+        transactions: z.array(
+          z.object({
+            date: z.date(),
+            amount: z.number(),
+            description: z.string(),
+          })
+        ),
+      })
+    )
     .mutation(async ({ input, ctx }) => {
       const bonus = await prisma.bonus.findUnique({
-        where: { id: input.bonusId }
+        where: { id: input.bonusId },
       });
 
       // Calculate progress
@@ -326,24 +319,23 @@ export const bonusRouter = router({
 
       return prisma.bonus.update({
         where: { id: input.bonusId },
-        data: { progress }
+        data: { progress },
       });
     }),
 
-  getDeadlines: protectedProcedure
-    .query(async ({ ctx }) => {
-      const today = new Date();
-      const thirtyDaysFromNow = new Date(today.setDate(today.getDate() + 30));
+  getDeadlines: protectedProcedure.query(async ({ ctx }) => {
+    const today = new Date();
+    const thirtyDaysFromNow = new Date(today.setDate(today.getDate() + 30));
 
-      return prisma.bonus.findMany({
-        where: {
-          userId: ctx.user.id,
-          status: { in: ['planned', 'in_progress'] },
-          expirationDate: { lte: thirtyDaysFromNow }
-        },
-        orderBy: { expirationDate: 'asc' }
-      });
-    })
+    return prisma.bonus.findMany({
+      where: {
+        userId: ctx.user.id,
+        status: { in: ['planned', 'in_progress'] },
+        expirationDate: { lte: thirtyDaysFromNow },
+      },
+      orderBy: { expirationDate: 'asc' },
+    });
+  }),
 });
 ```
 

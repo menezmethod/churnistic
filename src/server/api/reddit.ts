@@ -61,9 +61,9 @@ export class RedditAPI {
       rateLimitInfo: {
         used: 0,
         remaining: MAX_REQUESTS_PER_WINDOW,
-        resetTime: Date.now() + WINDOW_SIZE_MS
+        resetTime: Date.now() + WINDOW_SIZE_MS,
       },
-      lastRequest: 0
+      lastRequest: 0,
     };
   }
 
@@ -75,7 +75,7 @@ export class RedditAPI {
     this.requestTracker.rateLimitInfo = {
       used,
       remaining,
-      resetTime: Date.now() + (resetSeconds * 1000)
+      resetTime: Date.now() + resetSeconds * 1000,
     };
   }
 
@@ -87,7 +87,7 @@ export class RedditAPI {
       this.requestTracker.rateLimitInfo = {
         used: 0,
         remaining: MAX_REQUESTS_PER_WINDOW,
-        resetTime: now + WINDOW_SIZE_MS
+        resetTime: now + WINDOW_SIZE_MS,
       };
     }
 
@@ -106,28 +106,33 @@ export class RedditAPI {
 
   private async ensureAccessToken(): Promise<string> {
     if (this.accessToken && Date.now() < this.tokenExpiry) {
-      console.log('Using existing access token:', this.accessToken.substring(0, 10) + '...');
+      console.log(
+        'Using existing access token:',
+        this.accessToken.substring(0, 10) + '...'
+      );
       return this.accessToken;
     }
 
     if (!process.env.REDDIT_CLIENT_ID || !process.env.REDDIT_CLIENT_SECRET) {
       console.error('Missing Reddit credentials:', {
         hasClientId: !!process.env.REDDIT_CLIENT_ID,
-        hasClientSecret: !!process.env.REDDIT_CLIENT_SECRET
+        hasClientSecret: !!process.env.REDDIT_CLIENT_SECRET,
       });
       throw new Error('Reddit OAuth credentials not configured');
     }
 
     console.log('Requesting new access token...');
-    const auth = Buffer.from(`${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`).toString('base64');
+    const auth = Buffer.from(
+      `${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`
+    ).toString('base64');
     const response = await fetch('https://www.reddit.com/api/v1/access_token', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${auth}`,
+        Authorization: `Basic ${auth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': process.env.REDDIT_USER_AGENT || 'Churnistic/1.0.0'
+        'User-Agent': process.env.REDDIT_USER_AGENT || 'Churnistic/1.0.0',
       },
-      body: 'grant_type=client_credentials'
+      body: 'grant_type=client_credentials',
     });
 
     if (!response.ok) {
@@ -135,20 +140,22 @@ export class RedditAPI {
       console.error('Reddit OAuth error:', error);
       console.error('Response status:', response.status);
       console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-      throw new Error(`Failed to obtain Reddit access token: ${response.status} ${error}`);
+      throw new Error(
+        `Failed to obtain Reddit access token: ${response.status} ${error}`
+      );
     }
 
-    const data = await response.json() as RedditOAuthResponse;
+    const data = (await response.json()) as RedditOAuthResponse;
     if (!data.access_token) {
       console.error('Invalid OAuth response:', data);
       throw new Error('No access token in Reddit response');
     }
-    
+
     console.log('Obtained new access token:', data.access_token.substring(0, 10) + '...');
     console.log('Token expires in:', data.expires_in, 'seconds');
-    
+
     this.accessToken = data.access_token;
-    this.tokenExpiry = Date.now() + (data.expires_in * 1000);
+    this.tokenExpiry = Date.now() + data.expires_in * 1000;
     return data.access_token;
   }
 
@@ -163,12 +170,12 @@ export class RedditAPI {
 
     console.log('Fetching weekly threads from URL:', url);
     console.log('Using access token:', accessToken.substring(0, 10) + '...');
-    
+
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'User-Agent': process.env.REDDIT_USER_AGENT || 'Churnistic/1.0.0'
-      }
+        Authorization: `Bearer ${accessToken}`,
+        'User-Agent': process.env.REDDIT_USER_AGENT || 'Churnistic/1.0.0',
+      },
     });
 
     this.updateRateLimits(response.headers);
@@ -182,19 +189,19 @@ export class RedditAPI {
       throw new Error(`Error fetching data from Reddit: ${response.status} ${error}`);
     }
 
-    const data = await response.json() as RedditListing<RedditPost>;
+    const data = (await response.json()) as RedditListing<RedditPost>;
     console.log('Found total threads:', data.data.children.length);
-    
+
     // Return all threads for now, let the UI handle filtering if needed
-    const threads = data.data.children.map(child => {
+    const threads = data.data.children.map((child) => {
       console.log('Thread:', {
         title: child.data.title,
         author: child.data.author,
-        created: new Date(child.data.created_utc * 1000).toISOString()
+        created: new Date(child.data.created_utc * 1000).toISOString(),
       });
       return child.data;
     });
-    
+
     console.log('Returning threads:', threads.length);
     return threads;
   }
@@ -210,9 +217,9 @@ export class RedditAPI {
     console.log('Fetching comments with token:', accessToken);
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'User-Agent': process.env.REDDIT_USER_AGENT || 'Churnistic/1.0.0'
-      }
+        Authorization: `Bearer ${accessToken}`,
+        'User-Agent': process.env.REDDIT_USER_AGENT || 'Churnistic/1.0.0',
+      },
     });
 
     this.updateRateLimits(response.headers);
@@ -224,13 +231,17 @@ export class RedditAPI {
       throw new Error('Error fetching comments from Reddit');
     }
 
-    const data = await response.json() as [RedditListing<RedditPost>, RedditListing<RedditComment>];
-    console.log('Reddit comments response:', JSON.stringify(data[1].data.children.slice(0, 2), null, 2));
-    
+    const data = (await response.json()) as [
+      RedditListing<RedditPost>,
+      RedditListing<RedditComment>,
+    ];
+    console.log(
+      'Reddit comments response:',
+      JSON.stringify(data[1].data.children.slice(0, 2), null, 2)
+    );
+
     // Get top 10 comments for better analysis
-    return data[1].data.children
-      .map(child => child.data)
-      .slice(0, 10);
+    return data[1].data.children.map((child) => child.data).slice(0, 10);
   }
 }
 
@@ -253,35 +264,38 @@ export async function GET(request: Request) {
         // Format response to match expected structure
         return NextResponse.json({
           data: {
-            children: threads.map(thread => ({
+            children: threads.map((thread) => ({
               data: {
                 id: thread.id,
                 title: thread.title,
                 selftext: thread.selftext,
                 created_utc: thread.created_utc,
                 permalink: thread.permalink,
-                author: thread.author
-              }
-            }))
-          }
+                author: thread.author,
+              },
+            })),
+          },
         });
       case 'comments':
         if (!postId) {
-          return NextResponse.json({ error: 'Missing postId parameter' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'Missing postId parameter' },
+            { status: 400 }
+          );
         }
         const comments = await api.getPostComments(postId);
         // Format comments to match expected structure
         return NextResponse.json({
           data: {
-            children: comments.map(comment => ({
+            children: comments.map((comment) => ({
               data: {
                 id: comment.id,
                 body: comment.body,
                 author: comment.author,
-                created_utc: comment.created_utc
-              }
-            }))
-          }
+                created_utc: comment.created_utc,
+              },
+            })),
+          },
         });
       default:
         return NextResponse.json({ error: 'Invalid endpoint' }, { status: 400 });
@@ -293,4 +307,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

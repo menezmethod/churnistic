@@ -3,6 +3,7 @@
 ## Core Principles
 
 1. Minimal User Input
+
    - One-click actions
    - Smart defaults
    - Auto-refresh
@@ -91,9 +92,9 @@ export function BonusCard({
         </div>
         <Badge>{daysLeft} days left</Badge>
       </div>
-      
+
       <Progress value={progress} className="mt-4" />
-      
+
       <div className="mt-4 space-y-2">
         {requirements.map((req, i) => (
           <RequirementItem key={i} {...req} />
@@ -219,7 +220,7 @@ export class EmailService {
 // src/server/jobs/notifications.ts
 export async function sendDailyNotifications() {
   const email = new EmailService();
-  
+
   // 1. Find users with bonuses nearing deadline
   const deadlineBonuses = await prisma.bonus.findMany({
     where: {
@@ -304,7 +305,7 @@ export default function NotificationSettings() {
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Notification Preferences</h1>
-      
+
       <div className="space-y-6">
         {Object.entries(preferences).map(([key, value]) => (
           <div key={key} className="flex items-center justify-between">

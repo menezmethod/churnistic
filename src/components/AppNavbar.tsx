@@ -277,9 +277,7 @@ export default function AppNavbar() {
           ACCOUNT
         </Typography>
       </Box>
-      {accountMenuItems
-        .filter((item) => !item.requiresAuth || user)
-        .map(renderMenuItem)}
+      {accountMenuItems.filter((item) => !item.requiresAuth || user).map(renderMenuItem)}
     </>
   );
 
@@ -497,7 +495,9 @@ export default function AppNavbar() {
                     }}
                     sx={{ py: 1.5 }}
                   >
-                    <ListItemIcon sx={{ color: 'text.primary' }}>{item.icon}</ListItemIcon>
+                    <ListItemIcon sx={{ color: 'text.primary' }}>
+                      {item.icon}
+                    </ListItemIcon>
                     <Box>
                       <Typography variant="body1">{item.text}</Typography>
                       {item.description && (
