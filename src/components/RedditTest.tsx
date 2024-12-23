@@ -1,154 +1,308 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
-interface RedditPost {
-  id: string;
-  title: string;
-  selftext: string;
-  created_utc: number;
-}
+import { Box, Typography, CircularProgress, Alert, Card, CardContent, Chip, Stack } from '@mui/material';
+import React, { useEffect, useState } from 'react';
 
 interface RedditComment {
   id: string;
   body: string;
   author: string;
   created_utc: number;
+  body_html: string;
+  permalink: string;
+  score: number;
+  author_flair_text?: string;
+  subreddit: string;
+  subreddit_id: string;
 }
 
-interface ThreadWithComments {
-  post: RedditPost;
-  comments: RedditComment[];
+interface RedditPost {
+  id: string;
+  title: string;
+  selftext: string;
+  created_utc: number;
+  permalink: string;
+  author: string;
 }
 
-interface GroqSummary {
-  creditCardIdeas: string[];
-  bankBonuses: string[];
+interface RedditData {
+  data: {
+    children: Array<{
+      data: RedditPost;
+    }>;
+  };
+}
+
+interface ChurningOpportunity {
+  title: string;
+  description: string;
+  cardName: string;
+  rewardType: string;
+  rewardValue: string;
+  requirements: string[];
+  riskLevel: 'Low' | 'Medium' | 'High';
+  timeframe: string;
+  source: string;
+}
+
+interface AnalyzedData {
+  opportunities: ChurningOpportunity[];
+  summary: string;
+  riskAssessment: string;
+}
+
+interface PythonOpportunity {
+  type: 'credit_card' | 'bank_account';
+  title: string;
+  description: string;
+  card_name: string;
+  bank_name: string;
+  signup_bonus: string;
+  bonus_amount: string;
+  requirements: string[];
+  risk_level: number;
+  time_limit: string;
+  expiration: string;
+  source: string;
+}
+
+interface PythonAnalysis {
+  opportunities: PythonOpportunity[];
+  summary: { overview?: string } | string;
+  risk_assessment: { overview?: string } | string;
 }
 
 export default function RedditTest() {
-  const [thread, setThread] = useState<ThreadWithComments | null>(null);
-  const [summary, setSummary] = useState<GroqSummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [redditData, setRedditData] = useState<RedditPost[]>([]);
+  const [comments, setComments] = useState<RedditComment[]>([]);
+  const [analyzedData, setAnalyzedData] = useState<AnalyzedData | null>(null);
+
+  const analyzeContent = async (post: RedditPost, comments: RedditComment[]) => {
+    try {
+      const response = await fetch('http://localhost:8000/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          thread_title: post.title,
+          thread_content: post.selftext,
+          comments: comments.map(comment => comment.body)
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        console.error('Analysis error details:', errorData);
+        throw new Error(`Failed to analyze content: ${response.status}`);
+      }
+
+      const analysis = await response.json() as PythonAnalysis;
+      setAnalyzedData({
+        opportunities: analysis.opportunities.map((opp: PythonOpportunity) => ({
+          title: opp.title,
+          description: opp.description,
+          cardName: opp.type === 'credit_card' ? opp.card_name : opp.bank_name || 'Unknown',
+          rewardType: opp.type === 'credit_card' ? 'Points/Miles' : 'Cash',
+          rewardValue: opp.type === 'credit_card' ? opp.signup_bonus : opp.bonus_amount || 'Unknown',
+          requirements: opp.requirements,
+          riskLevel: opp.risk_level <= 3 ? 'Low' : opp.risk_level <= 7 ? 'Medium' : 'High',
+          timeframe: opp.type === 'credit_card' ? opp.time_limit : opp.expiration || 'Unknown',
+          source: opp.source
+        })),
+        summary: typeof analysis.summary === 'string' ? analysis.summary : analysis.summary.overview || 'No summary available',
+        riskAssessment: typeof analysis.risk_assessment === 'string' ? analysis.risk_assessment : analysis.risk_assessment.overview || 'No risk assessment available'
+      });
+    } catch (err) {
+      console.error('Analysis error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to analyze content');
+    }
+  };
 
   useEffect(() => {
-    async function fetchData() {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
+        console.log('Fetching weekly threads...');
 
-        // Fetch the most recent weekly thread
-        const threadResponse = await fetch('/api/reddit?endpoint=weekly-threads');
-        if (!threadResponse.ok) {
-          throw new Error('Failed to fetch weekly thread');
+        // Fetch weekly threads
+        const response = await fetch('/api/reddit?endpoint=weekly-threads');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const threadData = await threadResponse.json();
-        const post = threadData.data.children[0]?.data;
         
-        if (!post) {
-          throw new Error('No weekly thread found');
+        const data = await response.json() as RedditData;
+        console.log('Parsed Reddit data:', data);
+
+        if (!data.data?.children) {
+          throw new Error('Invalid Reddit data format');
         }
 
-        // Fetch comments for the thread
-        const commentsResponse = await fetch(`/api/reddit?endpoint=comments&postId=${post.id}`);
+        const threads = data.data.children.map(child => child.data);
+        if (threads.length === 0) {
+          throw new Error('No threads found');
+        }
+
+        // Select the first thread
+        const selectedThread = threads[0];
+        console.log('Selected thread:', selectedThread);
+        setRedditData([selectedThread]);
+
+        // Fetch comments for the selected thread
+        console.log('Fetching comments for thread:', selectedThread.id);
+        const commentsResponse = await fetch(`/api/reddit?endpoint=comments&postId=${selectedThread.id}`);
         if (!commentsResponse.ok) {
-          throw new Error('Failed to fetch comments');
+          throw new Error(`HTTP error! status: ${commentsResponse.status}`);
         }
-        const comments = await commentsResponse.json();
 
-        setThread({
-          post,
-          comments
-        });
+        const commentsData = await commentsResponse.json();
+        console.log('Parsed comments data:', commentsData);
 
-        // Get Groq summary
-        const content = `${post.selftext}\n\n${comments.map((c: RedditComment) => c.body).join('\n\n')}`;
-        const summaryResponse = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ content })
-        });
-
-        if (summaryResponse.ok) {
-          const summaryData = await summaryResponse.json();
-          setSummary(summaryData);
+        if (!Array.isArray(commentsData)) {
+          throw new Error('Invalid comments data format');
         }
+
+        // Filter valid comments
+        const validComments = commentsData.filter(
+          comment => comment && comment.body && comment.author
+        );
+        setComments(validComments);
+
+        // Analyze the content using the Python service
+        await analyzeContent(selectedThread, validComments);
+        setLoading(false);
       } catch (err) {
+        console.error('Error:', err);
         setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
         setLoading(false);
       }
-    }
+    };
 
     fetchData();
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+        <CircularProgress />
+      </Box>
+    );
   }
 
   if (error) {
-    return <div>Error: {error}</div>;
-  }
-
-  if (!thread) {
-    return <div>No thread found</div>;
+    return (
+      <Box p={2}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      {summary && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-md p-6 mb-8 border border-blue-200">
-          <h2 className="text-2xl font-bold mb-4 text-blue-800">AI Summary</h2>
-          
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-2 text-blue-700">Credit Card Trip Ideas</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                {summary.creditCardIdeas.map((idea, index) => (
-                  <li key={index} className="text-gray-700">{idea}</li>
-                ))}
-              </ul>
-            </div>
+    <Box p={2}>
+      {redditData.map((post) => (
+        <Box key={post.id} mb={4}>
+          <Typography variant="h4" gutterBottom>
+            Churning Analysis Test
+          </Typography>
 
-            <div>
-              <h3 className="text-lg font-semibold mb-2 text-blue-700">Bank Account Bonuses</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                {summary.bankBonuses.map((bonus, index) => (
-                  <li key={index} className="text-gray-700">{bonus}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
+          <Card sx={{ mb: 4 }}>
+            <CardContent>
+              <Typography variant="h5" gutterBottom>
+                {post.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Posted by {post.author} on {new Date(post.created_utc * 1000).toLocaleString()}
+              </Typography>
+              <Typography variant="body1" paragraph>
+                {post.selftext}
+              </Typography>
+            </CardContent>
+          </Card>
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-2xl font-bold mb-4">{thread.post.title}</h2>
-        <div className="prose max-w-none">
-          {thread.post.selftext}
-        </div>
-        <div className="text-sm text-gray-500 mt-2">
-          Posted: {new Date(thread.post.created_utc * 1000).toLocaleString()}
-        </div>
-      </div>
+          {analyzedData && (
+            <>
+              <Card sx={{ mb: 4 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Summary
+                  </Typography>
+                  <Typography variant="body1" paragraph>
+                    {analyzedData.summary}
+                  </Typography>
+                  <Typography variant="h6" gutterBottom>
+                    Risk Assessment
+                  </Typography>
+                  <Typography variant="body1" paragraph>
+                    {analyzedData.riskAssessment}
+                  </Typography>
+                </CardContent>
+              </Card>
 
-      <div className="space-y-4">
-        <h3 className="text-xl font-semibold">Top Comments</h3>
-        {thread.comments.map((comment) => (
-          <div key={comment.id} className="bg-white rounded-lg shadow-md p-4">
-            <div className="prose max-w-none">
-              {comment.body}
-            </div>
-            <div className="text-sm text-gray-500 mt-2">
-              By {comment.author} • {new Date(comment.created_utc * 1000).toLocaleString()}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+              <Typography variant="h6" gutterBottom>
+                Opportunities ({analyzedData.opportunities.length})
+              </Typography>
+              {analyzedData.opportunities.map((opportunity, index) => (
+                <Card key={index} sx={{ mb: 2 }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      {opportunity.cardName}
+                    </Typography>
+                    <Typography variant="body1" paragraph>
+                      {opportunity.description}
+                    </Typography>
+                    <Stack direction="row" spacing={1} mb={1}>
+                      <Chip 
+                        label={`Reward: ${opportunity.rewardValue} ${opportunity.rewardType}`}
+                        color="primary"
+                      />
+                      <Chip 
+                        label={`Risk: ${opportunity.riskLevel}`}
+                        color={
+                          opportunity.riskLevel === 'Low' ? 'success' :
+                          opportunity.riskLevel === 'Medium' ? 'warning' : 'error'
+                        }
+                      />
+                      <Chip label={`Timeframe: ${opportunity.timeframe}`} />
+                    </Stack>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Requirements:
+                    </Typography>
+                    <ul>
+                      {opportunity.requirements.map((req, i) => (
+                        <li key={i}>{req}</li>
+                      ))}
+                    </ul>
+                    <Typography variant="caption" color="text.secondary">
+                      Source: {opportunity.source}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              ))}
+            </>
+          )}
+
+          <Box mt={4}>
+            <Typography variant="h6" gutterBottom>
+              Comments ({comments.length})
+            </Typography>
+            {comments.map((comment) => (
+              <Card key={comment.id} sx={{ mb: 2 }}>
+                <CardContent>
+                  <Typography variant="body1" paragraph>
+                    {comment.body}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {comment.author} {comment.author_flair_text && `(${comment.author_flair_text})`} • Score: {comment.score} • {new Date(comment.created_utc * 1000).toLocaleString()}
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        </Box>
+      ))}
+    </Box>
   );
 } 
