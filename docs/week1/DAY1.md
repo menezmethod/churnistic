@@ -3,6 +3,7 @@
 ## Core Principles
 
 1. Speed of Development
+
    - Minimal configuration
    - Essential tools only
    - Quick iterations
@@ -54,7 +55,7 @@ import { auth } from './config';
 export async function verifyAuth() {
   const user = auth.currentUser;
   if (!user) throw new Error('Not authenticated');
-  
+
   const token = await user.getIdToken();
   return { user, token };
 }
@@ -79,16 +80,18 @@ export async function middleware(request: NextRequest) {
 // src/server/routers/bonus.ts
 export const bonusRouter = router({
   quickAdd: protectedProcedure
-    .input(z.object({
-      url: z.string().url(),
-    }))
+    .input(
+      z.object({
+        url: z.string().url(),
+      })
+    )
     .mutation(async ({ input, ctx }) => {
       // 1. Extract bonus details from URL
       const details = await scrapeBonusPage(input.url);
-      
+
       // 2. Format requirements
       const requirements = formatRequirements(details.requirements);
-      
+
       // 3. Create bonus
       return prisma.bonus.create({
         data: {
@@ -98,21 +101,20 @@ export const bonusRouter = router({
           requirements,
           startDate: new Date(),
           targetDate: details.expiration || addMonths(new Date(), 3),
-          source: { url: input.url }
-        }
+          source: { url: input.url },
+        },
       });
     }),
 
-  getActive: protectedProcedure
-    .query(async ({ ctx }) => {
-      return prisma.bonus.findMany({
-        where: {
-          userId: ctx.user.id,
-          status: { in: ['planned', 'in_progress'] }
-        },
-        orderBy: { targetDate: 'asc' }
-      });
-    }),
+  getActive: protectedProcedure.query(async ({ ctx }) => {
+    return prisma.bonus.findMany({
+      where: {
+        userId: ctx.user.id,
+        status: { in: ['planned', 'in_progress'] },
+      },
+      orderBy: { targetDate: 'asc' },
+    });
+  }),
 });
 
 // Helper functions

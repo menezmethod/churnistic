@@ -37,11 +37,11 @@ export async function GET(request: Request) {
     const formattedComments: RedditListing<RedditComment> = {
       kind: 'Listing',
       data: {
-        children: comments.map(comment => ({
+        children: comments.map((comment) => ({
           kind: 't1',
-          data: comment
-        }))
-      }
+          data: comment,
+        })),
+      },
     };
 
     return NextResponse.json(formattedComments);
@@ -52,4 +52,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

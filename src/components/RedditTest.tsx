@@ -1,6 +1,15 @@
 'use client';
 
-import { Box, Typography, CircularProgress, Alert, Card, CardContent, Chip, Stack } from '@mui/material';
+import {
+  Box,
+  Typography,
+  CircularProgress,
+  Alert,
+  Card,
+  CardContent,
+  Chip,
+  Stack,
+} from '@mui/material';
 import React, { useEffect, useState } from 'react';
 
 interface RedditComment {
@@ -89,7 +98,7 @@ export default function RedditTest() {
         body: JSON.stringify({
           thread_title: post.title,
           thread_content: post.selftext,
-          comments: comments.map(comment => comment.body)
+          comments: comments.map((comment) => comment.body),
         }),
       });
 
@@ -99,21 +108,31 @@ export default function RedditTest() {
         throw new Error(`Failed to analyze content: ${response.status}`);
       }
 
-      const analysis = await response.json() as PythonAnalysis;
+      const analysis = (await response.json()) as PythonAnalysis;
       setAnalyzedData({
         opportunities: analysis.opportunities.map((opp: PythonOpportunity) => ({
           title: opp.title,
           description: opp.description,
-          cardName: opp.type === 'credit_card' ? opp.card_name : opp.bank_name || 'Unknown',
+          cardName:
+            opp.type === 'credit_card' ? opp.card_name : opp.bank_name || 'Unknown',
           rewardType: opp.type === 'credit_card' ? 'Points/Miles' : 'Cash',
-          rewardValue: opp.type === 'credit_card' ? opp.signup_bonus : opp.bonus_amount || 'Unknown',
+          rewardValue:
+            opp.type === 'credit_card' ? opp.signup_bonus : opp.bonus_amount || 'Unknown',
           requirements: opp.requirements,
-          riskLevel: opp.risk_level <= 3 ? 'Low' : opp.risk_level <= 7 ? 'Medium' : 'High',
-          timeframe: opp.type === 'credit_card' ? opp.time_limit : opp.expiration || 'Unknown',
-          source: opp.source
+          riskLevel:
+            opp.risk_level <= 3 ? 'Low' : opp.risk_level <= 7 ? 'Medium' : 'High',
+          timeframe:
+            opp.type === 'credit_card' ? opp.time_limit : opp.expiration || 'Unknown',
+          source: opp.source,
         })),
-        summary: typeof analysis.summary === 'string' ? analysis.summary : analysis.summary.overview || 'No summary available',
-        riskAssessment: typeof analysis.risk_assessment === 'string' ? analysis.risk_assessment : analysis.risk_assessment.overview || 'No risk assessment available'
+        summary:
+          typeof analysis.summary === 'string'
+            ? analysis.summary
+            : analysis.summary.overview || 'No summary available',
+        riskAssessment:
+          typeof analysis.risk_assessment === 'string'
+            ? analysis.risk_assessment
+            : analysis.risk_assessment.overview || 'No risk assessment available',
       });
     } catch (err) {
       console.error('Analysis error:', err);
@@ -133,15 +152,15 @@ export default function RedditTest() {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
-        const data = await response.json() as RedditData;
+
+        const data = (await response.json()) as RedditData;
         console.log('Parsed Reddit data:', data);
 
         if (!data.data?.children) {
           throw new Error('Invalid Reddit data format');
         }
 
-        const threads = data.data.children.map(child => child.data);
+        const threads = data.data.children.map((child) => child.data);
         if (threads.length === 0) {
           throw new Error('No threads found');
         }
@@ -153,7 +172,9 @@ export default function RedditTest() {
 
         // Fetch comments for the selected thread
         console.log('Fetching comments for thread:', selectedThread.id);
-        const commentsResponse = await fetch(`/api/reddit?endpoint=comments&postId=${selectedThread.id}`);
+        const commentsResponse = await fetch(
+          `/api/reddit?endpoint=comments&postId=${selectedThread.id}`
+        );
         if (!commentsResponse.ok) {
           throw new Error(`HTTP error! status: ${commentsResponse.status}`);
         }
@@ -167,7 +188,7 @@ export default function RedditTest() {
 
         // Filter valid comments
         const validComments = commentsData.filter(
-          comment => comment && comment.body && comment.author
+          (comment) => comment && comment.body && comment.author
         );
         setComments(validComments);
 
@@ -214,7 +235,8 @@ export default function RedditTest() {
                 {post.title}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Posted by {post.author} on {new Date(post.created_utc * 1000).toLocaleString()}
+                Posted by {post.author} on{' '}
+                {new Date(post.created_utc * 1000).toLocaleString()}
               </Typography>
               <Typography variant="body1" paragraph>
                 {post.selftext}
@@ -254,15 +276,18 @@ export default function RedditTest() {
                       {opportunity.description}
                     </Typography>
                     <Stack direction="row" spacing={1} mb={1}>
-                      <Chip 
+                      <Chip
                         label={`Reward: ${opportunity.rewardValue} ${opportunity.rewardType}`}
                         color="primary"
                       />
-                      <Chip 
+                      <Chip
                         label={`Risk: ${opportunity.riskLevel}`}
                         color={
-                          opportunity.riskLevel === 'Low' ? 'success' :
-                          opportunity.riskLevel === 'Medium' ? 'warning' : 'error'
+                          opportunity.riskLevel === 'Low'
+                            ? 'success'
+                            : opportunity.riskLevel === 'Medium'
+                              ? 'warning'
+                              : 'error'
                         }
                       />
                       <Chip label={`Timeframe: ${opportunity.timeframe}`} />
@@ -295,7 +320,10 @@ export default function RedditTest() {
                     {comment.body}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {comment.author} {comment.author_flair_text && `(${comment.author_flair_text})`} • Score: {comment.score} • {new Date(comment.created_utc * 1000).toLocaleString()}
+                    {comment.author}{' '}
+                    {comment.author_flair_text && `(${comment.author_flair_text})`} •
+                    Score: {comment.score} •{' '}
+                    {new Date(comment.created_utc * 1000).toLocaleString()}
                   </Typography>
                 </CardContent>
               </Card>
@@ -305,4 +333,4 @@ export default function RedditTest() {
       ))}
     </Box>
   );
-} 
+}

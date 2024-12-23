@@ -21,4 +21,4 @@ export function GoogleIcon(props: SvgIconProps) {
       />
     </SvgIcon>
   );
-} 
+}

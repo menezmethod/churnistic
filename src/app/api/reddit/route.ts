@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import { RedditAPI } from '@/server/api/reddit';
 
 export async function GET(request: Request) {
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
       console.error('Missing Reddit API credentials:', {
         hasClientId: !!process.env.REDDIT_CLIENT_ID,
         hasClientSecret: !!process.env.REDDIT_CLIENT_SECRET,
-        userAgent: process.env.REDDIT_USER_AGENT
+        userAgent: process.env.REDDIT_USER_AGENT,
       });
       return NextResponse.json({ error: 'Reddit API not configured' }, { status: 500 });
     }
@@ -29,25 +30,28 @@ export async function GET(request: Request) {
         console.log('Fetching weekly threads...');
         const threads = await api.getWeeklyThreads();
         console.log(`Found ${threads.length} threads`);
-        
+
         return NextResponse.json({
           data: {
-            children: threads.map(thread => ({
-              data: thread
-            }))
-          }
+            children: threads.map((thread) => ({
+              data: thread,
+            })),
+          },
         });
-        
+
       case 'comments':
         if (!postId) {
-          return NextResponse.json({ error: 'Missing postId parameter' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'Missing postId parameter' },
+            { status: 400 }
+          );
         }
         console.log('Fetching comments for post:', postId);
         const comments = await api.getPostComments(postId);
         console.log(`Found ${comments.length} comments`);
-        
+
         return NextResponse.json(comments);
-        
+
       default:
         return NextResponse.json({ error: 'Invalid endpoint' }, { status: 400 });
     }
@@ -57,4 +61,4 @@ export async function GET(request: Request) {
     console.error('Error details:', errorMessage);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
-} 
+}

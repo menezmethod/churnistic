@@ -71,7 +71,11 @@ export default function SignUpForm() {
         router.push('/dashboard');
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred during Google sign up. Please try again.');
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'An error occurred during Google sign up. Please try again.'
+      );
     } finally {
       setLoading(false);
     }

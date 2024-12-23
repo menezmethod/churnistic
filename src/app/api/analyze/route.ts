@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         thread_title: content.thread_title || '',
         thread_content: content.thread_content,
-        comments: Array.isArray(content.comments) ? content.comments : []
+        comments: Array.isArray(content.comments) ? content.comments : [],
       }),
     });
 
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     }
 
     const analysis = await response.json();
-    
+
     // If test mode is enabled and analysis fails, use the test endpoint
     if (!analysis || !analysis.opportunities) {
       console.log('Falling back to test endpoint');
@@ -54,9 +54,14 @@ export async function POST(request: Request) {
       return NextResponse.json(await testResponse.json());
     } catch (fallbackError) {
       return NextResponse.json(
-        { error: fallbackError instanceof Error ? fallbackError.message : 'Error analyzing content' },
+        {
+          error:
+            fallbackError instanceof Error
+              ? fallbackError.message
+              : 'Error analyzing content',
+        },
         { status: 500 }
       );
     }
   }
-} 
+}

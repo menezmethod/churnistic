@@ -297,3 +297,11 @@ model Customer {
   updatedAt       DateTime  @updatedAt
   company         Company   @relation(fields: [companyId], references: [id])
 }
+
+model Cache {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique
+  data      String   // JSON stringified data
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

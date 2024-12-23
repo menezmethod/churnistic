@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+
+import db from '@/lib/prisma/db';
 import { RedditAPI } from '@/server/api/reddit';
 
 export async function GET(request: Request) {
@@ -16,10 +18,15 @@ export async function GET(request: Request) {
     switch (endpoint) {
       case 'weekly-threads':
         const threads = await api.getWeeklyThreads();
-        return NextResponse.json({ data: { children: threads.map(thread => ({ data: thread })) } });
+        return NextResponse.json({
+          data: { children: threads.map((thread) => ({ data: thread })) },
+        });
       case 'comments':
         if (!postId) {
-          return NextResponse.json({ error: 'Missing postId parameter' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'Missing postId parameter' },
+            { status: 400 }
+          );
         }
         const comments = await api.getPostComments(postId);
         return NextResponse.json(comments);
@@ -45,21 +52,27 @@ export async function POST(request: Request) {
     }
 
     console.log('Writing to cache:', key);
-    const docRef = db.collection(CACHE_COLLECTION).doc(key);
-    
+
     try {
-      await docRef.set({
-        data,
-        timestamp: Date.now()
+      await db.cache.upsert({
+        where: { key },
+        update: {
+          data: JSON.stringify(data),
+          updatedAt: new Date(),
+        },
+        create: {
+          key,
+          data: JSON.stringify(data),
+        },
       });
 
       return NextResponse.json({ success: true });
     } catch (dbError) {
-      console.error('Firestore error:', dbError);
+      console.error('Database error:', dbError);
       throw new Error('Database error');
     }
   } catch (error) {
     console.error('Cache write error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-} 
+}

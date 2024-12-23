@@ -3,6 +3,7 @@
 ## Core Principles
 
 1. Minimal User Input
+
    - Automated data analysis
    - Smart visualizations
    - Quick insights
@@ -85,13 +86,13 @@ import { prisma } from '@/lib/prisma';
 export class AnalyticsService {
   async getBonusStats(userId: string, timeframe: string) {
     const startDate = this.getStartDate(timeframe);
-    
+
     const bonuses = await prisma.bonus.findMany({
       where: {
         userId,
-        createdAt: { gte: startDate }
+        createdAt: { gte: startDate },
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
 
     return this.aggregateByMonth(bonuses);
@@ -100,7 +101,7 @@ export class AnalyticsService {
   async getBankStats(userId: string) {
     const bonuses = await prisma.bonus.findMany({
       where: { userId },
-      include: { bank: true }
+      include: { bank: true },
     });
 
     return this.aggregateByBank(bonuses);
@@ -126,17 +127,17 @@ export class AnalyticsService {
 
   private aggregateByMonth(bonuses: any[]) {
     const months: Record<string, { earned: number; pending: number }> = {};
-    
-    bonuses.forEach(bonus => {
-      const month = new Date(bonus.createdAt).toLocaleString('default', { 
-        month: 'short', 
-        year: 'numeric' 
+
+    bonuses.forEach((bonus) => {
+      const month = new Date(bonus.createdAt).toLocaleString('default', {
+        month: 'short',
+        year: 'numeric',
       });
-      
+
       if (!months[month]) {
         months[month] = { earned: 0, pending: 0 };
       }
-      
+
       if (bonus.status === 'completed') {
         months[month].earned += bonus.amount;
       } else {
@@ -146,30 +147,33 @@ export class AnalyticsService {
 
     return Object.entries(months).map(([month, stats]) => ({
       month,
-      ...stats
+      ...stats,
     }));
   }
 
   private aggregateByBank(bonuses: any[]) {
-    const banks: Record<string, {
-      totalEarned: number;
-      bonusCount: number;
-      successCount: number;
-    }> = {};
+    const banks: Record<
+      string,
+      {
+        totalEarned: number;
+        bonusCount: number;
+        successCount: number;
+      }
+    > = {};
 
-    bonuses.forEach(bonus => {
+    bonuses.forEach((bonus) => {
       const bankName = bonus.bank.name;
-      
+
       if (!banks[bankName]) {
         banks[bankName] = {
           totalEarned: 0,
           bonusCount: 0,
-          successCount: 0
+          successCount: 0,
         };
       }
-      
+
       banks[bankName].bonusCount++;
-      
+
       if (bonus.status === 'completed') {
         banks[bankName].totalEarned += bonus.amount;
         banks[bankName].successCount++;
@@ -179,7 +183,7 @@ export class AnalyticsService {
     return Object.entries(banks).map(([name, stats]) => ({
       name,
       ...stats,
-      successRate: Math.round((stats.successCount / stats.bonusCount) * 100)
+      successRate: Math.round((stats.successCount / stats.bonusCount) * 100),
     }));
   }
 }
@@ -198,7 +202,8 @@ export class PlaidService {
 
   constructor() {
     const config = new Configuration({
-      basePath: PlaidEnvironments[process.env.PLAID_ENV as keyof typeof PlaidEnvironments],
+      basePath:
+        PlaidEnvironments[process.env.PLAID_ENV as keyof typeof PlaidEnvironments],
       baseOptions: {
         headers: {
           'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID,
@@ -216,7 +221,7 @@ export class PlaidService {
       client_name: 'Churnistic',
       products: ['transactions'],
       country_codes: ['US'],
-      language: 'en'
+      language: 'en',
     });
 
     return response.data;
@@ -224,7 +229,7 @@ export class PlaidService {
 
   async exchangePublicToken(publicToken: string) {
     const response = await this.client.itemPublicTokenExchange({
-      public_token: publicToken
+      public_token: publicToken,
     });
 
     return response.data;
@@ -234,7 +239,7 @@ export class PlaidService {
     const response = await this.client.transactionsGet({
       access_token: accessToken,
       start_date: startDate,
-      end_date: endDate
+      end_date: endDate,
     });
 
     return response.data;
@@ -243,17 +248,18 @@ export class PlaidService {
 
 // src/server/routers/bank.ts
 export const bankRouter = router({
-  createLinkToken: protectedProcedure
-    .mutation(async ({ ctx }) => {
-      const plaid = new PlaidService();
-      return plaid.createLinkToken(ctx.user.id);
-    }),
+  createLinkToken: protectedProcedure.mutation(async ({ ctx }) => {
+    const plaid = new PlaidService();
+    return plaid.createLinkToken(ctx.user.id);
+  }),
 
   setAccessToken: protectedProcedure
-    .input(z.object({
-      publicToken: z.string(),
-      bankId: z.string()
-    }))
+    .input(
+      z.object({
+        publicToken: z.string(),
+        bankId: z.string(),
+      })
+    )
     .mutation(async ({ input, ctx }) => {
       const plaid = new PlaidService();
       const { access_token } = await plaid.exchangePublicToken(input.publicToken);
@@ -263,29 +269,31 @@ export const bankRouter = router({
           userId: ctx.user.id,
           bankId: input.bankId,
           accessToken: access_token,
-          status: 'active'
-        }
+          status: 'active',
+        },
       });
     }),
 
   syncTransactions: protectedProcedure
-    .input(z.object({
-      bankId: z.string(),
-      startDate: z.string(),
-      endDate: z.string()
-    }))
+    .input(
+      z.object({
+        bankId: z.string(),
+        startDate: z.string(),
+        endDate: z.string(),
+      })
+    )
     .mutation(async ({ input, ctx }) => {
       const connection = await prisma.bankConnection.findFirst({
         where: {
           userId: ctx.user.id,
-          bankId: input.bankId
-        }
+          bankId: input.bankId,
+        },
       });
 
       if (!connection) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'Bank connection not found'
+          message: 'Bank connection not found',
         });
       }
 
@@ -298,19 +306,19 @@ export const bankRouter = router({
 
       // Store transactions
       await prisma.transaction.createMany({
-        data: transactions.map(t => ({
+        data: transactions.map((t) => ({
           userId: ctx.user.id,
           bankId: input.bankId,
           amount: t.amount,
           date: new Date(t.date),
           description: t.name,
           category: t.category[0],
-          pending: t.pending
-        }))
+          pending: t.pending,
+        })),
       });
 
       return transactions.length;
-    })
+    }),
 });
 ```
 
@@ -356,11 +364,11 @@ export default function BanksPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Connected Banks</h1>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {banks?.map(bank => {
           const isConnected = connections?.some(c => c.bankId === bank.id);
-          
+
           return (
             <div key={bank.id} className="p-4 bg-white rounded-lg shadow">
               <h3 className="font-medium">{bank.name}</h3>
@@ -420,4 +428,7 @@ npm run cypress
 2. Final Testing (Day 5)
 3. Deployment Prep (Day 5)
 4. Documentation (Day 5)
+
+```
+
 ```

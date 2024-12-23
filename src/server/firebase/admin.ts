@@ -6,16 +6,16 @@ console.log('Firebase Admin initialization starting...');
 // Initialize Firebase Admin if it hasn't been initialized yet
 if (!getApps().length) {
   console.log('No existing Firebase Admin app found, initializing...');
-  
+
   const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
   console.log('Using emulators:', useEmulators);
 
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic';
-  
+
   if (useEmulators) {
     console.log('Using Firebase Emulator configuration');
     initializeApp({
-      projectId
+      projectId,
     });
   } else {
     console.log('Using production Firebase configuration');
@@ -25,7 +25,7 @@ if (!getApps().length) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
     initializeApp({
       credential: cert(serviceAccount),
-      projectId
+      projectId,
     });
   }
 }
@@ -39,6 +39,6 @@ if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
   console.log(`Connecting Firestore Admin to emulator at ${host}:${port}`);
   db.settings({
     host: `${host}:${port}`,
-    ssl: false
+    ssl: false,
   });
-} 
+}
