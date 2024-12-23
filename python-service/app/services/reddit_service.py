@@ -3,11 +3,15 @@ from typing import Dict, Any, List
 import httpx
 from motor.motor_asyncio import AsyncIOMotorClient
 import asyncio
-from app.models.churning import BaseOpportunity
-from app.agents.churning_agent import analyze_churning_content
 import random
+import logging
+import time
 
-class RedditService:
+logger = logging.getLogger(__name__)
+
+class RedditCollector:
+    """Handles Reddit data collection and storage."""
+    
     THREAD_TYPES = {
         'NEWS': {'pattern': 'News and Updates Thread', 'priority': 2},
         'TRIP_REPORT': {'pattern': 'Trip Report and Churning Success Story Weekly Thread', 'priority': 3},
@@ -18,37 +22,45 @@ class RedditService:
         self.client = AsyncIOMotorClient(mongodb_url)
         self.db = self.client.churning
         self.http_client = httpx.AsyncClient()
+        self.rate_limit = {
+            'requests_per_minute': 30,
+            'last_request': time.time(),
+            'min_interval': 2  # Minimum seconds between requests
+        }
 
     async def close(self):
+        """Clean up resources."""
         await self.http_client.aclose()
         self.client.close()
 
-    async def fetch_and_process_threads(self):
-        """Main function to fetch and process threads from the last 3 months."""
-        three_months_ago = datetime.now() - timedelta(days=90)
+    async def _wait_for_rate_limit(self):
+        """Ensure we don't exceed Reddit's rate limits."""
+        current_time = time.time()
+        elapsed = current_time - self.rate_limit['last_request']
         
-        thread_types = list(self.THREAD_TYPES.items())
-        for index, (thread_type, config) in enumerate(thread_types):
-            try:
-                print(f"\nProcessing {thread_type} threads ({index + 1}/{len(thread_types)})")
-                await self.process_thread_type(thread_type, config, three_months_ago)
-                
-                if index < len(thread_types) - 1:
-                    # Add a delay between thread types (15-20 minutes)
-                    type_wait = random.randint(900, 1200)
-                    print(f"\nCompleted {thread_type}, waiting {type_wait} seconds before processing next thread type")
-                    await asyncio.sleep(type_wait)
-                    
-            except Exception as e:
-                print(f"Error processing {thread_type}: {str(e)}")
-                continue
+        if elapsed < self.rate_limit['min_interval']:
+            wait_time = self.rate_limit['min_interval'] - elapsed
+            await asyncio.sleep(wait_time)
         
-        print("\nCompleted processing all thread types")
+        self.rate_limit['last_request'] = time.time()
 
-    async def process_thread_type(self, thread_type: str, config: Dict[str, Any], since: datetime):
-        """Process a specific type of thread."""
-        # Search Reddit for threads
-        url = f"https://www.reddit.com/r/churning/search.json"
+    async def collect_threads(self, days_back: int = 90):
+        """Collect threads from specified time period."""
+        since = datetime.now() - timedelta(days=days_back)
+        logger.info(f"Starting thread collection from {since}")
+        
+        for thread_type, config in self.THREAD_TYPES.items():
+            try:
+                logger.info(f"Collecting {thread_type} threads")
+                await self._collect_thread_type(thread_type, config, since)
+                # Add delay between thread types
+                await asyncio.sleep(random.randint(5, 10))
+            except Exception as e:
+                logger.error(f"Error collecting {thread_type} threads: {str(e)}")
+
+    async def _collect_thread_type(self, thread_type: str, config: Dict[str, Any], since: datetime):
+        """Collect threads of a specific type."""
+        url = "https://www.reddit.com/r/churning/search.json"
         params = {
             'q': config['pattern'],
             'restrict_sr': 'on',
@@ -57,165 +69,105 @@ class RedditService:
             'limit': 100
         }
         
+        await self._wait_for_rate_limit()
         response = await self.http_client.get(url, params=params)
+        
         if response.status_code != 200:
-            raise Exception(f"Failed to fetch threads: {response.status_code}")
+            logger.error(f"Failed to fetch {thread_type} threads: {response.status_code}")
+            return
         
         data = response.json()
         threads = data['data']['children']
         
-        for thread_index, thread in enumerate(threads):
+        for thread in threads:
             thread_data = thread['data']
             created_utc = datetime.fromtimestamp(thread_data['created_utc'])
             
             if created_utc < since:
                 continue
-                
-            if not await self._should_process_thread(thread_data['id']):
-                continue
             
-            print(f"Processing thread {thread_index + 1}/{len(threads)}: {thread_data['title']}")
-            await self.process_single_thread(thread_data, config['priority'])
-            
-            # Add a delay between threads (5-10 minutes)
-            thread_wait = random.randint(300, 600)
-            print(f"Completed thread {thread_index + 1}/{len(threads)}, waiting {thread_wait} seconds before next thread")
-            await asyncio.sleep(thread_wait)
+            # Store thread
+            await self._store_thread(thread_data)
 
-    async def _should_process_thread(self, thread_id: str) -> bool:
-        """Check if thread should be processed based on last processing time."""
-        thread = await self.db.reddit_threads.find_one(
-            {'thread_id': thread_id},
-            {'last_processed': 1}
-        )
+    async def _store_thread(self, thread_data: Dict[str, Any]):
+        """Store thread in MongoDB."""
+        thread_doc = {
+            'thread_id': thread_data['id'],
+            'title': thread_data['title'],
+            'content': thread_data['selftext'],
+            'permalink': thread_data['permalink'],
+            'author': thread_data['author'],
+            'created_utc': datetime.fromtimestamp(thread_data['created_utc']),
+            'last_processed': datetime.now(),
+            'comments_collected': False,
+            'analyzed': False
+        }
         
-        if not thread:
-            return True
-            
-        last_processed = thread.get('last_processed')
-        if not last_processed:
-            return True
-            
-        # Only process if it hasn't been processed in the last 24 hours
-        return datetime.now() - last_processed > timedelta(hours=24)
+        await self.db.reddit_threads.update_one(
+            {'thread_id': thread_data['id']},
+            {'$set': thread_doc},
+            upsert=True
+        )
+        logger.info(f"Stored/updated thread {thread_data['id']}: {thread_data['title']}")
 
-    async def process_single_thread(self, thread_data: Dict[str, Any], priority: int):
-        """Process a single Reddit thread and its comments."""
-        try:
-            # Save thread
-            thread_doc = {
-                'thread_id': thread_data['id'],
-                'title': thread_data['title'],
-                'content': thread_data['selftext'],
-                'permalink': thread_data['permalink'],
-                'author': thread_data['author'],
-                'created_utc': datetime.fromtimestamp(thread_data['created_utc']),
-                'last_processed': datetime.now()
-            }
-            
-            await self.db.reddit_threads.update_one(
-                {'thread_id': thread_data['id']},
-                {'$set': thread_doc},
-                upsert=True
-            )
+    async def collect_comments(self, max_threads: int = 50):
+        """Collect comments for threads that haven't been processed."""
+        query = {
+            'comments_collected': False,
+            'created_utc': {'$gte': datetime.now() - timedelta(days=90)}
+        }
+        
+        threads = await self.db.reddit_threads.find(query).limit(max_threads).to_list(length=max_threads)
+        logger.info(f"Found {len(threads)} threads needing comment collection")
+        
+        for thread in threads:
+            try:
+                await self._collect_thread_comments(thread['thread_id'])
+                # Add delay between comment collections
+                await asyncio.sleep(random.randint(2, 5))
+            except Exception as e:
+                logger.error(f"Error collecting comments for thread {thread['thread_id']}: {str(e)}")
 
-            # Fetch and save comments
-            comments = await self._fetch_comments(thread_data['id'])
-            print(f"Found {len(comments)} comments in thread {thread_data['id']}")
-            
-            if comments:
-                await self.db.reddit_comments.delete_many({'thread_id': thread_data['id']})
-                await self.db.reddit_comments.insert_many([
-                    {
-                        'thread_id': thread_data['id'],
-                        'comment_id': comment['id'],
-                        'content': comment['body'],
-                        'author': comment['author'],
-                        'created_at': datetime.now()
-                    }
-                    for comment in comments
-                ])
-
-            # Process comments in batches to avoid rate limits
-            from app.models.churning import RedditContent
-            batch_size = 10  # Smaller batch size to be more conservative
-            comment_batches = [comments[i:i + batch_size] for i in range(0, len(comments), batch_size)]
-            
-            all_opportunities = []
-            for batch_index, batch in enumerate(comment_batches):
-                try:
-                    content = RedditContent(
-                        thread_id=thread_data['id'],
-                        thread_title=thread_data['title'],
-                        thread_content=thread_data['selftext'],
-                        thread_permalink=thread_data['permalink'],
-                        comments=[comment['body'] for comment in batch]
-                    )
-                    
-                    print(f"Analyzing batch {batch_index + 1}/{len(comment_batches)} of {len(batch)} comments from thread {thread_data['id']}")
-                    from app.agents.churning_agent import analyze_content
-                    
-                    # More patient retry system
-                    max_retries = 5  # Increased max retries
-                    retry_count = 0
-                    base_wait = 60  # Start with 1 minute wait
-                    
-                    while retry_count < max_retries:
-                        try:
-                            result = await analyze_content(content)
-                            all_opportunities.extend(result.opportunities)
-                            break
-                        except Exception as e:
-                            if "rate_limit" in str(e).lower() and retry_count < max_retries - 1:
-                                retry_count += 1
-                                # Exponential backoff with jitter: 1min, 2min, 4min, 8min, 16min
-                                wait_time = (2 ** retry_count * base_wait) + (random.randint(0, 30))
-                                print(f"Rate limit hit on batch {batch_index + 1}, waiting {wait_time} seconds before retry {retry_count}/{max_retries}")
-                                await asyncio.sleep(wait_time)
-                            else:
-                                print(f"Error on batch {batch_index + 1}: {str(e)}")
-                                if retry_count == max_retries - 1:
-                                    print("Max retries reached, skipping batch")
-                                raise
-                    
-                    # Longer delay between batches (2-3 minutes)
-                    batch_wait = random.randint(120, 180)
-                    print(f"Completed batch {batch_index + 1}/{len(comment_batches)}, waiting {batch_wait} seconds before next batch")
-                    await asyncio.sleep(batch_wait)
-                    
-                except Exception as e:
-                    print(f"Error processing batch {batch_index + 1} in thread {thread_data['id']}: {str(e)}")
-                    continue
-            
-            print(f"Found {len(all_opportunities)} opportunities in thread {thread_data['id']}")
-            
-            # Adjust confidence based on thread priority and save opportunities
-            for opp in all_opportunities:
-                opp.confidence *= (priority / 2)
-                opp.source = 'reddit'
-                opp.source_link = f"https://reddit.com{thread_data['permalink']}"
-                opp.source_id = thread_data['id']
-                
-                # Save opportunity
-                await self.save_opportunity(opp)
-                
-        except Exception as e:
-            print(f"Error processing thread {thread_data['id']}: {str(e)}")
-            raise
-
-    async def _fetch_comments(self, thread_id: str) -> List[Dict[str, Any]]:
-        """Fetch comments for a thread."""
+    async def _collect_thread_comments(self, thread_id: str):
+        """Collect and store comments for a specific thread."""
+        await self._wait_for_rate_limit()
         url = f"https://www.reddit.com/r/churning/comments/{thread_id}.json"
         
         response = await self.http_client.get(url)
         if response.status_code != 200:
-            return []
-                
+            logger.error(f"Failed to fetch comments for thread {thread_id}: {response.status_code}")
+            return
+        
         data = response.json()
-        if len(data) < 2:  # Reddit API returns [post, comments]
-            return []
+        if len(data) < 2:
+            logger.warning(f"No comments found for thread {thread_id}")
+            return
+        
+        comments = self._extract_comments(data[1])
+        if comments:
+            # Store comments
+            comment_docs = [{
+                'thread_id': thread_id,
+                'comment_id': comment['id'],
+                'content': comment['body'],
+                'author': comment['author'],
+                'created_at': datetime.now()
+            } for comment in comments]
             
-        return self._extract_comments(data[1])
+            # Remove existing comments for this thread
+            await self.db.reddit_comments.delete_many({'thread_id': thread_id})
+            
+            # Insert new comments
+            if comment_docs:
+                await self.db.reddit_comments.insert_many(comment_docs)
+            
+            # Mark thread as having comments collected
+            await self.db.reddit_threads.update_one(
+                {'thread_id': thread_id},
+                {'$set': {'comments_collected': True}}
+            )
+            
+            logger.info(f"Stored {len(comment_docs)} comments for thread {thread_id}")
 
     def _extract_comments(self, comment_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract comments recursively."""
@@ -241,66 +193,39 @@ class RedditService:
             
         return comments
 
-    async def save_opportunity(self, opportunity: BaseOpportunity):
-        """Save an opportunity to the database."""
-        opp_dict = opportunity.dict()
-        opp_dict['created_at'] = datetime.now()
-        opp_dict['updated_at'] = datetime.now()
+    async def cleanup_old_data(self, days: int = 90):
+        """Clean up data older than specified days."""
+        cutoff = datetime.now() - timedelta(days=days)
         
-        # Check for existing opportunity
-        existing = await self.db.opportunities.find_one({
-            'source_id': opp_dict['source_id'],
-            'title': opp_dict['title']
-        })
-        
-        if existing and existing.get('confidence', 0) >= opp_dict['confidence']:
-            return
-            
-        await self.db.opportunities.update_one(
-            {
-                'source_id': opp_dict['source_id'],
-                'title': opp_dict['title']
-            },
-            {'$set': opp_dict},
-            upsert=True
-        )
-
-    async def cleanup_old_data(self):
-        """Clean up old processed data."""
-        cutoff = datetime.now() - timedelta(days=7)
-        
+        # Clean up old comments
         await self.db.reddit_comments.delete_many({
             'created_at': {'$lt': cutoff}
         })
         
-        # Keep thread records but mark as unprocessed
-        await self.db.reddit_threads.update_many(
-            {'last_processed': {'$lt': cutoff}},
-            {'$unset': {'last_processed': ''}}
-        ) 
-
-    async def get_recent_threads(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get recently processed threads."""
-        cursor = self.db.reddit_threads.find(
-            {},
-            {'_id': 0}  # Exclude MongoDB _id
-        ).sort('created_utc', -1).limit(limit)
+        # Clean up old threads
+        await self.db.reddit_threads.delete_many({
+            'created_utc': {'$lt': cutoff}
+        })
         
-        return await cursor.to_list(length=limit)
+        logger.info(f"Cleaned up data older than {days} days")
 
-    async def get_thread_comments(self, thread_id: str) -> List[Dict[str, Any]]:
-        """Get comments for a specific thread."""
-        cursor = self.db.reddit_comments.find(
-            {'thread_id': thread_id},
-            {'_id': 0}  # Exclude MongoDB _id
-        )
-        return await cursor.to_list(length=None)
-
-    async def get_recent_opportunities(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Get recently found opportunities."""
-        cursor = self.db.opportunities.find(
-            {},
-            {'_id': 0}  # Exclude MongoDB _id
-        ).sort('created_at', -1).limit(limit)
+    async def get_collection_stats(self) -> Dict[str, Any]:
+        """Get statistics about collected data."""
+        thread_count = await self.db.reddit_threads.count_documents({})
+        comments_count = await self.db.reddit_comments.count_documents({})
         
-        return await cursor.to_list(length=limit) 
+        threads_with_comments = await self.db.reddit_threads.count_documents({
+            'comments_collected': True
+        })
+        
+        recent_threads = await self.db.reddit_threads.count_documents({
+            'created_utc': {'$gte': datetime.now() - timedelta(days=7)}
+        })
+        
+        return {
+            'total_threads': thread_count,
+            'total_comments': comments_count,
+            'threads_with_comments': threads_with_comments,
+            'threads_last_7_days': recent_threads,
+            'last_updated': datetime.now().isoformat()
+        } 
