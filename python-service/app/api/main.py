@@ -1,68 +1,89 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-import logging
-from typing import Dict, Any
+from pydantic import BaseModel
+from typing import List, Optional
+import os
+import asyncio
+from datetime import datetime
 
-from app.models.churning import RedditContent, ChurningAnalysis
-from app.agents.churning_agent import analyze_content
+from app.models.churning import BaseOpportunity
+from app.agents.churning_agent import analyze_churning_content
+from app.services.reddit_service import RedditService
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-app = FastAPI(
-    title="Churning Analysis API",
-    description="API for analyzing credit card and bank account churning opportunities",
-    version="1.0.0"
-)
+app = FastAPI()
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.get("/test")
-async def test_endpoint() -> Dict[str, Any]:
-    """
-    Test endpoint to verify the API is working
-    """
-    logger.info("Test endpoint called")
-    return {
-        "status": "ok",
-        "message": "API is running"
-    }
+# Initialize Reddit service
+reddit_service = RedditService(os.getenv("MONGODB_URL", "mongodb://localhost:27017"))
 
-@app.post("/analyze", response_model=ChurningAnalysis)
-async def analyze_churning(content: RedditContent) -> ChurningAnalysis:
-    """
-    Analyze Reddit content for churning opportunities
-    
-    This endpoint takes Reddit thread content and comments,
-    analyzes them for credit card and bank account churning opportunities,
-    and returns structured analysis results using the Groq LLM.
-    """
-    try:
-        logger.info(f"Analyzing content from thread: {content.thread_title}")
-        logger.info(f"Number of comments: {len(content.comments)}")
+class Content(BaseModel):
+    thread_id: str
+    thread_title: str
+    thread_content: str
+    thread_permalink: str
+    comments: List[str]
+
+class AnalysisResponse(BaseModel):
+    opportunities: List[BaseOpportunity]
+
+@app.on_event("startup")
+async def startup_event():
+    # Start background task for periodic scraping
+    asyncio.create_task(periodic_scraping())
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await reddit_service.close()
+
+async def periodic_scraping():
+    """Run Reddit scraping every hour."""
+    while True:
+        try:
+            print(f"Starting Reddit scraping at {datetime.now()}")
+            await reddit_service.fetch_and_process_threads()
+            print(f"Completed Reddit scraping at {datetime.now()}")
+            
+            # Clean up old data
+            await reddit_service.cleanup_old_data()
+        except Exception as e:
+            print(f"Error during periodic scraping: {str(e)}")
         
-        analysis = await analyze_content(content)
-        
-        logger.info(f"Analysis complete. Found {len(analysis.opportunities)} opportunities")
-        return analysis
-        
-    except ValueError as e:
-        logger.error(f"Validation error: {str(e)}")
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid input: {str(e)}"
-        )
-    except Exception as e:
-        logger.error(f"Error analyzing content: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error analyzing content: {str(e)}"
-        ) 
+        # Wait for 1 hour before next run
+        await asyncio.sleep(3600)
+
+@app.post("/analyze", response_model=AnalysisResponse)
+async def analyze_content(content: Content):
+    opportunities = await analyze_churning_content(content)
+    return AnalysisResponse(opportunities=opportunities)
+
+@app.post("/scrape")
+async def trigger_scrape(background_tasks: BackgroundTasks):
+    """Manually trigger Reddit scraping."""
+    background_tasks.add_task(reddit_service.fetch_and_process_threads)
+    return {"message": "Scraping started in background"}
+
+@app.get("/threads")
+async def get_recent_threads():
+    """Get recently processed Reddit threads."""
+    threads = await reddit_service.get_recent_threads()
+    return {"threads": threads}
+
+@app.get("/threads/{thread_id}/comments")
+async def get_thread_comments(thread_id: str):
+    """Get comments for a specific thread."""
+    comments = await reddit_service.get_thread_comments(thread_id)
+    return {"comments": comments}
+
+@app.get("/opportunities/recent")
+async def get_recent_opportunities():
+    """Get recently found opportunities."""
+    opportunities = await reddit_service.get_recent_opportunities()
+    return {"opportunities": opportunities} 

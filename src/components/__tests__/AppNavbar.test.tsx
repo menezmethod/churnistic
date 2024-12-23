@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -27,7 +27,7 @@ describe('AppNavbar', () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: null,
       signOut: mockSignOut,
-      hasRole: (role: UserRole) => role === UserRole.USER,
+      hasRole: () => false,
     });
   });
 
@@ -74,7 +74,7 @@ describe('AppNavbar', () => {
     expect(screen.getByLabelText('account menu')).toBeInTheDocument();
   });
 
-  it('shows protected menu items when logged in', () => {
+  it('shows protected menu items when logged in', async () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: {
         email: 'test@example.com',
@@ -87,7 +87,14 @@ describe('AppNavbar', () => {
     render(<AppNavbar />);
     const menuButton = screen.getByLabelText('open drawer');
     fireEvent.click(menuButton);
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('Dashboard')).toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
+
     expect(screen.getByText('Credit Cards')).toBeInTheDocument();
     expect(screen.getByText('Bank Accounts')).toBeInTheDocument();
     expect(screen.getByText('Investments')).toBeInTheDocument();

@@ -100,17 +100,19 @@ const Comment = ({ comment }: { comment: RedditComment }) => (
         {comment.body}
       </Typography>
       <Typography variant="caption" color="text.secondary">
-        {comment.author}{' '}
-        {comment.author_flair_text && `(${comment.author_flair_text})`} •{' '}
-        Score: {comment.score} •{' '}
-        {new Date(comment.created_utc * 1000).toLocaleString()} •{' '}
-        <Link href={`https://reddit.com${comment.permalink}`} target="_blank" rel="noopener noreferrer">
+        {comment.author} {comment.author_flair_text && `(${comment.author_flair_text})`} •{' '}
+        Score: {comment.score} • {new Date(comment.created_utc * 1000).toLocaleString()} •{' '}
+        <Link
+          href={`https://reddit.com${comment.permalink}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           View on Reddit
         </Link>
       </Typography>
       {comment.replies && comment.replies.data.children.length > 0 && (
         <Box sx={{ ml: 4, mt: 2 }}>
-          {comment.replies.data.children.map(reply => (
+          {comment.replies.data.children.map((reply) => (
             <Comment key={reply.data.id} comment={reply.data} />
           ))}
         </Box>
@@ -134,22 +136,22 @@ export default function RedditTest() {
         console.log('Fetching recent threads...');
 
         const threadsResponse = await fetch('/api/reddit?endpoint=weekly-threads');
-        
+
         if (!threadsResponse.ok) {
           const text = await threadsResponse.text();
           const data = JSON.parse(text);
-          
+
           if (data.error?.includes('Authentication required')) {
             const authUrl = data.error.split('Please visit: ')[1];
             setError('Reddit authentication required');
             window.localStorage.setItem('redditAuthUrl', authUrl);
             return;
           }
-          
+
           throw new Error(`HTTP error! status: ${threadsResponse.status}, body: ${text}`);
         }
 
-        const threadsData = await threadsResponse.json() as RedditResponse<RedditPost>;
+        const threadsData = (await threadsResponse.json()) as RedditResponse<RedditPost>;
         console.log('Threads response:', threadsData);
 
         if (!threadsData.data?.children?.length) {
@@ -158,50 +160,62 @@ export default function RedditTest() {
         }
 
         // Enhanced thread selection with metadata
-        const weeklyThread = threadsData.data.children
-          .find(child => {
-            const title = child.data.title.toLowerCase();
-            const isWeekly = title.includes('weekly') || 
-                            title.includes('week of') || 
-                            title.includes('weekly thread');
-            if (isWeekly) {
-              // Enrich with thread metrics
-              child.data.thread_metrics = {
-                engagement_ratio: child.data.num_comments / (child.data.score || 1),
-                top_level_comments: 0, // To be calculated
-                avg_comment_score: 0, // To be calculated
-              };
-            }
-            return isWeekly;
-          })?.data;
+        const weeklyThread = threadsData.data.children.find((child) => {
+          const title = child.data.title.toLowerCase();
+          const isWeekly =
+            title.includes('weekly') ||
+            title.includes('week of') ||
+            title.includes('weekly thread');
+          if (isWeekly) {
+            // Enrich with thread metrics
+            child.data.thread_metrics = {
+              engagement_ratio: child.data.num_comments / (child.data.score || 1),
+              top_level_comments: 0, // To be calculated
+              avg_comment_score: 0, // To be calculated
+            };
+          }
+          return isWeekly;
+        })?.data;
 
         if (!weeklyThread) {
-          console.error('Weekly discussion thread not found in threads:', 
-            threadsData.data.children.map(child => child.data.title));
+          console.error(
+            'Weekly discussion thread not found in threads:',
+            threadsData.data.children.map((child) => child.data.title)
+          );
           throw new Error('Weekly discussion thread not found');
         }
 
         setRedditData([weeklyThread]);
 
-        const commentsResponse = await fetch(`/api/reddit?endpoint=comments&postId=${weeklyThread.id}`);
-        
+        const commentsResponse = await fetch(
+          `/api/reddit?endpoint=comments&postId=${weeklyThread.id}`
+        );
+
         if (!commentsResponse.ok) {
           const text = await commentsResponse.text();
-          throw new Error(`HTTP error! status: ${commentsResponse.status}, body: ${text}`);
+          throw new Error(
+            `HTTP error! status: ${commentsResponse.status}, body: ${text}`
+          );
         }
 
-        const commentsData = await commentsResponse.json() as RedditComment[];
-        
+        const commentsData = (await commentsResponse.json()) as RedditComment[];
+
         // Enrich comments with engagement metrics
-        const enrichedComments = commentsData.map(comment => ({
+        const enrichedComments = commentsData.map((comment) => ({
           ...comment,
           engagement_metrics: {
-            child_count: comment.replies?.data?.children?.length || 0,
-            total_child_score: comment.replies?.data?.children?.reduce((sum, reply) => 
-              sum + (reply.data.score || 0), 0) || 0,
-            avg_reply_length: comment.replies?.data?.children?.reduce((sum, reply) => 
-              sum + reply.data.body.length, 0) / (comment.replies?.data?.children?.length || 1) || 0,
-          }
+            child_count: comment.replies?.data?.children?.length ?? 0,
+            total_child_score:
+              comment.replies?.data?.children?.reduce(
+                (sum, reply) => sum + (reply.data?.score ?? 0),
+                0
+              ) ?? 0,
+            avg_reply_length:
+              comment.replies?.data?.children?.reduce(
+                (sum, reply) => sum + (reply.data?.body?.length ?? 0),
+                0
+              ) ?? 0 / (comment.replies?.data?.children?.length ?? 1),
+          },
         }));
 
         setComments(enrichedComments);
@@ -229,7 +243,13 @@ export default function RedditTest() {
 
   if (loading) {
     return (
-      <Box display="flex" flexDirection="column" alignItems="center" gap={2} minHeight="200px">
+      <Box
+        display="flex"
+        flexDirection="column"
+        alignItems="center"
+        gap={2}
+        minHeight="200px"
+      >
         <CircularProgress />
         <Typography>Loading Reddit data...</Typography>
       </Box>
@@ -244,8 +264,8 @@ export default function RedditTest() {
           <Typography>{error}</Typography>
         </Alert>
         {window.localStorage.getItem('redditAuthUrl') && (
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={() => {
               const authUrl = window.localStorage.getItem('redditAuthUrl');
               if (authUrl) window.location.href = authUrl;
@@ -269,16 +289,16 @@ export default function RedditTest() {
 
           <Card sx={{ mb: 4 }}>
             <CardContent>
-              <Link 
+              <Link
                 href={`https://reddit.com${post.permalink}`}
-                target="_blank" 
+                target="_blank"
                 rel="noopener noreferrer"
-                sx={{ 
+                sx={{
                   textDecoration: 'none',
                   color: 'inherit',
                   '&:hover': {
-                    textDecoration: 'underline'
-                  }
+                    textDecoration: 'underline',
+                  },
                 }}
               >
                 <Typography variant="h5" gutterBottom>
@@ -286,8 +306,8 @@ export default function RedditTest() {
                 </Typography>
               </Link>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Posted by {post.author} • Score: {post.score} • 
-                Upvote Ratio: {(post.upvote_ratio * 100).toFixed(1)}% •{' '}
+                Posted by {post.author} • Score: {post.score} • Upvote Ratio:{' '}
+                {(post.upvote_ratio * 100).toFixed(1)}% •{' '}
                 {new Date(post.created_utc * 1000).toLocaleString()}
               </Typography>
               <Typography variant="body1" paragraph>

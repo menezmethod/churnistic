@@ -6,7 +6,6 @@ import { RedditAPI, RedditPost, RedditComment } from '@/server/api/reddit';
 // Constants
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
 
-
 interface RedditThreadsResponse {
   data: {
     children: Array<{
@@ -136,6 +135,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Cache write error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const key = searchParams.get('key');
+
+    if (key) {
+      // Delete specific cache entry
+      await db.cache.delete({
+        where: { key },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Cache cleared for key: ${key}`,
+      });
+    } else {
+      // Delete all cache entries
+      await db.cache.deleteMany({});
+      return NextResponse.json({ success: true, message: 'All cache cleared' });
+    }
+  } catch (error) {
+    console.error('Cache delete error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

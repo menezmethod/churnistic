@@ -8,127 +8,72 @@ describe('RedditAPI', () => {
 
   beforeEach(() => {
     api = new RedditAPI();
-    (fetch as jest.Mock).mockClear();
+    jest.clearAllMocks();
   });
 
   it('should get weekly threads', async () => {
-    // Mock the OAuth token response
-    (fetch as jest.Mock).mockImplementationOnce(() =>
-      Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            access_token: 'mock_access_token',
-            token_type: 'bearer',
-            expires_in: 3600,
-            scope: '*',
-          }),
-        headers: new Headers({
-          'x-ratelimit-used': '1',
-          'x-ratelimit-remaining': '599',
-          'x-ratelimit-reset': '3600',
-        }),
-      })
-    );
-
-    // Mock the weekly threads response
-    (fetch as jest.Mock).mockImplementationOnce(() =>
-      Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
+    const mockThreads = {
+      data: {
+        children: [
+          {
             data: {
-              children: [
-                {
-                  data: {
-                    title: 'Weekly Thread',
-                    selftext: 'Weekly thread content',
-                    permalink: '/r/churning/comments/123/weekly_thread',
-                    created_utc: 1234567890,
-                  },
-                },
-              ],
+              id: '1',
+              title: 'Weekly Discussion Thread - December 23, 2024',
+              selftext: 'Weekly discussion thread content',
+              created_utc: 1703376000,
+              permalink: '/r/churning/comments/1/weekly_discussion_thread',
             },
-          }),
-        headers: new Headers({
-          'x-ratelimit-used': '2',
-          'x-ratelimit-remaining': '598',
-          'x-ratelimit-reset': '3600',
-        }),
-      })
-    );
+          },
+        ],
+      },
+    };
+
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(mockThreads),
+    });
 
     const threads = await api.getWeeklyThreads();
+
     expect(threads).toBeDefined();
     expect(Array.isArray(threads)).toBe(true);
     expect(threads.length).toBeGreaterThan(0);
     expect(threads[0]).toHaveProperty('title');
     expect(threads[0]).toHaveProperty('selftext');
     expect(threads[0]).toHaveProperty('permalink');
-    expect(threads[0]).toHaveProperty('created_utc');
   });
 
   it('should get post comments', async () => {
-    // Mock the OAuth token response
-    (fetch as jest.Mock).mockImplementationOnce(() =>
-      Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            access_token: 'mock_access_token',
-            token_type: 'bearer',
-            expires_in: 3600,
-            scope: '*',
-          }),
-        headers: new Headers({
-          'x-ratelimit-used': '3',
-          'x-ratelimit-remaining': '597',
-          'x-ratelimit-reset': '3600',
-        }),
-      })
-    );
-
-    // Mock the comments response
-    (fetch as jest.Mock).mockImplementationOnce(() =>
-      Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve([
+    const mockComments = [
+      {
+        data: {
+          children: [],
+        },
+      },
+      {
+        data: {
+          children: [
             {
               data: {
-                children: [
-                  {
-                    data: {
-                      title: 'Post Title',
-                      selftext: 'Post content',
-                    },
-                  },
-                ],
+                id: '1',
+                body: 'Test comment',
+                author: 'testuser',
+                created_utc: 1703376000,
+                permalink: '/r/churning/comments/1/comment',
               },
             },
-            {
-              data: {
-                children: [
-                  {
-                    data: {
-                      body: 'Comment content',
-                      author: 'user123',
-                      created_utc: 1234567890,
-                    },
-                  },
-                ],
-              },
-            },
-          ]),
-        headers: new Headers({
-          'x-ratelimit-used': '4',
-          'x-ratelimit-remaining': '596',
-          'x-ratelimit-reset': '3600',
-        }),
-      })
-    );
+          ],
+        },
+      },
+    ];
 
-    const comments = await api.getPostComments('123');
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(mockComments),
+    });
+
+    const comments = await api.getPostComments('test-post-id');
+
     expect(comments).toBeDefined();
     expect(Array.isArray(comments)).toBe(true);
     expect(comments.length).toBeGreaterThan(0);

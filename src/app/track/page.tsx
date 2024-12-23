@@ -1,28 +1,20 @@
 'use client';
 
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import EditIcon from '@mui/icons-material/Edit';
+import InfoIcon from '@mui/icons-material/Info';
+import WarningIcon from '@mui/icons-material/Warning';
 import {
-  Info as InfoIcon,
-  CreditCard as CreditCardIcon,
-  AccountBalance as BankIcon,
-  Edit as EditIcon,
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
-} from '@mui/icons-material';
-import {
-  Card,
-  Grid,
-  Typography,
   Box,
+  Card,
+  Typography,
   Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   LinearProgress,
   Chip,
 } from '@mui/material';
@@ -44,13 +36,13 @@ const activeOpportunity = {
       type: 'spending',
       progress: 2500,
       target: 4000,
-      status: 'in_progress'
+      status: 'in_progress',
     },
     {
       description: 'No Sapphire bonus in past 48 months',
       type: 'verification',
-      status: 'verified'
-    }
+      status: 'verified',
+    },
   ],
   next_update_needed: '2024-02-20',
 };
@@ -58,25 +50,25 @@ const activeOpportunity = {
 interface UpdateProgressDialogProps {
   open: boolean;
   onClose: () => void;
-  requirement: typeof activeOpportunity.requirements[0];
+  requirement: (typeof activeOpportunity.requirements)[0];
 }
 
-const UpdateProgressDialog = ({ open, onClose, requirement }: UpdateProgressDialogProps) => {
+const UpdateProgressDialog = ({
+  open,
+  onClose,
+  requirement,
+}: UpdateProgressDialogProps) => {
   const [progress, setProgress] = useState(requirement.progress?.toString() || '');
-  
+
   if (requirement.type !== 'spending') return null;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        Update Progress
-      </DialogTitle>
+      <DialogTitle>Update Progress</DialogTitle>
       <DialogContent>
         <Box py={2}>
-          <Typography gutterBottom>
-            How much have you spent so far?
-          </Typography>
-          
+          <Typography gutterBottom>How much have you spent so far?</Typography>
+
           <Box mt={3}>
             <TextField
               fullWidth
@@ -85,7 +77,7 @@ const UpdateProgressDialog = ({ open, onClose, requirement }: UpdateProgressDial
               value={progress}
               onChange={(e) => setProgress(e.target.value)}
               InputProps={{
-                startAdornment: <Typography>$</Typography>
+                startAdornment: <Typography>$</Typography>,
               }}
               helperText={`Target: $${requirement.target?.toLocaleString()}`}
             />
@@ -94,15 +86,15 @@ const UpdateProgressDialog = ({ open, onClose, requirement }: UpdateProgressDial
           <Box mt={3}>
             <Typography variant="body2" color="text.secondary">
               This will be used to track your progress towards the spending requirement.
-              We'll send you reminders when you're falling behind.
+              We&apos;ll send you reminders when you&apos;re falling behind.
             </Typography>
           </Box>
         </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           onClick={() => {
             // Here we would save the progress update
             onClose();
@@ -117,9 +109,11 @@ const UpdateProgressDialog = ({ open, onClose, requirement }: UpdateProgressDial
 
 const ProgressCard = () => {
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
-  const [selectedRequirement, setSelectedRequirement] = useState<typeof activeOpportunity.requirements[0] | null>(null);
+  const [selectedRequirement, setSelectedRequirement] = useState<
+    (typeof activeOpportunity.requirements)[0] | null
+  >(null);
 
-  const openUpdateDialog = (requirement: typeof activeOpportunity.requirements[0]) => {
+  const openUpdateDialog = (requirement: (typeof activeOpportunity.requirements)[0]) => {
     setSelectedRequirement(requirement);
     setUpdateDialogOpen(true);
   };
@@ -136,29 +130,33 @@ const ProgressCard = () => {
             </Typography>
           </div>
         </Box>
-        <Chip 
-          label={`Deadline: ${activeOpportunity.deadline}`}
-          color="warning"
-        />
+        <Chip label={`Deadline: ${activeOpportunity.deadline}`} color="warning" />
       </Box>
 
       <Box mb={4}>
-        <Typography variant="subtitle2" gutterBottom>Overall Progress</Typography>
+        <Typography variant="subtitle2" gutterBottom>
+          Overall Progress
+        </Typography>
         <Box display="flex" alignItems="center" gap={2} mb={1}>
           <Box flexGrow={1}>
-            <LinearProgress 
-              variant="determinate" 
-              value={(activeOpportunity.current_progress / activeOpportunity.target) * 100}
+            <LinearProgress
+              variant="determinate"
+              value={
+                (activeOpportunity.current_progress / activeOpportunity.target) * 100
+              }
               sx={{ height: 10, borderRadius: 1 }}
             />
           </Box>
           <Typography variant="body2">
-            ${activeOpportunity.current_progress.toLocaleString()} / ${activeOpportunity.target.toLocaleString()}
+            ${activeOpportunity.current_progress.toLocaleString()} / $
+            {activeOpportunity.target.toLocaleString()}
           </Typography>
         </Box>
       </Box>
 
-      <Typography variant="subtitle2" gutterBottom>Requirements</Typography>
+      <Typography variant="subtitle2" gutterBottom>
+        Requirements
+      </Typography>
       {activeOpportunity.requirements.map((requirement, index) => (
         <Box key={index} mb={2}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
@@ -184,14 +182,17 @@ const ProgressCard = () => {
             <Box pl={4}>
               <Box display="flex" alignItems="center" gap={2} mb={1}>
                 <Box flexGrow={1}>
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={(requirement.progress / requirement.target) * 100}
+                  <LinearProgress
+                    variant="determinate"
+                    value={
+                      ((requirement.progress ?? 0) / (requirement.target ?? 1)) * 100
+                    }
                     sx={{ height: 6, borderRadius: 1 }}
                   />
                 </Box>
                 <Typography variant="body2" color="text.secondary">
-                  ${requirement.progress.toLocaleString()} / ${requirement.target.toLocaleString()}
+                  ${requirement.progress.toLocaleString()} / $
+                  {requirement.target.toLocaleString()}
                 </Typography>
               </Box>
             </Box>
@@ -199,16 +200,23 @@ const ProgressCard = () => {
         </Box>
       ))}
 
-      <Box mt={3} bgcolor="action.hover" p={2.5} borderRadius={2} sx={{
-        border: '1px solid',
-        borderColor: 'divider',
-      }}>
+      <Box
+        mt={3}
+        bgcolor="action.hover"
+        p={2.5}
+        borderRadius={2}
+        sx={{
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
         <Box display="flex" alignItems="center" gap={1} mb={1.5}>
           <WarningIcon color="warning" fontSize="small" />
           <Typography variant="subtitle2">Next Update Needed</Typography>
         </Box>
         <Typography variant="body2" color="text.secondary">
-          Please update your progress by {activeOpportunity.next_update_needed} to help us track your spending accurately.
+          Please update your progress by {activeOpportunity.next_update_needed} to help us
+          track your spending accurately.
         </Typography>
       </Box>
 
@@ -240,4 +248,4 @@ export default function TrackPage() {
       <ProgressCard />
     </div>
   );
-} 
+}

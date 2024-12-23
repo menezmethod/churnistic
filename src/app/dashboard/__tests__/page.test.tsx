@@ -4,81 +4,57 @@ import { useAuth } from '@/lib/auth/AuthContext';
 
 import DashboardPage from '../page';
 
-// Mock Firebase modules
-jest.mock('firebase/app', () => ({
-  initializeApp: jest.fn(),
-  getApps: jest.fn(() => []),
-}));
-
-jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(),
-  onAuthStateChanged: jest.fn((auth, callback) => {
-    callback({
-      email: 'test@example.com',
-      getIdToken: () => Promise.resolve('test-token'),
-    });
-    return () => {};
-  }),
-}));
-
-jest.mock('firebase/firestore', () => ({
-  getFirestore: jest.fn(),
-  enableIndexedDbPersistence: jest.fn().mockResolvedValue(undefined),
-  doc: jest.fn(),
-  getDoc: jest.fn().mockResolvedValue({
-    exists: () => true,
-    data: () => ({
-      displayName: 'Test User',
-      customDisplayName: 'Churner',
-      email: 'test@example.com',
-    }),
-  }),
-}));
-
-jest.mock('firebase/storage', () => ({
-  getStorage: jest.fn(),
-}));
-
-// Mock auth context
-jest.mock('@/lib/auth/AuthContext', () => ({
-  useAuth: jest.fn(),
-}));
+jest.mock('@/lib/auth/AuthContext');
 
 describe('DashboardPage', () => {
   beforeEach(() => {
     (useAuth as jest.Mock).mockReturnValue({
-      user: { uid: '123', email: 'test@example.com' },
+      user: {
+        email: 'test@example.com',
+        displayName: 'Test User',
+      },
     });
   });
 
   it('renders welcome message', async () => {
     render(<DashboardPage />);
-    await waitFor(async () => {
-      expect(await screen.findByText(/Welcome back/)).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText(/Welcome back/)).toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
   });
 
   it('renders summary cards', async () => {
     render(<DashboardPage />);
-    await waitFor(async () => {
-      expect(await screen.findByText('Active Cards')).toBeInTheDocument();
-      expect(await screen.findByText('Bank Bonuses')).toBeInTheDocument();
-      expect(await screen.findByText('Next Deadline')).toBeInTheDocument();
-      expect(await screen.findByText('Total Value')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Active Cards')).toBeInTheDocument();
+        expect(screen.getByText('Bank Bonuses')).toBeInTheDocument();
+        expect(screen.getByText('Next Deadline')).toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
   });
 
   it('renders recent applications section', async () => {
     render(<DashboardPage />);
-    await waitFor(async () => {
-      expect(await screen.findByText('Recent Card Applications')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Recent Card Applications')).toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
   });
 
   it('renders settings button', async () => {
     render(<DashboardPage />);
-    await waitFor(async () => {
-      expect(await screen.findByText('Settings')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Settings')).toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
   });
 });

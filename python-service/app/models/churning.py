@@ -3,8 +3,10 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 
 class RedditContent(BaseModel):
+    thread_id: str = Field(description="Reddit thread ID for URL construction")
     thread_title: str
     thread_content: str
+    thread_permalink: str = Field(description="Full Reddit permalink for the thread")
     comments: List[str]
 
 class BaseOpportunity(BaseModel):
