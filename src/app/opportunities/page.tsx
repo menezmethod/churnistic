@@ -48,7 +48,8 @@ interface Opportunity {
   postedDate: string;
   expirationDate?: string;
   confidence: number;
-  metadata?: OpportunityMetadata;
+  status: string;
+  metadata?: OpportunityMetadata | null;
 }
 
 const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
