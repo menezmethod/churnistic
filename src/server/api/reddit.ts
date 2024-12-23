@@ -57,6 +57,10 @@ export class RedditAPI {
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
   private static instance: RedditAPI | null = null;
+  private baseUrl = 'https://www.reddit.com';
+  private headers = {
+    'User-Agent': 'Churnistic/1.0.0',
+  };
 
   constructor() {
     this.requestTracker = {
@@ -114,9 +118,9 @@ export class RedditAPI {
       throw new Error(`Failed to obtain Reddit access token: ${response.status} ${text}`);
     }
 
-    const data = await response.json() as RedditOAuthResponse;
+    const data = (await response.json()) as RedditOAuthResponse;
     this.accessToken = data.access_token;
-    this.tokenExpiry = Date.now() + (data.expires_in * 1000);
+    this.tokenExpiry = Date.now() + data.expires_in * 1000;
     return this.accessToken;
   }
 
@@ -158,74 +162,39 @@ export class RedditAPI {
   }
 
   async getWeeklyThreads(): Promise<RedditPost[]> {
-    if (!this.canMakeRequest()) {
-      throw new Error('Rate limit exceeded. Please try again later.');
-    }
-
     try {
-      // Use the public JSON API instead of OAuth
-      const url = 'https://www.reddit.com/r/churning/hot.json?limit=100';
-      console.log('Fetching threads from:', url);
-
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': USER_AGENT,
-        },
-      });
-
-      this.requestTracker.lastRequest = Date.now();
+      const response = await fetch(
+        `${this.baseUrl}/r/churning/search.json?q=Weekly+Discussion+Thread&restrict_sr=on&sort=new&t=month`,
+        {
+          headers: this.headers,
+        }
+      );
 
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Error fetching data from Reddit: ${response.status} ${text}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json() as RedditListing<RedditPost>;
+      const data = (await response.json()) as RedditListing<RedditPost>;
+
+      if (!data?.data?.children) {
+        console.log('No threads found in response');
+        return [];
+      }
+
       console.log('Found total threads:', data.data.children.length);
 
       // Filter for weekly discussion threads with more flexible matching
       const weeklyThreads = data.data.children
-        .map((child) => child.data)
+        .map((child: { data: RedditPost }) => child.data)
         .filter((post) => {
           const title = post.title.toLowerCase();
-          const isWeekly = title.includes('weekly') || title.includes('week of') || title.includes('weekly thread');
-          console.log('Thread title:', post.title, 'isWeekly:', isWeekly);
-          return isWeekly;
+          return (
+            title.includes('weekly') &&
+            (title.includes('discussion') ||
+              title.includes('trip report') ||
+              title.includes('data points'))
+          );
         });
-
-      console.log('Found weekly threads:', weeklyThreads.length);
-      
-      if (weeklyThreads.length === 0) {
-        // If no threads found in hot, try new
-        const newUrl = 'https://www.reddit.com/r/churning/new.json?limit=100';
-        console.log('No threads found in hot, trying new:', newUrl);
-        
-        const newResponse = await fetch(newUrl, {
-          headers: {
-            'User-Agent': USER_AGENT,
-          },
-        });
-
-        if (!newResponse.ok) {
-          const text = await newResponse.text();
-          throw new Error(`Error fetching data from Reddit: ${newResponse.status} ${text}`);
-        }
-
-        const newData = await newResponse.json() as RedditListing<RedditPost>;
-        console.log('Found total new threads:', newData.data.children.length);
-
-        const newWeeklyThreads = newData.data.children
-          .map((child) => child.data)
-          .filter((post) => {
-            const title = post.title.toLowerCase();
-            const isWeekly = title.includes('weekly') || title.includes('week of') || title.includes('weekly thread');
-            console.log('New thread title:', post.title, 'isWeekly:', isWeekly);
-            return isWeekly;
-          });
-
-        console.log('Found weekly threads in new:', newWeeklyThreads.length);
-        return newWeeklyThreads;
-      }
 
       return weeklyThreads;
     } catch (error) {
@@ -235,32 +204,25 @@ export class RedditAPI {
   }
 
   async getPostComments(postId: string): Promise<RedditComment[]> {
-    if (!this.canMakeRequest()) {
-      throw new Error('Rate limit exceeded. Please try again later.');
-    }
-
     try {
-      // Use the public JSON API instead of OAuth
-      const url = `https://www.reddit.com/comments/${postId}.json`;
-      console.log('Fetching comments from:', url);
-
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': USER_AGENT,
-        },
+      const response = await fetch(`${this.baseUrl}/r/churning/comments/${postId}.json`, {
+        headers: this.headers,
       });
 
-      this.requestTracker.lastRequest = Date.now();
-
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Error fetching comments from Reddit: ${response.status} ${text}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json() as [RedditListing<RedditPost>, RedditListing<RedditComment>];
+      const data = await response.json();
       console.log('Raw comments response:', data);
+
+      if (!Array.isArray(data) || !data[1]?.data?.children) {
+        console.log('No comments found in response');
+        return [];
+      }
+
       // The second element in the array contains the comments
-      return data[1].data.children.map((child) => child.data);
+      return data[1].data.children.map((child: { data: RedditComment }) => child.data);
     } catch (error) {
       console.error('Error fetching post comments:', error);
       throw error;
@@ -289,7 +251,7 @@ export class RedditAPI {
         throw new Error(`Error fetching thread from Reddit: ${response.status} ${text}`);
       }
 
-      const data = await response.json() as RedditListing<RedditPost>;
+      const data = (await response.json()) as RedditListing<RedditPost>;
       return data.data.children[0].data;
     } catch (error) {
       console.error('Error fetching thread:', error);
@@ -319,7 +281,7 @@ export class RedditAPI {
         throw new Error(`Error searching Reddit: ${response.status} ${text}`);
       }
 
-      const data = await response.json() as RedditListing<RedditPost>;
+      const data = (await response.json()) as RedditListing<RedditPost>;
       return data.data.children.map((child) => child.data);
     } catch (error) {
       console.error('Error searching threads:', error);
@@ -351,9 +313,9 @@ export async function GET(request: Request) {
           data: {
             children: threads.map((thread) => ({
               kind: 't3',
-              data: thread
-            }))
-          }
+              data: thread,
+            })),
+          },
         });
       case 'comments':
         if (!postId) {

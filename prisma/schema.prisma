@@ -44,6 +44,7 @@ model User {
   household        Household? @relation(fields: [householdId], references: [id])
   referrals        Referral[] @relation("Referrer")
   referredBy       Referral[] @relation("Referred")
+  userOpportunities UserOpportunity[]
 }
 
 model Household {
@@ -304,4 +305,76 @@ model Cache {
   data      String
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+}
+
+model Opportunity {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  type            String    // "credit_card" or "bank_account"
+  value           String
+  bank            String
+  description     String
+  requirements    String[]
+  source          String    // "reddit" or "doc"
+  sourceLink      String
+  sourceId        String    // Reddit thread ID or DOC post ID
+  postedDate      DateTime
+  expirationDate  DateTime?
+  confidence      Float
+  status          String    @default("active")
+  metadata        Json?     // Additional type-specific data (credit card or bank account details)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  userOpportunities UserOpportunity[]
+
+  @@index([type])
+  @@index([bank])
+  @@index([status])
+  @@index([sourceId])
+}
+
+model UserOpportunity {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String    @db.ObjectId
+  opportunityId   String    @db.ObjectId
+  status          String    @default("interested") // "interested", "in_progress", "completed", "expired"
+  startDate       DateTime?
+  completionDate  DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  user            User      @relation(fields: [userId], references: [id])
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id])
+
+  @@unique([userId, opportunityId])
+  @@index([status])
+}
+
+model RedditThread {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  threadId        String    // Reddit's thread ID
+  title           String
+  content         String
+  permalink       String
+  author          String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  lastProcessed   DateTime?
+  comments        RedditComment[]
+
+  @@unique([threadId])
+}
+
+model RedditComment {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  threadId        String    @db.ObjectId
+  commentId       String    // Reddit's comment ID
+  content         String
+  author          String
+  createdAt       DateTime  @default(now())
+  thread          RedditThread @relation(fields: [threadId], references: [id])
+
+  @@unique([commentId])
+  @@index([threadId])
 }
