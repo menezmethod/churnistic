@@ -6,10 +6,6 @@ import { RedditAPI, RedditPost, RedditComment } from '@/server/api/reddit';
 // Constants
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
 
-interface CacheData<T> {
-  data: T;
-  updatedAt: Date;
-}
 
 interface RedditThreadsResponse {
   data: {

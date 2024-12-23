@@ -66,7 +66,7 @@ const mainMenuItems: MenuItemType[] = [
   {
     text: 'Opportunities',
     icon: <AccountBalanceWallet />,
-    path: '/opportunities', 
+    path: '/opportunities',
     requiresAuth: true,
   },
   {
