@@ -114,7 +114,7 @@ Here's the data to analyze:
 ${formattedData}`
           }
         ],
-        model: "mixtral-8x7b-32768",
+        model: "llama-3.1-8b-instant",
         temperature: 0.5,
         max_tokens: 2000,
         top_p: 1,

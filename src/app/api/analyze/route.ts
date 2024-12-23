@@ -1,8 +1,8 @@
-// Third-party dependencies
-import { Groq } from 'groq-sdk';
-
 // Next.js dependencies
 import { NextResponse } from 'next/server';
+
+// Third-party dependencies
+import { Groq } from 'groq-sdk';
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY!
