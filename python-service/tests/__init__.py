@@ -1,3 +1,0 @@
-"""
-Churnistic Python Service Tests
-""" 
