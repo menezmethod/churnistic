@@ -39,7 +39,7 @@ interface Opportunity {
   id: string;
   title: string;
   type: 'credit_card' | 'bank_account';
-  value: string;
+  value: number | string;
   bank: string;
   description: string;
   requirements: string[];
@@ -53,6 +53,11 @@ interface Opportunity {
 }
 
 const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
+  // Convert value to number if it's a string
+  const numericValue = typeof opportunity.value === 'string' 
+    ? parseFloat(opportunity.value.replace(/[^0-9.-]+/g, ''))
+    : opportunity.value;
+
   return (
     <Card sx={{ p: 3, mb: 2 }}>
       <Box display="flex" justifyContent="space-between" alignItems="flex-start">
@@ -76,7 +81,7 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
       <Box display="flex" justifyContent="space-between" alignItems="center">
         <Box>
           <Typography variant="h5" color="primary">
-            {opportunity.value}
+            ${isNaN(numericValue) ? '0.00' : numericValue.toFixed(2)}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             Posted: {new Date(opportunity.postedDate).toLocaleDateString()}
@@ -144,7 +149,7 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
   );
 };
 
-const AIOpportunitiesSection = () => {
+function AIOpportunitiesSection() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -152,11 +157,20 @@ const AIOpportunitiesSection = () => {
   useEffect(() => {
     const fetchOpportunities = async () => {
       try {
-        const response = await fetch('/api/opportunities');
+        console.log('Fetching opportunities...');
+        const response = await fetch('/opportunities/recent');
+        console.log('Response status:', response.status);
+        
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Error response:', errorText);
           throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
         const data = await response.json();
+        console.log('Received data:', JSON.stringify(data, null, 2));
+        console.log('First opportunity value type:', typeof data[0]?.value);
+        console.log('First opportunity value:', data[0]?.value);
         setOpportunities(data);
       } catch (err) {
         console.error('Error fetching opportunities:', err);
@@ -207,7 +221,7 @@ const AIOpportunitiesSection = () => {
       )}
     </Box>
   );
-};
+}
 
 export default function OpportunitiesPage() {
   return (
