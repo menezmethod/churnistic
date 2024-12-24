@@ -11,7 +11,7 @@ export async function GET() {
         status: 'active',
       },
     });
-    
+
     console.log(`Found ${opportunities.length} opportunities`);
     console.log('First opportunity:', opportunities[0]);
 
@@ -33,8 +33,8 @@ export async function POST(request: Request) {
       expirationDate: opportunity.expirationDate
         ? new Date(opportunity.expirationDate)
         : null,
-      value: parseFloat(opportunity.value.toString()),  // Ensure value is a number
-      confidence: parseFloat(opportunity.confidence.toString()),  // Ensure confidence is a number
+      value: parseFloat(opportunity.value.toString()), // Ensure value is a number
+      confidence: parseFloat(opportunity.confidence.toString()), // Ensure confidence is a number
     };
 
     // Check if opportunity already exists
@@ -47,7 +47,10 @@ export async function POST(request: Request) {
     if (existingOpportunity) {
       // Update if new opportunity has higher confidence
       if (dbOpportunity.confidence > existingOpportunity.confidence) {
-        console.log('Updating existing opportunity with higher confidence:', dbOpportunity.sourceId);
+        console.log(
+          'Updating existing opportunity with higher confidence:',
+          dbOpportunity.sourceId
+        );
         const updatedOpportunity = await prisma.opportunity.update({
           where: { id: existingOpportunity.id },
           data: dbOpportunity,
@@ -68,7 +71,10 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error saving opportunity:', error);
     return NextResponse.json(
-      { error: 'Failed to save opportunity', details: error instanceof Error ? error.message : String(error) },
+      {
+        error: 'Failed to save opportunity',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

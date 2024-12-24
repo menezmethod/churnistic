@@ -1,14 +1,22 @@
 'use client';
 
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CreditCardIcon from '@mui/icons-material/CreditCard';
-import EditIcon from '@mui/icons-material/Edit';
-import InfoIcon from '@mui/icons-material/Info';
-import WarningIcon from '@mui/icons-material/Warning';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth/AuthContext';
+
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+
 import {
   Box,
-  Card,
+  Container,
+  Grid,
   Typography,
+  Card,
+  CardContent,
+  IconButton,
+  Chip,
+  useTheme,
+  alpha,
   Button,
   Dialog,
   DialogTitle,
@@ -16,9 +24,19 @@ import {
   DialogActions,
   TextField,
   LinearProgress,
-  Chip,
+  CircularProgress,
 } from '@mui/material';
-import { useState } from 'react';
+
+import {
+  AccountBalanceWallet as AccountBalanceWalletIcon,
+  CheckCircle as CheckCircleIcon,
+  RadioButtonUnchecked as RadioButtonUncheckedIcon,
+  ArrowForward as ArrowForwardIcon,
+  CreditCard as CreditCardIcon,
+  Edit as EditIcon,
+  Info as InfoIcon,
+  Warning as WarningIcon,
+} from '@mui/icons-material';
 
 // Mock data for an active opportunity that needs progress update
 const activeOpportunity = {
@@ -232,6 +250,29 @@ const ProgressCard = () => {
 };
 
 export default function TrackPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/auth/signin');
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return (
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
