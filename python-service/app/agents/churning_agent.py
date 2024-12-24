@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import os
 import logging
 import asyncio
@@ -13,433 +13,226 @@ import json
 from app.models.churning import (
     RedditContent,
     BaseOpportunity,
-    CreditCardOpportunity,
-    BankAccountOpportunity,
     ChurningAnalysis
 )
 
-# Set up logging
+# Set up logging first
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Optional Logfire configuration (temporarily disabled)
+USE_LOGFIRE = False
+logger.info("Running without Logfire")
 
 # Load environment variables
 load_dotenv()
 
 # Model configuration
-MAIN_MODEL = 'llama-3.1-70b-versatile'
-
-# Rate limiting configuration
-REQUESTS_PER_MINUTE = 30
+MODELS = [
+    'groq:llama-3.1-8b-instant',  # Primary model (faster, lower quality)
+    'groq:mixtral-8x7b-32768',    # Secondary model (balanced)
+    'groq:llama-2-70b-chat',      # Fallback model (slower, higher quality)
+]
+CURRENT_MODEL_INDEX = 0
+MODEL = MODELS[CURRENT_MODEL_INDEX]
+REQUESTS_PER_MINUTE = 20  # Reduced from 30 to be more conservative
 MIN_REQUEST_INTERVAL = 60.0 / REQUESTS_PER_MINUTE
-last_request_time = 0.0
+MAX_RETRIES = 5  # Increased from 3
+RETRY_DELAY = 10  # Increased from 5 seconds
+COOLDOWN_PERIOD = 60  # Reduced from 300 to 60 seconds
+
+# Cache for opportunities to avoid duplicates
+opportunity_cache = {}
+
+async def wait_for_rate_limit():
+    """Global rate limit function that can be imported by other modules"""
+    await model_state.wait_for_rate_limit()
+
+class ModelState:
+    def __init__(self):
+        self.last_request_time = 0.0
+        self.request_count = 0
+        self.error_count = 0
+        self.total_tokens = 0
+        self.current_model_index = 0
+        self.last_model_switch_time = 0.0
+        self.rate_limit_hits = {}  # Track rate limits per model
+        
+    def switch_model(self):
+        """Switch to next available model"""
+        current_time = time.time()
+        
+        # If we've waited long enough, try switching back to primary model
+        if (current_time - self.last_model_switch_time > COOLDOWN_PERIOD and 
+            self.current_model_index > 0):
+            self.current_model_index = 0
+            logger.info(f"Switching back to primary model: {MODELS[0]}")
+        else:
+            # Otherwise cycle through models
+            self.current_model_index = (self.current_model_index + 1) % len(MODELS)
+            logger.info(f"Switching to fallback model: {MODELS[self.current_model_index]}")
+        
+        self.last_model_switch_time = current_time
+        return MODELS[self.current_model_index]
+        
+    async def wait_for_rate_limit(self):
+        """Ensure we don't exceed rate limits with monitoring"""
+        current_time = time.time()
+        current_model = MODELS[self.current_model_index]
+        
+        # Check if current model is rate limited
+        if current_model in self.rate_limit_hits:
+            retry_after = self.rate_limit_hits[current_model].get('retry_after', 0)
+            if current_time < retry_after:
+                logger.info(f"Model {current_model} is rate limited, switching models")
+                new_model = self.switch_model()
+                return new_model
+                
+        elapsed = current_time - self.last_request_time
+        if elapsed < MIN_REQUEST_INTERVAL:
+            wait_time = MIN_REQUEST_INTERVAL - elapsed
+            logger.info(f"Rate limiting: waiting {wait_time:.2f} seconds")
+            await asyncio.sleep(wait_time)
+            
+        self.last_request_time = time.time()
+        self.request_count += 1
+        return MODELS[self.current_model_index]
+
+    def handle_rate_limit(self, model: str, retry_after: int):
+        """Handle rate limit for a specific model"""
+        current_time = time.time()
+        self.rate_limit_hits[model] = {
+            'hit_time': current_time,
+            'retry_after': current_time + retry_after
+        }
+        logger.warning(f"Rate limit hit for {model}, retry after {retry_after} seconds")
+        # Immediately switch to next model
+        return self.switch_model()
+
+model_state = ModelState()
 
 @dataclass
 class ChurningDependencies:
-    content: RedditContent
+    """Dependencies for churning analysis."""
+    content: Dict[str, Any]
+    max_retries: Optional[int] = MAX_RETRIES
 
+class ChurningMetrics(BaseModel):
+    """Metrics for monitoring churning analysis performance"""
+    opportunities_found: int = 0
+    total_value: float = 0.0
+    average_confidence: float = 0.0
+    processing_time: float = 0.0
+    token_count: int = 0
+    error_count: int = 0
+
+# Initialize the agent first
 churning_agent = Agent(
-    f'groq:{MAIN_MODEL}',
+    MODEL,
     deps_type=ChurningDependencies,
     result_type=ChurningAnalysis,
-    system_prompt="""You are an expert in credit card churning and bank account bonuses. Your task is to analyze Reddit content and identify valuable opportunities.
+    system_prompt="""You are a churning opportunities analyzer. Your task is to analyze content from Reddit and identify bank account and credit card churning opportunities.
 
-For each opportunity you find, provide:
+For each opportunity you find, you should extract:
+- Title: A clear, concise title for the opportunity
+- Type: Either "credit_card" or "bank_account"
+- Value: The numerical value of the bonus in dollars (just the number)
+- Bank: The bank or financial institution offering the bonus
+- Description: A clear description of the opportunity
+- Requirements: List of requirements to get the bonus
+- Source: Where this opportunity was found (e.g., "reddit")
+- Source Link: The URL or reference to the source
+- Posted Date: When the opportunity was posted (if available)
+- Expiration Date: When the opportunity expires (if available)
+- Confidence: Your confidence in this opportunity (0.0 to 1.0)
+- Metadata: Additional details specific to the opportunity type
 
-1. Basic Information:
-   - Title: Clear, concise title describing the opportunity
-   - Type: Either 'credit_card' or 'bank_account'
-   - Bank: The financial institution offering the bonus
-   - Value: The total potential value (in USD)
-   - Description: Brief overview of the opportunity
-   - Requirements: List of specific requirements to earn the bonus
-   - Source: Where this information came from
-   - Posted Date: When the information was shared
-   - Expiration Date: When the offer expires (if known)
-
-2. Type-Specific Details:
-   For Credit Cards:
-   - Signup bonus amount and type (points/miles/cashback)
-   - Minimum spend requirement and timeframe
-   - Annual fee and if it's waived first year
-   - Category bonuses or rewards structure
-   - Notable benefits or perks
-   
-   For Bank Accounts:
-   - Bonus amount
-   - Direct deposit requirements (amount and frequency)
-   - Minimum balance requirements
-   - Monthly fees and how to avoid them
-   - Account type (checking/savings)
-   - Early termination fees
-
-3. Confidence Score (0.0 to 1.0):
-   Increase confidence for:
-   - Multiple recent data points confirming the same terms
-   - Official sources or direct links
-   - Clear, specific requirements
-   - Detailed user experiences
-   - Recent successful completions
-   
-   Decrease confidence for:
-   - Single or old data points
-   - Ambiguous terms or requirements
-   - Conflicting information
-   - Missing key details
-   - Reports of difficulties
-
-4. Risk Factors:
-   - Bank sensitivity to churning
-   - Complexity of requirements
-   - Time commitment needed
-   - Potential issues from user reports
-   - Historical success rates
-
-Focus on actionable opportunities with clear terms and requirements. Ignore vague or speculative discussions. Prioritize higher-value opportunities with reasonable requirements.
-
-Respond with a JSON array of opportunities, each following this structure:
-{
-    "title": string,
-    "type": "credit_card" | "bank_account",
-    "value": string (e.g., "$500"),
-    "bank": string,
-    "description": string,
-    "requirements": string[],
-    "source": string,
-    "source_link": string,
-    "posted_date": string (ISO date),
-    "expiration_date": string (ISO date) | null,
-    "confidence": float (0.0 to 1.0),
-    "metadata": {
-        // For credit cards:
-        "signup_bonus": string,
-        "spend_requirement": string,
-        "annual_fee": string,
-        "category_bonuses": object,
-        "benefits": string[],
-        
-        // For bank accounts:
-        "account_type": string,
-        "bonus_amount": string,
-        "direct_deposit_required": boolean,
-        "minimum_balance": string,
-        "monthly_fees": string,
-        "avoidable_fees": boolean
-    }
-}"""
+DO NOT use any external search or functions. Only analyze the content provided.
+Return opportunities in the exact format specified by the ChurningAnalysis model.
+"""
 )
 
-class OpportunityRanker:
-    def __init__(self):
-        self.weights = {
-            "value": 0.35,           # Higher value opportunities rank higher
-            "confidence": 0.25,      # Well-verified opportunities rank higher
-            "urgency": 0.15,         # Time-sensitive opportunities get boosted
-            "sentiment": 0.15,       # Positive experiences boost ranking
-            "reliability": 0.10      # Well-documented opportunities rank higher
-        }
-    
-    def calculate_score(self, opportunity: Dict) -> float:
-        """Calculate a composite score for ranking opportunities."""
-        score = 0.0
-        
-        # Value score (normalized based on typical bonus ranges)
-        try:
-            value = float(opportunity["value"].replace("$", "").replace(",", ""))
-            value_score = min(value / 1000.0, 1.0)  # Normalize to [0,1], capping at $1000
-        except:
-            value_score = 0.0
-        
-        # Get other component scores
-        confidence_score = opportunity["confidence"]
-        urgency_score = opportunity.get("metadata", {}).get("urgency", 0.0)
-        sentiment_score = (opportunity.get("metadata", {}).get("sentiment", 0.0) + 1) / 2  # Convert [-1,1] to [0,1]
-        reliability_score = opportunity.get("metadata", {}).get("reliability", 0.0)
-        
-        # Calculate weighted sum
-        score = (
-            self.weights["value"] * value_score +
-            self.weights["confidence"] * confidence_score +
-            self.weights["urgency"] * urgency_score +
-            self.weights["sentiment"] * sentiment_score +
-            self.weights["reliability"] * reliability_score
-        )
-        
-        # Bonus multipliers for special cases
-        if opportunity.get("metadata", {}).get("is_all_time_high", False):
-            score *= 1.2  # 20% boost for all-time high offers
-        if opportunity.get("metadata", {}).get("easy_requirements", False):
-            score *= 1.1  # 10% boost for easy requirements
-        
-        return score
-
-class OpportunityCache:
-    def __init__(self):
-        self.opportunities = {}  # key: opportunity signature, value: opportunity details
-        self.last_updated = {}  # key: opportunity signature, value: last update timestamp
-        self.ttl = 7 * 24 * 60 * 60  # 7 days in seconds
-    
-    def add_opportunity(self, opportunity: Dict):
-        """Add or update an opportunity in the cache."""
-        signature = f"{opportunity['bank']}_{opportunity['title']}"
-        current_time = time.time()
-        
-        if signature in self.opportunities:
-            # Update existing opportunity
-            existing_opp = self.opportunities[signature]
-            
-            # Merge data points and update confidence
-            existing_data_points = existing_opp.get("metadata", {}).get("data_points", [])
-            new_data_points = opportunity.get("metadata", {}).get("data_points", [])
-            merged_data_points = list(set(existing_data_points + new_data_points))
-            
-            # Update confidence based on new information
-            new_confidence = max(
-                existing_opp["confidence"],
-                opportunity["confidence"]
-            )
-            
-            # Update the opportunity with merged information
-            self.opportunities[signature] = {
-                **existing_opp,
-                "confidence": new_confidence,
-                "metadata": {
-                    **existing_opp.get("metadata", {}),
-                    "data_points": merged_data_points,
-                    "last_confirmed": current_time
-                }
-            }
-        else:
-            # Add new opportunity
-            self.opportunities[signature] = {
-                **opportunity,
-                "metadata": {
-                    **opportunity.get("metadata", {}),
-                    "first_seen": current_time,
-                    "last_confirmed": current_time
-                }
-            }
-        
-        self.last_updated[signature] = current_time
-    
-    def get_active_opportunities(self) -> List[Dict]:
-        """Get all non-expired opportunities."""
-        current_time = time.time()
-        active_opps = []
-        
-        for signature, opp in self.opportunities.items():
-            last_update = self.last_updated.get(signature, 0)
-            if current_time - last_update <= self.ttl:
-                active_opps.append(opp)
-            else:
-                # Clean up expired opportunities
-                del self.opportunities[signature]
-                del self.last_updated[signature]
-        
-        return active_opps
-    
-    def get_top_opportunities(self, limit: int = 10) -> List[Dict]:
-        """Get top opportunities based on ranking."""
-        ranker = OpportunityRanker()
-        active_opps = self.get_active_opportunities()
-        
-        # Calculate scores for all opportunities
-        scored_opps = [
-            (opp, ranker.calculate_score(opp))
-            for opp in active_opps
-        ]
-        
-        # Sort by score and return top N
-        scored_opps.sort(key=lambda x: x[1], reverse=True)
-        return [opp for opp, score in scored_opps[:limit]]
-
-# Initialize global cache
-opportunity_cache = OpportunityCache()
-
-@churning_agent.tool
-async def analyze_churning_content(ctx: RunContext[ChurningDependencies]) -> ChurningAnalysis:
-    """Analyze churning content and extract opportunities with progressive confidence building."""
+# Then define the system prompt decorator
+@churning_agent.system_prompt
+async def add_content_info(ctx: RunContext[ChurningDependencies]) -> str:
+    """Add content information to the system prompt."""
     content = ctx.deps.content
-    
-    # Step 1: Extract potential opportunities from thread title and content
-    thread_content = f"""
-Thread Title: {content.thread_title}
-Thread Content: {content.thread_content}
-Thread ID: {content.thread_id}
-Thread Permalink: {content.thread_permalink}
+    return f"""Analyzing content:
+Title: {content.get('title', 'N/A')}
+Content: {content.get('content', 'N/A')}
+Comments: {len(content.get('comments', []))} comments
+Created: {datetime.fromtimestamp(content.get('created_utc', 0)).isoformat()}
 """
-    
-    # Step 2: Group comments by topic/offer using semantic similarity
-    comment_groups = {}  # key: topic signature, value: list of related comments
-    
-    # First, identify key topics in comments
-    for comment in content.comments:
-        topic_prompt = f"""
-Analyze this comment for churning-related topics:
-{comment}
 
-Extract:
-1. Mentioned financial institutions
-2. Specific offer amounts
-3. Key terms (e.g., "SUB", "DD", "MSR")
-4. Time-sensitive information
-5. Success/failure indicators
-
-Return a JSON object with these extracted details.
-"""
-        topic_result = await ctx.model.complete(topic_prompt)
-        
-        # Create a topic signature based on extracted details
-        topic_sig = f"{topic_result.bank}_{topic_result.offer_amount}"
-        
-        if topic_sig not in comment_groups:
-            comment_groups[topic_sig] = []
-        comment_groups[topic_sig].append(comment)
+async def analyze_content(content: Dict[str, Any]) -> ChurningAnalysis:
+    """Main function to analyze churning content with improved monitoring and retries"""
+    metrics = ChurningMetrics()
+    start_time = time.time()
+    retries = 0
+    last_error = None
     
-    # Merge similar groups using semantic similarity
-    merged_groups = {}
-    for sig1, comments1 in comment_groups.items():
-        should_merge = False
-        merge_target = sig1
-        
-        for sig2, comments2 in merged_groups.items():
-            similarity_prompt = f"""
-Compare these two groups of comments about churning opportunities:
-
-Group 1: {chr(10).join(comments1[:2])}  # Show first 2 comments as sample
-Group 2: {chr(10).join(comments2[:2])}  # Show first 2 comments as sample
-
-Are they discussing the same opportunity? Consider:
-1. Same financial institution?
-2. Similar bonus amounts?
-3. Similar requirements?
-4. Same timeframe?
-
-Return true if they are the same opportunity, false otherwise.
-"""
-            similarity_result = await ctx.model.complete(similarity_prompt)
-            
-            if similarity_result.are_similar:
-                should_merge = True
-                merge_target = sig2
-                break
-        
-        if should_merge:
-            merged_groups[merge_target].extend(comments1)
-        else:
-            merged_groups[sig1] = comments1
-    
-    comment_groups = merged_groups  # Use the merged groups for further analysis
-    
-    # Step 3: Build opportunity confidence progressively
-    opportunities_map = {}  # key: opportunity identifier, value: opportunity details
-    
-    # First pass: Initial opportunity identification from thread content
-    formatted_content = f"{thread_content}\nInitial Analysis - Please identify potential opportunities from the main thread content."
-    initial_result = await ctx.model.complete(formatted_content)
-    
-    # Process initial opportunities
-    for opp in initial_result.opportunities:
-        key = f"{opp.bank}_{opp.title}"
-        opportunities_map[key] = {
-            **opp.dict(),
-            "confirmation_count": 0,
-            "contradiction_count": 0,
-            "data_points": [],
-            "success_reports": 0,
-            "failure_reports": 0
-        }
-    
-    # Second pass: Analyze comment groups to validate and enhance opportunities
-    for comment_group in comment_groups.values():
-        formatted_comments = "\n".join(comment_group)
-        validation_prompt = f"""
-Please analyze these comments about a potential opportunity:
-{formatted_comments}
-
-For each comment, determine:
-1. Does it confirm or contradict any identified opportunities?
-2. Does it provide specific data points (dates, amounts, requirements)?
-3. Does it report success or failure?
-4. Does it add new important details?
-
-Current opportunities being tracked:
-{json.dumps([opp['title'] for opp in opportunities_map.values()], indent=2)}
-"""
-        
-        validation_result = await ctx.model.complete(validation_prompt)
-        
-        # Update opportunity confidence and details based on validation
-        for validation in validation_result:
-            if validation.opportunity_key in opportunities_map:
-                opp = opportunities_map[validation.opportunity_key]
+    try:
+        while retries < MAX_RETRIES:
+            try:
+                # Get current model with rate limit check
+                current_model = await model_state.wait_for_rate_limit()
                 
-                # Update confirmation metrics
-                if validation.confirms:
-                    opp["confirmation_count"] += 1
-                if validation.contradicts:
-                    opp["contradiction_count"] += 1
+                # Update agent model
+                churning_agent.model = current_model
                 
-                # Add data points
-                if validation.data_points:
-                    opp["data_points"].extend(validation.data_points)
-                
-                # Track success/failure reports
-                if validation.reports_success:
-                    opp["success_reports"] += 1
-                if validation.reports_failure:
-                    opp["failure_reports"] += 1
-                
-                # Update confidence score based on all factors
-                opp["confidence"] = calculate_confidence(
-                    base_confidence=opp["confidence"],
-                    confirmation_count=opp["confirmation_count"],
-                    contradiction_count=opp["contradiction_count"],
-                    data_points_count=len(opp["data_points"]),
-                    success_rate=(opp["success_reports"] / (opp["success_reports"] + opp["failure_reports"])) if (opp["success_reports"] + opp["failure_reports"]) > 0 else 0.5
+                # Create dependencies
+                deps = ChurningDependencies(
+                    content=content,
+                    max_retries=MAX_RETRIES - retries
                 )
-    
-    # Final pass: Consolidate and filter opportunities
-    final_opportunities = []
-    for opp in opportunities_map.values():
-        if opp["confidence"] >= 0.4:  # Only include opportunities with reasonable confidence
-            # Clean up the opportunity object to match expected format
-            final_opp = {
-                "title": opp["title"],
-                "type": opp["type"],
-                "value": opp["value"],
-                "bank": opp["bank"],
-                "description": opp["description"],
-                "requirements": opp["requirements"],
-                "source": "reddit",
-                "source_id": content.thread_id,
-                "source_link": f"https://www.reddit.com{content.thread_permalink}",
-                "posted_date": datetime.now().isoformat(),
-                "expiration_date": opp.get("expiration_date"),
-                "confidence": opp["confidence"],
-                "metadata": opp.get("metadata", {})
-            }
-            final_opportunities.append(final_opp)
-    
-    # Update opportunity cache with new opportunities
-    for opp in final_opportunities:
-        opportunity_cache.add_opportunity(opp)
-    
-    # Get top opportunities from cache
-    top_opportunities = opportunity_cache.get_top_opportunities(limit=20)
-    
-    return ChurningAnalysis(
-        opportunities=top_opportunities,  # Return top opportunities instead of just new ones
-        summary={
-            "overview": generate_summary(top_opportunities),
-            "total_opportunities": len(top_opportunities),
-            "total_value": sum(float(opp["value"].replace('$', '').replace(',', '')) for opp in top_opportunities),
-            "average_risk": sum(1 - opp["confidence"] for opp in top_opportunities) / len(top_opportunities) if top_opportunities else 0.0
-        },
-        risk_assessment={
-            "overview": generate_risk_assessment(top_opportunities),
-            "overall_risk_level": calculate_overall_risk(top_opportunities)
-        }
-    )
+                
+                # Run the agent with the dependencies
+                result = await churning_agent.run('Analyze this content for churning opportunities', deps=deps)
+                
+                if not isinstance(result.data, ChurningAnalysis):
+                    raise ValueError("Unexpected response format from model")
+                
+                # Update metrics
+                if result.data.opportunities:
+                    metrics.opportunities_found = len(result.data.opportunities)
+                    metrics.total_value = sum(
+                        float(opp.value.replace('$', '').replace(',', ''))
+                        for opp in result.data.opportunities
+                    )
+                    metrics.average_confidence = (
+                        sum(opp.confidence for opp in result.data.opportunities) / len(result.data.opportunities)
+                    )
+                    logger.info(f"Analysis successful: Found {metrics.opportunities_found} opportunities")
+                    return result.data
+                else:
+                    logger.info("No opportunities found in content")
+                    return ChurningAnalysis(opportunities=[])
+                    
+            except Exception as e:
+                last_error = e
+                if "rate_limit" in str(e).lower():
+                    # Extract retry-after if available
+                    retry_after = 60  # Default to 60 seconds
+                    if hasattr(e, 'headers'):
+                        retry_after = int(e.headers.get('retry-after', retry_after))
+                    current_model = model_state.handle_rate_limit(churning_agent.model, retry_after)
+                    churning_agent.model = current_model
+                    logger.warning(f"Rate limit hit, switched to {current_model}")
+                    retries += 1
+                    continue
+                    
+                logger.error(f"Error during analysis (attempt {retries + 1}/{MAX_RETRIES}): {str(e)}")
+                retries += 1
+                if retries < MAX_RETRIES:
+                    await asyncio.sleep(RETRY_DELAY * (2 ** retries))  # Exponential backoff
+                
+        if last_error:
+            logger.error(f"Analysis failed after {MAX_RETRIES} attempts: {str(last_error)}")
+        return ChurningAnalysis(opportunities=[])
+        
+    finally:
+        metrics.processing_time = time.time() - start_time
+        logger.info(f"Analysis metrics: {metrics.dict()}")
 
 def calculate_confidence(
     base_confidence: float,
@@ -503,40 +296,6 @@ def calculate_overall_risk(opportunities: List[Dict]) -> float:
     
     return 1 - (sum(opp["confidence"] for opp in opportunities) / len(opportunities))
 
-async def wait_for_rate_limit():
-    """Ensure we don't exceed rate limits"""
-    global last_request_time
-    current_time = time.time()
-    time_since_last_request = current_time - last_request_time
-    
-    if time_since_last_request < MIN_REQUEST_INTERVAL:
-        wait_time = MIN_REQUEST_INTERVAL - time_since_last_request
-        logger.info(f"Rate limiting: waiting {wait_time:.2f} seconds")
-        await asyncio.sleep(wait_time)
-    
-    last_request_time = time.time()
-
-async def analyze_content(content: RedditContent) -> ChurningAnalysis:
-    """Main function to analyze churning content"""
-    try:
-        await wait_for_rate_limit()
-        
-        deps = ChurningDependencies(content=content)
-        result = await churning_agent.run(
-            "Please analyze this churning content and extract all valuable opportunities. " +
-            "Format each opportunity exactly as specified, with all required fields.",
-            deps=deps
-        )
-        
-        if not isinstance(result.data, ChurningAnalysis):
-            raise ValueError("Unexpected response format from model")
-            
-        return result.data
-            
-    except Exception as e:
-        logger.error(f"Error analyzing content: {e}")
-        raise
-
 def analyze_comment_sentiment(comment: str) -> Dict:
     """Analyze the sentiment and reliability of a comment."""
     sentiment_indicators = {
@@ -598,3 +357,36 @@ def extract_time_sensitivity(comment: str) -> Dict:
         "urgency": min(1, urgency_score / 2),  # Normalize to [0, 1]
         "has_expiration": expiration_mentioned
     }
+
+def _parse_value(value_str: str) -> float:
+    """Parse a value string that might be a range into a float."""
+    try:
+        # If it's a simple number, return it
+        return float(value_str)
+    except ValueError:
+        # If it's a range (e.g., "100-1000"), take the lower bound
+        try:
+            return float(value_str.split('-')[0])
+        except (ValueError, IndexError):
+            # If we can't parse it, return 0
+            return 0.0
+
+def _validate_analysis(analysis: ChurningAnalysis) -> bool:
+    """Validate the analysis result."""
+    if not analysis.opportunities:
+        return True
+        
+    for opp in analysis.opportunities:
+        # Convert value to float if it's a string
+        if isinstance(opp.value, str):
+            opp.value = _parse_value(opp.value)
+            
+        # Ensure required fields are present
+        if not all([opp.title, opp.type, opp.bank, opp.description]):
+            return False
+            
+        # Validate confidence is between 0 and 1
+        if not (0 <= opp.confidence <= 1):
+            return False
+            
+    return True

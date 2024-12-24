@@ -1164,56 +1164,30 @@ const mockData = {
   },
 };
 
-export default function CardsPage() {
-  const [view, setView] = useState<'cards' | 'grid'>('cards');
+interface DashboardPageProps {
+  initialStats?: SummaryStats;
+  initialEvents?: TimelineEvent[];
+}
+
+export default function DashboardPage({ initialStats, initialEvents }: DashboardPageProps) {
+  const [stats, setStats] = useState<SummaryStats>(initialStats || {
+    total_value: 0,
+    opportunities_count: {
+      credit_cards: 0,
+      bank_accounts: 0,
+      total: 0
+    },
+    success_rate: 0,
+    average_completion_time: 0,
+    total_earned_ytd: 0
+  });
+
+  const [events, setEvents] = useState<TimelineEvent[]>(initialEvents || []);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Churning Dashboard</Typography>
-        <Box>
-          <Tabs value={view} onChange={(_, newValue) => setView(newValue)}>
-            <Tab value="cards" label="Cards View" />
-            <Tab value="grid" label="Grid View" />
-          </Tabs>
-        </Box>
-      </Box>
-
-      <StatsOverview stats={mockStats} />
-      <SummaryCard summary={mockData.summary} />
-      <ChurningTimeline events={mockTimelineEvents} />
-
-      <OpportunitiesFilters />
-
-      {view === 'grid' ? (
-        <OpportunitiesGrid opportunities={mockData.opportunities} />
-      ) : (
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
-            {mockData.opportunities.map((opportunity) => (
-              <OpportunityCard key={opportunity.id} opportunity={opportunity} />
-            ))}
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <RiskAssessmentCard riskAssessment={mockData.riskAssessment} />
-            <Card sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Recommendations
-              </Typography>
-              <Box display="flex" flexDirection="column" gap={1}>
-                {mockData.recommendations.next_steps.map(
-                  (step: string, index: number) => (
-                    <Box key={index} display="flex" alignItems="center" gap={1}>
-                      <InfoIcon color="primary" fontSize="small" />
-                      <Typography variant="body2">{step}</Typography>
-                    </Box>
-                  )
-                )}
-              </Box>
-            </Card>
-          </Grid>
-        </Grid>
-      )}
-    </div>
+    <Box>
+      <StatsOverview stats={stats} />
+      <ChurningTimeline events={events} />
+    </Box>
   );
 }

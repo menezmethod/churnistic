@@ -95,9 +95,8 @@ describe('AppNavbar', () => {
       { timeout: 5000 }
     );
 
-    expect(screen.getByText('Credit Cards')).toBeInTheDocument();
-    expect(screen.getByText('Bank Accounts')).toBeInTheDocument();
-    expect(screen.getByText('Investments')).toBeInTheDocument();
+    expect(screen.getByText('Opportunities')).toBeInTheDocument();
+    expect(screen.getByText('Track Progress')).toBeInTheDocument();
     expect(screen.queryByText('Sign Up')).not.toBeInTheDocument();
   });
 

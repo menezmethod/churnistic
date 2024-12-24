@@ -24,7 +24,8 @@
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "test:e2e": "start-server-and-test dev http://localhost:3000 cypress:run",
-    "setup-test-accounts": "ts-node scripts/setup-test-accounts.ts"
+    "setup-test-accounts": "ts-node scripts/setup-test-accounts.ts",
+    "dev:all": "./start-dev.sh"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -15,12 +15,16 @@ class RedditCollector:
     THREAD_TYPES = {
         'NEWS': {'pattern': 'News and Updates Thread', 'priority': 2},
         'TRIP_REPORT': {'pattern': 'Trip Report and Churning Success Story Weekly Thread', 'priority': 3},
-        'DATA_POINTS': {'pattern': 'Data Points Weekly', 'priority': 1}
+        'DATA_POINTS': {'pattern': 'Data Points Weekly', 'priority': 1},
+        'BANK_BONUS': {'pattern': 'Bank Bonus Weekly Thread', 'priority': 1},
+        'FRUSTRATION': {'pattern': 'Frustration Friday Weekly Thread', 'priority': 2},
+        'WHAT_CARD': {'pattern': 'What Card Should I Get? Weekly Thread', 'priority': 2},
+        'MS': {'pattern': 'Manufactured Spending Weekly Thread', 'priority': 2}
     }
     
     def __init__(self, mongodb_url: str):
         self.client = AsyncIOMotorClient(mongodb_url)
-        self.db = self.client.churning
+        self.db = self.client.churnistic
         self.http_client = httpx.AsyncClient()
         self.rate_limit = {
             'requests_per_minute': 30,
@@ -112,62 +116,123 @@ class RedditCollector:
 
     async def collect_comments(self, max_threads: int = 50):
         """Collect comments for threads that haven't been processed."""
-        query = {
-            'comments_collected': False,
-            'created_utc': {'$gte': datetime.now() - timedelta(days=90)}
-        }
+        # First, get threads sorted by priority based on type
+        pipeline = [
+            {
+                '$match': {
+                    'comments_collected': False,
+                    'created_utc': {'$gte': datetime.now() - timedelta(days=90)}
+                }
+            },
+            {
+                '$addFields': {
+                    'thread_type': {
+                        '$switch': {
+                            'branches': [
+                                {'case': {'$regexMatch': {'input': '$title', 'regex': pattern}}, 
+                                 'then': priority} 
+                                for thread_type, config in self.THREAD_TYPES.items()
+                                for pattern, priority in [(config['pattern'], config['priority'])]
+                            ],
+                            'default': 5
+                        }
+                    }
+                }
+            },
+            {'$sort': {'thread_type': 1, 'created_utc': -1}},
+            {'$limit': max_threads}
+        ]
         
-        threads = await self.db.reddit_threads.find(query).limit(max_threads).to_list(length=max_threads)
+        threads = await self.db.reddit_threads.aggregate(pipeline).to_list(length=max_threads)
         logger.info(f"Found {len(threads)} threads needing comment collection")
         
         for thread in threads:
             try:
                 await self._collect_thread_comments(thread['thread_id'])
-                # Add delay between comment collections
-                await asyncio.sleep(random.randint(2, 5))
+                # Add random delay between comment collections to avoid rate limits
+                await asyncio.sleep(random.uniform(2.0, 5.0))
             except Exception as e:
                 logger.error(f"Error collecting comments for thread {thread['thread_id']}: {str(e)}")
+                # Mark thread for retry
+                await self.db.reddit_threads.update_one(
+                    {'thread_id': thread['thread_id']},
+                    {'$set': {'comments_collected': False}}
+                )
 
     async def _collect_thread_comments(self, thread_id: str):
         """Collect and store comments for a specific thread."""
         await self._wait_for_rate_limit()
         url = f"https://www.reddit.com/r/churning/comments/{thread_id}.json"
         
-        response = await self.http_client.get(url)
-        if response.status_code != 200:
-            logger.error(f"Failed to fetch comments for thread {thread_id}: {response.status_code}")
-            return
-        
-        data = response.json()
-        if len(data) < 2:
-            logger.warning(f"No comments found for thread {thread_id}")
-            return
-        
-        comments = self._extract_comments(data[1])
-        if comments:
-            # Store comments
-            comment_docs = [{
-                'thread_id': thread_id,
-                'comment_id': comment['id'],
-                'content': comment['body'],
-                'author': comment['author'],
-                'created_at': datetime.now()
-            } for comment in comments]
+        try:
+            response = await self.http_client.get(url)
+            if response.status_code != 200:
+                logger.error(f"Failed to fetch comments for thread {thread_id}: {response.status_code}")
+                return
             
-            # Remove existing comments for this thread
-            await self.db.reddit_comments.delete_many({'thread_id': thread_id})
+            data = response.json()
+            if len(data) < 2:
+                logger.warning(f"No comments found for thread {thread_id}")
+                # Mark as processed even if no comments found
+                await self.db.reddit_threads.update_one(
+                    {'thread_id': thread_id},
+                    {'$set': {'comments_collected': True}}
+                )
+                return
             
-            # Insert new comments
-            if comment_docs:
-                await self.db.reddit_comments.insert_many(comment_docs)
-            
-            # Mark thread as having comments collected
-            await self.db.reddit_threads.update_one(
-                {'thread_id': thread_id},
-                {'$set': {'comments_collected': True}}
-            )
-            
-            logger.info(f"Stored {len(comment_docs)} comments for thread {thread_id}")
+            comments = self._extract_comments(data[1])
+            if comments:
+                # Store comments
+                comment_docs = [{
+                    'thread_id': thread_id,
+                    'comment_id': comment['id'],
+                    'body': comment['body'],
+                    'author': comment['author'],
+                    'created_utc': datetime.fromtimestamp(comment['created_utc']),
+                    'created_at': datetime.now(),
+                    'analyzed': False
+                } for comment in comments]
+                
+                try:
+                    # Remove existing comments for this thread
+                    await self.db.reddit_comments.delete_many({'thread_id': thread_id})
+                    
+                    # Insert new comments
+                    if comment_docs:
+                        await self.db.reddit_comments.insert_many(comment_docs)
+                    
+                    # Mark thread as having comments collected
+                    await self.db.reddit_threads.update_one(
+                        {'thread_id': thread_id},
+                        {'$set': {
+                            'comments_collected': True,
+                            'comment_count': len(comment_docs),
+                            'last_comment_at': max(c['created_utc'] for c in comment_docs)
+                        }}
+                    )
+                    
+                    logger.info(f"Stored {len(comment_docs)} comments for thread {thread_id}")
+                except Exception as e:
+                    logger.error(f"Error storing comments for thread {thread_id}: {str(e)}")
+                    # Revert comments_collected status if there was an error
+                    await self.db.reddit_threads.update_one(
+                        {'thread_id': thread_id},
+                        {'$set': {'comments_collected': False}}
+                    )
+                    raise
+            else:
+                # Mark as processed even if no comments extracted
+                await self.db.reddit_threads.update_one(
+                    {'thread_id': thread_id},
+                    {'$set': {
+                        'comments_collected': True,
+                        'comment_count': 0
+                    }}
+                )
+                logger.info(f"No comments to store for thread {thread_id}")
+        except Exception as e:
+            logger.error(f"Error in comment collection for thread {thread_id}: {str(e)}")
+            raise
 
     def _extract_comments(self, comment_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract comments recursively."""
@@ -175,10 +240,12 @@ class RedditCollector:
         
         def process_comment(comment):
             if comment['kind'] == 't1' and 'data' in comment:
+                data = comment['data']
                 comments.append({
-                    'id': comment['data']['id'],
-                    'body': comment['data']['body'],
-                    'author': comment['data']['author']
+                    'id': data['id'],
+                    'body': data['body'],
+                    'author': data['author'],
+                    'created_utc': data['created_utc']
                 })
             
             # Process replies recursively
