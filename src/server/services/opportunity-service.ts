@@ -1,84 +1,25 @@
-import type { RedditThread, RedditComment, Opportunity } from '@prisma/client';
+import { RedditThread, RedditComment } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma/db';
 
-async function saveRedditThread(thread: RedditThread): Promise<RedditThread> {
+export async function upsertThread(thread: RedditThread) {
   return prisma.redditThread.upsert({
-    where: { thread_id: thread.thread_id },
-    update: thread,
+    where: { threadId: thread.threadId },
     create: thread,
+    update: thread,
   });
 }
 
-async function saveRedditComments(
-  threadId: string,
-  comments: RedditComment[]
-): Promise<RedditComment[]> {
-  const savedComments = await Promise.all(
-    comments.map((comment) =>
-      prisma.redditComment.upsert({
-        where: { comment_id: comment.comment_id },
-        update: comment,
-        create: { ...comment, thread_id: threadId },
-      })
-    )
-  );
-  return savedComments;
-}
-
-async function saveOpportunity(opportunity: Opportunity): Promise<Opportunity> {
-  // Check if opportunity already exists
-  const existingOpportunity = await prisma.opportunity.findFirst({
-    where: {
-      sourceId: opportunity.sourceId,
-      title: opportunity.title,
-    },
-  });
-
-  if (existingOpportunity) {
-    // Update if new opportunity has higher confidence
-    if (opportunity.confidence > existingOpportunity.confidence) {
-      return prisma.opportunity.update({
-        where: { id: existingOpportunity.id },
-        data: opportunity,
-      });
-    }
-    return existingOpportunity;
+export async function upsertComment(comment: RedditComment, threadId: string) {
+  try {
+    const result = await prisma.redditComment.upsert({
+      where: { commentId: comment.commentId },
+      create: { ...comment, threadId },
+      update: comment,
+    });
+    return result;
+  } catch (error) {
+    console.error('Error upserting comment:', error);
+    throw error;
   }
-
-  // Create new opportunity
-  return prisma.opportunity.create({
-    data: opportunity,
-  });
 }
-
-async function getOpportunities(
-  filters: {
-    type?: string;
-    bank?: string;
-    minValue?: number;
-    maxValue?: number;
-    status?: string;
-  } = {}
-): Promise<Opportunity[]> {
-  const where: Record<string, unknown> = {
-    status: filters.status || 'active',
-  };
-
-  if (filters.type) where.type = filters.type;
-  if (filters.bank) where.bank = filters.bank;
-  if (filters.minValue) where.value = { gte: filters.minValue };
-  if (filters.maxValue) where.value = { ...where.value, lte: filters.maxValue };
-
-  return prisma.opportunity.findMany({
-    where,
-    orderBy: [{ confidence: 'desc' }, { postedDate: 'desc' }],
-  });
-}
-
-export const opportunityService = {
-  saveRedditThread,
-  saveRedditComments,
-  saveOpportunity,
-  getOpportunities,
-};

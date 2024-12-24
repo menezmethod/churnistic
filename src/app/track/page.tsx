@@ -191,8 +191,8 @@ const ProgressCard = () => {
                   />
                 </Box>
                 <Typography variant="body2" color="text.secondary">
-                  ${requirement.progress.toLocaleString()} / $
-                  {requirement.target.toLocaleString()}
+                  ${(requirement.progress ?? 0).toLocaleString()} / $
+                  {(requirement.target ?? 0).toLocaleString()}
                 </Typography>
               </Box>
             </Box>

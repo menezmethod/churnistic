@@ -39,7 +39,11 @@ import {
   Stack,
   Checkbox,
 } from '@mui/material';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import {
+  DataGrid,
+  GridColDef,
+  GridRenderCellParams,
+} from '@mui/x-data-grid';
 import { useState } from 'react';
 
 interface Requirement {
@@ -150,7 +154,9 @@ const StatsOverview = ({ stats }: { stats: SummaryStats }) => (
       </Grid>
       <Grid item xs={12} sm={4}>
         <Box textAlign="center">
-          <Typography variant="h4">{stats.opportunities_count.total}</Typography>
+          <Typography variant="h4">
+            {stats.opportunities_count.total}
+          </Typography>
           <Typography variant="subtitle2" color="text.secondary">
             Active Opportunities
           </Typography>
@@ -174,28 +180,26 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
     'Card Arrival',
     'Direct Deposit',
     'Account Closed',
-    'Eligibility',
+    'Eligibility'
   ];
 
   const sortOptions = [
     { label: 'Newest First', value: 'newest' },
     { label: 'Oldest First', value: 'oldest' },
-    { label: 'Status', value: 'status' },
+    { label: 'Status', value: 'status' }
   ];
 
-  const filteredEvents = events.filter((event) => {
-    const matchesSearch =
-      event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter =
-      selectedFilters.length === 0 || selectedFilters.includes(event.type);
+  const filteredEvents = events.filter(event => {
+    const matchesSearch = event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         event.type.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = selectedFilters.length === 0 || selectedFilters.includes(event.type);
     return matchesSearch && matchesFilter;
   });
 
   return (
-    <Card
-      variant="outlined"
-      sx={{
+    <Card 
+      variant="outlined" 
+      sx={{ 
         mb: 3,
         bgcolor: 'background.paper',
         borderColor: 'divider',
@@ -218,8 +222,8 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
                 borderColor: 'divider',
                 '&:hover': {
                   borderColor: 'primary.main',
-                  bgcolor: 'action.hover',
-                },
+                  bgcolor: 'action.hover'
+                }
               }}
               variant="outlined"
               startIcon={<FilterListIcon />}
@@ -234,8 +238,8 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
                 borderColor: 'divider',
                 '&:hover': {
                   borderColor: 'primary.main',
-                  bgcolor: 'action.hover',
-                },
+                  bgcolor: 'action.hover'
+                }
               }}
               variant="outlined"
               startIcon={<SortIcon />}
@@ -260,44 +264,42 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
               '& fieldset': {
                 borderColor: 'divider',
                 borderWidth: '1px',
-                opacity: 0.1,
+                opacity: 0.1
               },
               '&:hover fieldset': {
                 borderColor: 'divider',
-                opacity: 0.3,
+                opacity: 0.3
               },
               '&.Mui-focused fieldset': {
                 borderColor: 'primary.main',
-                opacity: 1,
-              },
-            },
+                opacity: 1
+              }
+            }
           }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
                 <SearchIcon sx={{ color: 'text.secondary', opacity: 0.7 }} />
               </InputAdornment>
-            ),
+            )
           }}
         />
 
         {/* Timeline */}
-        <Box
-          sx={{
-            maxHeight: 400,
-            overflowY: 'auto',
-            '&::-webkit-scrollbar': {
-              width: '6px',
-            },
-            '&::-webkit-scrollbar-track': {
-              background: 'transparent',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              background: 'rgba(255, 255, 255, 0.1)',
-              borderRadius: '3px',
-            },
-          }}
-        >
+        <Box sx={{ 
+          maxHeight: 400, 
+          overflowY: 'auto',
+          '&::-webkit-scrollbar': {
+            width: '6px'
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'transparent'
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '3px'
+          }
+        }}>
           {filteredEvents.map((event, index) => (
             <Box
               key={index}
@@ -306,7 +308,7 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
                 pl: 3,
                 pb: 3,
                 '&:last-child': {
-                  pb: 0,
+                  pb: 0
                 },
                 '&:before': {
                   content: '""',
@@ -316,16 +318,13 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
                   bottom: 0,
                   width: '1px',
                   bgcolor: 'divider',
-                  opacity: 0.5,
-                },
+                  opacity: 0.5
+                }
               }}
             >
               <Box display="flex" flexDirection="column" gap={0.5}>
                 <Box display="flex" alignItems="center" gap={1}>
-                  <Typography
-                    variant="caption"
-                    sx={{ color: 'text.secondary', minWidth: '5rem' }}
-                  >
+                  <Typography variant="caption" sx={{ color: 'text.secondary', minWidth: '5rem' }}>
                     {event.date}
                   </Typography>
                   <Chip
@@ -337,8 +336,8 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
                       bgcolor: 'background.default',
                       color: 'text.secondary',
                       '& .MuiChip-label': {
-                        px: 1,
-                      },
+                        px: 1
+                      }
                     }}
                   />
                   <Chip
@@ -347,21 +346,17 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
                     sx={{
                       height: '1.25rem',
                       fontSize: '0.75rem',
-                      bgcolor:
-                        event.status === 'completed'
-                          ? 'success.dark'
-                          : event.status === 'pending'
-                            ? 'warning.dark'
-                            : 'info.dark',
+                      bgcolor: event.status === 'completed' ? 'success.dark' :
+                              event.status === 'pending' ? 'warning.dark' : 'info.dark',
                       color: '#fff',
                       '& .MuiChip-label': {
-                        px: 1,
-                      },
+                        px: 1
+                      }
                     }}
                   />
                 </Box>
-                <Box
-                  sx={{
+                <Box 
+                  sx={{ 
                     position: 'relative',
                     '&:before': {
                       content: '""',
@@ -371,13 +366,9 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
                       width: '0.5rem',
                       height: '0.5rem',
                       borderRadius: '50%',
-                      bgcolor:
-                        event.status === 'completed'
-                          ? 'success.main'
-                          : event.status === 'pending'
-                            ? 'warning.main'
-                            : 'info.main',
-                    },
+                      bgcolor: event.status === 'completed' ? 'success.main' :
+                              event.status === 'pending' ? 'warning.main' : 'info.main'
+                    }
                   }}
                 >
                   <Typography variant="body2" sx={{ color: 'text.primary', pl: 0 }}>
@@ -398,8 +389,8 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
             sx: {
               bgcolor: 'background.paper',
               borderRadius: 1,
-              boxShadow: 2,
-            },
+              boxShadow: 2
+            }
           }}
         >
           {filterOptions.map((option) => (
@@ -407,7 +398,7 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
               key={option}
               onClick={() => {
                 if (selectedFilters.includes(option)) {
-                  setSelectedFilters(selectedFilters.filter((f) => f !== option));
+                  setSelectedFilters(selectedFilters.filter(f => f !== option));
                 } else {
                   setSelectedFilters([...selectedFilters, option]);
                 }
@@ -417,11 +408,11 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
               <Checkbox
                 checked={selectedFilters.includes(option)}
                 size="small"
-                sx={{
+                sx={{ 
                   color: 'text.secondary',
                   '&.Mui-checked': {
-                    color: 'primary.main',
-                  },
+                    color: 'primary.main'
+                  }
                 }}
               />
               <Typography variant="body2">{option}</Typography>
@@ -437,8 +428,8 @@ const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
             sx: {
               bgcolor: 'background.paper',
               borderRadius: 1,
-              boxShadow: 2,
-            },
+              boxShadow: 2
+            }
           }}
         >
           {sortOptions.map((option) => (
@@ -460,7 +451,7 @@ const gridColumns: GridColDef[] = [
   { field: 'title', headerName: 'Opportunity', width: 200 },
   { field: 'type', headerName: 'Type', width: 130 },
   { field: 'value', headerName: 'Value', width: 100 },
-  {
+  { 
     field: 'risk_level',
     headerName: 'Risk',
     width: 130,
@@ -469,7 +460,7 @@ const gridColumns: GridColDef[] = [
         {getRiskIcon(params.value as number)}
         <Typography>{params.value}/5</Typography>
       </Box>
-    ),
+    )
   },
   { field: 'deadline', headerName: 'Deadline', width: 130 },
   {
@@ -477,20 +468,16 @@ const gridColumns: GridColDef[] = [
     headerName: 'Progress',
     width: 200,
     renderCell: (params: GridRenderCellParams) => {
-      const req = (params.row as Opportunity).requirements.find(
-        (r) => r.progress !== undefined
-      );
+      const req = (params.row as Opportunity).requirements.find(r => r.progress !== undefined);
       if (!req) return null;
-      const target = parseInt(
-        req.description.match(/\$([0-9,]+)/)?.[1].replace(',', '') || '0'
-      );
-      const progress = target > 0 ? ((req.progress || 0) / target) * 100 : 0;
+      const target = parseInt(req.description.match(/\$([0-9,]+)/)?.[1].replace(',', '') || '0');
+      const progress = target > 0 ? (req.progress || 0) / target * 100 : 0;
       return (
         <Box sx={{ width: '100%' }}>
           <LinearProgress variant="determinate" value={progress} />
         </Box>
       );
-    },
+    }
   },
 ];
 
@@ -529,24 +516,24 @@ const OpportunitiesFilters = () => {
             '& fieldset': {
               borderColor: 'divider',
               borderWidth: '1px',
-              opacity: 0.1,
+              opacity: 0.1
             },
             '&:hover fieldset': {
               borderColor: 'divider',
-              opacity: 0.3,
+              opacity: 0.3
             },
             '&.Mui-focused fieldset': {
               borderColor: 'primary.main',
-              opacity: 1,
-            },
-          },
+              opacity: 1
+            }
+          }
         }}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
               <SearchIcon sx={{ color: 'text.secondary', opacity: 0.7 }} />
             </InputAdornment>
-          ),
+          )
         }}
       />
       <Button
@@ -560,8 +547,8 @@ const OpportunitiesFilters = () => {
           borderColor: 'divider',
           '&:hover': {
             borderColor: 'primary.main',
-            bgcolor: 'action.hover',
-          },
+            bgcolor: 'action.hover'
+          }
         }}
       >
         Filter
@@ -576,8 +563,8 @@ const OpportunitiesFilters = () => {
           borderColor: 'divider',
           '&:hover': {
             borderColor: 'primary.main',
-            bgcolor: 'action.hover',
-          },
+            bgcolor: 'action.hover'
+          }
         }}
       >
         Sort
@@ -591,8 +578,8 @@ const OpportunitiesFilters = () => {
             bgcolor: 'background.paper',
             borderRadius: 1,
             boxShadow: 2,
-            mt: 1,
-          },
+            mt: 1
+          }
         }}
       >
         <MenuItem>Credit Cards Only</MenuItem>
@@ -606,27 +593,24 @@ const OpportunitiesFilters = () => {
 };
 
 const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
-  const spendingReq = opportunity.requirements.find((r) => r.progress !== undefined);
-  const target = spendingReq
-    ? parseInt(spendingReq.description.match(/\$([0-9,]+)/)?.[1].replace(',', '') || '0')
-    : 0;
+  const spendingReq = opportunity.requirements.find(r => r.progress !== undefined);
+  const target = spendingReq ? 
+    parseInt(spendingReq.description.match(/\$([0-9,]+)/)?.[1].replace(',', '') || '0') : 
+    0;
 
   return (
     <Card variant="outlined" sx={{ mb: 2 }}>
       <Box p={2} display="flex" alignItems="center" justifyContent="space-between">
         <Box display="flex" alignItems="center" gap={2}>
-          {opportunity.type === 'credit_card' ? (
-            <CreditCardIcon color="primary" />
-          ) : (
+          {opportunity.type === 'credit_card' ? 
+            <CreditCardIcon color="primary" /> : 
             <AccountBalance color="primary" />
-          )}
+          }
           <Box>
-            <Typography variant="h6" sx={{ mb: 0.5 }}>
-              {opportunity.title}
-            </Typography>
+            <Typography variant="h6" sx={{ mb: 0.5 }}>{opportunity.title}</Typography>
             <Box display="flex" alignItems="center" gap={1}>
-              <Chip
-                size="small"
+              <Chip 
+                size="small" 
                 label={opportunity.bank_name}
                 sx={{ bgcolor: 'action.hover' }}
               />
@@ -638,12 +622,8 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
         </Box>
         <Box display="flex" alignItems="center" gap={2}>
           <Box textAlign="right">
-            <Typography variant="h6" color="primary">
-              {opportunity.value}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Estimated Value
-            </Typography>
+            <Typography variant="h6" color="primary">{opportunity.value}</Typography>
+            <Typography variant="caption" color="text.secondary">Estimated Value</Typography>
           </Box>
           <ExpandMoreIcon />
         </Box>
@@ -656,11 +636,7 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
             {/* Requirements Section */}
             <Grid item xs={12} md={8}>
               <Box mb={3}>
-                <Typography
-                  variant="subtitle2"
-                  gutterBottom
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                >
+                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <AssignmentTurnedIn fontSize="small" /> Requirements
                 </Typography>
                 {opportunity.requirements.map((req, index) => (
@@ -669,21 +645,13 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
                       {req.status === 'verified' ? (
                         <CheckCircleIcon color="primary" fontSize="small" />
                       ) : (
-                        <RadioButtonUnchecked
-                          fontSize="small"
-                          sx={{ color: 'text.secondary' }}
-                        />
+                        <RadioButtonUnchecked fontSize="small" sx={{ color: 'text.secondary' }} />
                       )}
                       <Typography variant="body2">{req.description}</Typography>
                     </Box>
                     {req.progress !== undefined && target > 0 && (
                       <Box pl={3}>
-                        <Box
-                          display="flex"
-                          justifyContent="space-between"
-                          alignItems="center"
-                          mb={0.5}
-                        >
+                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
                           <Typography variant="caption" color="text.secondary">
                             ${req.progress.toLocaleString()} of ${target.toLocaleString()}
                           </Typography>
@@ -691,8 +659,8 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
                             {Math.round((req.progress / target) * 100)}%
                           </Typography>
                         </Box>
-                        <LinearProgress
-                          variant="determinate"
+                        <LinearProgress 
+                          variant="determinate" 
                           value={(req.progress / target) * 100}
                           sx={{ height: 4, borderRadius: 1 }}
                         />
@@ -705,17 +673,13 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
               {/* Updates Section */}
               {opportunity.notifications && opportunity.notifications.length > 0 && (
                 <Box>
-                  <Typography
-                    variant="subtitle2"
-                    gutterBottom
-                    sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                  >
+                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <NotificationsNone fontSize="small" /> Updates
                   </Typography>
                   <Stack spacing={1}>
                     {opportunity.notifications.map((notification, index) => (
                       <Box key={index} display="flex" alignItems="center" gap={2}>
-                        <Chip
+                        <Chip 
                           size="small"
                           label={notification.date}
                           sx={{ bgcolor: 'action.hover', minWidth: 100 }}
@@ -733,34 +697,23 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
             {/* Risk Section */}
             <Grid item xs={12} md={4}>
               <Box bgcolor="action.hover" p={2} borderRadius={2}>
-                <Typography
-                  variant="subtitle2"
-                  gutterBottom
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                >
+                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Assessment fontSize="small" /> Risk Assessment
                 </Typography>
                 <Box display="flex" alignItems="center" gap={1} mb={2}>
                   {getRiskIcon(opportunity.risk_level)}
-                  <Typography
-                    variant="body2"
-                    color={getRiskColor(opportunity.risk_level)}
-                  >
+                  <Typography variant="body2" color={getRiskColor(opportunity.risk_level)}>
                     Level {opportunity.risk_level}/5
                   </Typography>
                 </Box>
                 <Stack spacing={1}>
                   {opportunity.risk_factors.map((factor, index) => (
-                    <Typography
-                      key={index}
-                      variant="body2"
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        color: 'text.secondary',
-                      }}
-                    >
+                    <Typography key={index} variant="body2" sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 1,
+                      color: 'text.secondary'
+                    }}>
                       <ArrowRight fontSize="small" />
                       {factor}
                     </Typography>
@@ -790,9 +743,7 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
 
 const RiskAssessmentCard = ({ riskAssessment }: { riskAssessment: RiskAssessment }) => (
   <Card sx={{ p: 3, mb: 2 }}>
-    <Typography variant="h6" gutterBottom>
-      Risk Assessment
-    </Typography>
+    <Typography variant="h6" gutterBottom>Risk Assessment</Typography>
     <Grid container spacing={2}>
       <Grid item xs={12}>
         <Box display="flex" alignItems="center" gap={1} mb={2}>
@@ -801,19 +752,13 @@ const RiskAssessmentCard = ({ riskAssessment }: { riskAssessment: RiskAssessment
         </Box>
       </Grid>
       <Grid item xs={12} sm={6}>
-        <Typography variant="subtitle2" gutterBottom>
-          Key Risk Metrics:
-        </Typography>
+        <Typography variant="subtitle2" gutterBottom>Key Risk Metrics:</Typography>
         <Box display="flex" flexDirection="column" gap={1}>
           {Object.entries(riskAssessment.risk_factors).map(([key, value]) => (
             <Box key={key} display="flex" alignItems="center" gap={1}>
               <InfoIcon fontSize="small" />
               <Typography variant="body2">
-                {key
-                  .split('_')
-                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                  .join(' ')}
-                : {value}
+                {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}: {value}
               </Typography>
             </Box>
           ))}
@@ -847,34 +792,14 @@ const SummaryCard = ({ summary }: { summary: typeof mockData.summary }) => (
               </Typography>
               <Grid container spacing={2}>
                 {[
-                  {
-                    label: 'Auto-tracked',
-                    value: summary.tracking_stats.auto_tracked,
-                    color: 'primary',
-                  },
-                  {
-                    label: 'Completed',
-                    value: summary.tracking_stats.completed,
-                    color: 'success',
-                  },
-                  {
-                    label: 'In Progress',
-                    value: summary.tracking_stats.in_progress,
-                    color: 'warning',
-                  },
-                  {
-                    label: 'Manual',
-                    value: summary.tracking_stats.manual_tracked,
-                    color: 'info',
-                  },
+                  { label: 'Auto-tracked', value: summary.tracking_stats.auto_tracked, color: 'primary' },
+                  { label: 'Completed', value: summary.tracking_stats.completed, color: 'success' },
+                  { label: 'In Progress', value: summary.tracking_stats.in_progress, color: 'warning' },
+                  { label: 'Manual', value: summary.tracking_stats.manual_tracked, color: 'info' }
                 ].map((stat) => (
                   <Grid item xs={6} key={stat.label}>
                     <Box>
-                      <Typography
-                        variant="h5"
-                        color={`${stat.color}.main`}
-                        sx={{ mb: 0.5 }}
-                      >
+                      <Typography variant="h5" color={`${stat.color}.main`} sx={{ mb: 0.5 }}>
                         {stat.value}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
@@ -906,7 +831,9 @@ const SummaryCard = ({ summary }: { summary: typeof mockData.summary }) => (
               </Grid>
               <Grid item xs={6}>
                 <Box bgcolor="action.hover" p={2} borderRadius={2}>
-                  <Typography variant="h5">{summary.total_opportunities}</Typography>
+                  <Typography variant="h5">
+                    {summary.total_opportunities}
+                  </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Active Opportunities
                   </Typography>
@@ -916,10 +843,7 @@ const SummaryCard = ({ summary }: { summary: typeof mockData.summary }) => (
                 <Box bgcolor="action.hover" p={2} borderRadius={2}>
                   <Box display="flex" alignItems="center" justifyContent="space-between">
                     <Box>
-                      <Typography
-                        variant="h5"
-                        color={summary.average_risk > 3 ? 'warning.main' : 'success.main'}
-                      >
+                      <Typography variant="h5" color={summary.average_risk > 3 ? 'warning.main' : 'success.main'}>
                         {summary.average_risk.toFixed(1)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
@@ -943,62 +867,62 @@ const mockTimelineEvents: TimelineEvent[] = [
     date: '2024-02-15',
     type: 'Points Posted',
     description: 'Chase Sapphire Preferred: 60,000 UR points posted (Value: $750+)',
-    status: 'completed',
+    status: 'completed'
   },
   {
     date: '2024-02-14',
     type: 'Spending Alert',
     description: 'Amex Platinum: $1,000 more needed in 15 days for 150k bonus',
-    status: 'pending',
+    status: 'pending'
   },
   {
     date: '2024-02-13',
     type: 'Bank Bonus',
     description: 'Citi Checking $700 bonus posted to account',
-    status: 'completed',
+    status: 'completed'
   },
   {
     date: '2024-02-12',
     type: 'Application',
     description: 'Capital One Venture X instant approval (CL: $30,000)',
-    status: 'completed',
+    status: 'completed'
   },
   {
     date: '2024-02-10',
     type: 'Eligibility',
     description: 'Chase 5/24 status: New slot opens in 30 days',
-    status: 'in_progress',
+    status: 'in_progress'
   },
   {
     date: '2024-02-08',
     type: 'Direct Deposit',
     description: 'US Bank $500 bonus: 2nd DD confirmed ($2,500/$5,000)',
-    status: 'in_progress',
+    status: 'in_progress'
   },
   {
     date: '2024-02-05',
     type: 'Card Arrival',
     description: 'Amex Gold Card received & activated, added to mobile wallet',
-    status: 'completed',
+    status: 'completed'
   },
   {
     date: '2024-02-03',
     type: 'Retention Offer',
     description: 'Amex Platinum: Accepted 55k points for $4k spend',
-    status: 'in_progress',
+    status: 'in_progress'
   },
   {
     date: '2024-02-01',
     type: 'Account Closed',
     description: 'Chase United Explorer closed (AF posted, no retention)',
-    status: 'completed',
+    status: 'completed'
   },
   {
     date: '2024-01-30',
     type: 'Bonus Terms',
     description: 'Chase Sapphire Reserve: Now eligible (48 months since last bonus)',
-    status: 'completed',
-  },
+    status: 'completed'
+  }
 ];
 
 const mockStats: SummaryStats = {
@@ -1006,11 +930,11 @@ const mockStats: SummaryStats = {
   opportunities_count: {
     credit_cards: 2,
     bank_accounts: 1,
-    total: 3,
+    total: 3
   },
   success_rate: 0.92,
   average_completion_time: 75,
-  total_earned_ytd: 2750,
+  total_earned_ytd: 2750
 };
 
 const mockData = {
@@ -1027,21 +951,14 @@ const mockData = {
       signup_bonus: '60,000 points',
       bonus_amount: '$1,250',
       requirements: [
-        {
-          description: 'Spend $4,000 in first 3 months',
-          progress: 2500,
-          status: 'in_progress' as const,
-        },
-        {
-          description: 'No previous Sapphire bonus in 48 months',
-          status: 'verified' as const,
-        },
+        { description: 'Spend $4,000 in first 3 months', progress: 2500, status: 'in_progress' as const },
+        { description: 'No previous Sapphire bonus in 48 months', status: 'verified' as const }
       ],
       risk_level: 2,
       risk_factors: [
         'Recent Chase applications',
         '5/24 status: 3/24',
-        'Good approval odds',
+        'Good approval odds'
       ],
       time_limit: '3 months',
       deadline: '2024-03-31',
@@ -1051,8 +968,8 @@ const mockData = {
       location_eligible: true,
       auto_tracked: true,
       notifications: [
-        { type: 'deadline', message: 'Spending deadline in 2 weeks', date: '2024-03-17' },
-      ],
+        { type: 'deadline', message: 'Spending deadline in 2 weeks', date: '2024-03-17' }
+      ]
     },
     {
       id: '2',
@@ -1066,18 +983,14 @@ const mockData = {
       signup_bonus: '150,000 points',
       bonus_amount: '$1,500',
       requirements: [
-        {
-          description: 'Spend $6,000 in first 6 months',
-          progress: 1000,
-          status: 'in_progress' as const,
-        },
-        { description: 'No previous bonus on this card', status: 'verified' as const },
+        { description: 'Spend $6,000 in first 6 months', progress: 1000, status: 'in_progress' as const },
+        { description: 'No previous bonus on this card', status: 'verified' as const }
       ],
       risk_level: 3,
       risk_factors: [
         'Multiple Amex cards open',
         'Recent Amex bonus received',
-        'Moderate approval odds',
+        'Moderate approval odds'
       ],
       time_limit: '6 months',
       deadline: '2024-06-30',
@@ -1087,8 +1000,8 @@ const mockData = {
       location_eligible: true,
       auto_tracked: true,
       notifications: [
-        { type: 'spending', message: 'Behind on spending pace', date: '2024-02-15' },
-      ],
+        { type: 'spending', message: 'Behind on spending pace', date: '2024-02-15' }
+      ]
     },
     {
       id: '3',
@@ -1100,19 +1013,15 @@ const mockData = {
       bank_name: 'Citibank',
       bonus_amount: '$700',
       requirements: [
-        {
-          description: 'Deposit $50,000 in new money',
-          progress: 40000,
-          status: 'in_progress' as const,
-        },
+        { description: 'Deposit $50,000 in new money', progress: 40000, status: 'in_progress' as const },
         { description: 'Maintain balance for 60 days', status: 'pending' as const },
-        { description: 'Complete qualifying activities', status: 'pending' as const },
+        { description: 'Complete qualifying activities', status: 'pending' as const }
       ],
       risk_level: 4,
       risk_factors: [
         'ChexSystems sensitive bank',
         'Recent bank account openings',
-        'High early termination fee',
+        'High early termination fee'
       ],
       time_limit: '60 days',
       deadline: '2024-03-31',
@@ -1122,13 +1031,12 @@ const mockData = {
       location_eligible: true,
       auto_tracked: true,
       notifications: [
-        { type: 'deposit', message: 'Deposit deadline approaching', date: '2024-02-20' },
-      ],
-    },
+        { type: 'deposit', message: 'Deposit deadline approaching', date: '2024-02-20' }
+      ]
+    }
   ],
   summary: {
-    overview:
-      'Currently tracking 3 high-value churning opportunities worth over $3,000 in total value',
+    overview: 'Currently tracking 3 high-value churning opportunities worth over $3,000 in total value',
     total_opportunities: 3,
     total_value: 3450,
     average_risk: 3.0,
@@ -1136,58 +1044,79 @@ const mockData = {
       auto_tracked: 3,
       manual_tracked: 0,
       completed: 0,
-      in_progress: 3,
-    },
+      in_progress: 3
+    }
   },
   riskAssessment: {
-    overview:
-      'Overall risk level is low to moderate, with bank account bonuses showing slightly higher risk',
+    overview: 'Overall risk level is low to moderate, with bank account bonuses showing slightly higher risk',
     overall_risk_level: 3.0,
     risk_factors: {
       credit_inquiries_6mo: 2,
       bank_accounts_6mo: 3,
       chase_524_status: '3/24',
       amex_velocity: 'Moderate',
-      chexsystems_inquiries: 4,
-    },
+      chexsystems_inquiries: 4
+    }
   },
   recommendations: {
     next_steps: [
       'Increase spending on Chase Sapphire Preferred',
       'Prepare funds for Citi deposit requirement',
-      'Monitor Amex spending deadline',
+      'Monitor Amex spending deadline'
     ],
     upcoming_deadlines: [
       { description: 'Citi deposit deadline', date: '2024-02-28' },
-      { description: 'Chase spending requirement', date: '2024-03-31' },
-    ],
-  },
+      { description: 'Chase spending requirement', date: '2024-03-31' }
+    ]
+  }
 };
 
-interface DashboardPageProps {
-  initialStats?: SummaryStats;
-  initialEvents?: TimelineEvent[];
-}
-
-export default function DashboardPage({ initialStats, initialEvents }: DashboardPageProps) {
-  const [stats, setStats] = useState<SummaryStats>(initialStats || {
-    total_value: 0,
-    opportunities_count: {
-      credit_cards: 0,
-      bank_accounts: 0,
-      total: 0
-    },
-    success_rate: 0,
-    average_completion_time: 0,
-    total_earned_ytd: 0
-  });
-
-  const [events, setEvents] = useState<TimelineEvent[]>(initialEvents || []);
-
+export default function CardsPage() {
+  const [view, setView] = useState<'cards' | 'grid'>('cards');
+  
   return (
-    <Box>
-      <StatsOverview stats={stats} />
-      <ChurningTimeline events={events} />
-    </Box>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h4">Churning Dashboard</Typography>
+        <Box>
+          <Tabs value={view} onChange={(_, newValue) => setView(newValue)}>
+            <Tab value="cards" label="Cards View" />
+            <Tab value="grid" label="Grid View" />
+          </Tabs>
+        </Box>
+      </Box>
+
+      <StatsOverview stats={mockStats} />
+      <SummaryCard summary={mockData.summary} />
+      <ChurningTimeline events={mockTimelineEvents} />
+
+      <OpportunitiesFilters />
+
+      {view === 'grid' ? (
+        <OpportunitiesGrid opportunities={mockData.opportunities} />
+      ) : (
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={8}>
+            {mockData.opportunities.map((opportunity) => (
+              <OpportunityCard key={opportunity.id} opportunity={opportunity} />
+            ))}
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <RiskAssessmentCard riskAssessment={mockData.riskAssessment} />
+            <Card sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>Recommendations</Typography>
+              <Box display="flex" flexDirection="column" gap={1}>
+                {mockData.recommendations.next_steps.map((step: string, index: number) => (
+                  <Box key={index} display="flex" alignItems="center" gap={1}>
+                    <InfoIcon color="primary" fontSize="small" />
+                    <Typography variant="body2">{step}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+    </div>
   );
 }

@@ -75,3 +75,24 @@ htmlcov/
 .cache/
 .pytest_cache/
 .next/
+
+# Debug logs
+firebase-debug*.log
+firestore-debug.log
+ui-debug.log
+
+# System files
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE files
+.idea/
+.vscode/
+
+# Cache files
+__pycache__/
+*.pyc
+.pytest_cache/
