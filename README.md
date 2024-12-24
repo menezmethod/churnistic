@@ -2,6 +2,45 @@
 
 A modern credit card churning tracker built with Next.js, TypeScript, and Material-UI.
 
+## Features
+
+- **Modern Dashboard**
+
+  - Real-time opportunity tracking
+  - Activity timeline
+  - Progress tracking
+  - Quick access to high-value opportunities
+  - Responsive design for all devices
+
+- **AI-Powered Opportunity Detection**
+
+  - Reddit integration for real-time opportunity discovery
+  - Advanced analysis using Groq LLM
+  - Automated confidence scoring
+  - Smart filtering and categorization
+
+- **User Experience**
+  - Clean, intuitive interface
+  - Dark mode support
+  - Smooth animations and transitions
+  - Loading states and skeletons
+  - Error boundaries for graceful error handling
+
+## Changelog
+
+### Latest Changes (as of March 2024)
+
+- **2693a19**: Cleanup and remove duplicate files
+- **1b77b04**: Update dashboard tests to match new implementation
+- **81d0dd5**: Enhance dashboard with modern UI components and improved UX
+- **469cc0c**: Add dev startup script and fix frontend tests
+- **a8ba56d**: Implement opportunities frontend integration
+- **5df97cf**: Separate data collection from analysis in RedditCollector
+- **6cfc8bc**: Integrate Reddit API with comments and threads
+- **b6c8e88**: Improve code organization and add caching
+- **849b8b5**: Implement working churning agent with proper models
+- **70cd960**: Integrate Reddit API with Groq analysis
+
 ## Development Workflow
 
 ### Quick Start
