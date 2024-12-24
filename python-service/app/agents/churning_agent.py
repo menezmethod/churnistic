@@ -27,19 +27,44 @@ logger.info("Running without Logfire")
 # Load environment variables
 load_dotenv()
 
-# Model configuration
-MODELS = [
-    'groq:llama-3.1-8b-instant',  # Primary model (faster, lower quality)
-    'groq:mixtral-8x7b-32768',    # Secondary model (balanced)
-    'groq:llama-2-70b-chat',      # Fallback model (slower, higher quality)
+# Constants for retries and delays
+MAX_RETRIES = 5
+RETRY_DELAY = 10  # seconds
+COOLDOWN_PERIOD = 60  # seconds
+
+# Model configuration with tiers based on OpenRouter rankings and Groq rate limits
+MODEL_TIERS = [
+    {
+        'name': 'groq:llama-3.1-70b-versatile',  # Primary model (highest ranked)
+        'rpm': 30,  # Requests per minute
+        'tpm': 6000,  # Tokens per minute
+        'retry_after': 60,  # Default retry after in seconds
+        'priority': 1,
+        'context_window': 128000,
+        'daily_limit': 200000  # Tokens per day
+    },
+    {
+        'name': 'groq:llama-3.1-8b-instant',  # Secondary model (fast, efficient)
+        'rpm': 30,
+        'tpm': 20000,
+        'retry_after': 45,
+        'priority': 2,
+        'context_window': 128000,
+        'daily_limit': 500000
+    },
+    {
+        'name': 'groq:mixtral-8x7b-32768',  # Fallback model (large context)
+        'rpm': 30,
+        'tpm': 5000,
+        'retry_after': 30,
+        'priority': 3,
+        'context_window': 32768,
+        'daily_limit': 500000
+    }
 ]
-CURRENT_MODEL_INDEX = 0
-MODEL = MODELS[CURRENT_MODEL_INDEX]
-REQUESTS_PER_MINUTE = 20  # Reduced from 30 to be more conservative
-MIN_REQUEST_INTERVAL = 60.0 / REQUESTS_PER_MINUTE
-MAX_RETRIES = 5  # Increased from 3
-RETRY_DELAY = 10  # Increased from 5 seconds
-COOLDOWN_PERIOD = 60  # Reduced from 300 to 60 seconds
+
+# Initial model configuration - start with highest ranked model
+MODEL = MODEL_TIERS[0]['name']
 
 # Cache for opportunities to avoid duplicates
 opportunity_cache = {}
@@ -51,63 +76,136 @@ async def wait_for_rate_limit():
 class ModelState:
     def __init__(self):
         self.last_request_time = 0.0
-        self.request_count = 0
-        self.error_count = 0
-        self.total_tokens = 0
-        self.current_model_index = 0
-        self.last_model_switch_time = 0.0
+        self.request_counts = {model['name']: 0 for model in MODEL_TIERS}
+        self.token_counts = {model['name']: 0 for model in MODEL_TIERS}
+        self.daily_token_counts = {model['name']: 0 for model in MODEL_TIERS}  # Track daily token usage
         self.rate_limit_hits = {}  # Track rate limits per model
+        self.current_model_index = 0
+        self.last_model_switch_time = time.time()
+        self.day_start = time.time()  # Track start of the day for token limits
         
-    def switch_model(self):
-        """Switch to next available model"""
+    def reset_daily_counts(self):
+        """Reset daily token counts if a new day has started"""
         current_time = time.time()
+        if current_time - self.day_start >= 86400:  # 24 hours in seconds
+            self.daily_token_counts = {model['name']: 0 for model in MODEL_TIERS}
+            self.day_start = current_time
         
-        # If we've waited long enough, try switching back to primary model
-        if (current_time - self.last_model_switch_time > COOLDOWN_PERIOD and 
-            self.current_model_index > 0):
-            self.current_model_index = 0
-            logger.info(f"Switching back to primary model: {MODELS[0]}")
-        else:
-            # Otherwise cycle through models
-            self.current_model_index = (self.current_model_index + 1) % len(MODELS)
-            logger.info(f"Switching to fallback model: {MODELS[self.current_model_index]}")
-        
-        self.last_model_switch_time = current_time
-        return MODELS[self.current_model_index]
-        
-    async def wait_for_rate_limit(self):
-        """Ensure we don't exceed rate limits with monitoring"""
+    def can_use_model(self, model_config: dict) -> bool:
+        """Check if a model can be used based on rate limits and daily quotas"""
         current_time = time.time()
-        current_model = MODELS[self.current_model_index]
+        model_name = model_config['name']
         
-        # Check if current model is rate limited
-        if current_model in self.rate_limit_hits:
-            retry_after = self.rate_limit_hits[current_model].get('retry_after', 0)
-            if current_time < retry_after:
-                logger.info(f"Model {current_model} is rate limited, switching models")
-                new_model = self.switch_model()
-                return new_model
-                
-        elapsed = current_time - self.last_request_time
-        if elapsed < MIN_REQUEST_INTERVAL:
-            wait_time = MIN_REQUEST_INTERVAL - elapsed
-            logger.info(f"Rate limiting: waiting {wait_time:.2f} seconds")
-            await asyncio.sleep(wait_time)
+        # Reset daily counts if needed
+        self.reset_daily_counts()
+        
+        # Check daily token limit
+        if self.daily_token_counts[model_name] >= model_config['daily_limit']:
+            logger.warning(f"Daily token limit reached for {model_name}")
+            return False
+        
+        # Check if model is rate limited
+        if model_name in self.rate_limit_hits:
+            rate_limit = self.rate_limit_hits[model_name]
+            if current_time < rate_limit['retry_after']:
+                return False
             
-        self.last_request_time = time.time()
-        self.request_count += 1
-        return MODELS[self.current_model_index]
+            # Clear rate limit if enough time has passed
+            if current_time >= rate_limit['retry_after']:
+                del self.rate_limit_hits[model_name]
+        
+        return True
 
-    def handle_rate_limit(self, model: str, retry_after: int):
+    def update_token_counts(self, model_name: str, token_count: int):
+        """Update token counts for rate limiting and daily quotas"""
+        self.token_counts[model_name] += token_count
+        self.daily_token_counts[model_name] += token_count
+        
+        # Log if approaching daily limit
+        model_config = next(m for m in MODEL_TIERS if m['name'] == model_name)
+        daily_limit = model_config['daily_limit']
+        usage_percent = (self.daily_token_counts[model_name] / daily_limit) * 100
+        if usage_percent >= 80:
+            logger.warning(f"{model_name} at {usage_percent:.1f}% of daily token limit")
+
+    def get_current_model(self) -> dict:
+        """Get current model configuration"""
+        return MODEL_TIERS[self.current_model_index]
+        
+    def update_rate_limits(self, model_name: str, headers: dict):
+        """Update rate limit tracking based on API response headers"""
+        current_time = time.time()
+        
+        if 'x-ratelimit-remaining-requests' in headers:
+            remaining_requests = int(headers['x-ratelimit-remaining-requests'])
+            if remaining_requests <= 0:
+                reset_time = float(headers.get('x-ratelimit-reset-requests', '60').rstrip('s'))
+                self.rate_limit_hits[model_name] = {
+                    'hit_time': current_time,
+                    'retry_after': current_time + reset_time
+                }
+                
+        if 'x-ratelimit-remaining-tokens' in headers:
+            remaining_tokens = int(headers['x-ratelimit-remaining-tokens'])
+            if remaining_tokens <= 0:
+                reset_time = float(headers.get('x-ratelimit-reset-tokens', '60').rstrip('s'))
+                self.rate_limit_hits[model_name] = {
+                    'hit_time': current_time,
+                    'retry_after': current_time + reset_time
+                }
+    
+    def handle_rate_limit(self, model_name: str, retry_after: int):
         """Handle rate limit for a specific model"""
         current_time = time.time()
-        self.rate_limit_hits[model] = {
+        self.rate_limit_hits[model_name] = {
             'hit_time': current_time,
             'retry_after': current_time + retry_after
         }
-        logger.warning(f"Rate limit hit for {model}, retry after {retry_after} seconds")
-        # Immediately switch to next model
+        logger.warning(f"Rate limit hit for {model_name}, retry after {retry_after} seconds")
         return self.switch_model()
+        
+    def switch_model(self) -> str:
+        """Switch to next available model based on priority"""
+        current_time = time.time()
+        original_index = self.current_model_index
+        
+        # Try each model in order of priority
+        for i in range(len(MODEL_TIERS)):
+            next_index = (self.current_model_index + i) % len(MODEL_TIERS)
+            next_model = MODEL_TIERS[next_index]
+            
+            if self.can_use_model(next_model):
+                self.current_model_index = next_index
+                self.last_model_switch_time = current_time
+                logger.info(f"Switching to model: {next_model['name']}")
+                return next_model['name']
+        
+        # If no models available, wait and return current model
+        logger.warning("No models available, keeping current model")
+        return MODEL_TIERS[original_index]['name']
+        
+    async def wait_for_rate_limit(self) -> str:
+        """Ensure we don't exceed rate limits"""
+        current_time = time.time()
+        current_model = self.get_current_model()
+        
+        # If current model is rate limited, try switching
+        if not self.can_use_model(current_model):
+            new_model_name = self.switch_model()
+            current_model = next(m for m in MODEL_TIERS if m['name'] == new_model_name)
+        
+        # Calculate wait time based on RPM
+        elapsed = current_time - self.last_request_time
+        min_interval = 60.0 / current_model['rpm']
+        
+        if elapsed < min_interval:
+            wait_time = min_interval - elapsed
+            logger.info(f"Rate limiting: waiting {wait_time:.2f} seconds")
+            await asyncio.sleep(wait_time)
+        
+        self.last_request_time = time.time()
+        self.request_counts[current_model['name']] += 1
+        return current_model['name']
 
 model_state = ModelState()
 
@@ -126,12 +224,18 @@ class ChurningMetrics(BaseModel):
     token_count: int = 0
     error_count: int = 0
 
-# Initialize the agent first
-churning_agent = Agent(
-    MODEL,
-    deps_type=ChurningDependencies,
-    result_type=ChurningAnalysis,
-    system_prompt="""You are a churning opportunities analyzer. Your task is to analyze content from Reddit and identify bank account and credit card churning opportunities.
+class OpportunityQuality(BaseModel):
+    """Track quality metrics for opportunities"""
+    model_name: str
+    processing_date: datetime
+    confidence: float
+    verification_count: int = 0
+    verified_by_models: List[str] = []
+    metadata_completeness: float = 0.0
+    contradictions: List[str] = []
+
+# Update the system prompt to be more specific about metadata
+SYSTEM_PROMPT = """You are a churning opportunities analyzer. Your task is to analyze content from Reddit and identify bank account and credit card churning opportunities.
 
 For each opportunity you find, you should extract:
 - Title: A clear, concise title for the opportunity
@@ -145,11 +249,28 @@ For each opportunity you find, you should extract:
 - Posted Date: When the opportunity was posted (if available)
 - Expiration Date: When the opportunity expires (if available)
 - Confidence: Your confidence in this opportunity (0.0 to 1.0)
-- Metadata: Additional details specific to the opportunity type
+- Metadata: Additional details including:
+  * Minimum Spend: Required spending amount if any
+  * Time Period: Time window for meeting requirements
+  * Credit Score: Minimum credit score if mentioned
+  * Hard Pull: Whether a hard credit pull is required
+  * Direct Deposit: Whether direct deposit is required
+  * Geographic Restrictions: Any location requirements
+  * Previous Customer: Rules about previous customers
+  * Maximum Bonus: Any caps on the bonus amount
+  * Opportunity Type: "New Account", "Referral", "Upgrade", etc.
+  * Additional Requirements: Any other specific conditions
 
 DO NOT use any external search or functions. Only analyze the content provided.
 Return opportunities in the exact format specified by the ChurningAnalysis model.
 """
+
+# Update the churning agent with new system prompt
+churning_agent = Agent(
+    MODEL,
+    deps_type=ChurningDependencies,
+    result_type=ChurningAnalysis,
+    system_prompt=SYSTEM_PROMPT
 )
 
 # Then define the system prompt decorator
@@ -165,7 +286,7 @@ Created: {datetime.fromtimestamp(content.get('created_utc', 0)).isoformat()}
 """
 
 async def analyze_content(content: Dict[str, Any]) -> ChurningAnalysis:
-    """Main function to analyze churning content with improved monitoring and retries"""
+    """Main function to analyze churning content with improved rate limiting"""
     metrics = ChurningMetrics()
     start_time = time.time()
     retries = 0
@@ -189,6 +310,10 @@ async def analyze_content(content: Dict[str, Any]) -> ChurningAnalysis:
                 # Run the agent with the dependencies
                 result = await churning_agent.run('Analyze this content for churning opportunities', deps=deps)
                 
+                # Update rate limits from response headers if available
+                if hasattr(result, 'headers'):
+                    model_state.update_rate_limits(current_model, result.headers)
+                
                 if not isinstance(result.data, ChurningAnalysis):
                     raise ValueError("Unexpected response format from model")
                 
@@ -196,7 +321,7 @@ async def analyze_content(content: Dict[str, Any]) -> ChurningAnalysis:
                 if result.data.opportunities:
                     metrics.opportunities_found = len(result.data.opportunities)
                     metrics.total_value = sum(
-                        float(opp.value.replace('$', '').replace(',', ''))
+                        float(str(opp.value).replace('$', '').replace(',', ''))
                         for opp in result.data.opportunities
                     )
                     metrics.average_confidence = (
@@ -210,7 +335,7 @@ async def analyze_content(content: Dict[str, Any]) -> ChurningAnalysis:
                     
             except Exception as e:
                 last_error = e
-                if "rate_limit" in str(e).lower():
+                if "rate_limit" in str(e).lower() or "429" in str(e):
                     # Extract retry-after if available
                     retry_after = 60  # Default to 60 seconds
                     if hasattr(e, 'headers'):
@@ -218,7 +343,6 @@ async def analyze_content(content: Dict[str, Any]) -> ChurningAnalysis:
                     current_model = model_state.handle_rate_limit(churning_agent.model, retry_after)
                     churning_agent.model = current_model
                     logger.warning(f"Rate limit hit, switched to {current_model}")
-                    retries += 1
                     continue
                     
                 logger.error(f"Error during analysis (attempt {retries + 1}/{MAX_RETRIES}): {str(e)}")
@@ -232,7 +356,7 @@ async def analyze_content(content: Dict[str, Any]) -> ChurningAnalysis:
         
     finally:
         metrics.processing_time = time.time() - start_time
-        logger.info(f"Analysis metrics: {metrics.dict()}")
+        logger.info(f"Analysis metrics: {metrics.model_dump()}")
 
 def calculate_confidence(
     base_confidence: float,
@@ -390,3 +514,120 @@ def _validate_analysis(analysis: ChurningAnalysis) -> bool:
             return False
             
     return True
+
+async def reprocess_opportunity(opportunity: Dict[str, Any], model_name: str = None) -> Optional[Dict[str, Any]]:
+    """Reprocess an opportunity using a higher quality model for verification"""
+    if not model_name:
+        model_name = MODEL_TIERS[0]['name']  # Use highest quality model by default
+    
+    # Create a simplified content object focusing on the opportunity
+    content = {
+        'title': opportunity['title'],
+        'content': opportunity['description'],
+        'source': opportunity['source'],
+        'source_link': opportunity['sourceLink'],
+        'requirements': opportunity['requirements'],
+        'metadata': opportunity.get('metadata', {})
+    }
+    
+    # Force use of specific model
+    original_model = churning_agent.model
+    churning_agent.model = model_name
+    
+    try:
+        result = await analyze_content(content)
+        if result and result.opportunities:
+            verified_opp = result.opportunities[0].model_dump()
+            
+            # Compare and merge metadata
+            original_metadata = opportunity.get('metadata', {})
+            new_metadata = verified_opp.get('metadata', {})
+            merged_metadata = {**original_metadata, **new_metadata}
+            
+            # Update quality metrics
+            quality = OpportunityQuality(
+                model_name=model_name,
+                processing_date=datetime.now(),
+                confidence=verified_opp['confidence'],
+                verification_count=opportunity.get('verification_count', 0) + 1,
+                verified_by_models=[*opportunity.get('verified_by_models', []), model_name],
+                metadata_completeness=calculate_metadata_completeness(merged_metadata)
+            )
+            
+            # Check for contradictions
+            contradictions = find_contradictions(opportunity, verified_opp)
+            if contradictions:
+                quality.contradictions.extend(contradictions)
+                logger.warning(f"Found contradictions in opportunity: {contradictions}")
+            
+            # Merge and return updated opportunity
+            return {
+                **opportunity,
+                'metadata': merged_metadata,
+                'confidence': max(opportunity['confidence'], verified_opp['confidence']),
+                'quality': quality.model_dump(),
+                'last_verified': datetime.now().isoformat()
+            }
+    except Exception as e:
+        logger.error(f"Error reprocessing opportunity: {str(e)}")
+        return None
+    finally:
+        churning_agent.model = original_model
+
+def calculate_metadata_completeness(metadata: Dict) -> float:
+    """Calculate how complete the metadata is"""
+    required_fields = {
+        'minimum_spend', 'time_period', 'credit_score', 'hard_pull',
+        'direct_deposit', 'geographic_restrictions', 'previous_customer',
+        'maximum_bonus', 'opportunity_type', 'additional_requirements'
+    }
+    
+    if not metadata:
+        return 0.0
+    
+    present_fields = sum(1 for field in required_fields if metadata.get(field))
+    return present_fields / len(required_fields)
+
+def find_contradictions(original: Dict, verified: Dict) -> List[str]:
+    """Find contradictions between original and verified opportunities"""
+    contradictions = []
+    
+    # Check numerical values
+    if abs(float(original['value']) - float(verified['value'])) > 0.01:
+        contradictions.append(f"Value mismatch: ${original['value']} vs ${verified['value']}")
+    
+    # Check categorical fields
+    if original['type'] != verified['type']:
+        contradictions.append(f"Type mismatch: {original['type']} vs {verified['type']}")
+    
+    if original['bank'] != verified['bank']:
+        contradictions.append(f"Bank mismatch: {original['bank']} vs {verified['bank']}")
+    
+    # Check requirements
+    orig_reqs = set(original['requirements'])
+    new_reqs = set(verified['requirements'])
+    if orig_reqs != new_reqs:
+        contradictions.append("Requirements mismatch")
+    
+    return contradictions
+
+async def reprocess_all_opportunities(opportunities: List[Dict], min_confidence: float = 0.8) -> List[Dict]:
+    """Reprocess all opportunities that need verification"""
+    results = []
+    
+    for opp in opportunities:
+        # Skip if already verified by high quality model with good confidence
+        if (opp.get('quality', {}).get('model_name') == MODEL_TIERS[0]['name'] and 
+            opp['confidence'] >= min_confidence):
+            results.append(opp)
+            continue
+        
+        # Reprocess with highest quality model
+        updated_opp = await reprocess_opportunity(opp)
+        if updated_opp:
+            results.append(updated_opp)
+        else:
+            # Keep original if reprocessing failed
+            results.append(opp)
+    
+    return results
