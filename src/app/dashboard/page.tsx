@@ -6,6 +6,7 @@ import {
   CheckCircle as CheckCircleIcon,
   ArrowForward as ArrowForwardIcon,
   Timer as TimerIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import {
   MonetizationOn as MonetizationOnIcon,
@@ -47,7 +48,6 @@ import {
   LinearProgress,
   Grow,
   Fade,
-  CircularProgress,
   Collapse,
 } from '@mui/material';
 import { motion } from 'framer-motion';
@@ -55,27 +55,33 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import OpportunityCardSkeleton from '@/components/skeletons/OpportunityCardSkeleton';
+import ProgressCardSkeleton from '@/components/skeletons/ProgressCardSkeleton';
+import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { formatCurrency } from '@/utils/formatters';
 
 interface Opportunity {
   id: string;
   title: string;
-  description: string;
-  value: string;
   type: 'credit_card' | 'bank_account';
+  value: string | number;
   bank: string;
-  expirationDate?: string;
-  expiresIn?: string;
-  isHot?: boolean;
-  requirements: Requirement[];
-}
-
-interface Requirement {
-  id: string;
   description: string;
-  progress: number;
-  target: number;
-  completed: boolean;
+  requirements: string[];
+  source: string;
+  sourceLink: string;
+  postedDate: string;
+  expirationDate?: string;
+  confidence: number;
+  status: string;
+  metadata?: {
+    progress?: number;
+    target?: number;
+    riskLevel?: number;
+    riskFactors?: string[];
+  };
+  timeframe?: string;
 }
 
 interface TrackedOpportunity {
@@ -134,64 +140,6 @@ const getActivityIcon = (type: Activity['type']) => {
   }
 };
 
-const quickOpportunities: Opportunity[] = [
-  {
-    id: '1',
-    title: 'Chase Sapphire Preferred',
-    description: 'Earn 75,000 bonus points after spending $4,000 in 3 months',
-    value: '$750',
-    type: 'credit_card',
-    bank: 'Chase',
-    expiresIn: '30 days',
-    isHot: true,
-    requirements: [],
-  },
-  {
-    id: '2',
-    title: 'Capital One Checking',
-    description: 'Get $400 when you open a new checking account',
-    value: '$400',
-    type: 'bank_account',
-    bank: 'Capital One',
-    requirements: [],
-  },
-  {
-    id: '3',
-    title: 'Amex Platinum',
-    description:
-      'Earn 150,000 Membership Rewards points after spending $6,000 in 6 months',
-    value: '$1,500',
-    type: 'credit_card',
-    bank: 'American Express',
-    isHot: true,
-    requirements: [],
-  },
-];
-
-const recentActivities: Activity[] = [
-  {
-    id: '1',
-    type: 'success',
-    icon: <CheckCircleIcon fontSize="small" />,
-    message: 'Completed Chase Sapphire Preferred requirement',
-    time: '2 hours ago',
-  },
-  {
-    id: '2',
-    type: 'warning',
-    icon: <WarningIcon fontSize="small" />,
-    message: 'Capital One Checking bonus expiring soon',
-    time: '5 hours ago',
-  },
-  {
-    id: '3',
-    type: 'info',
-    icon: <InfoOutlinedIcon fontSize="small" />,
-    message: 'New opportunity from US Bank available',
-    time: '1 day ago',
-  },
-];
-
 const quickActions = [
   {
     label: 'Add New Opportunity',
@@ -215,22 +163,354 @@ const quickActions = [
   },
 ];
 
-const trackedOpportunities: TrackedOpportunity[] = [
+const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
+  const theme = useTheme();
+
+  // Helper function to safely parse and format the value
+  const displayValue = (value: string | number) => {
+    if (typeof value === 'number') return formatCurrency(value);
+    // Remove any existing currency formatting
+    const numericValue = parseFloat(value.replace(/[$,]/g, ''));
+    return isNaN(numericValue) ? '$0' : formatCurrency(numericValue);
+  };
+
+  return (
+    <Fade in={true}>
+      <Paper
+        elevation={0}
+        component={Link}
+        href={`/opportunities/${opportunity.id}`}
+        sx={{
+          p: 2.5,
+          border: '1px solid',
+          borderColor: 'divider',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          cursor: 'pointer',
+          position: 'relative',
+          overflow: 'hidden',
+          background: 'transparent',
+          textDecoration: 'none',
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: theme.shadows[8],
+            '& .opportunity-icon': {
+              transform: 'scale(1.1) rotate(5deg)',
+            },
+            '& .opportunity-arrow': {
+              transform: 'translateX(4px)',
+              opacity: 1,
+            },
+            '&::before': {
+              opacity: 0.15,
+            },
+          },
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(135deg, primary.main, primary.light)',
+            opacity: 0.08,
+            transition: 'opacity 0.3s',
+          },
+        }}
+      >
+        <Box display="flex" alignItems="center" gap={2}>
+          <Box
+            className="opportunity-icon"
+            sx={{
+              p: 1.5,
+              borderRadius: 2,
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              transition: 'all 0.3s',
+            }}
+          >
+            {opportunity.type === 'credit_card' ? (
+              <CreditCardIcon color="primary" sx={{ fontSize: '2rem' }} />
+            ) : (
+              <AccountBalanceIcon color="primary" sx={{ fontSize: '2rem' }} />
+            )}
+          </Box>
+          <Box flex={1}>
+            <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+              <Typography variant="subtitle1" fontWeight={600}>
+                {opportunity.title}
+              </Typography>
+              {opportunity.confidence >= 0.9 && (
+                <Box
+                  component={motion.div}
+                  animate={{
+                    scale: [1, 1.2, 1],
+                    rotate: [0, 5, 0],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                  }}
+                >
+                  <StarIcon sx={{ color: 'warning.main', fontSize: '1.2rem' }} />
+                </Box>
+              )}
+            </Box>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Chip
+                label={opportunity.bank}
+                size="small"
+                sx={{
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  fontWeight: 500,
+                }}
+              />
+              {opportunity.expirationDate && (
+                <Chip
+                  icon={<TimerIcon sx={{ fontSize: '1rem !important' }} />}
+                  label={`Expires: ${new Date(opportunity.expirationDate).toLocaleDateString()}`}
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  sx={{ fontWeight: 500 }}
+                />
+              )}
+            </Box>
+          </Box>
+          <Box textAlign="right">
+            <Typography variant="h6" color="primary" fontWeight="bold" sx={{ mb: 1 }}>
+              {displayValue(opportunity.value)}
+            </Typography>
+            <IconButton
+              size="small"
+              color="primary"
+              className="opportunity-arrow"
+              sx={{
+                opacity: 0.7,
+                transition: 'all 0.3s',
+              }}
+            >
+              <ArrowForwardIcon />
+            </IconButton>
+          </Box>
+        </Box>
+      </Paper>
+    </Fade>
+  );
+};
+
+const ProgressCard = ({ opportunity }: { opportunity: TrackedOpportunity }) => {
+  const theme = useTheme();
+  const progress = (opportunity.progress / opportunity.target) * 100;
+  const isUrgent = opportunity.daysLeft <= 15;
+
+  return (
+    <Fade in={true}>
+      <Paper
+        elevation={0}
+        component={Link}
+        href={`/opportunities/${opportunity.id}`}
+        sx={{
+          p: 2.5,
+          border: '1px solid',
+          borderColor: 'divider',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          position: 'relative',
+          overflow: 'hidden',
+          background: 'transparent',
+          textDecoration: 'none',
+          '&:hover': {
+            transform: 'translateX(4px)',
+            boxShadow: theme.shadows[8],
+            '& .progress-icon': {
+              transform: 'scale(1.1)',
+            },
+            '& .progress-bar': {
+              transform: 'scaleX(1.02)',
+            },
+            '&::before': {
+              opacity: 0.15,
+            },
+          },
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: 4,
+            background: isUrgent
+              ? theme.palette.warning.main
+              : theme.palette.success.main,
+            opacity: 0.5,
+            transition: 'opacity 0.3s',
+          },
+        }}
+      >
+        <Box display="flex" alignItems="center" gap={2}>
+          <Box
+            className="progress-icon"
+            sx={{
+              p: 1.5,
+              borderRadius: 2,
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              transition: 'all 0.3s',
+            }}
+          >
+            {opportunity.type === 'credit_card' ? (
+              <CreditCardIcon color="primary" />
+            ) : (
+              <AccountBalanceIcon color="primary" />
+            )}
+          </Box>
+          <Box flex={1}>
+            <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+              {opportunity.title}
+            </Typography>
+            <Box mb={1}>
+              <Box display="flex" justifyContent="space-between" mb={0.5}>
+                <Typography variant="caption" color="text.secondary">
+                  Progress: ${opportunity.progress.toLocaleString()} of $
+                  {opportunity.target.toLocaleString()}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color={progress >= 100 ? 'success.main' : 'primary.main'}
+                  fontWeight={600}
+                >
+                  {Math.round(progress)}%
+                </Typography>
+              </Box>
+              <Box position="relative">
+                <LinearProgress
+                  variant="determinate"
+                  value={Math.min(progress, 100)}
+                  className="progress-bar"
+                  sx={{
+                    height: 8,
+                    borderRadius: 1,
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    '& .MuiLinearProgress-bar': {
+                      borderRadius: 1,
+                      bgcolor: progress >= 100 ? 'success.main' : 'primary.main',
+                      transition: 'all 0.3s',
+                    },
+                  }}
+                />
+                {progress >= 100 && (
+                  <Box
+                    component={motion.div}
+                    animate={{
+                      scale: [1, 1.2, 1],
+                      opacity: [0.7, 1, 0.7],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: 'easeInOut',
+                    }}
+                    sx={{
+                      position: 'absolute',
+                      right: -10,
+                      top: -10,
+                      color: 'success.main',
+                    }}
+                  >
+                    <CheckCircleIcon />
+                  </Box>
+                )}
+              </Box>
+            </Box>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Chip
+                icon={<TimerIcon sx={{ fontSize: '1rem !important' }} />}
+                label={`${opportunity.daysLeft} days left`}
+                size="small"
+                color={isUrgent ? 'warning' : 'default'}
+                variant="outlined"
+                sx={{ fontWeight: 500 }}
+              />
+              <Tooltip title="Update Progress">
+                <IconButton
+                  size="small"
+                  color="primary"
+                  sx={{
+                    '&:hover': {
+                      transform: 'rotate(180deg)',
+                      transition: 'transform 0.5s',
+                    },
+                  }}
+                >
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
+    </Fade>
+  );
+};
+
+const useOpportunities = () => {
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchOpportunities = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/opportunities/recent');
+        if (!response.ok) {
+          throw new Error('Failed to fetch opportunities');
+        }
+        const data = await response.json();
+        // Sort opportunities by value (converting string values if needed)
+        const sortedData = data.sort((a: Opportunity, b: Opportunity) => {
+          const valueA =
+            typeof a.value === 'string'
+              ? parseFloat(a.value.replace(/[^0-9.-]+/g, ''))
+              : a.value;
+          const valueB =
+            typeof b.value === 'string'
+              ? parseFloat(b.value.replace(/[^0-9.-]+/g, ''))
+              : b.value;
+          return valueB - valueA;
+        });
+        setOpportunities(sortedData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch opportunities');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOpportunities();
+  }, []);
+
+  return { opportunities, loading, error };
+};
+
+const recentActivities: Activity[] = [
   {
     id: '1',
-    title: 'Chase Sapphire Preferred',
-    type: 'credit_card',
-    progress: 2500,
-    target: 4000,
-    daysLeft: 45,
+    type: 'success',
+    icon: <CheckCircleIcon fontSize="small" />,
+    message: 'Completed Chase Sapphire Preferred requirement',
+    time: '2 hours ago',
   },
   {
     id: '2',
-    title: 'Capital One Checking',
-    type: 'bank_account',
-    progress: 15000,
-    target: 15000,
-    daysLeft: 15,
+    type: 'warning',
+    icon: <WarningIcon fontSize="small" />,
+    message: 'Capital One Checking bonus expiring soon',
+    time: '5 hours ago',
+  },
+  {
+    id: '3',
+    type: 'info',
+    icon: <InfoOutlinedIcon fontSize="small" />,
+    message: 'New opportunity from US Bank available',
+    time: '1 day ago',
   },
 ];
 
@@ -264,8 +544,7 @@ const StatCard = ({
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           border: '1px solid',
           borderColor: 'divider',
-          backdropFilter: 'blur(8px)',
-          background: alpha(theme.palette.background.paper, 0.8),
+          background: 'transparent',
           animation: isHovered ? `${pulse} 2s infinite` : 'none',
           '&:hover': {
             transform: 'translateY(-4px)',
@@ -411,293 +690,18 @@ const StatCard = ({
   );
 };
 
-const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
-  const theme = useTheme();
-
-  return (
-    <Fade in={true}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2.5,
-          border: '1px solid',
-          borderColor: 'divider',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          cursor: 'pointer',
-          position: 'relative',
-          overflow: 'hidden',
-          backdropFilter: 'blur(8px)',
-          background: alpha(theme.palette.background.paper, 0.8),
-          '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: theme.shadows[8],
-            '& .opportunity-icon': {
-              transform: 'scale(1.1) rotate(5deg)',
-            },
-            '& .opportunity-arrow': {
-              transform: 'translateX(4px)',
-              opacity: 1,
-            },
-            '&::before': {
-              opacity: 0.15,
-            },
-          },
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'linear-gradient(135deg, primary.main, primary.light)',
-            opacity: 0.08,
-            transition: 'opacity 0.3s',
-          },
-        }}
-      >
-        <Box display="flex" alignItems="center" gap={2}>
-          <Box
-            className="opportunity-icon"
-            sx={{
-              p: 1.5,
-              borderRadius: 2,
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-              transition: 'all 0.3s',
-            }}
-          >
-            {opportunity.type === 'credit_card' ? (
-              <CreditCardIcon color="primary" sx={{ fontSize: '2rem' }} />
-            ) : (
-              <AccountBalanceIcon color="primary" sx={{ fontSize: '2rem' }} />
-            )}
-          </Box>
-          <Box flex={1}>
-            <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-              <Typography variant="subtitle1" fontWeight={600}>
-                {opportunity.title}
-              </Typography>
-              {opportunity.isHot && (
-                <Box
-                  component={motion.div}
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    rotate: [0, 5, 0],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: 'easeInOut',
-                  }}
-                >
-                  <StarIcon sx={{ color: 'warning.main', fontSize: '1.2rem' }} />
-                </Box>
-              )}
-            </Box>
-            <Box display="flex" alignItems="center" gap={1}>
-              <Chip
-                label={opportunity.bank}
-                size="small"
-                sx={{
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  fontWeight: 500,
-                }}
-              />
-              {opportunity.expiresIn && (
-                <Chip
-                  icon={<TimerIcon sx={{ fontSize: '1rem !important' }} />}
-                  label={`Expires in ${opportunity.expiresIn}`}
-                  size="small"
-                  color="warning"
-                  variant="outlined"
-                  sx={{ fontWeight: 500 }}
-                />
-              )}
-            </Box>
-          </Box>
-          <Box textAlign="right">
-            <Typography variant="h6" color="primary" fontWeight="bold" sx={{ mb: 1 }}>
-              {opportunity.value}
-            </Typography>
-            <IconButton
-              size="small"
-              color="primary"
-              className="opportunity-arrow"
-              sx={{
-                opacity: 0.7,
-                transition: 'all 0.3s',
-              }}
-            >
-              <ArrowForwardIcon />
-            </IconButton>
-          </Box>
-        </Box>
-      </Paper>
-    </Fade>
-  );
-};
-
-const ProgressCard = ({ opportunity }: { opportunity: TrackedOpportunity }) => {
-  const theme = useTheme();
-  const progress = (opportunity.progress / opportunity.target) * 100;
-  const isUrgent = opportunity.daysLeft <= 15;
-
-  return (
-    <Fade in={true}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2.5,
-          border: '1px solid',
-          borderColor: 'divider',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          position: 'relative',
-          overflow: 'hidden',
-          backdropFilter: 'blur(8px)',
-          background: alpha(theme.palette.background.paper, 0.8),
-          '&:hover': {
-            transform: 'translateX(4px)',
-            boxShadow: theme.shadows[8],
-            '& .progress-icon': {
-              transform: 'scale(1.1)',
-            },
-            '& .progress-bar': {
-              transform: 'scaleX(1.02)',
-            },
-            '&::before': {
-              opacity: 0.15,
-            },
-          },
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            bottom: 0,
-            width: 4,
-            background: isUrgent
-              ? theme.palette.warning.main
-              : theme.palette.success.main,
-            opacity: 0.5,
-            transition: 'opacity 0.3s',
-          },
-        }}
-      >
-        <Box display="flex" alignItems="center" gap={2}>
-          <Box
-            className="progress-icon"
-            sx={{
-              p: 1.5,
-              borderRadius: 2,
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-              transition: 'all 0.3s',
-            }}
-          >
-            {opportunity.type === 'credit_card' ? (
-              <CreditCardIcon color="primary" />
-            ) : (
-              <AccountBalanceIcon color="primary" />
-            )}
-          </Box>
-          <Box flex={1}>
-            <Typography variant="subtitle2" gutterBottom fontWeight={600}>
-              {opportunity.title}
-            </Typography>
-            <Box mb={1}>
-              <Box display="flex" justifyContent="space-between" mb={0.5}>
-                <Typography variant="caption" color="text.secondary">
-                  Progress: ${opportunity.progress.toLocaleString()} of $
-                  {opportunity.target.toLocaleString()}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  color={progress >= 100 ? 'success.main' : 'primary.main'}
-                  fontWeight={600}
-                >
-                  {Math.round(progress)}%
-                </Typography>
-              </Box>
-              <Box position="relative">
-                <LinearProgress
-                  variant="determinate"
-                  value={Math.min(progress, 100)}
-                  className="progress-bar"
-                  sx={{
-                    height: 8,
-                    borderRadius: 1,
-                    bgcolor: alpha(theme.palette.primary.main, 0.1),
-                    '& .MuiLinearProgress-bar': {
-                      borderRadius: 1,
-                      bgcolor: progress >= 100 ? 'success.main' : 'primary.main',
-                      transition: 'all 0.3s',
-                    },
-                  }}
-                />
-                {progress >= 100 && (
-                  <Box
-                    component={motion.div}
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      opacity: [0.7, 1, 0.7],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                    }}
-                    sx={{
-                      position: 'absolute',
-                      right: -10,
-                      top: -10,
-                      color: 'success.main',
-                    }}
-                  >
-                    <CheckCircleIcon />
-                  </Box>
-                )}
-              </Box>
-            </Box>
-            <Box display="flex" alignItems="center" gap={1}>
-              <Chip
-                icon={<TimerIcon sx={{ fontSize: '1rem !important' }} />}
-                label={`${opportunity.daysLeft} days left`}
-                size="small"
-                color={isUrgent ? 'warning' : 'default'}
-                variant="outlined"
-                sx={{ fontWeight: 500 }}
-              />
-              <Tooltip title="Update Progress">
-                <IconButton
-                  size="small"
-                  color="primary"
-                  sx={{
-                    '&:hover': {
-                      transform: 'rotate(180deg)',
-                      transition: 'transform 0.5s',
-                    },
-                  }}
-                >
-                  <RefreshIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Box>
-        </Box>
-      </Paper>
-    </Fade>
-  );
-};
-
 export default function DashboardPage() {
   const theme = useTheme();
   const [activityExpanded, setActivityExpanded] = useState(false);
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { opportunities, loading: oppsLoading } = useOpportunities();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push('/auth/signin');
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     const handleThemeChange = () => {
@@ -733,18 +737,106 @@ export default function DashboardPage() {
     };
   }, []);
 
-  if (loading) {
+  // Helper function to safely convert value to number
+
+  // Calculate stats from real data
+  const trackedOpportunities: TrackedOpportunity[] = [
+    {
+      id: 'chase-sapphire-1',
+      title: 'Chase Sapphire Preferred',
+      type: 'credit_card',
+      progress: 1200,
+      target: 4000,
+      daysLeft: 15,
+    },
+    {
+      id: 'capital-one-1',
+      title: 'Capital One Checking',
+      type: 'bank_account',
+      progress: 800,
+      target: 1500,
+      daysLeft: 45,
+    },
+  ];
+
+  const stats = [
+    {
+      icon: MonetizationOnIcon,
+      title: 'TRACKED VALUE',
+      value: formatCurrency(
+        trackedOpportunities.reduce(
+          (sum: number, opp: TrackedOpportunity) => sum + opp.progress,
+          0
+        )
+      ),
+      trend: { value: 12, label: 'vs last month' },
+      color: 'primary' as const,
+    },
+    {
+      icon: TrendingUpIcon,
+      title: 'POTENTIAL VALUE',
+      value: formatCurrency(
+        opportunities.reduce((sum: number, opp: Opportunity) => {
+          const value =
+            typeof opp.value === 'string'
+              ? parseFloat(opp.value.replace(/[$,]/g, ''))
+              : opp.value;
+          return sum + (isNaN(value) ? 0 : value);
+        }, 0)
+      ),
+      trend: { value: 15, label: 'vs last month' },
+      color: 'warning' as const,
+    },
+    {
+      icon: AccountBalanceWalletIcon,
+      title: 'Active Opportunities',
+      value: opportunities.filter((opp) => opp.status === 'active').length.toString(),
+      trend: { value: 5, label: 'new this week' },
+      color: 'info' as const,
+    },
+    {
+      icon: CheckCircleIcon,
+      title: 'Completed',
+      value: opportunities.filter((opp) => opp.status === 'completed').length.toString(),
+      trend: { value: 18, label: 'success rate' },
+      color: 'success' as const,
+    },
+  ];
+
+  if (authLoading || oppsLoading) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '60vh',
-          }}
-        >
-          <CircularProgress />
+        {/* Stats Section */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {[1, 2, 3, 4].map((item) => (
+            <Grid item xs={12} sm={6} md={3} key={item}>
+              <StatCardSkeleton />
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Quick Opportunities Section */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h5" sx={{ mb: 3 }}>
+            Quick Opportunities
+          </Typography>
+          <Stack spacing={2}>
+            {[1, 2, 3].map((item) => (
+              <OpportunityCardSkeleton key={item} />
+            ))}
+          </Stack>
+        </Box>
+
+        {/* Currently Tracking Section */}
+        <Box>
+          <Typography variant="h5" sx={{ mb: 3 }}>
+            Currently Tracking
+          </Typography>
+          <Stack spacing={2}>
+            {[1, 2].map((item) => (
+              <ProgressCardSkeleton key={item} />
+            ))}
+          </Stack>
         </Box>
       </Container>
     );
@@ -754,36 +846,10 @@ export default function DashboardPage() {
     return null;
   }
 
-  const stats = [
-    {
-      icon: MonetizationOnIcon,
-      title: 'Total Value',
-      value: '$12,500',
-      trend: { value: 12, label: 'vs last month' },
-      color: 'primary' as const,
-    },
-    {
-      icon: AccountBalanceWalletIcon,
-      title: 'Active Opportunities',
-      value: '8',
-      trend: { value: 5, label: 'new this week' },
-      color: 'info' as const,
-    },
-    {
-      icon: CheckCircleIcon,
-      title: 'Completed',
-      value: '24',
-      trend: { value: 18, label: 'success rate' },
-      color: 'success' as const,
-    },
-    {
-      icon: ArrowForwardIcon,
-      title: 'Potential Value',
-      value: '$5,200',
-      trend: { value: -8, label: 'vs last month' },
-      color: 'warning' as const,
-    },
-  ];
+  // Get top 3 opportunities by value for quick opportunities section
+  const quickOpportunities = opportunities
+    .filter((opp) => opp.status === 'active')
+    .slice(0, 3);
 
   return (
     <Container
@@ -791,8 +857,6 @@ export default function DashboardPage() {
       sx={{
         py: 4,
         minHeight: '100vh',
-        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.03)}, ${alpha(theme.palette.background.default, 0.5)})`,
-        backdropFilter: 'blur(10px)',
       }}
     >
       {/* Welcome Section */}

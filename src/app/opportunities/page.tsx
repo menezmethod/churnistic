@@ -18,17 +18,17 @@ import {
   AccountBalance as AccountBalanceIcon,
   Schedule as ScheduleIcon,
   ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
   Assessment,
   AssignmentTurnedIn,
   Refresh as RefreshIcon,
+  ArrowForward as ArrowForwardIcon,
+  Timer as TimerIcon,
 } from '@mui/icons-material';
 import {
   Box,
   Container,
   Grid,
   Typography,
-  Card,
   Chip,
   useTheme,
   alpha,
@@ -42,7 +42,10 @@ import {
   Stack,
   Menu,
   MenuItem,
+  Paper,
 } from '@mui/material';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -195,37 +198,43 @@ interface Opportunity {
   timeframe?: string;
 }
 
-const ValueBadge = ({ value }: { value: number | string }) => {
+const ValueDisplay = ({ value }: { value: string | number }) => {
   const theme = useTheme();
+  const [isHovered, setIsHovered] = useState(false);
   const isDark = theme.palette.mode === 'dark';
-  const formattedValue = formatCurrency(value);
+
+  // Helper function to safely parse and format the value
+  const displayValue = (val: string | number) => {
+    if (typeof val === 'number') return formatCurrency(val);
+    // Remove any existing currency formatting
+    const numericValue = parseFloat(val.replace(/[$,]/g, ''));
+    return isNaN(numericValue) ? '$0' : formatCurrency(numericValue);
+  };
 
   return (
     <Box
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       sx={{
         position: 'relative',
-        display: 'inline-flex',
+        display: 'flex',
         alignItems: 'center',
         gap: 1,
-        py: 1.5,
-        px: 2.5,
+        p: 1.5,
         borderRadius: 2,
-        background: isDark
-          ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.9)}, ${alpha(theme.palette.primary.dark, 0.9)})`
-          : `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-        boxShadow: theme.shadows[3],
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         border: '1px solid',
-        borderColor: isDark
-          ? alpha(theme.palette.primary.main, 0.3)
-          : alpha(theme.palette.primary.light, 0.5),
-        '&:hover': {
-          transform: 'translateY(-2px) scale(1.02)',
-          boxShadow: theme.shadows[6],
-          borderColor: isDark
-            ? alpha(theme.palette.primary.main, 0.5)
-            : theme.palette.primary.main,
-        },
+        borderColor: isHovered
+          ? alpha(theme.palette.primary.main, isDark ? 0.5 : 0.3)
+          : alpha(theme.palette.divider, isDark ? 0.2 : 0.1),
+        background: isHovered
+          ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.primary.light, 0.02)})`
+          : 'transparent',
+        backdropFilter: 'blur(8px)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
+        boxShadow: isHovered
+          ? `0 4px 20px ${alpha(theme.palette.primary.main, 0.15)}`
+          : 'none',
         '&::before': {
           content: '""',
           position: 'absolute',
@@ -234,36 +243,55 @@ const ValueBadge = ({ value }: { value: number | string }) => {
           right: 0,
           bottom: 0,
           borderRadius: 2,
-          background: `linear-gradient(135deg, ${alpha('#fff', 0.1)}, ${alpha('#fff', 0.05)})`,
-          opacity: 0,
+          border: '1px solid',
+          borderColor: 'transparent',
+          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)}, ${alpha(theme.palette.primary.light, 0.2)})`,
+          opacity: isHovered ? 1 : 0,
           transition: 'opacity 0.3s',
-        },
-        '&:hover::before': {
-          opacity: 1,
+          zIndex: -1,
         },
       }}
     >
-      <MonetizationOnIcon
-        sx={{
-          color: '#fff',
-          fontSize: '1.5rem',
-          filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.2))',
-          zIndex: 1,
-        }}
-      />
       <Typography
-        variant="h6"
+        variant="h4"
+        component="span"
         sx={{
-          color: '#fff',
           fontWeight: 700,
-          letterSpacing: '0.5px',
-          textShadow: '0 2px 4px rgba(0,0,0,0.2)',
-          zIndex: 1,
-          fontSize: '1.35rem',
+          background: isHovered
+            ? `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`
+            : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.9)}, ${alpha(theme.palette.primary.light, 0.9)})`,
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          transition: 'all 0.3s',
+          filter: isHovered ? 'brightness(1.2) contrast(1.1)' : 'none',
+          textShadow: isHovered
+            ? `0 0 20px ${alpha(theme.palette.primary.main, 0.3)}`
+            : 'none',
+          letterSpacing: '0.02em',
+          transform: isHovered ? 'scale(1.02)' : 'scale(1)',
         }}
       >
-        {formattedValue}
+        {displayValue(value)}
       </Typography>
+      <Box
+        component={motion.div}
+        animate={{
+          x: isHovered ? [0, 4, 0] : 0,
+          opacity: isHovered ? 1 : 0,
+        }}
+        transition={{
+          duration: 0.5,
+          ease: 'easeInOut',
+        }}
+      >
+        <ArrowForwardIcon
+          sx={{
+            color: theme.palette.primary.main,
+            fontSize: '1.5rem',
+            filter: `drop-shadow(0 0 8px ${alpha(theme.palette.primary.main, 0.4)})`,
+          }}
+        />
+      </Box>
     </Box>
   );
 };
@@ -352,8 +380,8 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
   };
 
   return (
-    <Card
-      variant="outlined"
+    <Paper
+      elevation={0}
       sx={{
         mb: 2,
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -452,21 +480,26 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
             </Box>
           </Box>
         </Box>
-        <Box display="flex" alignItems="center" gap={2}>
-          <ValueBadge value={opportunity.value} />
-          {expanded ? (
-            <ExpandLessIcon
+        <Box
+          sx={{
+            ml: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+          }}
+        >
+          <ValueDisplay value={opportunity.value} />
+          {opportunity.timeframe && (
+            <Chip
+              icon={<TimerIcon sx={{ fontSize: '0.875rem !important' }} />}
+              label={opportunity.timeframe}
+              size="small"
+              color="info"
+              variant="outlined"
               sx={{
-                transition: 'transform 0.3s',
-                transform: 'rotate(180deg)',
-                color: 'text.secondary',
-              }}
-            />
-          ) : (
-            <ExpandMoreIcon
-              sx={{
-                transition: 'transform 0.3s',
-                color: 'text.secondary',
+                mt: 1,
+                fontWeight: 500,
+                fontSize: '0.75rem',
               }}
             />
           )}
@@ -568,8 +601,8 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
                   variant="contained"
                   color="primary"
                   startIcon={<LaunchIcon />}
-                  href={opportunity.sourceLink}
-                  target="_blank"
+                  component={Link}
+                  href={`/opportunities/${opportunity.id}`}
                   sx={{
                     textTransform: 'none',
                     boxShadow: 2,
@@ -588,7 +621,7 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
           </Grid>
         </Box>
       </Collapse>
-    </Card>
+    </Paper>
   );
 };
 
@@ -601,7 +634,7 @@ const useOpportunities = () => {
   useEffect(() => {
     const fetchOpportunities = async () => {
       try {
-        const response = await fetch('/opportunities/recent');
+        const response = await fetch('http://localhost:8000/opportunities/recent');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
