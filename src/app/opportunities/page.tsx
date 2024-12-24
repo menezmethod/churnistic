@@ -1,40 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth/AuthContext';
-
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-
-import {
-  Box,
-  Container,
-  Grid,
-  Typography,
-  Card,
-  CardContent,
-  IconButton,
-  Chip,
-  useTheme,
-  alpha,
-  Button,
-  TextField,
-  InputAdornment,
-  CircularProgress,
-  Alert,
-  LinearProgress,
-  Collapse,
-  Divider,
-  Stack,
-  Menu,
-  MenuItem,
-} from '@mui/material';
-
 import {
   AccountBalanceWallet as AccountBalanceWalletIcon,
   CheckCircle as CheckCircleIcon,
   RadioButtonUnchecked as RadioButtonUncheckedIcon,
-  ArrowForward as ArrowForwardIcon,
   InfoOutlined as InfoOutlinedIcon,
   Warning as WarningIcon,
   ErrorOutline as ErrorOutlineIcon,
@@ -54,6 +23,30 @@ import {
   AssignmentTurnedIn,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
+import {
+  Box,
+  Container,
+  Grid,
+  Typography,
+  Card,
+  Chip,
+  useTheme,
+  alpha,
+  Button,
+  TextField,
+  InputAdornment,
+  CircularProgress,
+  Alert,
+  Collapse,
+  Divider,
+  Stack,
+  Menu,
+  MenuItem,
+} from '@mui/material';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
+import { useAuth } from '@/lib/auth/AuthContext';
 
 // Constants and types
 const RISK_LEVELS = {
@@ -75,19 +68,20 @@ const REQUIREMENT_TYPES = {
 
 // Utility functions
 const formatCurrency = (value: number | string) => {
-  const numericValue = typeof value === 'string' 
-    ? parseFloat(value.replace(/[^0-9.-]+/g, ''))
-    : value;
-  return !isNaN(numericValue) ? numericValue.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }) : '$0.00';
+  const numericValue =
+    typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g, '')) : value;
+  return !isNaN(numericValue)
+    ? numericValue.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+      })
+    : '$0.00';
 };
 
 const getRiskLevel = (level: number = 0) => {
-  const riskLevel = Object.values(RISK_LEVELS).find(r => level <= r.max) 
-    ?? RISK_LEVELS.CRITICAL;
+  const riskLevel =
+    Object.values(RISK_LEVELS).find((r) => level <= r.max) ?? RISK_LEVELS.CRITICAL;
   const Icon = riskLevel.icon;
   return {
     icon: <Icon fontSize="small" color="inherit" />,
@@ -97,58 +91,25 @@ const getRiskLevel = (level: number = 0) => {
 
 const getRequirementType = (requirement: string) => {
   const text = requirement.toLowerCase();
-  const type = Object.values(REQUIREMENT_TYPES).find(
-    t => t.match.some(m => text.includes(m))
-  ) ?? REQUIREMENT_TYPES.DEFAULT;
-  
+  const type =
+    Object.values(REQUIREMENT_TYPES).find((t) => t.match.some((m) => text.includes(m))) ??
+    REQUIREMENT_TYPES.DEFAULT;
+
   const Icon = type.icon;
   return <Icon fontSize="small" sx={{ color: 'text.secondary' }} />;
 };
 
 // Reusable components
-const ProgressBar = ({ progress, target }: { progress: number; target: number }) => {
-  const percentage = target > 0 ? (progress / target) * 100 : 0;
-  const isComplete = percentage >= 100;
-  
-  return (
-    <Box pl={3}>
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={0.5}
-      >
-        <Typography variant="caption" color="text.secondary">
-          {formatCurrency(progress)} of {formatCurrency(target)}
-        </Typography>
-        <Typography 
-          variant="caption" 
-          color={isComplete ? 'success.main' : 'primary.main'}
-          fontWeight="medium"
-        >
-          {Math.round(percentage)}%
-        </Typography>
-      </Box>
-      <LinearProgress
-        variant="determinate"
-        value={Math.min(percentage, 100)}
-        sx={{ 
-          height: 6, 
-          borderRadius: 1,
-          bgcolor: 'action.hover',
-          '& .MuiLinearProgress-bar': {
-            borderRadius: 1,
-            bgcolor: isComplete ? 'success.main' : 'primary.main',
-          }
-        }}
-      />
-    </Box>
-  );
-};
 
-const SearchBar = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => {
+const SearchBar = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) => {
   const theme = useTheme();
-  
+
   return (
     <TextField
       placeholder="Search opportunities..."
@@ -158,14 +119,16 @@ const SearchBar = ({ value, onChange }: { value: string; onChange: (value: strin
       onChange={(e) => onChange(e.target.value)}
       sx={{
         '& .MuiOutlinedInput-root': {
-          bgcolor: theme.palette.mode === 'dark' 
-            ? alpha(theme.palette.background.paper, 0.6)
-            : alpha(theme.palette.background.paper, 0.8),
+          bgcolor:
+            theme.palette.mode === 'dark'
+              ? alpha(theme.palette.background.paper, 0.6)
+              : alpha(theme.palette.background.paper, 0.8),
           borderRadius: 1,
           '& fieldset': {
-            borderColor: theme.palette.mode === 'dark'
-              ? alpha(theme.palette.primary.main, 0.2)
-              : alpha(theme.palette.primary.main, 0.1),
+            borderColor:
+              theme.palette.mode === 'dark'
+                ? alpha(theme.palette.primary.main, 0.2)
+                : alpha(theme.palette.primary.main, 0.1),
           },
           '&:hover fieldset': {
             borderColor: alpha(theme.palette.primary.main, 0.3),
@@ -236,7 +199,7 @@ const ValueBadge = ({ value }: { value: number | string }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const formattedValue = formatCurrency(value);
-  
+
   return (
     <Box
       sx={{
@@ -247,19 +210,19 @@ const ValueBadge = ({ value }: { value: number | string }) => {
         py: 1.5,
         px: 2.5,
         borderRadius: 2,
-        background: isDark 
+        background: isDark
           ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.9)}, ${alpha(theme.palette.primary.dark, 0.9)})`
           : `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
         boxShadow: theme.shadows[3],
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         border: '1px solid',
-        borderColor: isDark 
+        borderColor: isDark
           ? alpha(theme.palette.primary.main, 0.3)
           : alpha(theme.palette.primary.light, 0.5),
         '&:hover': {
           transform: 'translateY(-2px) scale(1.02)',
           boxShadow: theme.shadows[6],
-          borderColor: isDark 
+          borderColor: isDark
             ? alpha(theme.palette.primary.main, 0.5)
             : theme.palette.primary.main,
         },
@@ -280,13 +243,13 @@ const ValueBadge = ({ value }: { value: number | string }) => {
         },
       }}
     >
-      <MonetizationOnIcon 
-        sx={{ 
+      <MonetizationOnIcon
+        sx={{
           color: '#fff',
           fontSize: '1.5rem',
           filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.2))',
           zIndex: 1,
-        }} 
+        }}
       />
       <Typography
         variant="h6"
@@ -305,11 +268,17 @@ const ValueBadge = ({ value }: { value: number | string }) => {
   );
 };
 
-const ProgressIndicator = ({ progress, target }: { progress: number; target: number }) => {
+const ProgressIndicator = ({
+  progress,
+  target,
+}: {
+  progress: number;
+  target: number;
+}) => {
   const percentage = target > 0 ? (progress / target) * 100 : 0;
   const isComplete = percentage >= 100;
   const color = isComplete ? 'success' : 'primary';
-  
+
   return (
     <Box position="relative" display="flex" alignItems="center" gap={2}>
       <Box position="relative" sx={{ width: 48, height: 48 }}>
@@ -383,35 +352,41 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
   };
 
   return (
-    <Card 
-      variant="outlined" 
-      sx={{ 
+    <Card
+      variant="outlined"
+      sx={{
         mb: 2,
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: expanded ? 'scale(1.01)' : 'scale(1)',
-        bgcolor: isDark ? alpha(theme.palette.background.paper, 0.6) : 'background.default',
+        bgcolor: isDark
+          ? alpha(theme.palette.background.paper, 0.6)
+          : 'background.default',
         borderColor: isDark ? alpha(theme.palette.divider, 0.3) : 'divider',
         backdropFilter: 'blur(8px)',
         '&:hover': {
           boxShadow: expanded ? 4 : 2,
           transform: expanded ? 'scale(1.01)' : 'scale(1.005)',
-          borderColor: isDark ? theme.palette.primary.main : alpha(theme.palette.primary.main, 0.5),
-          bgcolor: isDark ? alpha(theme.palette.background.paper, 0.8) : 'background.default',
+          borderColor: isDark
+            ? theme.palette.primary.main
+            : alpha(theme.palette.primary.main, 0.5),
+          bgcolor: isDark
+            ? alpha(theme.palette.background.paper, 0.8)
+            : 'background.default',
         },
       }}
     >
-      <Box 
-        p={2} 
-        display="flex" 
-        alignItems="center" 
+      <Box
+        p={2}
+        display="flex"
+        alignItems="center"
         justifyContent="space-between"
         onClick={handleExpand}
-        sx={{ 
+        sx={{
           cursor: 'pointer',
           position: 'relative',
           overflow: 'hidden',
-          '&:hover': { 
-            bgcolor: isDark 
+          '&:hover': {
+            bgcolor: isDark
               ? alpha(theme.palette.primary.main, 0.15)
               : alpha(theme.palette.primary.main, 0.05),
           },
@@ -419,28 +394,28 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
       >
         <Box display="flex" alignItems="center" gap={2}>
           {opportunity.type === 'credit_card' ? (
-            <CreditCardIcon 
+            <CreditCardIcon
               color="primary"
-              sx={{ 
+              sx={{
                 fontSize: '2rem',
                 transition: 'transform 0.3s',
                 transform: expanded ? 'rotate(360deg)' : 'none',
-              }} 
+              }}
             />
           ) : (
-            <AccountBalanceIcon 
+            <AccountBalanceIcon
               color="primary"
-              sx={{ 
+              sx={{
                 fontSize: '2rem',
                 transition: 'transform 0.3s',
                 transform: expanded ? 'rotate(360deg)' : 'none',
-              }} 
+              }}
             />
           )}
           <Box>
-            <Typography 
-              variant="h6" 
-              sx={{ 
+            <Typography
+              variant="h6"
+              sx={{
                 mb: 0.5,
                 transition: 'color 0.3s',
                 color: expanded ? 'primary.main' : 'text.primary',
@@ -452,10 +427,16 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
               <Chip
                 size="small"
                 label={opportunity.bank}
-                sx={{ 
-                  bgcolor: expanded 
-                    ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.1)
-                    : alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.1 : 0.05),
+                sx={{
+                  bgcolor: expanded
+                    ? alpha(
+                        theme.palette.primary.main,
+                        theme.palette.mode === 'dark' ? 0.2 : 0.1
+                      )
+                    : alpha(
+                        theme.palette.primary.main,
+                        theme.palette.mode === 'dark' ? 0.1 : 0.05
+                      ),
                   color: expanded ? 'primary.main' : 'text.primary',
                   transition: 'all 0.3s',
                   border: '1px solid',
@@ -474,19 +455,19 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
         <Box display="flex" alignItems="center" gap={2}>
           <ValueBadge value={opportunity.value} />
           {expanded ? (
-            <ExpandLessIcon 
-              sx={{ 
+            <ExpandLessIcon
+              sx={{
                 transition: 'transform 0.3s',
                 transform: 'rotate(180deg)',
                 color: 'text.secondary',
-              }} 
+              }}
             />
           ) : (
-            <ExpandMoreIcon 
-              sx={{ 
+            <ExpandMoreIcon
+              sx={{
                 transition: 'transform 0.3s',
                 color: 'text.secondary',
-              }} 
+              }}
             />
           )}
         </Box>
@@ -494,16 +475,22 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
 
       <Collapse in={expanded} timeout={300}>
         <Divider />
-        <Box p={2} sx={{ bgcolor: theme.palette.mode === 'dark' ? 'background.paper' : 'background.default' }}>
+        <Box
+          p={2}
+          sx={{
+            bgcolor:
+              theme.palette.mode === 'dark' ? 'background.paper' : 'background.default',
+          }}
+        >
           <Grid container spacing={3}>
             <Grid item xs={12} md={8}>
               <Box mb={3}>
                 <Typography
                   variant="h6"
                   gutterBottom
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: 1.5,
                     fontSize: '1.25rem',
                     fontWeight: 500,
@@ -513,18 +500,18 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
                     transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
-                  <AssignmentTurnedIn 
-                    sx={{ 
+                  <AssignmentTurnedIn
+                    sx={{
                       fontSize: '1.5rem',
                       color: 'primary.main',
-                    }} 
-                  /> 
+                    }}
+                  />
                   Requirements
                 </Typography>
                 {opportunity.requirements.map((req, index) => (
-                  <Box 
-                    key={index} 
-                    sx={{ 
+                  <Box
+                    key={index}
+                    sx={{
                       mt: 2,
                       opacity: hasBeenExpanded ? 1 : 0,
                       transform: hasBeenExpanded ? 'translateX(0)' : 'translateX(-10px)',
@@ -534,7 +521,7 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
                   >
                     <Box display="flex" alignItems="center" gap={1} mb={0.5}>
                       {getRequirementType(req)}
-                      <Typography 
+                      <Typography
                         variant="body2"
                         sx={{
                           color: hasBeenExpanded ? 'text.primary' : 'text.secondary',
@@ -561,13 +548,13 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
                   transitionDelay: '0.3s',
                 }}
               >
-                <RiskAssessment 
-                  level={opportunity.metadata?.riskLevel || 0} 
-                  factors={opportunity.metadata?.riskFactors} 
+                <RiskAssessment
+                  level={opportunity.metadata?.riskLevel || 0}
+                  factors={opportunity.metadata?.riskFactors}
                 />
               </Box>
 
-              <Box 
+              <Box
                 mt={2}
                 sx={{
                   opacity: hasBeenExpanded ? 1 : 0,
@@ -642,29 +629,29 @@ interface QuickFilter {
 }
 
 const QUICK_FILTERS: QuickFilter[] = [
-  { 
-    id: 'high_value', 
-    label: 'High Value', 
+  {
+    id: 'high_value',
+    label: 'High Value',
     icon: MonetizationOnIcon,
-    color: '#2e7d32'
+    color: '#2e7d32',
   },
-  { 
-    id: 'quick_win', 
-    label: 'Quick Wins', 
+  {
+    id: 'quick_win',
+    label: 'Quick Wins',
     icon: CheckCircleIcon,
-    color: '#1976d2'
+    color: '#1976d2',
   },
-  { 
-    id: 'credit_cards', 
-    label: 'Credit Cards', 
+  {
+    id: 'credit_cards',
+    label: 'Credit Cards',
     icon: CreditCardIcon,
-    color: '#0288d1'
+    color: '#0288d1',
   },
-  { 
-    id: 'bank_accounts', 
-    label: 'Bank Accounts', 
+  {
+    id: 'bank_accounts',
+    label: 'Bank Accounts',
     icon: AccountBalanceIcon,
-    color: '#ed6c02'
+    color: '#ed6c02',
   },
 ];
 
@@ -676,33 +663,36 @@ const useOpportunityFilters = (opportunities: Opportunity[]) => {
   const [sortBy, setSortBy] = useState<'value' | 'risk' | 'date'>('value');
 
   // Get unique banks from opportunities
-  const availableBanks = Array.from(new Set(opportunities.map(opp => opp.bank))).sort();
+  const availableBanks = Array.from(new Set(opportunities.map((opp) => opp.bank))).sort();
 
   const getFilteredAndSortedOpportunities = () => {
     let filtered = [...opportunities];
 
     // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(opp => 
-        opp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        opp.bank.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (opp) =>
+          opp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          opp.bank.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Apply bank filter
     if (selectedBank) {
-      filtered = filtered.filter(opp => opp.bank === selectedBank);
+      filtered = filtered.filter((opp) => opp.bank === selectedBank);
     }
 
     // Apply quick filters
     if (activeFilter) {
-      filtered = filtered.filter(opp => {
+      filtered = filtered.filter((opp) => {
         switch (activeFilter) {
           case 'high_value':
             return parseFloat(String(opp.value)) >= 1000;
           case 'quick_win':
-            return (opp.metadata?.riskLevel || 0) <= 2 && 
-                   (!opp.timeframe || parseInt(opp.timeframe) <= 3);
+            return (
+              (opp.metadata?.riskLevel || 0) <= 2 &&
+              (!opp.timeframe || parseInt(opp.timeframe) <= 3)
+            );
           case 'credit_cards':
             return opp.type === 'credit_card';
           case 'bank_accounts':
@@ -745,11 +735,11 @@ const useOpportunityFilters = (opportunities: Opportunity[]) => {
 };
 
 // Add BankFilter component
-const BankFilter = ({ 
+const BankFilter = ({
   banks,
   selectedBank,
   onBankChange,
-}: { 
+}: {
   banks: string[];
   selectedBank: string | null;
   onBankChange: (bank: string | null) => void;
@@ -760,11 +750,11 @@ const BankFilter = ({
     <>
       <Button
         size="small"
-        variant={selectedBank ? "contained" : "outlined"}
+        variant={selectedBank ? 'contained' : 'outlined'}
         onClick={(e) => setAnchorEl(e.currentTarget)}
         startIcon={<AccountBalanceIcon />}
         endIcon={<ExpandMoreIcon />}
-        sx={{ 
+        sx={{
           textTransform: 'none',
           minWidth: 120,
           bgcolor: selectedBank ? 'primary.main' : 'transparent',
@@ -783,7 +773,7 @@ const BankFilter = ({
           },
         }}
       >
-        <MenuItem 
+        <MenuItem
           onClick={() => {
             onBankChange(null);
             setAnchorEl(null);
@@ -811,28 +801,28 @@ const BankFilter = ({
 };
 
 // New components for better organization
-const QuickFilters = ({ 
-  activeFilter, 
-  onFilterChange 
-}: { 
+const QuickFilters = ({
+  activeFilter,
+  onFilterChange,
+}: {
   activeFilter: string | null;
   onFilterChange: (filter: string | null) => void;
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
-  
+
   return (
-    <Box 
-      display="flex" 
-      gap={2} 
-      sx={{ 
+    <Box
+      display="flex"
+      gap={2}
+      sx={{
         overflowX: 'auto',
         pb: 1,
         '&::-webkit-scrollbar': {
           height: 6,
         },
         '&::-webkit-scrollbar-track': {
-          bgcolor: isDark 
+          bgcolor: isDark
             ? alpha(theme.palette.background.paper, 0.2)
             : alpha(theme.palette.primary.main, 0.05),
           borderRadius: 3,
@@ -853,7 +843,7 @@ const QuickFilters = ({
       {QUICK_FILTERS.map((filter) => {
         const Icon = filter.icon;
         const isActive = activeFilter === filter.id;
-        
+
         return (
           <Box
             key={filter.id}
@@ -866,8 +856,8 @@ const QuickFilters = ({
               px: 2,
               borderRadius: 2,
               cursor: 'pointer',
-              bgcolor: isActive 
-                ? isDark 
+              bgcolor: isActive
+                ? isDark
                   ? alpha(theme.palette.primary.main, 0.25)
                   : alpha(theme.palette.primary.main, 0.1)
                 : isDark
@@ -876,7 +866,7 @@ const QuickFilters = ({
               color: isActive ? filter.color : isDark ? 'text.primary' : 'text.secondary',
               transition: 'all 0.2s',
               '&:hover': {
-                bgcolor: isActive 
+                bgcolor: isActive
                   ? isDark
                     ? alpha(theme.palette.primary.main, 0.35)
                     : alpha(theme.palette.primary.main, 0.15)
@@ -886,7 +876,7 @@ const QuickFilters = ({
               },
               minWidth: 'fit-content',
               border: '1px solid',
-              borderColor: isActive 
+              borderColor: isActive
                 ? isDark
                   ? alpha(filter.color, 0.5)
                   : filter.color
@@ -894,8 +884,8 @@ const QuickFilters = ({
             }}
           >
             <Icon fontSize="small" />
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               fontWeight={isActive ? 'medium' : 'regular'}
               sx={{
                 color: isDark ? 'text.primary' : 'inherit',
@@ -930,23 +920,23 @@ const OpportunitiesHeader = ({
   availableBanks: string[];
 }) => {
   const theme = useTheme();
-  
+
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
         <Box>
-          <Typography 
-            variant="h4" 
+          <Typography
+            variant="h4"
             gutterBottom
-            sx={{ 
+            sx={{
               color: 'text.primary',
               fontWeight: 600,
             }}
           >
             Available Opportunities
           </Typography>
-          <Typography 
-            variant="body1" 
+          <Typography
+            variant="body1"
             color="text.secondary"
             sx={{
               opacity: theme.palette.mode === 'dark' ? 0.8 : 0.7,
@@ -968,20 +958,26 @@ const OpportunitiesHeader = ({
               variant={sortBy === option ? 'contained' : 'outlined'}
               onClick={() => onSortChange(option as 'value' | 'risk' | 'date')}
               startIcon={
-                option === 'value' ? <MonetizationOnIcon /> :
-                option === 'risk' ? <Assessment /> :
-                <CalendarTodayIcon />
+                option === 'value' ? (
+                  <MonetizationOnIcon />
+                ) : option === 'risk' ? (
+                  <Assessment />
+                ) : (
+                  <CalendarTodayIcon />
+                )
               }
-              sx={{ 
+              sx={{
                 textTransform: 'none',
-                bgcolor: sortBy === option && theme.palette.mode === 'dark'
-                  ? alpha(theme.palette.primary.main, 0.2)
-                  : 'transparent',
-                borderColor: sortBy === option
-                  ? 'primary.main'
-                  : theme.palette.mode === 'dark'
+                bgcolor:
+                  sortBy === option && theme.palette.mode === 'dark'
                     ? alpha(theme.palette.primary.main, 0.2)
-                    : alpha(theme.palette.primary.main, 0.1),
+                    : 'transparent',
+                borderColor:
+                  sortBy === option
+                    ? 'primary.main'
+                    : theme.palette.mode === 'dark'
+                      ? alpha(theme.palette.primary.main, 0.2)
+                      : alpha(theme.palette.primary.main, 0.1),
               }}
             >
               {option.charAt(0).toUpperCase() + option.slice(1)}
@@ -996,11 +992,17 @@ const OpportunitiesHeader = ({
   );
 };
 
-const RiskAssessment = ({ level = 0, factors = [] }: { level?: number; factors?: string[] }) => {
+const RiskAssessment = ({
+  level = 0,
+  factors = [],
+}: {
+  level?: number;
+  factors?: string[];
+}) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const { icon, color } = getRiskLevel(level);
-  
+
   const getColorFromPalette = (colorName: string) => {
     switch (colorName) {
       case 'success':
@@ -1015,13 +1017,15 @@ const RiskAssessment = ({ level = 0, factors = [] }: { level?: number; factors?:
         return theme.palette.primary.main;
     }
   };
-  
+
   const riskColor = getColorFromPalette(color);
-  
+
   return (
-    <Box 
-      bgcolor={isDark ? alpha(theme.palette.background.paper, 0.4) : theme.palette.action.hover}
-      p={2} 
+    <Box
+      bgcolor={
+        isDark ? alpha(theme.palette.background.paper, 0.4) : theme.palette.action.hover
+      }
+      p={2}
       borderRadius={2}
       sx={{
         border: '1px solid',
@@ -1040,10 +1044,12 @@ const RiskAssessment = ({ level = 0, factors = [] }: { level?: number; factors?:
           transition: 'width 0.3s',
         },
         '&:hover': {
-          bgcolor: isDark 
+          bgcolor: isDark
             ? alpha(theme.palette.background.paper, 0.6)
             : alpha(theme.palette.action.hover, 0.8),
-          borderColor: isDark ? alpha(theme.palette.primary.main, 0.3) : theme.palette.divider,
+          borderColor: isDark
+            ? alpha(theme.palette.primary.main, 0.3)
+            : theme.palette.divider,
           '&::before': {
             width: 6,
           },
@@ -1053,21 +1059,24 @@ const RiskAssessment = ({ level = 0, factors = [] }: { level?: number; factors?:
       <Typography
         variant="subtitle2"
         gutterBottom
-        sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
           gap: 1,
           color: theme.palette.text.primary,
           fontWeight: 500,
         }}
       >
-        <Assessment fontSize="small" sx={{ color: isDark ? alpha(riskColor, 0.9) : riskColor }} /> 
+        <Assessment
+          fontSize="small"
+          sx={{ color: isDark ? alpha(riskColor, 0.9) : riskColor }}
+        />
         Risk Assessment
       </Typography>
-      <Box 
-        display="flex" 
-        alignItems="center" 
-        gap={1} 
+      <Box
+        display="flex"
+        alignItems="center"
+        gap={1}
         mb={2}
         sx={{
           transform: 'scale(1)',
@@ -1082,7 +1091,7 @@ const RiskAssessment = ({ level = 0, factors = [] }: { level?: number; factors?:
           variant="body2"
           sx={{
             color: isDark ? alpha(riskColor, 0.9) : riskColor,
-            fontWeight: "medium"
+            fontWeight: 'medium',
           }}
         >
           Level {level}/5
@@ -1090,10 +1099,10 @@ const RiskAssessment = ({ level = 0, factors = [] }: { level?: number; factors?:
       </Box>
       <Stack spacing={1}>
         {factors?.map((factor, index) => (
-          <Box 
-            key={index} 
-            display="flex" 
-            alignItems="center" 
+          <Box
+            key={index}
+            display="flex"
+            alignItems="center"
             gap={1}
             sx={{
               opacity: 0,
@@ -1108,20 +1117,24 @@ const RiskAssessment = ({ level = 0, factors = [] }: { level?: number; factors?:
               },
             }}
           >
-            <RadioButtonUncheckedIcon 
-              fontSize="small" 
-              sx={{ 
-                color: isDark ? alpha(theme.palette.text.secondary, 0.7) : theme.palette.text.secondary,
+            <RadioButtonUncheckedIcon
+              fontSize="small"
+              sx={{
+                color: isDark
+                  ? alpha(theme.palette.text.secondary, 0.7)
+                  : theme.palette.text.secondary,
                 transition: 'color 0.3s',
                 '&:hover': {
                   color: isDark ? alpha(riskColor, 0.9) : riskColor,
                 },
-              }} 
+              }}
             />
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               sx={{
-                color: isDark ? alpha(theme.palette.text.secondary, 0.9) : theme.palette.text.secondary,
+                color: isDark
+                  ? alpha(theme.palette.text.secondary, 0.9)
+                  : theme.palette.text.secondary,
                 transition: 'color 0.3s',
                 '&:hover': {
                   color: theme.palette.text.primary,
@@ -1189,16 +1202,13 @@ function AIOpportunitiesSection() {
         onBankChange={setSelectedBank}
         availableBanks={availableBanks}
       />
-      
-      <QuickFilters
-        activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
-      />
+
+      <QuickFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
       {filteredOpportunities.length === 0 ? (
-        <Alert 
-          severity="info" 
-          sx={{ 
+        <Alert
+          severity="info"
+          sx={{
             mt: 3,
             bgcolor: 'background.paper',
             border: '1px solid',
@@ -1221,7 +1231,6 @@ function AIOpportunitiesSection() {
 export default function OpportunitiesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const theme = useTheme();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -1232,7 +1241,14 @@ export default function OpportunitiesPage() {
   if (loading) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '60vh',
+          }}
+        >
           <CircularProgress />
         </Box>
       </Container>

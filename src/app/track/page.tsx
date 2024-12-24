@@ -1,22 +1,18 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth/AuthContext';
-
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-
+import {
+  CheckCircle as CheckCircleIcon,
+  CreditCard as CreditCardIcon,
+  Edit as EditIcon,
+  Info as InfoIcon,
+  Warning as WarningIcon,
+} from '@mui/icons-material';
 import {
   Box,
   Container,
-  Grid,
   Typography,
   Card,
-  CardContent,
-  IconButton,
   Chip,
-  useTheme,
-  alpha,
   Button,
   Dialog,
   DialogTitle,
@@ -26,17 +22,10 @@ import {
   LinearProgress,
   CircularProgress,
 } from '@mui/material';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-import {
-  AccountBalanceWallet as AccountBalanceWalletIcon,
-  CheckCircle as CheckCircleIcon,
-  RadioButtonUnchecked as RadioButtonUncheckedIcon,
-  ArrowForward as ArrowForwardIcon,
-  CreditCard as CreditCardIcon,
-  Edit as EditIcon,
-  Info as InfoIcon,
-  Warning as WarningIcon,
-} from '@mui/icons-material';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 // Mock data for an active opportunity that needs progress update
 const activeOpportunity = {
@@ -262,7 +251,14 @@ export default function TrackPage() {
   if (loading) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '60vh',
+          }}
+        >
           <CircularProgress />
         </Box>
       </Container>

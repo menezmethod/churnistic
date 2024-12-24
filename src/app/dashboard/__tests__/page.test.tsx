@@ -1,7 +1,6 @@
-// Third-party imports
-import { render, screen, waitFor } from '@testing-library/react';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { render, screen } from '@testing-library/react';
 
-// Local imports
 import DashboardPage from '../page';
 
 // Mock the useAuth hook
@@ -10,42 +9,47 @@ jest.mock('@/lib/auth/AuthContext', () => ({
     user: {
       uid: 'test-uid',
       email: 'test@example.com',
+      displayName: 'Test User',
     },
     loading: false,
   }),
 }));
 
+// Mock the useRouter hook
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+  }),
+}));
+
+const theme = createTheme();
+
 describe('DashboardPage', () => {
-  it('renders dashboard title', async () => {
-    render(<DashboardPage />);
-    await waitFor(() => {
-      expect(screen.getByText('Churning Dashboard')).toBeInTheDocument();
-    });
+  const renderWithTheme = (component: React.ReactNode) => {
+    return render(
+      <ThemeProvider theme={theme}>
+        {component}
+      </ThemeProvider>
+    );
+  };
+
+  it('renders welcome message', () => {
+    renderWithTheme(<DashboardPage />);
+    expect(screen.getByText(/Welcome back, Test/)).toBeInTheDocument();
   });
 
-  it('renders stats overview', async () => {
-    render(<DashboardPage />);
-    await waitFor(() => {
-      expect(screen.getByText('Total Earned YTD')).toBeInTheDocument();
-      expect(screen.getByText('Success Rate')).toBeInTheDocument();
-      expect(screen.getAllByText('Active Opportunities')[0]).toBeInTheDocument();
-    });
+  it('renders quick opportunities section', () => {
+    renderWithTheme(<DashboardPage />);
+    expect(screen.getByText('Quick Opportunities')).toBeInTheDocument();
   });
 
-  it('renders activity timeline', async () => {
-    render(<DashboardPage />);
-    await waitFor(() => {
-      expect(screen.getByText('Activity Timeline')).toBeInTheDocument();
-      expect(screen.getAllByText('Filter')[0]).toBeInTheDocument();
-      expect(screen.getAllByText('Sort')[0]).toBeInTheDocument();
-    });
+  it('renders currently tracking section', () => {
+    renderWithTheme(<DashboardPage />);
+    expect(screen.getByText('Currently Tracking')).toBeInTheDocument();
   });
 
-  it('renders view tabs', async () => {
-    render(<DashboardPage />);
-    await waitFor(() => {
-      expect(screen.getByText('Cards View')).toBeInTheDocument();
-      expect(screen.getByText('Grid View')).toBeInTheDocument();
-    });
+  it('renders recent activity section', () => {
+    renderWithTheme(<DashboardPage />);
+    expect(screen.getByText('Recent Activity')).toBeInTheDocument();
   });
 });
