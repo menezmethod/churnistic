@@ -1,12 +1,34 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-
-import { useAuth } from '@/lib/auth/AuthContext';
-
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-
+import { keyframes } from '@emotion/react';
+import {
+  AccountBalanceWallet as AccountBalanceWalletIcon,
+  CheckCircle as CheckCircleIcon,
+  ArrowForward as ArrowForwardIcon,
+  Timer as TimerIcon,
+} from '@mui/icons-material';
+import {
+  MonetizationOn as MonetizationOnIcon,
+  AccountBalance as AccountBalanceIcon,
+  CreditCard as CreditCardIcon,
+  Add as AddIcon,
+  Settings as SettingsIcon,
+  Refresh as RefreshIcon,
+  Star as StarIcon,
+  KeyboardArrowUp as KeyboardArrowUpIcon,
+  ExpandLess as ExpandLessIcon,
+  Warning as WarningIcon,
+  InfoOutlined as InfoOutlinedIcon,
+} from '@mui/icons-material';
+import {
+  Timeline,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineDot,
+  TimelineConnector,
+  TimelineContent,
+  timelineItemClasses,
+} from '@mui/lab';
 import {
   Box,
   Container,
@@ -18,39 +40,6 @@ import {
   Tooltip,
   alpha,
 } from '@mui/material';
-
-import {
-  Timeline,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineDot,
-  TimelineConnector,
-  TimelineContent,
-  timelineItemClasses,
-} from '@mui/lab';
-
-import {
-  AccountBalanceWallet as AccountBalanceWalletIcon,
-  CheckCircle as CheckCircleIcon,
-  ArrowForward as ArrowForwardIcon,
-  Timer as TimerIcon,
-} from '@mui/icons-material';
-
-import {
-  MonetizationOn as MonetizationOnIcon,
-  AccountBalance as AccountBalanceIcon,
-  CreditCard as CreditCardIcon,
-  Add as AddIcon,
-  Settings as SettingsIcon,
-  Refresh as RefreshIcon,
-  Star as StarIcon,
-  KeyboardArrowUp as KeyboardArrowUpIcon,
-  ExpandLess as ExpandLessIcon,
-  ExpandMore as ExpandMoreIcon,
-  Warning as WarningIcon,
-  InfoOutlined as InfoOutlinedIcon,
-} from '@mui/icons-material';
-
 import {
   Button,
   Paper,
@@ -59,12 +48,14 @@ import {
   Grow,
   Fade,
   CircularProgress,
-  Skeleton,
   Collapse,
 } from '@mui/material';
-
-import { keyframes } from '@emotion/react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
+import { useAuth } from '@/lib/auth/AuthContext';
 
 interface Opportunity {
   id: string;
@@ -153,7 +144,7 @@ const quickOpportunities: Opportunity[] = [
     bank: 'Chase',
     expiresIn: '30 days',
     isHot: true,
-    requirements: []
+    requirements: [],
   },
   {
     id: '2',
@@ -162,17 +153,18 @@ const quickOpportunities: Opportunity[] = [
     value: '$400',
     type: 'bank_account',
     bank: 'Capital One',
-    requirements: []
+    requirements: [],
   },
   {
     id: '3',
     title: 'Amex Platinum',
-    description: 'Earn 150,000 Membership Rewards points after spending $6,000 in 6 months',
+    description:
+      'Earn 150,000 Membership Rewards points after spending $6,000 in 6 months',
     value: '$1,500',
     type: 'credit_card',
     bank: 'American Express',
     isHot: true,
-    requirements: []
+    requirements: [],
   },
 ];
 
@@ -223,152 +215,6 @@ const quickActions = [
   },
 ];
 
-const useOpportunities = () => {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchOpportunities = async () => {
-      try {
-        const response = await fetch('/api/opportunities');
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        setOpportunities(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch opportunities');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOpportunities();
-  }, []);
-
-  return { opportunities, loading, error };
-};
-
-const QuickOpportunities = () => {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchOpportunities = async () => {
-      try {
-        const response = await fetch('/api/opportunities');
-        const data = await response.json();
-        setOpportunities(data.slice(0, 3));
-      } catch (error) {
-        console.error('Error fetching opportunities:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOpportunities();
-  }, []);
-
-  if (loading) {
-    return (
-      <Paper sx={{ p: 3 }}>
-        <Skeleton variant="text" width={200} height={32} sx={{ mb: 3 }} />
-        <Stack spacing={2}>
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} variant="rectangular" height={100} />
-          ))}
-        </Stack>
-      </Paper>
-    );
-  }
-
-  return (
-    <Paper sx={{ p: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Quick Opportunities
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {opportunities.length} opportunities available
-          </Typography>
-        </Box>
-        <Link href="/opportunities" passHref>
-          <Button
-            variant="text"
-            endIcon={<ArrowForwardIcon />}
-            sx={{ textTransform: 'none' }}
-          >
-            View All
-          </Button>
-        </Link>
-      </Box>
-      <Stack spacing={2}>
-        {opportunities.map((opp) => (
-          <Box
-            key={opp.id}
-            sx={{
-              p: 2,
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: 'divider',
-              bgcolor: isDark 
-                ? alpha(theme.palette.background.paper, 0.6)
-                : alpha(theme.palette.background.paper, 0.8),
-              transition: 'all 0.3s',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: 2,
-                borderColor: 'primary.main',
-              },
-            }}
-          >
-            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-              <Box display="flex" alignItems="center" gap={1}>
-                {opp.type === 'credit_card' ? (
-                  <CreditCardIcon color="primary" />
-                ) : (
-                  <AccountBalanceIcon color="primary" />
-                )}
-                <Typography variant="subtitle1" fontWeight={500}>
-                  {opp.title}
-                </Typography>
-              </Box>
-              <ValueBadge value={opp.value} />
-            </Box>
-            <Typography variant="body2" color="text.secondary" mb={2}>
-              {opp.description}
-            </Typography>
-            <Box display="flex" alignItems="center" gap={1}>
-              <Chip
-                size="small"
-                label={opp.bank}
-                sx={{ 
-                  bgcolor: isDark 
-                    ? alpha(theme.palette.primary.main, 0.2)
-                    : alpha(theme.palette.primary.main, 0.1),
-                }}
-              />
-              <Chip
-                size="small"
-                label={opp.type === 'credit_card' ? 'Credit Card' : 'Bank Account'}
-                sx={{ 
-                  bgcolor: isDark 
-                    ? alpha(theme.palette.secondary.main, 0.2)
-                    : alpha(theme.palette.secondary.main, 0.1),
-                }}
-              />
-            </Box>
-          </Box>
-        ))}
-      </Stack>
-    </Paper>
-  );
-};
-
 const trackedOpportunities: TrackedOpportunity[] = [
   {
     id: '1',
@@ -388,13 +234,13 @@ const trackedOpportunities: TrackedOpportunity[] = [
   },
 ];
 
-const StatCard = ({ 
-  icon: Icon, 
-  title, 
-  value, 
+const StatCard = ({
+  icon: Icon,
+  title,
+  value,
   trend,
   color = 'primary',
-}: { 
+}: {
   icon: typeof MonetizationOnIcon;
   title: string;
   value: string | number;
@@ -403,7 +249,7 @@ const StatCard = ({
 }) => {
   const theme = useTheme();
   const [isHovered, setIsHovered] = useState(false);
-  
+
   return (
     <Grow in={true} timeout={300}>
       <Paper
@@ -482,9 +328,9 @@ const StatCard = ({
                   transition: 'all 0.4s',
                 }}
               />
-              <Typography 
+              <Typography
                 color="text.secondary"
-                sx={{ 
+                sx={{
                   fontWeight: 500,
                   letterSpacing: '0.5px',
                   textTransform: 'uppercase',
@@ -494,11 +340,11 @@ const StatCard = ({
                 {title}
               </Typography>
             </Box>
-            <Typography 
-              variant="h4" 
+            <Typography
+              variant="h4"
               className="stat-value"
-              sx={{ 
-                mb: 1, 
+              sx={{
+                mb: 1,
                 fontWeight: 700,
                 transition: 'all 0.3s',
                 background: `linear-gradient(45deg, ${theme.palette[color].main}, ${theme.palette[color].light})`,
@@ -509,9 +355,9 @@ const StatCard = ({
               {value}
             </Typography>
             <Collapse in={isHovered}>
-              <Box 
+              <Box
                 className="stat-details"
-                sx={{ 
+                sx={{
                   height: 0,
                   opacity: 0,
                   transform: 'translateY(10px)',
@@ -525,7 +371,10 @@ const StatCard = ({
                         display: 'flex',
                         alignItems: 'center',
                         color: trend.value >= 0 ? 'success.main' : 'error.main',
-                        bgcolor: trend.value >= 0 ? alpha(theme.palette.success.main, 0.1) : alpha(theme.palette.error.main, 0.1),
+                        bgcolor:
+                          trend.value >= 0
+                            ? alpha(theme.palette.success.main, 0.1)
+                            : alpha(theme.palette.error.main, 0.1),
                         px: 1,
                         py: 0.5,
                         borderRadius: 1,
@@ -544,8 +393,8 @@ const StatCard = ({
                         {Math.abs(trend.value)}%
                       </Typography>
                     </Box>
-                    <Typography 
-                      variant="body2" 
+                    <Typography
+                      variant="body2"
                       color="text.secondary"
                       sx={{ fontStyle: 'italic' }}
                     >
@@ -562,117 +411,9 @@ const StatCard = ({
   );
 };
 
-const ActivityTimeline = ({ activities }: { activities: Activity[] }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 3,
-      height: '100%',
-      border: '1px solid',
-      borderColor: 'divider',
-      position: 'relative',
-      overflow: 'hidden',
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: 4,
-        background: 'linear-gradient(to bottom, primary.main, primary.light)',
-        opacity: 0.5,
-      },
-    }}
-  >
-    <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
-      Recent Activity
-    </Typography>
-    <Timeline
-      sx={{
-        [`& .${timelineItemClasses.root}:before`]: {
-          flex: 0,
-          padding: 0,
-        },
-      }}
-    >
-      {activities.map((activity, index) => (
-        <TimelineItem
-          key={activity.id}
-          sx={{
-            opacity: 0,
-            animation: 'slideIn 0.5s forwards',
-            animationDelay: `${index * 0.1}s`,
-            '@keyframes slideIn': {
-              to: {
-                opacity: 1,
-                transform: 'translateX(0)',
-              },
-            },
-          }}
-        >
-          <TimelineSeparator>
-            <TimelineDot
-              sx={{
-                bgcolor: getActivityColor(activity.type),
-                boxShadow: 2,
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'scale(1.2)',
-                },
-              }}
-            >
-              {getActivityIcon(activity.type)}
-            </TimelineDot>
-            {index < activities.length - 1 && (
-              <TimelineConnector 
-                sx={{ 
-                  bgcolor: 'divider',
-                  height: 40,
-                }} 
-              />
-            )}
-          </TimelineSeparator>
-          <TimelineContent>
-            <Box
-              sx={{
-                p: 2,
-                bgcolor: 'background.default',
-                borderRadius: 1,
-                boxShadow: 1,
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateX(8px)',
-                  bgcolor: 'action.hover',
-                },
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                {activity.title || activity.message}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {activity.description}
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  mt: 1,
-                  color: 'text.disabled',
-                }}
-              >
-                {activity.time}
-              </Typography>
-            </Box>
-          </TimelineContent>
-        </TimelineItem>
-      ))}
-    </Timeline>
-  </Paper>
-);
-
 const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
   const theme = useTheme();
-  
+
   return (
     <Fade in={true}>
       <Paper
@@ -738,14 +479,14 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
               {opportunity.isHot && (
                 <Box
                   component={motion.div}
-                  animate={{ 
+                  animate={{
                     scale: [1, 1.2, 1],
                     rotate: [0, 5, 0],
                   }}
-                  transition={{ 
+                  transition={{
                     duration: 2,
                     repeat: Infinity,
-                    ease: "easeInOut"
+                    ease: 'easeInOut',
                   }}
                 >
                   <StarIcon sx={{ color: 'warning.main', fontSize: '1.2rem' }} />
@@ -756,7 +497,7 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
               <Chip
                 label={opportunity.bank}
                 size="small"
-                sx={{ 
+                sx={{
                   bgcolor: alpha(theme.palette.primary.main, 0.1),
                   fontWeight: 500,
                 }}
@@ -774,16 +515,11 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
             </Box>
           </Box>
           <Box textAlign="right">
-            <Typography 
-              variant="h6" 
-              color="primary" 
-              fontWeight="bold"
-              sx={{ mb: 1 }}
-            >
+            <Typography variant="h6" color="primary" fontWeight="bold" sx={{ mb: 1 }}>
               {opportunity.value}
             </Typography>
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               color="primary"
               className="opportunity-arrow"
               sx={{
@@ -838,7 +574,9 @@ const ProgressCard = ({ opportunity }: { opportunity: TrackedOpportunity }) => {
             left: 0,
             bottom: 0,
             width: 4,
-            background: isUrgent ? theme.palette.warning.main : theme.palette.success.main,
+            background: isUrgent
+              ? theme.palette.warning.main
+              : theme.palette.success.main,
             opacity: 0.5,
             transition: 'opacity 0.3s',
           },
@@ -867,10 +605,11 @@ const ProgressCard = ({ opportunity }: { opportunity: TrackedOpportunity }) => {
             <Box mb={1}>
               <Box display="flex" justifyContent="space-between" mb={0.5}>
                 <Typography variant="caption" color="text.secondary">
-                  Progress: ${opportunity.progress.toLocaleString()} of ${opportunity.target.toLocaleString()}
+                  Progress: ${opportunity.progress.toLocaleString()} of $
+                  {opportunity.target.toLocaleString()}
                 </Typography>
-                <Typography 
-                  variant="caption" 
+                <Typography
+                  variant="caption"
                   color={progress >= 100 ? 'success.main' : 'primary.main'}
                   fontWeight={600}
                 >
@@ -896,14 +635,14 @@ const ProgressCard = ({ opportunity }: { opportunity: TrackedOpportunity }) => {
                 {progress >= 100 && (
                   <Box
                     component={motion.div}
-                    animate={{ 
+                    animate={{
                       scale: [1, 1.2, 1],
                       opacity: [0.7, 1, 0.7],
                     }}
-                    transition={{ 
+                    transition={{
                       duration: 2,
                       repeat: Infinity,
-                      ease: "easeInOut"
+                      ease: 'easeInOut',
                     }}
                     sx={{
                       position: 'absolute',
@@ -927,8 +666,8 @@ const ProgressCard = ({ opportunity }: { opportunity: TrackedOpportunity }) => {
                 sx={{ fontWeight: 500 }}
               />
               <Tooltip title="Update Progress">
-                <IconButton 
-                  size="small" 
+                <IconButton
+                  size="small"
                   color="primary"
                   sx={{
                     '&:hover': {
@@ -945,367 +684,6 @@ const ProgressCard = ({ opportunity }: { opportunity: TrackedOpportunity }) => {
         </Box>
       </Paper>
     </Fade>
-  );
-};
-
-const ValueBadge = ({ value }: { value: number | string }) => {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  const formattedValue = typeof value === 'number' ? formatCurrency(value) : value;
-  
-  return (
-    <Box
-      sx={{
-        position: 'relative',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 1,
-        py: 1.5,
-        px: 2.5,
-        borderRadius: 2,
-        background: isDark 
-          ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.9)}, ${alpha(theme.palette.primary.dark, 0.9)})`
-          : `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-        boxShadow: theme.shadows[3],
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        border: '1px solid',
-        borderColor: isDark 
-          ? alpha(theme.palette.primary.main, 0.3)
-          : alpha(theme.palette.primary.light, 0.5),
-        '&:hover': {
-          transform: 'translateY(-2px) scale(1.02)',
-          boxShadow: theme.shadows[6],
-          borderColor: isDark 
-            ? alpha(theme.palette.primary.main, 0.5)
-            : theme.palette.primary.main,
-        },
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderRadius: 2,
-          background: `linear-gradient(135deg, ${alpha('#fff', 0.1)}, ${alpha('#fff', 0.05)})`,
-          opacity: 0,
-          transition: 'opacity 0.3s',
-        },
-        '&:hover::before': {
-          opacity: 1,
-        },
-      }}
-    >
-      <MonetizationOnIcon 
-        sx={{ 
-          color: '#fff',
-          fontSize: '1.5rem',
-          filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.2))',
-          zIndex: 1,
-        }} 
-      />
-      <Typography
-        variant="h6"
-        sx={{
-          color: '#fff',
-          fontWeight: 700,
-          letterSpacing: '0.5px',
-          textShadow: '0 2px 4px rgba(0,0,0,0.2)',
-          zIndex: 1,
-          fontSize: '1.35rem',
-        }}
-      >
-        {formattedValue}
-      </Typography>
-    </Box>
-  );
-};
-
-const formatCurrency = (value: number | string) => {
-  const numericValue = typeof value === 'string' 
-    ? parseFloat(value.replace(/[^0-9.-]+/g, ''))
-    : value;
-  return !isNaN(numericValue) ? numericValue.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }) : '$0.00';
-};
-
-const QuickActions = () => {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  
-  return (
-    <Paper sx={{ p: 3, height: '100%' }}>
-      <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-        Quick Actions
-      </Typography>
-      <Stack spacing={2}>
-        {quickActions.map((action, index) => (
-          <Button
-            key={action.label}
-            variant="outlined"
-            startIcon={action.icon}
-            onClick={action.onClick}
-            fullWidth
-            sx={{
-              justifyContent: 'flex-start',
-              textTransform: 'none',
-              py: 1.5,
-              borderColor: isDark 
-                ? alpha(theme.palette.primary.main, 0.2)
-                : alpha(theme.palette.primary.main, 0.1),
-              bgcolor: isDark 
-                ? alpha(theme.palette.background.paper, 0.6)
-                : alpha(theme.palette.background.paper, 0.8),
-              '&:hover': {
-                borderColor: 'primary.main',
-                bgcolor: isDark 
-                  ? alpha(theme.palette.primary.main, 0.1)
-                  : alpha(theme.palette.primary.main, 0.05),
-                transform: 'translateY(-2px)',
-              },
-              transition: 'all 0.3s',
-            }}
-          >
-            {action.label}
-          </Button>
-        ))}
-      </Stack>
-    </Paper>
-  );
-};
-
-const CurrentlyTracking = ({ 
-  opportunities,
-  expanded,
-  onExpandClick,
-}: { 
-  opportunities: TrackedOpportunity[];
-  expanded: boolean;
-  onExpandClick: () => void;
-}) => {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  
-  return (
-    <Paper sx={{ p: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Currently Tracking
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {opportunities.length} active opportunities
-          </Typography>
-        </Box>
-        <Link href="/track" passHref>
-          <Button
-            variant="text"
-            endIcon={<ArrowForwardIcon />}
-            sx={{ textTransform: 'none' }}
-          >
-            View All
-          </Button>
-        </Link>
-      </Box>
-      <Stack spacing={2}>
-        {opportunities.map((opp) => (
-          <Box
-            key={opp.id}
-            sx={{
-              p: 2,
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: 'divider',
-              bgcolor: isDark 
-                ? alpha(theme.palette.background.paper, 0.6)
-                : alpha(theme.palette.background.paper, 0.8),
-              transition: 'all 0.3s',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: 2,
-                borderColor: 'primary.main',
-              },
-            }}
-          >
-            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-              <Box display="flex" alignItems="center" gap={1}>
-                {opp.type === 'credit_card' ? (
-                  <CreditCardIcon color="primary" />
-                ) : (
-                  <AccountBalanceIcon color="primary" />
-                )}
-                <Typography variant="subtitle1" fontWeight={500}>
-                  {opp.title}
-                </Typography>
-              </Box>
-              <Chip
-                size="small"
-                label={`${opp.daysLeft} days left`}
-                color={opp.daysLeft <= 15 ? 'warning' : 'default'}
-                sx={{ 
-                  bgcolor: opp.daysLeft <= 15
-                    ? alpha(theme.palette.warning.main, isDark ? 0.2 : 0.1)
-                    : undefined,
-                }}
-              />
-            </Box>
-            <ProgressBar progress={opp.progress} target={opp.target} />
-          </Box>
-        ))}
-      </Stack>
-    </Paper>
-  );
-};
-
-const RecentActivity = ({
-  expanded,
-  onExpandClick,
-}: {
-  expanded: boolean;
-  onExpandClick: () => void;
-}) => {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  
-  return (
-    <Paper 
-      sx={{ 
-        p: 3,
-        height: expanded ? 'auto' : 180,
-        overflow: 'hidden',
-        transition: 'height 0.3s',
-      }}
-    >
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Box display="flex" alignItems="center" gap={1}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Recent Activity
-          </Typography>
-          <Chip
-            size="small"
-            label={recentActivities.length}
-            sx={{ 
-              bgcolor: isDark 
-                ? alpha(theme.palette.primary.main, 0.2)
-                : alpha(theme.palette.primary.main, 0.1),
-            }}
-          />
-        </Box>
-        <IconButton onClick={onExpandClick} size="small">
-          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-        </IconButton>
-      </Box>
-      <Timeline
-        sx={{
-          p: 0,
-          m: 0,
-          '& .MuiTimelineItem-root:before': {
-            flex: 0,
-            padding: 0,
-          },
-        }}
-      >
-        {recentActivities.map((activity) => (
-          <TimelineItem key={activity.id}>
-            <TimelineSeparator>
-              <TimelineDot 
-                sx={{ 
-                  bgcolor: activity.type === 'success' 
-                    ? 'success.main'
-                    : activity.type === 'warning'
-                    ? 'warning.main'
-                    : 'info.main',
-                }}
-              >
-                {activity.icon}
-              </TimelineDot>
-              <TimelineConnector />
-            </TimelineSeparator>
-            <TimelineContent>
-              <Typography variant="body2">
-                {activity.message}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {activity.time}
-              </Typography>
-            </TimelineContent>
-          </TimelineItem>
-        ))}
-      </Timeline>
-    </Paper>
-  );
-};
-
-const ProgressBar = ({ progress, target }: { progress: number; target: number }) => {
-  const percentage = target > 0 ? (progress / target) * 100 : 0;
-  const isComplete = percentage >= 100;
-  
-  return (
-    <Box pl={3}>
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={0.5}
-      >
-        <Typography variant="caption" color="text.secondary">
-          {formatCurrency(progress)} of {formatCurrency(target)}
-        </Typography>
-        <Typography 
-          variant="caption" 
-          color={isComplete ? 'success.main' : 'primary.main'}
-          fontWeight="medium"
-        >
-          {Math.round(percentage)}%
-        </Typography>
-      </Box>
-      <LinearProgress
-        variant="determinate"
-        value={Math.min(percentage, 100)}
-        sx={{ 
-          height: 6, 
-          borderRadius: 1,
-          bgcolor: 'action.hover',
-          '& .MuiLinearProgress-bar': {
-            borderRadius: 1,
-            bgcolor: isComplete ? 'success.main' : 'primary.main',
-          }
-        }}
-      />
-    </Box>
-  );
-};
-
-const DashboardContent = () => {
-  const theme = useTheme();
-  const [expanded, setExpanded] = useState(false);
-  const [recentActivityExpanded, setRecentActivityExpanded] = useState(false);
-
-  return (
-    <Grid container spacing={3}>
-      <Grid item xs={12} lg={8}>
-        <QuickOpportunities />
-      </Grid>
-      <Grid item xs={12} lg={4}>
-        <QuickActions />
-      </Grid>
-      <Grid item xs={12} lg={8}>
-        <CurrentlyTracking
-          opportunities={trackedOpportunities}
-          expanded={expanded}
-          onExpandClick={() => setExpanded(!expanded)}
-        />
-      </Grid>
-      <Grid item xs={12} lg={4}>
-        <RecentActivity
-          expanded={recentActivityExpanded}
-          onExpandClick={() => setRecentActivityExpanded(!recentActivityExpanded)}
-        />
-      </Grid>
-    </Grid>
   );
 };
 
@@ -1329,8 +707,13 @@ export default function DashboardPage() {
         document.documentElement.setAttribute('data-theme', savedTheme);
       } else {
         // Use system preference as default
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        document.documentElement.setAttribute('data-theme', systemPrefersDark ? 'dark' : 'light');
+        const systemPrefersDark = window.matchMedia(
+          '(prefers-color-scheme: dark)'
+        ).matches;
+        document.documentElement.setAttribute(
+          'data-theme',
+          systemPrefersDark ? 'dark' : 'light'
+        );
       }
     };
 
@@ -1353,7 +736,14 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '60vh',
+          }}
+        >
           <CircularProgress />
         </Box>
       </Container>
@@ -1396,9 +786,9 @@ export default function DashboardPage() {
   ];
 
   return (
-    <Container 
-      maxWidth="xl" 
-      sx={{ 
+    <Container
+      maxWidth="xl"
+      sx={{
         py: 4,
         minHeight: '100vh',
         background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.03)}, ${alpha(theme.palette.background.default, 0.5)})`,
@@ -1406,8 +796,8 @@ export default function DashboardPage() {
       }}
     >
       {/* Welcome Section */}
-      <Box 
-        sx={{ 
+      <Box
+        sx={{
           mb: 4,
           position: 'relative',
           overflow: 'hidden',
@@ -1424,8 +814,8 @@ export default function DashboardPage() {
           },
         }}
       >
-        <Box 
-          sx={{ 
+        <Box
+          sx={{
             p: 3,
             borderRadius: 2,
             position: 'relative',
@@ -1455,9 +845,9 @@ export default function DashboardPage() {
             },
           }}
         >
-          <Typography 
-            variant="h3" 
-            sx={{ 
+          <Typography
+            variant="h3"
+            sx={{
               fontWeight: 700,
               mb: 1,
               color: 'text.primary',
@@ -1484,27 +874,27 @@ export default function DashboardPage() {
           >
             Welcome back, {user?.displayName?.split(' ')[0] || 'Churner'}
           </Typography>
-          <Typography 
-            variant="h6" 
-            sx={{ 
+          <Typography
+            variant="h6"
+            sx={{
               fontWeight: 400,
               color: 'text.secondary',
               opacity: 0,
               animation: 'fadeSlideIn 0.5s forwards 0.2s',
             }}
           >
-            Your churning journey continues. Let's maximize those rewards!
+            Your churning journey continues. Let&apos;s maximize those rewards!
           </Typography>
         </Box>
       </Box>
 
       <Grid container spacing={3}>
         {stats.map((stat, index) => (
-          <Grid 
-            item 
-            xs={12} 
-            md={6} 
-            lg={3} 
+          <Grid
+            item
+            xs={12}
+            md={6}
+            lg={3}
             key={stat.title}
             component={motion.div}
             initial={{ opacity: 0, y: 20 }}
@@ -1520,7 +910,11 @@ export default function DashboardPage() {
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(4, 1fr)',
+              },
               gap: 2,
             }}
           >
@@ -1582,8 +976,8 @@ export default function DashboardPage() {
                 }}
               >
                 <Box sx={{ flex: 1, textAlign: 'left' }}>
-                  <Typography 
-                    variant="body2" 
+                  <Typography
+                    variant="body2"
                     fontWeight={500}
                     sx={{
                       color: 'text.primary',
@@ -1618,10 +1012,10 @@ export default function DashboardPage() {
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   Recent Activity
                 </Typography>
-                <Chip 
+                <Chip
                   label={`${recentActivities.length} Updates`}
                   size="small"
-                  sx={{ 
+                  sx={{
                     bgcolor: alpha(theme.palette.info.main, 0.1),
                     color: 'info.main',
                     fontWeight: 500,
@@ -1629,12 +1023,12 @@ export default function DashboardPage() {
                   }}
                 />
                 {!activityExpanded && (
-                  <Typography 
-                    variant="caption" 
+                  <Typography
+                    variant="caption"
                     color="text.secondary"
-                    sx={{ 
+                    sx={{
                       fontStyle: 'italic',
-                      display: { xs: 'none', sm: 'block' }
+                      display: { xs: 'none', sm: 'block' },
                     }}
                   >
                     Click to expand
@@ -1719,8 +1113,8 @@ export default function DashboardPage() {
               onClick={() => !activityExpanded && setActivityExpanded(true)}
             >
               <Collapse in={true} collapsedSize={120}>
-                <Box 
-                  sx={{ 
+                <Box
+                  sx={{
                     maxHeight: activityExpanded ? 300 : 120,
                     overflowY: 'auto',
                     p: 2,
@@ -1791,11 +1185,11 @@ export default function DashboardPage() {
                             {getActivityIcon(activity.type)}
                           </TimelineDot>
                           {index < recentActivities.length - 1 && (
-                            <TimelineConnector 
-                              sx={{ 
+                            <TimelineConnector
+                              sx={{
                                 minHeight: 10,
                                 bgcolor: alpha(theme.palette.primary.main, 0.12),
-                              }} 
+                              }}
                             />
                           )}
                         </TimelineSeparator>
@@ -1817,8 +1211,15 @@ export default function DashboardPage() {
                               },
                             }}
                           >
-                            <Box display="flex" alignItems="center" justifyContent="space-between">
-                              <Typography variant="subtitle2" sx={{ mb: 0, fontSize: '0.875rem', fontWeight: 600 }}>
+                            <Box
+                              display="flex"
+                              alignItems="center"
+                              justifyContent="space-between"
+                            >
+                              <Typography
+                                variant="subtitle2"
+                                sx={{ mb: 0, fontSize: '0.875rem', fontWeight: 600 }}
+                              >
                                 {activity.title || activity.message}
                               </Typography>
                               <Typography
@@ -1832,10 +1233,10 @@ export default function DashboardPage() {
                                 {activity.time}
                               </Typography>
                             </Box>
-                            <Typography 
-                              variant="body2" 
+                            <Typography
+                              variant="body2"
                               color="text.secondary"
-                              sx={{ 
+                              sx={{
                                 mt: 0.5,
                                 fontSize: '0.8125rem',
                                 display: activityExpanded ? 'block' : '-webkit-box',
@@ -1880,10 +1281,10 @@ export default function DashboardPage() {
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Quick Opportunities
                   </Typography>
-                  <Chip 
+                  <Chip
                     label={`${quickOpportunities.length} Available`}
                     size="small"
-                    sx={{ 
+                    sx={{
                       bgcolor: alpha(theme.palette.primary.main, 0.1),
                       fontWeight: 500,
                       height: 24,
@@ -1934,13 +1335,13 @@ export default function DashboardPage() {
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Currently Tracking
                   </Typography>
-                  <Chip 
+                  <Chip
                     label={`${trackedOpportunities.length} Active`}
                     size="small"
                     component={Link}
                     href="/track"
                     clickable
-                    sx={{ 
+                    sx={{
                       bgcolor: alpha(theme.palette.success.main, 0.1),
                       color: 'success.main',
                       fontWeight: 500,
