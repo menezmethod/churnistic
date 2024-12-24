@@ -1,1122 +1,1981 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+
+import { useAuth } from '@/lib/auth/AuthContext';
+
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+
 import {
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  AccountBalance,
-  CreditCard as CreditCardIcon,
-  Error as ErrorIcon,
-  Info as InfoIcon,
-  Timeline as TimelineIcon,
-  FilterList as FilterListIcon,
-  Sort as SortIcon,
-  Search as SearchIcon,
-  ExpandMore as ExpandMoreIcon,
-  Assessment,
-  AssignmentTurnedIn,
-  RadioButtonUnchecked,
-  NotificationsNone,
-  Launch,
-  Dashboard,
-  ArrowRight,
-} from '@mui/icons-material';
-import {
-  Card,
+  Box,
+  Container,
   Grid,
   Typography,
-  Box,
-  LinearProgress,
-  Tabs,
-  Tab,
-  TextField,
-  InputAdornment,
+  IconButton,
   Chip,
-  Button,
-  Menu,
-  MenuItem,
-  Collapse,
-  Divider,
-  Stack,
-  Checkbox,
+  useTheme,
+  Tooltip,
+  alpha,
 } from '@mui/material';
+
 import {
-  DataGrid,
-  GridColDef,
-  GridRenderCellParams,
-} from '@mui/x-data-grid';
-import { useState } from 'react';
+  Timeline,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineDot,
+  TimelineConnector,
+  TimelineContent,
+  timelineItemClasses,
+} from '@mui/lab';
 
-interface Requirement {
-  description: string;
-  progress?: number;
-  status: 'pending' | 'in_progress' | 'verified';
-}
+import {
+  AccountBalanceWallet as AccountBalanceWalletIcon,
+  CheckCircle as CheckCircleIcon,
+  ArrowForward as ArrowForwardIcon,
+  Timer as TimerIcon,
+} from '@mui/icons-material';
 
-interface Notification {
-  type: string;
-  message: string;
-  date: string;
-}
+import {
+  MonetizationOn as MonetizationOnIcon,
+  AccountBalance as AccountBalanceIcon,
+  CreditCard as CreditCardIcon,
+  Add as AddIcon,
+  Settings as SettingsIcon,
+  Refresh as RefreshIcon,
+  Star as StarIcon,
+  KeyboardArrowUp as KeyboardArrowUpIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon,
+  Warning as WarningIcon,
+  InfoOutlined as InfoOutlinedIcon,
+} from '@mui/icons-material';
+
+import {
+  Button,
+  Paper,
+  Stack,
+  LinearProgress,
+  Grow,
+  Fade,
+  CircularProgress,
+  Skeleton,
+  Collapse,
+} from '@mui/material';
+
+import { keyframes } from '@emotion/react';
+import Link from 'next/link';
 
 interface Opportunity {
   id: string;
-  type: 'credit_card' | 'bank_account';
   title: string;
   description: string;
   value: string;
-  status: string;
-  card_name?: string;
-  bank_name: string;
-  signup_bonus?: string;
-  bonus_amount: string;
+  type: 'credit_card' | 'bank_account';
+  bank: string;
+  expirationDate?: string;
+  expiresIn?: string;
+  isHot?: boolean;
   requirements: Requirement[];
-  risk_level: number;
-  risk_factors: string[];
-  time_limit: string;
-  deadline: string;
-  expiration: string;
-  source: string;
-  source_link: string;
-  location_eligible: boolean;
-  auto_tracked: boolean;
-  notifications: Notification[];
 }
 
-interface RiskFactors {
-  credit_inquiries_6mo: number;
-  bank_accounts_6mo: number;
-  chase_524_status: string;
-  amex_velocity: string;
-  chexsystems_inquiries: number;
-}
-
-interface RiskAssessment {
-  overview: string;
-  overall_risk_level: number;
-  risk_factors: RiskFactors;
-}
-
-interface SummaryStats {
-  total_value: number;
-  opportunities_count: {
-    credit_cards: number;
-    bank_accounts: number;
-    total: number;
-  };
-  success_rate: number;
-  average_completion_time: number;
-  total_earned_ytd: number;
-}
-
-interface TimelineEvent {
-  date: string;
-  type: string;
+interface Requirement {
+  id: string;
   description: string;
-  status: string;
+  progress: number;
+  target: number;
+  completed: boolean;
 }
 
-const getRiskIcon = (level: number) => {
-  if (level <= 2) return <CheckCircleIcon color="success" />;
-  if (level <= 3) return <InfoIcon color="info" />;
-  if (level <= 4) return <WarningIcon color="warning" />;
-  return <ErrorIcon color="error" />;
+interface TrackedOpportunity {
+  id: string;
+  title: string;
+  type: 'credit_card' | 'bank_account';
+  progress: number;
+  target: number;
+  daysLeft: number;
+}
+
+interface Activity {
+  id: string;
+  type: 'success' | 'warning' | 'info';
+  icon: React.ReactNode;
+  message: string;
+  time: string;
+  title?: string;
+  description?: string;
+}
+
+const pulse = keyframes`
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+`;
+
+const shimmer = keyframes`
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+`;
+
+const getActivityColor = (type: Activity['type']): string => {
+  switch (type) {
+    case 'success':
+      return 'success.main';
+    case 'warning':
+      return 'warning.main';
+    case 'info':
+      return 'info.main';
+    default:
+      return 'text.secondary';
+  }
 };
 
-const getRiskColor = (level: number) => {
-  if (level <= 2) return 'success.main';
-  if (level <= 3) return 'info.main';
-  if (level <= 4) return 'warning.main';
-  return 'error.main';
+const getActivityIcon = (type: Activity['type']) => {
+  switch (type) {
+    case 'success':
+      return <CheckCircleIcon fontSize="small" />;
+    case 'warning':
+      return <WarningIcon fontSize="small" />;
+    case 'info':
+      return <InfoOutlinedIcon fontSize="small" />;
+    default:
+      return <InfoOutlinedIcon fontSize="small" />;
+  }
 };
 
-const StatsOverview = ({ stats }: { stats: SummaryStats }) => (
-  <Card sx={{ p: 3, mb: 3 }}>
-    <Grid container spacing={3}>
-      <Grid item xs={12} sm={4}>
-        <Box textAlign="center">
-          <Typography variant="h4" color="primary">
-            ${stats.total_earned_ytd.toLocaleString()}
-          </Typography>
-          <Typography variant="subtitle2" color="text.secondary">
-            Total Earned YTD
-          </Typography>
-        </Box>
-      </Grid>
-      <Grid item xs={12} sm={4}>
-        <Box textAlign="center">
-          <Typography variant="h4" color="success.main">
-            {(stats.success_rate * 100).toFixed(1)}%
-          </Typography>
-          <Typography variant="subtitle2" color="text.secondary">
-            Success Rate
-          </Typography>
-        </Box>
-      </Grid>
-      <Grid item xs={12} sm={4}>
-        <Box textAlign="center">
-          <Typography variant="h4">
-            {stats.opportunities_count.total}
-          </Typography>
-          <Typography variant="subtitle2" color="text.secondary">
-            Active Opportunities
-          </Typography>
-        </Box>
-      </Grid>
-    </Grid>
-  </Card>
-);
+const quickOpportunities: Opportunity[] = [
+  {
+    id: '1',
+    title: 'Chase Sapphire Preferred',
+    description: 'Earn 75,000 bonus points after spending $4,000 in 3 months',
+    value: '$750',
+    type: 'credit_card',
+    bank: 'Chase',
+    expiresIn: '30 days',
+    isHot: true,
+    requirements: []
+  },
+  {
+    id: '2',
+    title: 'Capital One Checking',
+    description: 'Get $400 when you open a new checking account',
+    value: '$400',
+    type: 'bank_account',
+    bank: 'Capital One',
+    requirements: []
+  },
+  {
+    id: '3',
+    title: 'Amex Platinum',
+    description: 'Earn 150,000 Membership Rewards points after spending $6,000 in 6 months',
+    value: '$1,500',
+    type: 'credit_card',
+    bank: 'American Express',
+    isHot: true,
+    requirements: []
+  },
+];
 
-const ChurningTimeline = ({ events }: { events: TimelineEvent[] }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
+const recentActivities: Activity[] = [
+  {
+    id: '1',
+    type: 'success',
+    icon: <CheckCircleIcon fontSize="small" />,
+    message: 'Completed Chase Sapphire Preferred requirement',
+    time: '2 hours ago',
+  },
+  {
+    id: '2',
+    type: 'warning',
+    icon: <WarningIcon fontSize="small" />,
+    message: 'Capital One Checking bonus expiring soon',
+    time: '5 hours ago',
+  },
+  {
+    id: '3',
+    type: 'info',
+    icon: <InfoOutlinedIcon fontSize="small" />,
+    message: 'New opportunity from US Bank available',
+    time: '1 day ago',
+  },
+];
 
-  const filterOptions = [
-    'Points Posted',
-    'Spending Alert',
-    'Bank Bonus',
-    'Application',
-    'Card Arrival',
-    'Direct Deposit',
-    'Account Closed',
-    'Eligibility'
-  ];
+const quickActions = [
+  {
+    label: 'Add New Opportunity',
+    icon: <AddIcon />,
+    onClick: () => console.log('Add new opportunity'),
+  },
+  {
+    label: 'Update Progress',
+    icon: <ArrowForwardIcon />,
+    onClick: () => console.log('Update progress'),
+  },
+  {
+    label: 'View Analytics',
+    icon: <InfoOutlinedIcon />,
+    onClick: () => console.log('View analytics'),
+  },
+  {
+    label: 'Settings',
+    icon: <SettingsIcon />,
+    onClick: () => console.log('Open settings'),
+  },
+];
 
-  const sortOptions = [
-    { label: 'Newest First', value: 'newest' },
-    { label: 'Oldest First', value: 'oldest' },
-    { label: 'Status', value: 'status' }
-  ];
+const useOpportunities = () => {
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredEvents = events.filter(event => {
-    const matchesSearch = event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = selectedFilters.length === 0 || selectedFilters.includes(event.type);
-    return matchesSearch && matchesFilter;
-  });
+  useEffect(() => {
+    const fetchOpportunities = async () => {
+      try {
+        const response = await fetch('/api/opportunities');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setOpportunities(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch opportunities');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOpportunities();
+  }, []);
+
+  return { opportunities, loading, error };
+};
+
+const QuickOpportunities = () => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchOpportunities = async () => {
+      try {
+        const response = await fetch('/api/opportunities');
+        const data = await response.json();
+        setOpportunities(data.slice(0, 3));
+      } catch (error) {
+        console.error('Error fetching opportunities:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOpportunities();
+  }, []);
+
+  if (loading) {
+    return (
+      <Paper sx={{ p: 3 }}>
+        <Skeleton variant="text" width={200} height={32} sx={{ mb: 3 }} />
+        <Stack spacing={2}>
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} variant="rectangular" height={100} />
+          ))}
+        </Stack>
+      </Paper>
+    );
+  }
 
   return (
-    <Card 
-      variant="outlined" 
-      sx={{ 
-        mb: 3,
-        bgcolor: 'background.paper',
-        borderColor: 'divider',
-      }}
-    >
-      <Box p={3}>
-        {/* Header */}
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <TimelineIcon sx={{ color: 'primary.main', opacity: 0.8 }} />
-            <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 500 }}>
-              Activity Timeline
-            </Typography>
-          </Box>
-          <Box display="flex" gap={1}>
-            <Button
-              size="small"
-              sx={{
-                color: 'text.secondary',
-                borderColor: 'divider',
-                '&:hover': {
-                  borderColor: 'primary.main',
-                  bgcolor: 'action.hover'
-                }
-              }}
-              variant="outlined"
-              startIcon={<FilterListIcon />}
-              onClick={(e) => setFilterAnchorEl(e.currentTarget)}
-            >
-              Filter
-            </Button>
-            <Button
-              size="small"
-              sx={{
-                color: 'text.secondary',
-                borderColor: 'divider',
-                '&:hover': {
-                  borderColor: 'primary.main',
-                  bgcolor: 'action.hover'
-                }
-              }}
-              variant="outlined"
-              startIcon={<SortIcon />}
-              onClick={(e) => setSortAnchorEl(e.currentTarget)}
-            >
-              Sort
-            </Button>
-          </Box>
+    <Paper sx={{ p: 3 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Quick Opportunities
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {opportunities.length} opportunities available
+          </Typography>
         </Box>
-
-        {/* Search */}
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Search activities..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{
-            mb: 3,
-            '& .MuiOutlinedInput-root': {
-              bgcolor: 'background.default',
-              '& fieldset': {
-                borderColor: 'divider',
-                borderWidth: '1px',
-                opacity: 0.1
-              },
-              '&:hover fieldset': {
-                borderColor: 'divider',
-                opacity: 0.3
-              },
-              '&.Mui-focused fieldset': {
+        <Link href="/opportunities" passHref>
+          <Button
+            variant="text"
+            endIcon={<ArrowForwardIcon />}
+            sx={{ textTransform: 'none' }}
+          >
+            View All
+          </Button>
+        </Link>
+      </Box>
+      <Stack spacing={2}>
+        {opportunities.map((opp) => (
+          <Box
+            key={opp.id}
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: isDark 
+                ? alpha(theme.palette.background.paper, 0.6)
+                : alpha(theme.palette.background.paper, 0.8),
+              transition: 'all 0.3s',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: 2,
                 borderColor: 'primary.main',
-                opacity: 1
-              }
-            }
-          }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ color: 'text.secondary', opacity: 0.7 }} />
-              </InputAdornment>
-            )
-          }}
-        />
-
-        {/* Timeline */}
-        <Box sx={{ 
-          maxHeight: 400, 
-          overflowY: 'auto',
-          '&::-webkit-scrollbar': {
-            width: '6px'
-          },
-          '&::-webkit-scrollbar-track': {
-            background: 'transparent'
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: '3px'
-          }
-        }}>
-          {filteredEvents.map((event, index) => (
-            <Box
-              key={index}
-              sx={{
-                position: 'relative',
-                pl: 3,
-                pb: 3,
-                '&:last-child': {
-                  pb: 0
-                },
-                '&:before': {
-                  content: '""',
-                  position: 'absolute',
-                  left: '0.35rem',
-                  top: '1.5rem',
-                  bottom: 0,
-                  width: '1px',
-                  bgcolor: 'divider',
-                  opacity: 0.5
-                }
-              }}
-            >
-              <Box display="flex" flexDirection="column" gap={0.5}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', minWidth: '5rem' }}>
-                    {event.date}
-                  </Typography>
-                  <Chip
-                    label={event.type}
-                    size="small"
-                    sx={{
-                      height: '1.25rem',
-                      fontSize: '0.75rem',
-                      bgcolor: 'background.default',
-                      color: 'text.secondary',
-                      '& .MuiChip-label': {
-                        px: 1
-                      }
-                    }}
-                  />
-                  <Chip
-                    label={event.status}
-                    size="small"
-                    sx={{
-                      height: '1.25rem',
-                      fontSize: '0.75rem',
-                      bgcolor: event.status === 'completed' ? 'success.dark' :
-                              event.status === 'pending' ? 'warning.dark' : 'info.dark',
-                      color: '#fff',
-                      '& .MuiChip-label': {
-                        px: 1
-                      }
-                    }}
-                  />
-                </Box>
-                <Box 
-                  sx={{ 
-                    position: 'relative',
-                    '&:before': {
-                      content: '""',
-                      position: 'absolute',
-                      left: '-1.125rem',
-                      top: '0.35rem',
-                      width: '0.5rem',
-                      height: '0.5rem',
-                      borderRadius: '50%',
-                      bgcolor: event.status === 'completed' ? 'success.main' :
-                              event.status === 'pending' ? 'warning.main' : 'info.main'
-                    }
-                  }}
-                >
-                  <Typography variant="body2" sx={{ color: 'text.primary', pl: 0 }}>
-                    {event.description}
-                  </Typography>
-                </Box>
+              },
+            }}
+          >
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+              <Box display="flex" alignItems="center" gap={1}>
+                {opp.type === 'credit_card' ? (
+                  <CreditCardIcon color="primary" />
+                ) : (
+                  <AccountBalanceIcon color="primary" />
+                )}
+                <Typography variant="subtitle1" fontWeight={500}>
+                  {opp.title}
+                </Typography>
               </Box>
+              <ValueBadge value={opp.value} />
             </Box>
-          ))}
-        </Box>
-
-        {/* Menus */}
-        <Menu
-          anchorEl={filterAnchorEl}
-          open={Boolean(filterAnchorEl)}
-          onClose={() => setFilterAnchorEl(null)}
-          PaperProps={{
-            sx: {
-              bgcolor: 'background.paper',
-              borderRadius: 1,
-              boxShadow: 2
-            }
-          }}
-        >
-          {filterOptions.map((option) => (
-            <MenuItem
-              key={option}
-              onClick={() => {
-                if (selectedFilters.includes(option)) {
-                  setSelectedFilters(selectedFilters.filter(f => f !== option));
-                } else {
-                  setSelectedFilters([...selectedFilters, option]);
-                }
-              }}
-              sx={{ minWidth: 200 }}
-            >
-              <Checkbox
-                checked={selectedFilters.includes(option)}
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              {opp.description}
+            </Typography>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Chip
                 size="small"
+                label={opp.bank}
                 sx={{ 
-                  color: 'text.secondary',
-                  '&.Mui-checked': {
-                    color: 'primary.main'
-                  }
+                  bgcolor: isDark 
+                    ? alpha(theme.palette.primary.main, 0.2)
+                    : alpha(theme.palette.primary.main, 0.1),
                 }}
               />
-              <Typography variant="body2">{option}</Typography>
-            </MenuItem>
-          ))}
-        </Menu>
-
-        <Menu
-          anchorEl={sortAnchorEl}
-          open={Boolean(sortAnchorEl)}
-          onClose={() => setSortAnchorEl(null)}
-          PaperProps={{
-            sx: {
-              bgcolor: 'background.paper',
-              borderRadius: 1,
-              boxShadow: 2
-            }
-          }}
-        >
-          {sortOptions.map((option) => (
-            <MenuItem
-              key={option.value}
-              onClick={() => setSortAnchorEl(null)}
-              sx={{ minWidth: 200 }}
-            >
-              <Typography variant="body2">{option.label}</Typography>
-            </MenuItem>
-          ))}
-        </Menu>
-      </Box>
-    </Card>
-  );
-};
-
-const gridColumns: GridColDef[] = [
-  { field: 'title', headerName: 'Opportunity', width: 200 },
-  { field: 'type', headerName: 'Type', width: 130 },
-  { field: 'value', headerName: 'Value', width: 100 },
-  { 
-    field: 'risk_level',
-    headerName: 'Risk',
-    width: 130,
-    renderCell: (params: GridRenderCellParams) => (
-      <Box display="flex" alignItems="center" gap={1}>
-        {getRiskIcon(params.value as number)}
-        <Typography>{params.value}/5</Typography>
-      </Box>
-    )
-  },
-  { field: 'deadline', headerName: 'Deadline', width: 130 },
-  {
-    field: 'progress',
-    headerName: 'Progress',
-    width: 200,
-    renderCell: (params: GridRenderCellParams) => {
-      const req = (params.row as Opportunity).requirements.find(r => r.progress !== undefined);
-      if (!req) return null;
-      const target = parseInt(req.description.match(/\$([0-9,]+)/)?.[1].replace(',', '') || '0');
-      const progress = target > 0 ? (req.progress || 0) / target * 100 : 0;
-      return (
-        <Box sx={{ width: '100%' }}>
-          <LinearProgress variant="determinate" value={progress} />
-        </Box>
-      );
-    }
-  },
-];
-
-const OpportunitiesGrid = ({ opportunities }: { opportunities: Opportunity[] }) => {
-  return (
-    <Card sx={{ height: 400, mb: 3 }}>
-      <DataGrid
-        rows={opportunities}
-        columns={gridColumns}
-        initialState={{
-          pagination: {
-            paginationModel: { pageSize: 5, page: 0 },
-          },
-        }}
-        pageSizeOptions={[5, 10, 25]}
-        checkboxSelection
-        disableRowSelectionOnClick
-      />
-    </Card>
-  );
-};
-
-const OpportunitiesFilters = () => {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-
-  return (
-    <Box display="flex" gap={2} mb={3}>
-      <TextField
-        placeholder="Search opportunities..."
-        size="small"
-        fullWidth
-        sx={{
-          '& .MuiOutlinedInput-root': {
-            bgcolor: 'background.default',
-            borderRadius: 1,
-            '& fieldset': {
-              borderColor: 'divider',
-              borderWidth: '1px',
-              opacity: 0.1
-            },
-            '&:hover fieldset': {
-              borderColor: 'divider',
-              opacity: 0.3
-            },
-            '&.Mui-focused fieldset': {
-              borderColor: 'primary.main',
-              opacity: 1
-            }
-          }
-        }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon sx={{ color: 'text.secondary', opacity: 0.7 }} />
-            </InputAdornment>
-          )
-        }}
-      />
-      <Button
-        size="small"
-        variant="outlined"
-        startIcon={<FilterListIcon />}
-        onClick={(e) => setAnchorEl(e.currentTarget)}
-        sx={{
-          minWidth: 90,
-          color: 'text.secondary',
-          borderColor: 'divider',
-          '&:hover': {
-            borderColor: 'primary.main',
-            bgcolor: 'action.hover'
-          }
-        }}
-      >
-        Filter
-      </Button>
-      <Button
-        size="small"
-        variant="outlined"
-        startIcon={<SortIcon />}
-        sx={{
-          minWidth: 90,
-          color: 'text.secondary',
-          borderColor: 'divider',
-          '&:hover': {
-            borderColor: 'primary.main',
-            bgcolor: 'action.hover'
-          }
-        }}
-      >
-        Sort
-      </Button>
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
-        PaperProps={{
-          sx: {
-            bgcolor: 'background.paper',
-            borderRadius: 1,
-            boxShadow: 2,
-            mt: 1
-          }
-        }}
-      >
-        <MenuItem>Credit Cards Only</MenuItem>
-        <MenuItem>Bank Accounts Only</MenuItem>
-        <MenuItem>High Value ($1000+)</MenuItem>
-        <MenuItem>Low Risk Only</MenuItem>
-        <MenuItem>Ending Soon</MenuItem>
-      </Menu>
-    </Box>
-  );
-};
-
-const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
-  const spendingReq = opportunity.requirements.find(r => r.progress !== undefined);
-  const target = spendingReq ? 
-    parseInt(spendingReq.description.match(/\$([0-9,]+)/)?.[1].replace(',', '') || '0') : 
-    0;
-
-  return (
-    <Card variant="outlined" sx={{ mb: 2 }}>
-      <Box p={2} display="flex" alignItems="center" justifyContent="space-between">
-        <Box display="flex" alignItems="center" gap={2}>
-          {opportunity.type === 'credit_card' ? 
-            <CreditCardIcon color="primary" /> : 
-            <AccountBalance color="primary" />
-          }
-          <Box>
-            <Typography variant="h6" sx={{ mb: 0.5 }}>{opportunity.title}</Typography>
-            <Box display="flex" alignItems="center" gap={1}>
-              <Chip 
-                size="small" 
-                label={opportunity.bank_name}
-                sx={{ bgcolor: 'action.hover' }}
+              <Chip
+                size="small"
+                label={opp.type === 'credit_card' ? 'Credit Card' : 'Bank Account'}
+                sx={{ 
+                  bgcolor: isDark 
+                    ? alpha(theme.palette.secondary.main, 0.2)
+                    : alpha(theme.palette.secondary.main, 0.1),
+                }}
               />
-              <Typography variant="body2" color="text.secondary">
-                {opportunity.time_limit} timeframe
-              </Typography>
             </Box>
           </Box>
-        </Box>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Box textAlign="right">
-            <Typography variant="h6" color="primary">{opportunity.value}</Typography>
-            <Typography variant="caption" color="text.secondary">Estimated Value</Typography>
-          </Box>
-          <ExpandMoreIcon />
-        </Box>
-      </Box>
-
-      <Collapse in={true}>
-        <Divider />
-        <Box p={2}>
-          <Grid container spacing={3}>
-            {/* Requirements Section */}
-            <Grid item xs={12} md={8}>
-              <Box mb={3}>
-                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AssignmentTurnedIn fontSize="small" /> Requirements
-                </Typography>
-                {opportunity.requirements.map((req, index) => (
-                  <Box key={index} sx={{ mt: 2 }}>
-                    <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                      {req.status === 'verified' ? (
-                        <CheckCircleIcon color="primary" fontSize="small" />
-                      ) : (
-                        <RadioButtonUnchecked fontSize="small" sx={{ color: 'text.secondary' }} />
-                      )}
-                      <Typography variant="body2">{req.description}</Typography>
-                    </Box>
-                    {req.progress !== undefined && target > 0 && (
-                      <Box pl={3}>
-                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                          <Typography variant="caption" color="text.secondary">
-                            ${req.progress.toLocaleString()} of ${target.toLocaleString()}
-                          </Typography>
-                          <Typography variant="caption" color="primary">
-                            {Math.round((req.progress / target) * 100)}%
-                          </Typography>
-                        </Box>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={(req.progress / target) * 100}
-                          sx={{ height: 4, borderRadius: 1 }}
-                        />
-                      </Box>
-                    )}
-                  </Box>
-                ))}
-              </Box>
-
-              {/* Updates Section */}
-              {opportunity.notifications && opportunity.notifications.length > 0 && (
-                <Box>
-                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <NotificationsNone fontSize="small" /> Updates
-                  </Typography>
-                  <Stack spacing={1}>
-                    {opportunity.notifications.map((notification, index) => (
-                      <Box key={index} display="flex" alignItems="center" gap={2}>
-                        <Chip 
-                          size="small"
-                          label={notification.date}
-                          sx={{ bgcolor: 'action.hover', minWidth: 100 }}
-                        />
-                        <Typography variant="body2" color="text.secondary">
-                          {notification.message}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Stack>
-                </Box>
-              )}
-            </Grid>
-
-            {/* Risk Section */}
-            <Grid item xs={12} md={4}>
-              <Box bgcolor="action.hover" p={2} borderRadius={2}>
-                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Assessment fontSize="small" /> Risk Assessment
-                </Typography>
-                <Box display="flex" alignItems="center" gap={1} mb={2}>
-                  {getRiskIcon(opportunity.risk_level)}
-                  <Typography variant="body2" color={getRiskColor(opportunity.risk_level)}>
-                    Level {opportunity.risk_level}/5
-                  </Typography>
-                </Box>
-                <Stack spacing={1}>
-                  {opportunity.risk_factors.map((factor, index) => (
-                    <Typography key={index} variant="body2" sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: 1,
-                      color: 'text.secondary'
-                    }}>
-                      <ArrowRight fontSize="small" />
-                      {factor}
-                    </Typography>
-                  ))}
-                </Stack>
-              </Box>
-
-              <Box mt={2}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  startIcon={<Launch fontSize="small" />}
-                  href={opportunity.source_link}
-                  target="_blank"
-                >
-                  View Details
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
-        </Box>
-      </Collapse>
-    </Card>
+        ))}
+      </Stack>
+    </Paper>
   );
 };
 
-const RiskAssessmentCard = ({ riskAssessment }: { riskAssessment: RiskAssessment }) => (
-  <Card sx={{ p: 3, mb: 2 }}>
-    <Typography variant="h6" gutterBottom>Risk Assessment</Typography>
-    <Grid container spacing={2}>
-      <Grid item xs={12}>
-        <Box display="flex" alignItems="center" gap={1} mb={2}>
-          {getRiskIcon(riskAssessment.overall_risk_level)}
-          <Typography>{riskAssessment.overview}</Typography>
-        </Box>
-      </Grid>
-      <Grid item xs={12} sm={6}>
-        <Typography variant="subtitle2" gutterBottom>Key Risk Metrics:</Typography>
-        <Box display="flex" flexDirection="column" gap={1}>
-          {Object.entries(riskAssessment.risk_factors).map(([key, value]) => (
-            <Box key={key} display="flex" alignItems="center" gap={1}>
-              <InfoIcon fontSize="small" />
-              <Typography variant="body2">
-                {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}: {value}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-      </Grid>
-    </Grid>
-  </Card>
-);
-
-const SummaryCard = ({ summary }: { summary: typeof mockData.summary }) => (
-  <Card variant="outlined" sx={{ mb: 3 }}>
-    <Box p={2}>
-      <Box display="flex" alignItems="center" gap={1} mb={3}>
-        <Dashboard fontSize="large" color="primary" />
-        <Typography variant="h6">Overview</Typography>
-      </Box>
-
-      <Grid container spacing={4}>
-        <Grid item xs={12} md={6}>
-          <Stack spacing={3}>
-            <Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Current Status
-              </Typography>
-              <Typography variant="body1">{summary.overview}</Typography>
-            </Box>
-
-            <Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Tracking Stats
-              </Typography>
-              <Grid container spacing={2}>
-                {[
-                  { label: 'Auto-tracked', value: summary.tracking_stats.auto_tracked, color: 'primary' },
-                  { label: 'Completed', value: summary.tracking_stats.completed, color: 'success' },
-                  { label: 'In Progress', value: summary.tracking_stats.in_progress, color: 'warning' },
-                  { label: 'Manual', value: summary.tracking_stats.manual_tracked, color: 'info' }
-                ].map((stat) => (
-                  <Grid item xs={6} key={stat.label}>
-                    <Box>
-                      <Typography variant="h5" color={`${stat.color}.main`} sx={{ mb: 0.5 }}>
-                        {stat.value}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {stat.label}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-          </Stack>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Value Metrics
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <Box bgcolor="action.hover" p={2} borderRadius={2}>
-                  <Typography variant="h5" color="primary">
-                    ${summary.total_value.toLocaleString()}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Total Value
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={6}>
-                <Box bgcolor="action.hover" p={2} borderRadius={2}>
-                  <Typography variant="h5">
-                    {summary.total_opportunities}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Active Opportunities
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12}>
-                <Box bgcolor="action.hover" p={2} borderRadius={2}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
-                    <Box>
-                      <Typography variant="h5" color={summary.average_risk > 3 ? 'warning.main' : 'success.main'}>
-                        {summary.average_risk.toFixed(1)}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Average Risk Level
-                      </Typography>
-                    </Box>
-                    {getRiskIcon(summary.average_risk)}
-                  </Box>
-                </Box>
-              </Grid>
-            </Grid>
-          </Box>
-        </Grid>
-      </Grid>
-    </Box>
-  </Card>
-);
-
-const mockTimelineEvents: TimelineEvent[] = [
+const trackedOpportunities: TrackedOpportunity[] = [
   {
-    date: '2024-02-15',
-    type: 'Points Posted',
-    description: 'Chase Sapphire Preferred: 60,000 UR points posted (Value: $750+)',
-    status: 'completed'
+    id: '1',
+    title: 'Chase Sapphire Preferred',
+    type: 'credit_card',
+    progress: 2500,
+    target: 4000,
+    daysLeft: 45,
   },
   {
-    date: '2024-02-14',
-    type: 'Spending Alert',
-    description: 'Amex Platinum: $1,000 more needed in 15 days for 150k bonus',
-    status: 'pending'
+    id: '2',
+    title: 'Capital One Checking',
+    type: 'bank_account',
+    progress: 15000,
+    target: 15000,
+    daysLeft: 15,
   },
-  {
-    date: '2024-02-13',
-    type: 'Bank Bonus',
-    description: 'Citi Checking $700 bonus posted to account',
-    status: 'completed'
-  },
-  {
-    date: '2024-02-12',
-    type: 'Application',
-    description: 'Capital One Venture X instant approval (CL: $30,000)',
-    status: 'completed'
-  },
-  {
-    date: '2024-02-10',
-    type: 'Eligibility',
-    description: 'Chase 5/24 status: New slot opens in 30 days',
-    status: 'in_progress'
-  },
-  {
-    date: '2024-02-08',
-    type: 'Direct Deposit',
-    description: 'US Bank $500 bonus: 2nd DD confirmed ($2,500/$5,000)',
-    status: 'in_progress'
-  },
-  {
-    date: '2024-02-05',
-    type: 'Card Arrival',
-    description: 'Amex Gold Card received & activated, added to mobile wallet',
-    status: 'completed'
-  },
-  {
-    date: '2024-02-03',
-    type: 'Retention Offer',
-    description: 'Amex Platinum: Accepted 55k points for $4k spend',
-    status: 'in_progress'
-  },
-  {
-    date: '2024-02-01',
-    type: 'Account Closed',
-    description: 'Chase United Explorer closed (AF posted, no retention)',
-    status: 'completed'
-  },
-  {
-    date: '2024-01-30',
-    type: 'Bonus Terms',
-    description: 'Chase Sapphire Reserve: Now eligible (48 months since last bonus)',
-    status: 'completed'
-  }
 ];
 
-const mockStats: SummaryStats = {
-  total_value: 3450,
-  opportunities_count: {
-    credit_cards: 2,
-    bank_accounts: 1,
-    total: 3
-  },
-  success_rate: 0.92,
-  average_completion_time: 75,
-  total_earned_ytd: 2750
-};
-
-const mockData = {
-  opportunities: [
-    {
-      id: '1',
-      type: 'credit_card' as const,
-      title: 'Chase Sapphire Preferred',
-      description: 'Premium travel rewards card with high signup bonus',
-      value: '$1,250',
-      status: 'active',
-      card_name: 'Chase Sapphire Preferred',
-      bank_name: 'Chase',
-      signup_bonus: '60,000 points',
-      bonus_amount: '$1,250',
-      requirements: [
-        { description: 'Spend $4,000 in first 3 months', progress: 2500, status: 'in_progress' as const },
-        { description: 'No previous Sapphire bonus in 48 months', status: 'verified' as const }
-      ],
-      risk_level: 2,
-      risk_factors: [
-        'Recent Chase applications',
-        '5/24 status: 3/24',
-        'Good approval odds'
-      ],
-      time_limit: '3 months',
-      deadline: '2024-03-31',
-      expiration: '2024-12-31',
-      source: 'Doctor of Credit',
-      source_link: 'https://doctorofcredit.com/chase-sapphire-preferred',
-      location_eligible: true,
-      auto_tracked: true,
-      notifications: [
-        { type: 'deadline', message: 'Spending deadline in 2 weeks', date: '2024-03-17' }
-      ]
-    },
-    {
-      id: '2',
-      type: 'credit_card' as const,
-      title: 'Amex Platinum',
-      description: 'Premium travel card with extensive benefits',
-      value: '$1,500',
-      status: 'active',
-      card_name: 'The Platinum Card',
-      bank_name: 'American Express',
-      signup_bonus: '150,000 points',
-      bonus_amount: '$1,500',
-      requirements: [
-        { description: 'Spend $6,000 in first 6 months', progress: 1000, status: 'in_progress' as const },
-        { description: 'No previous bonus on this card', status: 'verified' as const }
-      ],
-      risk_level: 3,
-      risk_factors: [
-        'Multiple Amex cards open',
-        'Recent Amex bonus received',
-        'Moderate approval odds'
-      ],
-      time_limit: '6 months',
-      deadline: '2024-06-30',
-      expiration: '2024-06-30',
-      source: 'Reddit r/churning',
-      source_link: 'https://reddit.com/r/churning',
-      location_eligible: true,
-      auto_tracked: true,
-      notifications: [
-        { type: 'spending', message: 'Behind on spending pace', date: '2024-02-15' }
-      ]
-    },
-    {
-      id: '3',
-      type: 'bank_account' as const,
-      title: 'Citi Checking Bonus',
-      description: 'High-value checking account bonus',
-      value: '$700',
-      status: 'active',
-      bank_name: 'Citibank',
-      bonus_amount: '$700',
-      requirements: [
-        { description: 'Deposit $50,000 in new money', progress: 40000, status: 'in_progress' as const },
-        { description: 'Maintain balance for 60 days', status: 'pending' as const },
-        { description: 'Complete qualifying activities', status: 'pending' as const }
-      ],
-      risk_level: 4,
-      risk_factors: [
-        'ChexSystems sensitive bank',
-        'Recent bank account openings',
-        'High early termination fee'
-      ],
-      time_limit: '60 days',
-      deadline: '2024-03-31',
-      expiration: '2024-03-31',
-      source: 'Doctor of Credit',
-      source_link: 'https://doctorofcredit.com/citi-checking',
-      location_eligible: true,
-      auto_tracked: true,
-      notifications: [
-        { type: 'deposit', message: 'Deposit deadline approaching', date: '2024-02-20' }
-      ]
-    }
-  ],
-  summary: {
-    overview: 'Currently tracking 3 high-value churning opportunities worth over $3,000 in total value',
-    total_opportunities: 3,
-    total_value: 3450,
-    average_risk: 3.0,
-    tracking_stats: {
-      auto_tracked: 3,
-      manual_tracked: 0,
-      completed: 0,
-      in_progress: 3
-    }
-  },
-  riskAssessment: {
-    overview: 'Overall risk level is low to moderate, with bank account bonuses showing slightly higher risk',
-    overall_risk_level: 3.0,
-    risk_factors: {
-      credit_inquiries_6mo: 2,
-      bank_accounts_6mo: 3,
-      chase_524_status: '3/24',
-      amex_velocity: 'Moderate',
-      chexsystems_inquiries: 4
-    }
-  },
-  recommendations: {
-    next_steps: [
-      'Increase spending on Chase Sapphire Preferred',
-      'Prepare funds for Citi deposit requirement',
-      'Monitor Amex spending deadline'
-    ],
-    upcoming_deadlines: [
-      { description: 'Citi deposit deadline', date: '2024-02-28' },
-      { description: 'Chase spending requirement', date: '2024-03-31' }
-    ]
-  }
-};
-
-export default function CardsPage() {
-  const [view, setView] = useState<'cards' | 'grid'>('cards');
+const StatCard = ({ 
+  icon: Icon, 
+  title, 
+  value, 
+  trend,
+  color = 'primary',
+}: { 
+  icon: typeof MonetizationOnIcon;
+  title: string;
+  value: string | number;
+  trend?: { value: number; label: string };
+  color?: 'primary' | 'success' | 'warning' | 'info';
+}) => {
+  const theme = useTheme();
+  const [isHovered, setIsHovered] = useState(false);
   
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <Grow in={true} timeout={300}>
+      <Paper
+        elevation={0}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        sx={{
+          p: 3,
+          height: '100%',
+          position: 'relative',
+          overflow: 'hidden',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          border: '1px solid',
+          borderColor: 'divider',
+          backdropFilter: 'blur(8px)',
+          background: alpha(theme.palette.background.paper, 0.8),
+          animation: isHovered ? `${pulse} 2s infinite` : 'none',
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: theme.shadows[8],
+            '& .stat-icon': {
+              transform: 'rotate(0deg) scale(1.2)',
+              opacity: 0.4,
+            },
+            '& .stat-value': {
+              transform: 'scale(1.05)',
+              color: theme.palette[color].main,
+            },
+            '&::before': {
+              opacity: 0.15,
+            },
+            '& .stat-details': {
+              height: 'auto',
+              opacity: 1,
+              transform: 'translateY(0)',
+            },
+          },
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundImage: `linear-gradient(135deg, ${theme.palette[color].main}, ${theme.palette[color].light})`,
+            opacity: 0.08,
+            transition: 'opacity 0.3s',
+          },
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: '-100%',
+            width: '200%',
+            height: '100%',
+            backgroundImage: `linear-gradient(to right, transparent 0%, ${alpha(theme.palette[color].main, 0.1)} 50%, transparent 100%)`,
+            animation: isHovered ? `${shimmer} 2s infinite` : 'none',
+          },
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Box sx={{ position: 'relative', zIndex: 1, width: '100%' }}>
+            <Box display="flex" alignItems="center" gap={1} mb={1}>
+              <Icon
+                className="stat-icon"
+                sx={{
+                  fontSize: '1.5rem',
+                  color: `${color}.main`,
+                  opacity: 0.7,
+                  transition: 'all 0.4s',
+                }}
+              />
+              <Typography 
+                color="text.secondary"
+                sx={{ 
+                  fontWeight: 500,
+                  letterSpacing: '0.5px',
+                  textTransform: 'uppercase',
+                  fontSize: '0.75rem',
+                }}
+              >
+                {title}
+              </Typography>
+            </Box>
+            <Typography 
+              variant="h4" 
+              className="stat-value"
+              sx={{ 
+                mb: 1, 
+                fontWeight: 700,
+                transition: 'all 0.3s',
+                background: `linear-gradient(45deg, ${theme.palette[color].main}, ${theme.palette[color].light})`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              {value}
+            </Typography>
+            <Collapse in={isHovered}>
+              <Box 
+                className="stat-details"
+                sx={{ 
+                  height: 0,
+                  opacity: 0,
+                  transform: 'translateY(10px)',
+                  transition: 'all 0.3s',
+                }}
+              >
+                {trend && (
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: trend.value >= 0 ? 'success.main' : 'error.main',
+                        bgcolor: trend.value >= 0 ? alpha(theme.palette.success.main, 0.1) : alpha(theme.palette.error.main, 0.1),
+                        px: 1,
+                        py: 0.5,
+                        borderRadius: 1,
+                      }}
+                    >
+                      {trend.value >= 0 ? (
+                        <ArrowForwardIcon fontSize="small" />
+                      ) : (
+                        <ExpandLessIcon fontSize="small" />
+                      )}
+                      <Typography
+                        variant="body2"
+                        color="inherit"
+                        sx={{ ml: 0.5, fontWeight: 600 }}
+                      >
+                        {Math.abs(trend.value)}%
+                      </Typography>
+                    </Box>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                      sx={{ fontStyle: 'italic' }}
+                    >
+                      {trend.label}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Collapse>
+          </Box>
+        </Box>
+      </Paper>
+    </Grow>
+  );
+};
+
+const ActivityTimeline = ({ activities }: { activities: Activity[] }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: 3,
+      height: '100%',
+      border: '1px solid',
+      borderColor: 'divider',
+      position: 'relative',
+      overflow: 'hidden',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 4,
+        background: 'linear-gradient(to bottom, primary.main, primary.light)',
+        opacity: 0.5,
+      },
+    }}
+  >
+    <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+      Recent Activity
+    </Typography>
+    <Timeline
+      sx={{
+        [`& .${timelineItemClasses.root}:before`]: {
+          flex: 0,
+          padding: 0,
+        },
+      }}
+    >
+      {activities.map((activity, index) => (
+        <TimelineItem
+          key={activity.id}
+          sx={{
+            opacity: 0,
+            animation: 'slideIn 0.5s forwards',
+            animationDelay: `${index * 0.1}s`,
+            '@keyframes slideIn': {
+              to: {
+                opacity: 1,
+                transform: 'translateX(0)',
+              },
+            },
+          }}
+        >
+          <TimelineSeparator>
+            <TimelineDot
+              sx={{
+                bgcolor: getActivityColor(activity.type),
+                boxShadow: 2,
+                transition: 'all 0.3s',
+                '&:hover': {
+                  transform: 'scale(1.2)',
+                },
+              }}
+            >
+              {getActivityIcon(activity.type)}
+            </TimelineDot>
+            {index < activities.length - 1 && (
+              <TimelineConnector 
+                sx={{ 
+                  bgcolor: 'divider',
+                  height: 40,
+                }} 
+              />
+            )}
+          </TimelineSeparator>
+          <TimelineContent>
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: 'background.default',
+                borderRadius: 1,
+                boxShadow: 1,
+                transition: 'all 0.3s',
+                '&:hover': {
+                  transform: 'translateX(8px)',
+                  bgcolor: 'action.hover',
+                },
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                {activity.title || activity.message}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {activity.description}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  mt: 1,
+                  color: 'text.disabled',
+                }}
+              >
+                {activity.time}
+              </Typography>
+            </Box>
+          </TimelineContent>
+        </TimelineItem>
+      ))}
+    </Timeline>
+  </Paper>
+);
+
+const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
+  const theme = useTheme();
+  
+  return (
+    <Fade in={true}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2.5,
+          border: '1px solid',
+          borderColor: 'divider',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          cursor: 'pointer',
+          position: 'relative',
+          overflow: 'hidden',
+          backdropFilter: 'blur(8px)',
+          background: alpha(theme.palette.background.paper, 0.8),
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: theme.shadows[8],
+            '& .opportunity-icon': {
+              transform: 'scale(1.1) rotate(5deg)',
+            },
+            '& .opportunity-arrow': {
+              transform: 'translateX(4px)',
+              opacity: 1,
+            },
+            '&::before': {
+              opacity: 0.15,
+            },
+          },
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(135deg, primary.main, primary.light)',
+            opacity: 0.08,
+            transition: 'opacity 0.3s',
+          },
+        }}
+      >
+        <Box display="flex" alignItems="center" gap={2}>
+          <Box
+            className="opportunity-icon"
+            sx={{
+              p: 1.5,
+              borderRadius: 2,
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              transition: 'all 0.3s',
+            }}
+          >
+            {opportunity.type === 'credit_card' ? (
+              <CreditCardIcon color="primary" sx={{ fontSize: '2rem' }} />
+            ) : (
+              <AccountBalanceIcon color="primary" sx={{ fontSize: '2rem' }} />
+            )}
+          </Box>
+          <Box flex={1}>
+            <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+              <Typography variant="subtitle1" fontWeight={600}>
+                {opportunity.title}
+              </Typography>
+              {opportunity.isHot && (
+                <Box
+                  component={motion.div}
+                  animate={{ 
+                    scale: [1, 1.2, 1],
+                    rotate: [0, 5, 0],
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                >
+                  <StarIcon sx={{ color: 'warning.main', fontSize: '1.2rem' }} />
+                </Box>
+              )}
+            </Box>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Chip
+                label={opportunity.bank}
+                size="small"
+                sx={{ 
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  fontWeight: 500,
+                }}
+              />
+              {opportunity.expiresIn && (
+                <Chip
+                  icon={<TimerIcon sx={{ fontSize: '1rem !important' }} />}
+                  label={`Expires in ${opportunity.expiresIn}`}
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  sx={{ fontWeight: 500 }}
+                />
+              )}
+            </Box>
+          </Box>
+          <Box textAlign="right">
+            <Typography 
+              variant="h6" 
+              color="primary" 
+              fontWeight="bold"
+              sx={{ mb: 1 }}
+            >
+              {opportunity.value}
+            </Typography>
+            <IconButton 
+              size="small" 
+              color="primary"
+              className="opportunity-arrow"
+              sx={{
+                opacity: 0.7,
+                transition: 'all 0.3s',
+              }}
+            >
+              <ArrowForwardIcon />
+            </IconButton>
+          </Box>
+        </Box>
+      </Paper>
+    </Fade>
+  );
+};
+
+const ProgressCard = ({ opportunity }: { opportunity: TrackedOpportunity }) => {
+  const theme = useTheme();
+  const progress = (opportunity.progress / opportunity.target) * 100;
+  const isUrgent = opportunity.daysLeft <= 15;
+
+  return (
+    <Fade in={true}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2.5,
+          border: '1px solid',
+          borderColor: 'divider',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          position: 'relative',
+          overflow: 'hidden',
+          backdropFilter: 'blur(8px)',
+          background: alpha(theme.palette.background.paper, 0.8),
+          '&:hover': {
+            transform: 'translateX(4px)',
+            boxShadow: theme.shadows[8],
+            '& .progress-icon': {
+              transform: 'scale(1.1)',
+            },
+            '& .progress-bar': {
+              transform: 'scaleX(1.02)',
+            },
+            '&::before': {
+              opacity: 0.15,
+            },
+          },
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: 4,
+            background: isUrgent ? theme.palette.warning.main : theme.palette.success.main,
+            opacity: 0.5,
+            transition: 'opacity 0.3s',
+          },
+        }}
+      >
+        <Box display="flex" alignItems="center" gap={2}>
+          <Box
+            className="progress-icon"
+            sx={{
+              p: 1.5,
+              borderRadius: 2,
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              transition: 'all 0.3s',
+            }}
+          >
+            {opportunity.type === 'credit_card' ? (
+              <CreditCardIcon color="primary" />
+            ) : (
+              <AccountBalanceIcon color="primary" />
+            )}
+          </Box>
+          <Box flex={1}>
+            <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+              {opportunity.title}
+            </Typography>
+            <Box mb={1}>
+              <Box display="flex" justifyContent="space-between" mb={0.5}>
+                <Typography variant="caption" color="text.secondary">
+                  Progress: ${opportunity.progress.toLocaleString()} of ${opportunity.target.toLocaleString()}
+                </Typography>
+                <Typography 
+                  variant="caption" 
+                  color={progress >= 100 ? 'success.main' : 'primary.main'}
+                  fontWeight={600}
+                >
+                  {Math.round(progress)}%
+                </Typography>
+              </Box>
+              <Box position="relative">
+                <LinearProgress
+                  variant="determinate"
+                  value={Math.min(progress, 100)}
+                  className="progress-bar"
+                  sx={{
+                    height: 8,
+                    borderRadius: 1,
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    '& .MuiLinearProgress-bar': {
+                      borderRadius: 1,
+                      bgcolor: progress >= 100 ? 'success.main' : 'primary.main',
+                      transition: 'all 0.3s',
+                    },
+                  }}
+                />
+                {progress >= 100 && (
+                  <Box
+                    component={motion.div}
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      opacity: [0.7, 1, 0.7],
+                    }}
+                    transition={{ 
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    sx={{
+                      position: 'absolute',
+                      right: -10,
+                      top: -10,
+                      color: 'success.main',
+                    }}
+                  >
+                    <CheckCircleIcon />
+                  </Box>
+                )}
+              </Box>
+            </Box>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Chip
+                icon={<TimerIcon sx={{ fontSize: '1rem !important' }} />}
+                label={`${opportunity.daysLeft} days left`}
+                size="small"
+                color={isUrgent ? 'warning' : 'default'}
+                variant="outlined"
+                sx={{ fontWeight: 500 }}
+              />
+              <Tooltip title="Update Progress">
+                <IconButton 
+                  size="small" 
+                  color="primary"
+                  sx={{
+                    '&:hover': {
+                      transform: 'rotate(180deg)',
+                      transition: 'transform 0.5s',
+                    },
+                  }}
+                >
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
+    </Fade>
+  );
+};
+
+const ValueBadge = ({ value }: { value: number | string }) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const formattedValue = typeof value === 'number' ? formatCurrency(value) : value;
+  
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 1,
+        py: 1.5,
+        px: 2.5,
+        borderRadius: 2,
+        background: isDark 
+          ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.9)}, ${alpha(theme.palette.primary.dark, 0.9)})`
+          : `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+        boxShadow: theme.shadows[3],
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        border: '1px solid',
+        borderColor: isDark 
+          ? alpha(theme.palette.primary.main, 0.3)
+          : alpha(theme.palette.primary.light, 0.5),
+        '&:hover': {
+          transform: 'translateY(-2px) scale(1.02)',
+          boxShadow: theme.shadows[6],
+          borderColor: isDark 
+            ? alpha(theme.palette.primary.main, 0.5)
+            : theme.palette.primary.main,
+        },
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderRadius: 2,
+          background: `linear-gradient(135deg, ${alpha('#fff', 0.1)}, ${alpha('#fff', 0.05)})`,
+          opacity: 0,
+          transition: 'opacity 0.3s',
+        },
+        '&:hover::before': {
+          opacity: 1,
+        },
+      }}
+    >
+      <MonetizationOnIcon 
+        sx={{ 
+          color: '#fff',
+          fontSize: '1.5rem',
+          filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.2))',
+          zIndex: 1,
+        }} 
+      />
+      <Typography
+        variant="h6"
+        sx={{
+          color: '#fff',
+          fontWeight: 700,
+          letterSpacing: '0.5px',
+          textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+          zIndex: 1,
+          fontSize: '1.35rem',
+        }}
+      >
+        {formattedValue}
+      </Typography>
+    </Box>
+  );
+};
+
+const formatCurrency = (value: number | string) => {
+  const numericValue = typeof value === 'string' 
+    ? parseFloat(value.replace(/[^0-9.-]+/g, ''))
+    : value;
+  return !isNaN(numericValue) ? numericValue.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+  }) : '$0.00';
+};
+
+const QuickActions = () => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  
+  return (
+    <Paper sx={{ p: 3, height: '100%' }}>
+      <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+        Quick Actions
+      </Typography>
+      <Stack spacing={2}>
+        {quickActions.map((action, index) => (
+          <Button
+            key={action.label}
+            variant="outlined"
+            startIcon={action.icon}
+            onClick={action.onClick}
+            fullWidth
+            sx={{
+              justifyContent: 'flex-start',
+              textTransform: 'none',
+              py: 1.5,
+              borderColor: isDark 
+                ? alpha(theme.palette.primary.main, 0.2)
+                : alpha(theme.palette.primary.main, 0.1),
+              bgcolor: isDark 
+                ? alpha(theme.palette.background.paper, 0.6)
+                : alpha(theme.palette.background.paper, 0.8),
+              '&:hover': {
+                borderColor: 'primary.main',
+                bgcolor: isDark 
+                  ? alpha(theme.palette.primary.main, 0.1)
+                  : alpha(theme.palette.primary.main, 0.05),
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s',
+            }}
+          >
+            {action.label}
+          </Button>
+        ))}
+      </Stack>
+    </Paper>
+  );
+};
+
+const CurrentlyTracking = ({ 
+  opportunities,
+  expanded,
+  onExpandClick,
+}: { 
+  opportunities: TrackedOpportunity[];
+  expanded: boolean;
+  onExpandClick: () => void;
+}) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  
+  return (
+    <Paper sx={{ p: 3 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Churning Dashboard</Typography>
         <Box>
-          <Tabs value={view} onChange={(_, newValue) => setView(newValue)}>
-            <Tab value="cards" label="Cards View" />
-            <Tab value="grid" label="Grid View" />
-          </Tabs>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Currently Tracking
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {opportunities.length} active opportunities
+          </Typography>
+        </Box>
+        <Link href="/track" passHref>
+          <Button
+            variant="text"
+            endIcon={<ArrowForwardIcon />}
+            sx={{ textTransform: 'none' }}
+          >
+            View All
+          </Button>
+        </Link>
+      </Box>
+      <Stack spacing={2}>
+        {opportunities.map((opp) => (
+          <Box
+            key={opp.id}
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: isDark 
+                ? alpha(theme.palette.background.paper, 0.6)
+                : alpha(theme.palette.background.paper, 0.8),
+              transition: 'all 0.3s',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: 2,
+                borderColor: 'primary.main',
+              },
+            }}
+          >
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+              <Box display="flex" alignItems="center" gap={1}>
+                {opp.type === 'credit_card' ? (
+                  <CreditCardIcon color="primary" />
+                ) : (
+                  <AccountBalanceIcon color="primary" />
+                )}
+                <Typography variant="subtitle1" fontWeight={500}>
+                  {opp.title}
+                </Typography>
+              </Box>
+              <Chip
+                size="small"
+                label={`${opp.daysLeft} days left`}
+                color={opp.daysLeft <= 15 ? 'warning' : 'default'}
+                sx={{ 
+                  bgcolor: opp.daysLeft <= 15
+                    ? alpha(theme.palette.warning.main, isDark ? 0.2 : 0.1)
+                    : undefined,
+                }}
+              />
+            </Box>
+            <ProgressBar progress={opp.progress} target={opp.target} />
+          </Box>
+        ))}
+      </Stack>
+    </Paper>
+  );
+};
+
+const RecentActivity = ({
+  expanded,
+  onExpandClick,
+}: {
+  expanded: boolean;
+  onExpandClick: () => void;
+}) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  
+  return (
+    <Paper 
+      sx={{ 
+        p: 3,
+        height: expanded ? 'auto' : 180,
+        overflow: 'hidden',
+        transition: 'height 0.3s',
+      }}
+    >
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Box display="flex" alignItems="center" gap={1}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Recent Activity
+          </Typography>
+          <Chip
+            size="small"
+            label={recentActivities.length}
+            sx={{ 
+              bgcolor: isDark 
+                ? alpha(theme.palette.primary.main, 0.2)
+                : alpha(theme.palette.primary.main, 0.1),
+            }}
+          />
+        </Box>
+        <IconButton onClick={onExpandClick} size="small">
+          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </IconButton>
+      </Box>
+      <Timeline
+        sx={{
+          p: 0,
+          m: 0,
+          '& .MuiTimelineItem-root:before': {
+            flex: 0,
+            padding: 0,
+          },
+        }}
+      >
+        {recentActivities.map((activity) => (
+          <TimelineItem key={activity.id}>
+            <TimelineSeparator>
+              <TimelineDot 
+                sx={{ 
+                  bgcolor: activity.type === 'success' 
+                    ? 'success.main'
+                    : activity.type === 'warning'
+                    ? 'warning.main'
+                    : 'info.main',
+                }}
+              >
+                {activity.icon}
+              </TimelineDot>
+              <TimelineConnector />
+            </TimelineSeparator>
+            <TimelineContent>
+              <Typography variant="body2">
+                {activity.message}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {activity.time}
+              </Typography>
+            </TimelineContent>
+          </TimelineItem>
+        ))}
+      </Timeline>
+    </Paper>
+  );
+};
+
+const ProgressBar = ({ progress, target }: { progress: number; target: number }) => {
+  const percentage = target > 0 ? (progress / target) * 100 : 0;
+  const isComplete = percentage >= 100;
+  
+  return (
+    <Box pl={3}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={0.5}
+      >
+        <Typography variant="caption" color="text.secondary">
+          {formatCurrency(progress)} of {formatCurrency(target)}
+        </Typography>
+        <Typography 
+          variant="caption" 
+          color={isComplete ? 'success.main' : 'primary.main'}
+          fontWeight="medium"
+        >
+          {Math.round(percentage)}%
+        </Typography>
+      </Box>
+      <LinearProgress
+        variant="determinate"
+        value={Math.min(percentage, 100)}
+        sx={{ 
+          height: 6, 
+          borderRadius: 1,
+          bgcolor: 'action.hover',
+          '& .MuiLinearProgress-bar': {
+            borderRadius: 1,
+            bgcolor: isComplete ? 'success.main' : 'primary.main',
+          }
+        }}
+      />
+    </Box>
+  );
+};
+
+const DashboardContent = () => {
+  const theme = useTheme();
+  const [expanded, setExpanded] = useState(false);
+  const [recentActivityExpanded, setRecentActivityExpanded] = useState(false);
+
+  return (
+    <Grid container spacing={3}>
+      <Grid item xs={12} lg={8}>
+        <QuickOpportunities />
+      </Grid>
+      <Grid item xs={12} lg={4}>
+        <QuickActions />
+      </Grid>
+      <Grid item xs={12} lg={8}>
+        <CurrentlyTracking
+          opportunities={trackedOpportunities}
+          expanded={expanded}
+          onExpandClick={() => setExpanded(!expanded)}
+        />
+      </Grid>
+      <Grid item xs={12} lg={4}>
+        <RecentActivity
+          expanded={recentActivityExpanded}
+          onExpandClick={() => setRecentActivityExpanded(!recentActivityExpanded)}
+        />
+      </Grid>
+    </Grid>
+  );
+};
+
+export default function DashboardPage() {
+  const theme = useTheme();
+  const [activityExpanded, setActivityExpanded] = useState(false);
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/auth/signin');
+    }
+  }, [user, loading, router]);
+
+  useEffect(() => {
+    const handleThemeChange = () => {
+      const savedTheme = localStorage.getItem('theme-mode');
+      if (savedTheme === 'light' || savedTheme === 'dark') {
+        // User has explicitly set a theme preference
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      } else {
+        // Use system preference as default
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', systemPrefersDark ? 'dark' : 'light');
+      }
+    };
+
+    // Initial theme setup
+    handleThemeChange();
+
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addListener(handleThemeChange);
+
+    // Listen for storage changes (in case theme is changed in another tab)
+    window.addEventListener('storage', handleThemeChange);
+
+    return () => {
+      mediaQuery.removeListener(handleThemeChange);
+      window.removeEventListener('storage', handleThemeChange);
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  const stats = [
+    {
+      icon: MonetizationOnIcon,
+      title: 'Total Value',
+      value: '$12,500',
+      trend: { value: 12, label: 'vs last month' },
+      color: 'primary' as const,
+    },
+    {
+      icon: AccountBalanceWalletIcon,
+      title: 'Active Opportunities',
+      value: '8',
+      trend: { value: 5, label: 'new this week' },
+      color: 'info' as const,
+    },
+    {
+      icon: CheckCircleIcon,
+      title: 'Completed',
+      value: '24',
+      trend: { value: 18, label: 'success rate' },
+      color: 'success' as const,
+    },
+    {
+      icon: ArrowForwardIcon,
+      title: 'Potential Value',
+      value: '$5,200',
+      trend: { value: -8, label: 'vs last month' },
+      color: 'warning' as const,
+    },
+  ];
+
+  return (
+    <Container 
+      maxWidth="xl" 
+      sx={{ 
+        py: 4,
+        minHeight: '100vh',
+        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.03)}, ${alpha(theme.palette.background.default, 0.5)})`,
+        backdropFilter: 'blur(10px)',
+      }}
+    >
+      {/* Welcome Section */}
+      <Box 
+        sx={{ 
+          mb: 4,
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)}, ${alpha(theme.palette.primary.light, 0.08)})`,
+            borderRadius: 2,
+            zIndex: -1,
+          },
+        }}
+      >
+        <Box 
+          sx={{ 
+            p: 3,
+            borderRadius: 2,
+            position: 'relative',
+            overflow: 'hidden',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid',
+            borderColor: 'divider',
+            transition: 'all 0.3s',
+            '&:hover': {
+              transform: 'translateY(-4px)',
+              boxShadow: theme.shadows[4],
+              '&::after': {
+                transform: 'rotate(30deg) translateX(0)',
+              },
+            },
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              top: -100,
+              right: -100,
+              width: 200,
+              height: 200,
+              background: `linear-gradient(45deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.primary.light, 0.1)})`,
+              transform: 'rotate(30deg) translateX(100%)',
+              transition: 'transform 0.5s ease-out',
+              zIndex: -1,
+            },
+          }}
+        >
+          <Typography 
+            variant="h3" 
+            sx={{ 
+              fontWeight: 700,
+              mb: 1,
+              color: 'text.primary',
+              position: 'relative',
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                left: 0,
+                bottom: -4,
+                width: '40%',
+                height: 3,
+                background: `linear-gradient(90deg, ${theme.palette.primary.main}, transparent)`,
+                borderRadius: 1,
+              },
+              opacity: 0,
+              animation: 'fadeSlideIn 0.5s forwards',
+              '@keyframes fadeSlideIn': {
+                to: {
+                  opacity: 1,
+                  transform: 'translateY(0)',
+                },
+              },
+            }}
+          >
+            Welcome back, {user?.displayName?.split(' ')[0] || 'Churner'}
+          </Typography>
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              fontWeight: 400,
+              color: 'text.secondary',
+              opacity: 0,
+              animation: 'fadeSlideIn 0.5s forwards 0.2s',
+            }}
+          >
+            Your churning journey continues. Let's maximize those rewards!
+          </Typography>
         </Box>
       </Box>
 
-      <StatsOverview stats={mockStats} />
-      <SummaryCard summary={mockData.summary} />
-      <ChurningTimeline events={mockTimelineEvents} />
-
-      <OpportunitiesFilters />
-
-      {view === 'grid' ? (
-        <OpportunitiesGrid opportunities={mockData.opportunities} />
-      ) : (
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
-            {mockData.opportunities.map((opportunity) => (
-              <OpportunityCard key={opportunity.id} opportunity={opportunity} />
-            ))}
+      <Grid container spacing={3}>
+        {stats.map((stat, index) => (
+          <Grid 
+            item 
+            xs={12} 
+            md={6} 
+            lg={3} 
+            key={stat.title}
+            component={motion.div}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+          >
+            <StatCard {...stat} />
           </Grid>
-          <Grid item xs={12} md={4}>
-            <RiskAssessmentCard riskAssessment={mockData.riskAssessment} />
-            <Card sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>Recommendations</Typography>
-              <Box display="flex" flexDirection="column" gap={1}>
-                {mockData.recommendations.next_steps.map((step: string, index: number) => (
-                  <Box key={index} display="flex" alignItems="center" gap={1}>
-                    <InfoIcon color="primary" fontSize="small" />
-                    <Typography variant="body2">{step}</Typography>
+        ))}
+
+        {/* Quick Actions - Horizontal */}
+        <Grid item xs={12}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+              gap: 2,
+            }}
+          >
+            {quickActions.map((action, index) => (
+              <Button
+                key={action.label}
+                variant="outlined"
+                startIcon={
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 32,
+                      height: 32,
+                      borderRadius: 1,
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                      color: 'primary.main',
+                      transition: 'all 0.3s',
+                    }}
+                  >
+                    {action.icon}
                   </Box>
-                ))}
-              </Box>
-            </Card>
-          </Grid>
+                }
+                onClick={action.onClick}
+                sx={{
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  py: 1.5,
+                  px: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: alpha(theme.palette.background.paper, 0.8),
+                  backdropFilter: 'blur(8px)',
+                  opacity: 0,
+                  animation: 'slideUp 0.5s forwards',
+                  animationDelay: `${index * 0.1}s`,
+                  '@keyframes slideUp': {
+                    to: {
+                      opacity: 1,
+                      transform: 'translateY(0)',
+                    },
+                  },
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    bgcolor: alpha(theme.palette.primary.main, 0.04),
+                    borderColor: 'primary.main',
+                    boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.1)}`,
+                    '& .MuiButton-startIcon': {
+                      transform: 'scale(1.1)',
+                      bgcolor: alpha(theme.palette.primary.main, 0.12),
+                    },
+                  },
+                  '& .MuiButton-startIcon': {
+                    mr: 2,
+                    transition: 'all 0.3s',
+                  },
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                <Box sx={{ flex: 1, textAlign: 'left' }}>
+                  <Typography 
+                    variant="body2" 
+                    fontWeight={500}
+                    sx={{
+                      color: 'text.primary',
+                      transition: 'color 0.3s',
+                    }}
+                  >
+                    {action.label}
+                  </Typography>
+                </Box>
+              </Button>
+            ))}
+          </Box>
         </Grid>
-      )}
-    </div>
+
+        {/* Recent Activity - Full Width */}
+        <Grid item xs={12}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box display="flex" alignItems="center" gap={1}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Recent Activity
+                </Typography>
+                <Chip 
+                  label={`${recentActivities.length} Updates`}
+                  size="small"
+                  sx={{ 
+                    bgcolor: alpha(theme.palette.info.main, 0.1),
+                    color: 'info.main',
+                    fontWeight: 500,
+                    height: 24,
+                  }}
+                />
+                {!activityExpanded && (
+                  <Typography 
+                    variant="caption" 
+                    color="text.secondary"
+                    sx={{ 
+                      fontStyle: 'italic',
+                      display: { xs: 'none', sm: 'block' }
+                    }}
+                  >
+                    Click to expand
+                  </Typography>
+                )}
+              </Box>
+              <Box display="flex" alignItems="center" gap={1}>
+                {activityExpanded && (
+                  <Button
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActivityExpanded(false);
+                    }}
+                    startIcon={<KeyboardArrowUpIcon />}
+                    sx={{
+                      color: 'text.secondary',
+                      '&:hover': {
+                        color: 'primary.main',
+                        bgcolor: alpha(theme.palette.primary.main, 0.1),
+                      },
+                    }}
+                  >
+                    Collapse
+                  </Button>
+                )}
+                <Button
+                  variant="text"
+                  size="small"
+                  endIcon={<ArrowForwardIcon />}
+                  component={Link}
+                  href="/activities"
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': {
+                      color: 'primary.main',
+                      bgcolor: 'transparent',
+                      '& .MuiSvgIcon-root': {
+                        transform: 'translateX(4px)',
+                      },
+                    },
+                    '& .MuiSvgIcon-root': {
+                      transition: 'transform 0.2s',
+                    },
+                  }}
+                >
+                  View All
+                </Button>
+              </Box>
+            </Box>
+            <Paper
+              elevation={0}
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                position: 'relative',
+                overflow: 'hidden',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: activityExpanded ? 'default' : 'pointer',
+                backdropFilter: 'blur(8px)',
+                background: alpha(theme.palette.background.paper, 0.8),
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  transform: 'translateY(-2px)',
+                  boxShadow: theme.shadows[4],
+                  '&::before': {
+                    opacity: 0.7,
+                  },
+                },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 4,
+                  backgroundImage: `linear-gradient(to bottom, ${theme.palette.info.main}, ${theme.palette.info.light})`,
+                  opacity: 0.5,
+                  transition: 'opacity 0.3s',
+                },
+              }}
+              onClick={() => !activityExpanded && setActivityExpanded(true)}
+            >
+              <Collapse in={true} collapsedSize={120}>
+                <Box 
+                  sx={{ 
+                    maxHeight: activityExpanded ? 300 : 120,
+                    overflowY: 'auto',
+                    p: 2,
+                    transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    '::-webkit-scrollbar': {
+                      width: 6,
+                    },
+                    '::-webkit-scrollbar-track': {
+                      background: alpha(theme.palette.primary.main, 0.05),
+                      borderRadius: 3,
+                    },
+                    '::-webkit-scrollbar-thumb': {
+                      background: alpha(theme.palette.primary.main, 0.1),
+                      borderRadius: 3,
+                      '&:hover': {
+                        background: alpha(theme.palette.primary.main, 0.2),
+                      },
+                    },
+                  }}
+                >
+                  <Timeline
+                    sx={{
+                      [`& .${timelineItemClasses.root}:before`]: {
+                        flex: 0,
+                        padding: 0,
+                      },
+                      m: 0,
+                      p: 0,
+                    }}
+                  >
+                    {recentActivities.map((activity, index) => (
+                      <TimelineItem
+                        key={activity.id}
+                        sx={{
+                          minHeight: 'auto',
+                          '&:before': {
+                            display: 'none',
+                          },
+                          opacity: 0,
+                          animation: 'slideIn 0.5s forwards',
+                          animationDelay: `${index * 0.1}s`,
+                          '@keyframes slideIn': {
+                            to: {
+                              opacity: 1,
+                              transform: 'translateX(0)',
+                            },
+                          },
+                        }}
+                      >
+                        <TimelineSeparator>
+                          <TimelineDot
+                            sx={{
+                              m: 0,
+                              width: 28,
+                              height: 28,
+                              bgcolor: getActivityColor(activity.type),
+                              boxShadow: 2,
+                              transition: 'all 0.3s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              '&:hover': {
+                                transform: 'scale(1.2)',
+                                boxShadow: 4,
+                              },
+                            }}
+                          >
+                            {getActivityIcon(activity.type)}
+                          </TimelineDot>
+                          {index < recentActivities.length - 1 && (
+                            <TimelineConnector 
+                              sx={{ 
+                                minHeight: 10,
+                                bgcolor: alpha(theme.palette.primary.main, 0.12),
+                              }} 
+                            />
+                          )}
+                        </TimelineSeparator>
+                        <TimelineContent sx={{ py: '4px', px: 2 }}>
+                          <Box
+                            sx={{
+                              bgcolor: alpha(theme.palette.background.paper, 0.8),
+                              backdropFilter: 'blur(8px)',
+                              borderRadius: 1,
+                              p: 1.5,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              transition: 'all 0.3s',
+                              '&:hover': {
+                                transform: 'translateX(8px)',
+                                borderColor: 'primary.main',
+                                bgcolor: alpha(theme.palette.primary.main, 0.04),
+                                boxShadow: theme.shadows[4],
+                              },
+                            }}
+                          >
+                            <Box display="flex" alignItems="center" justifyContent="space-between">
+                              <Typography variant="subtitle2" sx={{ mb: 0, fontSize: '0.875rem', fontWeight: 600 }}>
+                                {activity.title || activity.message}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: 'text.disabled',
+                                  ml: 1,
+                                  fontSize: '0.75rem',
+                                }}
+                              >
+                                {activity.time}
+                              </Typography>
+                            </Box>
+                            <Typography 
+                              variant="body2" 
+                              color="text.secondary"
+                              sx={{ 
+                                mt: 0.5,
+                                fontSize: '0.8125rem',
+                                display: activityExpanded ? 'block' : '-webkit-box',
+                                WebkitLineClamp: 1,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              {activity.description}
+                            </Typography>
+                          </Box>
+                        </TimelineContent>
+                      </TimelineItem>
+                    ))}
+                  </Timeline>
+                </Box>
+              </Collapse>
+            </Paper>
+          </Box>
+        </Grid>
+
+        {/* Quick Opportunities and Currently Tracking */}
+        <Grid item xs={12}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' },
+              gap: 3,
+            }}
+          >
+            {/* Quick Opportunities */}
+            <Box>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  mb: 2,
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Quick Opportunities
+                  </Typography>
+                  <Chip 
+                    label={`${quickOpportunities.length} Available`}
+                    size="small"
+                    sx={{ 
+                      bgcolor: alpha(theme.palette.primary.main, 0.1),
+                      fontWeight: 500,
+                      height: 24,
+                    }}
+                  />
+                </Box>
+                <Button
+                  variant="text"
+                  size="small"
+                  endIcon={<ArrowForwardIcon />}
+                  component={Link}
+                  href="/opportunities"
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': {
+                      color: 'primary.main',
+                      bgcolor: 'transparent',
+                      '& .MuiSvgIcon-root': {
+                        transform: 'translateX(4px)',
+                      },
+                    },
+                    '& .MuiSvgIcon-root': {
+                      transition: 'transform 0.2s',
+                    },
+                  }}
+                >
+                  View All
+                </Button>
+              </Box>
+              <Stack spacing={2}>
+                {quickOpportunities.map((opp) => (
+                  <OpportunityCard key={opp.id} opportunity={opp} />
+                ))}
+              </Stack>
+            </Box>
+
+            {/* Currently Tracking */}
+            <Box>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  mb: 2,
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Currently Tracking
+                  </Typography>
+                  <Chip 
+                    label={`${trackedOpportunities.length} Active`}
+                    size="small"
+                    component={Link}
+                    href="/track"
+                    clickable
+                    sx={{ 
+                      bgcolor: alpha(theme.palette.success.main, 0.1),
+                      color: 'success.main',
+                      fontWeight: 500,
+                      height: 24,
+                      textDecoration: 'none',
+                      '&:hover': {
+                        bgcolor: alpha(theme.palette.success.main, 0.2),
+                      },
+                    }}
+                  />
+                </Box>
+                <IconButton
+                  size="small"
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': {
+                      color: 'primary.main',
+                      bgcolor: alpha(theme.palette.primary.main, 0.1),
+                      transform: 'rotate(180deg)',
+                    },
+                    transition: 'all 0.3s',
+                  }}
+                >
+                  <RefreshIcon />
+                </IconButton>
+              </Box>
+              <Stack spacing={2}>
+                {trackedOpportunities.map((opp) => (
+                  <ProgressCard key={opp.id} opportunity={opp} />
+                ))}
+              </Stack>
+            </Box>
+          </Box>
+        </Grid>
+      </Grid>
+    </Container>
   );
 }
