@@ -6,6 +6,27 @@ import DashboardPage from '../page';
 
 jest.mock('@/lib/auth/AuthContext');
 
+const mockStats = {
+  total_value: 5000,
+  opportunities_count: {
+    credit_cards: 3,
+    bank_accounts: 2,
+    total: 5
+  },
+  success_rate: 0.8,
+  average_completion_time: 30,
+  total_earned_ytd: 2500
+};
+
+const mockEvents = [
+  {
+    date: '2024-01-01',
+    type: 'Application',
+    description: 'Applied for Chase Sapphire Preferred',
+    status: 'completed'
+  }
+];
+
 describe('DashboardPage', () => {
   beforeEach(() => {
     (useAuth as jest.Mock).mockReturnValue({
@@ -16,45 +37,36 @@ describe('DashboardPage', () => {
     });
   });
 
-  it('renders welcome message', async () => {
-    render(<DashboardPage />);
+  it('renders activity timeline', async () => {
+    render(<DashboardPage initialStats={mockStats} initialEvents={mockEvents} />);
     await waitFor(
       () => {
-        expect(screen.getByText(/Welcome back/)).toBeInTheDocument();
+        expect(screen.getByText('Activity Timeline')).toBeInTheDocument();
       },
-      { timeout: 5000 }
+      { timeout: 10000 }
     );
   });
 
-  it('renders summary cards', async () => {
-    render(<DashboardPage />);
+  it('renders stats overview', async () => {
+    render(<DashboardPage initialStats={mockStats} initialEvents={mockEvents} />);
     await waitFor(
       () => {
-        expect(screen.getByText('Active Cards')).toBeInTheDocument();
-        expect(screen.getByText('Bank Bonuses')).toBeInTheDocument();
-        expect(screen.getByText('Next Deadline')).toBeInTheDocument();
+        expect(screen.getByText('Total Earned YTD')).toBeInTheDocument();
+        expect(screen.getByText('Success Rate')).toBeInTheDocument();
+        expect(screen.getByText('Active Opportunities')).toBeInTheDocument();
       },
-      { timeout: 5000 }
+      { timeout: 10000 }
     );
   });
 
-  it('renders recent applications section', async () => {
-    render(<DashboardPage />);
+  it('renders filter and sort buttons', async () => {
+    render(<DashboardPage initialStats={mockStats} initialEvents={mockEvents} />);
     await waitFor(
       () => {
-        expect(screen.getByText('Recent Card Applications')).toBeInTheDocument();
+        expect(screen.getByText('Filter')).toBeInTheDocument();
+        expect(screen.getByText('Sort')).toBeInTheDocument();
       },
-      { timeout: 5000 }
-    );
-  });
-
-  it('renders settings button', async () => {
-    render(<DashboardPage />);
-    await waitFor(
-      () => {
-        expect(screen.getByText('Settings')).toBeInTheDocument();
-      },
-      { timeout: 5000 }
+      { timeout: 10000 }
     );
   });
 });

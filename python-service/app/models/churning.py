@@ -1,47 +1,52 @@
-from typing import List, Dict, Any, Literal
-from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional
 from datetime import datetime
+from pydantic import BaseModel, Field
+
+class RedditComment(BaseModel):
+    """Model for a Reddit comment."""
+    id: str
+    body: str
+    author: str
+    created_utc: float
 
 class RedditContent(BaseModel):
-    thread_id: str = Field(description="Reddit thread ID for URL construction")
-    thread_title: str
-    thread_content: str
-    thread_permalink: str = Field(description="Full Reddit permalink for the thread")
-    comments: List[str]
+    """Model for Reddit content to be analyzed."""
+    thread_id: str
+    title: str
+    content: str
+    comments: List[Dict[str, Any]]  # Changed to accept raw comment dictionaries
+    created_utc: float
+
+class OpportunityMetadata(BaseModel):
+    """Model for opportunity metadata matching frontend schema."""
+    signupBonus: Optional[str] = None
+    spendRequirement: Optional[str] = None
+    annualFee: Optional[str] = None
+    categoryBonuses: Optional[Dict[str, str]] = None
+    benefits: Optional[List[str]] = None
+    accountType: Optional[str] = None
+    bonusAmount: Optional[str] = None
+    directDepositRequired: Optional[bool] = None
+    minimumBalance: Optional[str] = None
+    monthlyFees: Optional[str] = None
+    avoidableFees: Optional[bool] = None
 
 class BaseOpportunity(BaseModel):
-    id: str = Field(description="Unique identifier for the opportunity")
-    title: str = Field(description="Title of the opportunity")
-    type: Literal["credit_card", "bank_account"] = Field(description="Type of opportunity")
-    value: str = Field(description="Estimated value of the opportunity")
-    bank: str = Field(description="Name of the bank or card issuer")
-    description: str = Field(description="Detailed description of the opportunity")
-    requirements: List[str] = Field(description="List of requirements to qualify")
-    source: Literal["reddit", "doc"] = Field(description="Source of the opportunity")
-    source_link: str = Field(description="Link to the source")
-    posted_date: str = Field(description="Date when the opportunity was posted")
-    expiration_date: str = Field(description="Expiration date of the opportunity")
-    confidence: float = Field(description="Confidence score of the AI analysis", ge=0, le=1)
-    status: str = Field(default="active", description="Status of the opportunity")
-
-class CreditCardOpportunity(BaseOpportunity):
-    type: Literal["credit_card"] = "credit_card"
-    signup_bonus: str = Field(description="Signup bonus details")
-    spend_requirement: str = Field(description="Spending requirement details")
-    annual_fee: str = Field(description="Annual fee amount")
-    category_bonuses: Dict[str, str] = Field(default_factory=dict, description="Category spending bonuses")
-    benefits: List[str] = Field(default_factory=list, description="Card benefits")
-
-class BankAccountOpportunity(BaseOpportunity):
-    type: Literal["bank_account"] = "bank_account"
-    account_type: str = Field(description="Type of bank account")
-    bonus_amount: str = Field(description="Bonus amount")
-    direct_deposit_required: bool = Field(description="Whether direct deposit is required")
-    minimum_balance: str = Field(description="Minimum balance requirement")
-    monthly_fees: str = Field(description="Monthly fees")
-    avoidable_fees: bool = Field(description="Whether fees can be avoided")
+    """Base model for churning opportunities."""
+    title: str
+    type: str  # "credit_card" or "bank_account"
+    value: float  # Changed from str to float
+    bank: str
+    description: str
+    requirements: List[str]
+    source: str = "reddit"
+    sourceLink: str
+    postedDate: Optional[datetime] = None
+    expirationDate: Optional[datetime] = None
+    confidence: float
+    status: str = "active"
+    metadata: Optional[Dict[str, Any]] = None
 
 class ChurningAnalysis(BaseModel):
-    opportunities: List[BaseOpportunity] = Field(description="List of churning opportunities")
-    summary: Dict[str, Any] = Field(description="Summary of opportunities")
-    risk_assessment: Dict[str, Any] = Field(description="Risk assessment of opportunities") 
+    """Model for churning analysis results."""
+    opportunities: List[BaseOpportunity] 
