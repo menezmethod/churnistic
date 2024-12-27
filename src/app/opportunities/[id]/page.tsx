@@ -89,10 +89,22 @@ export default function OpportunityDetailsPage() {
   }
 
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM d, yyyy');
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+      return format(date, 'MMM d, yyyy');
+    } catch {
+      return 'Invalid date';
+    }
   };
 
-  const DetailSection: React.FC<DetailSectionProps> = ({ title, icon: Icon, children }) => (
+  const DetailSection: React.FC<DetailSectionProps> = ({
+    title,
+    icon: Icon,
+    children,
+  }) => (
     <Paper
       elevation={0}
       sx={{

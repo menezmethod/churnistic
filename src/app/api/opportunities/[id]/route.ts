@@ -1,38 +1,30 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-interface Opportunity {
-  id: string;
-  title: string;
-  type: 'credit_card' | 'bank_account';
-  value: string | number;
-  bank: string;
-  description: string;
-  requirements: string[];
-  source: string;
-  sourceLink: string;
-  postedDate: string;
-  expirationDate?: string;
-  confidence: number;
-  status: string;
-}
+import { ChurningOpportunity } from '@/types/churning';
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
+    const { id } = await context.params;
     const res = await fetch('http://localhost:8000/opportunities/recent');
     if (!res.ok) {
       throw new Error('Failed to fetch opportunities');
     }
 
     const opportunities = await res.json();
-    const opportunity = opportunities.find((opp: Opportunity) => opp.id === params.id);
+    const opportunity = opportunities.find((opp: ChurningOpportunity) => opp.id === id);
 
     if (!opportunity) {
-      return new NextResponse(null, { status: 404 });
+      return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
     }
 
     return NextResponse.json(opportunity);
   } catch (error) {
-    console.error('Error:', error);
-    return new NextResponse(null, { status: 500 });
+    const message =
+      error instanceof Error ? error.message : 'Failed to fetch opportunity';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
