@@ -26,4 +26,4 @@ export interface ChurningSummary {
 export interface RiskAssessmentData {
   overview: string;
   overall_risk_level: number;
-} 
+}
