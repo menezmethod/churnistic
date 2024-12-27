@@ -90,4 +90,10 @@ export interface Opportunity {
   confidence: number;
   status: 'active' | 'expired' | 'pending';
   metadata: OpportunityMetadata;
+  disclosure?: string;
+  url?: string;
+  institution?: string;
+  created_at?: string;
+  last_updated?: string;
+  offer_link?: string;
 }
