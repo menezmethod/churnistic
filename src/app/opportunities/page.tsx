@@ -43,6 +43,7 @@ import {
   Collapse,
   Paper,
 } from '@mui/material';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -1047,6 +1048,17 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
               </Box>
             </>
           )}
+          <Box mt={2}>
+            <Link
+              href={`/opportunities/${opportunity.id}`}
+              passHref
+              style={{ textDecoration: 'none' }}
+            >
+              <Button variant="contained" color="primary" fullWidth>
+                View Details
+              </Button>
+            </Link>
+          </Box>
         </Box>
       </Collapse>
     </Paper>

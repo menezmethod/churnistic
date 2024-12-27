@@ -10,27 +10,41 @@ import { SummaryCard } from './SummaryCard';
 const mockOpportunities: ChurningOpportunity[] = [
   {
     id: '1',
+    type: 'credit_card',
     title: 'Chase Sapphire Preferred',
     description: 'Earn 60,000 bonus points after spending $4,000 in the first 3 months',
     value: '600',
     status: 'active',
-    requirements: ['Spend $4,000 in first 3 months', 'No previous Sapphire bonus in 48 months'],
-    bank: 'Chase',
-    type: 'credit_card',
-    metadata: {
-      accountType: 'credit_card',
-      fees: {
-        monthly: 'None',
-        details: 'Annual fee: $95',
-      },
-      availability: {
-        regions: 'Nationwide',
-        household_limit: '1 per household',
-      },
-      lastVerified: '2024-01-01',
-    },
+    card_name: 'Chase Sapphire Preferred',
+    bank_name: 'Chase',
+    signup_bonus: '60,000 points',
+    bonus_amount: '$600',
+    requirements: [
+      'Spend $4,000 in first 3 months',
+      'No previous Sapphire bonus in 48 months',
+    ],
+    risk_level: 2,
+    time_limit: '3 months',
+    expiration: '2024-12-31',
+    source: 'Chase',
   },
-  // Add more mock opportunities as needed
+  {
+    id: '2',
+    type: 'credit_card',
+    title: 'Capital One Venture',
+    description: 'Earn 75,000 miles after spending $4,000 in the first 3 months',
+    value: '750',
+    status: 'active',
+    card_name: 'Capital One Venture',
+    bank_name: 'Capital One',
+    signup_bonus: '75,000 miles',
+    bonus_amount: '$750',
+    requirements: ['Spend $4,000 in first 3 months'],
+    risk_level: 1,
+    time_limit: '3 months',
+    expiration: '2024-12-31',
+    source: 'Capital One',
+  },
 ];
 
 const mockRiskAssessment = {
