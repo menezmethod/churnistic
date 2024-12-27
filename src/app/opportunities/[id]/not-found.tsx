@@ -22,15 +22,15 @@ export default function NotFound() {
       <Typography variant="body1" color="text.secondary">
         Could not find the requested opportunity.
       </Typography>
-      <Button
-        component={Link}
-        href="/opportunities"
-        startIcon={<ArrowBackIcon />}
-        variant="contained"
-        sx={{ textTransform: 'none' }}
-      >
-        Back to Opportunities
-      </Button>
+      <Link href="/opportunities" style={{ textDecoration: 'none' }}>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          variant="contained"
+          sx={{ textTransform: 'none' }}
+        >
+          Back to Opportunities
+        </Button>
+      </Link>
     </Box>
   );
 }

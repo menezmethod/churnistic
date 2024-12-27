@@ -114,6 +114,8 @@ interface BankRewardsOpportunity {
   tracking: BankRewardsTracking;
   created_at: string;
   last_updated: string;
+  url?: string;
+  offer_link?: string;
 }
 
 interface BankRewardsResponse {
@@ -156,11 +158,13 @@ export async function GET() {
             description: opp.description,
             requirements: opp.requirements,
             source: opp.source.name,
-            sourceLink: opp.institution_details?.offer_link || opp.source.url,
+            sourceLink: opp.source.url,
             postedDate: opp.timing?.posted_date || opp.created_at,
             expirationDate: opp.timing?.expiration || null,
             confidence: 1,
             status: 'active',
+            url: opp.url,
+            offer_link: opp.offer_link,
             metadata: {
               accountType: opp.type,
               fees:
