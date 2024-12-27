@@ -4,29 +4,45 @@ import React from 'react';
 
 interface ChurningOpportunity {
   id: string;
-  type: string;
+  type: 'credit_card' | 'bank_account' | 'brokerage';
   title: string;
   description: string;
   value: string;
   status: string;
-  card_name?: string;
-  bank_name?: string;
-  signup_bonus?: string;
-  bonus_amount?: string;
+  bank: string;
   requirements: string[];
-  risk_level: number;
-  time_limit?: string;
-  expiration: string;
-  source: string;
+  metadata?: {
+    accountType: string;
+    fees: {
+      monthly: string;
+      details: string;
+    };
+    availability: {
+      regions: string;
+      household_limit: string;
+    };
+    lastVerified: string;
+  };
 }
 
 const columns: GridColDef[] = [
   { field: 'type', headerName: 'Type', width: 130 },
-  { field: 'title', headerName: 'Title', width: 200 },
-  { field: 'description', headerName: 'Description', width: 300 },
-  { field: 'value', headerName: 'Value', width: 130 },
-  { field: 'risk_level', headerName: 'Risk Level', width: 130 },
-  { field: 'expiration', headerName: 'Expiration', width: 130 },
+  { field: 'bank', headerName: 'Bank', width: 200 },
+  { field: 'title', headerName: 'Title', width: 300 },
+  {
+    field: 'value',
+    headerName: 'Value',
+    width: 130,
+    valueFormatter: (params) => {
+      if (typeof params.value === 'number') {
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        }).format(params.value);
+      }
+      return params.value;
+    },
+  },
   {
     field: 'requirements',
     headerName: 'Requirements',
@@ -34,6 +50,12 @@ const columns: GridColDef[] = [
     renderCell: (params) => (
       <div style={{ whiteSpace: 'pre-wrap' }}>{params.value.join(', ')}</div>
     ),
+  },
+  {
+    field: 'regions',
+    headerName: 'Availability',
+    width: 200,
+    valueGetter: (params) => params.row.metadata?.availability?.regions || 'Unknown',
   },
 ];
 
@@ -47,19 +69,22 @@ export const OpportunitiesGrid: React.FC<OpportunitiesGridProps> = ({
   onRowClick,
 }) => {
   return (
-    <Box sx={{ width: '100%', height: 400 }}>
+    <Box sx={{ width: '100%', height: 600 }}>
       <Typography variant="h6" gutterBottom>
-        Churning Opportunities
+        Available Opportunities ({opportunities.length})
       </Typography>
       <DataGrid
         rows={opportunities}
         columns={columns}
         initialState={{
           pagination: {
-            paginationModel: { page: 0, pageSize: 5 },
+            paginationModel: { page: 0, pageSize: 10 },
+          },
+          sorting: {
+            sortModel: [{ field: 'value', sort: 'desc' }],
           },
         }}
-        pageSizeOptions={[5, 10]}
+        pageSizeOptions={[10, 25, 50]}
         checkboxSelection
         disableRowSelectionOnClick
         onRowClick={onRowClick}

@@ -7,31 +7,42 @@ import { OpportunitiesGrid } from './OpportunitiesGrid';
 import { RiskAssessmentCard } from './RiskAssessmentCard';
 import { SummaryCard } from './SummaryCard';
 
-const mockOpportunities = [
+const mockOpportunities: ChurningOpportunity[] = [
   {
     id: '1',
-    title: 'Test Opportunity',
-    description: 'Test Description',
-    value: '1000',
+    title: 'Chase Sapphire Preferred',
+    description: 'Earn 60,000 bonus points after spending $4,000 in the first 3 months',
+    value: '600',
     status: 'active',
-    requirements: ['req1', 'req2'],
-    risk_level: 2,
-    expiration: '2024-12-31',
-    source: 'test',
-    type: 'credit_card'
-  }
+    requirements: ['Spend $4,000 in first 3 months', 'No previous Sapphire bonus in 48 months'],
+    bank: 'Chase',
+    type: 'credit_card',
+    metadata: {
+      accountType: 'credit_card',
+      fees: {
+        monthly: 'None',
+        details: 'Annual fee: $95',
+      },
+      availability: {
+        regions: 'Nationwide',
+        household_limit: '1 per household',
+      },
+      lastVerified: '2024-01-01',
+    },
+  },
+  // Add more mock opportunities as needed
 ];
 
 const mockRiskAssessment = {
   overview: 'Test Risk Assessment',
-  overall_risk_level: 2
+  overall_risk_level: 2,
 };
 
 const mockSummary = {
   overview: 'Test Summary',
   total_opportunities: 1,
   total_value: 1000,
-  average_risk: 2
+  average_risk: 2,
 };
 
 export default function ChurningDashboard() {
@@ -44,7 +55,7 @@ export default function ChurningDashboard() {
       <Box sx={{ mt: 4, mb: 4 }}>
         <Grid container spacing={3}>
           <Grid item xs={12} md={8}>
-            <OpportunitiesGrid 
+            <OpportunitiesGrid
               opportunities={mockOpportunities}
               onRowClick={handleRowClick}
             />

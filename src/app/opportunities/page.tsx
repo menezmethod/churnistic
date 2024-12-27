@@ -1,690 +1,297 @@
 'use client';
 
 import {
-  AccountBalanceWallet as AccountBalanceWalletIcon,
   CheckCircle as CheckCircleIcon,
-  RadioButtonUnchecked as RadioButtonUncheckedIcon,
-  InfoOutlined as InfoOutlinedIcon,
-  Warning as WarningIcon,
-  ErrorOutline as ErrorOutlineIcon,
   AttachMoney as AttachMoneyIcon,
   Payments as PaymentsIcon,
-  CalendarToday as CalendarTodayIcon,
   Verified as VerifiedIcon,
   MonetizationOn as MonetizationOnIcon,
-  Search as SearchIcon,
-  Launch as LaunchIcon,
   CreditCard as CreditCardIcon,
   AccountBalance as AccountBalanceIcon,
-  Schedule as ScheduleIcon,
   ExpandMore as ExpandMoreIcon,
-  Assessment,
   AssignmentTurnedIn,
   Refresh as RefreshIcon,
-  ArrowForward as ArrowForwardIcon,
   Timer as TimerIcon,
+  Public as PublicIcon,
+  Block as BlockIcon,
+  ShoppingCart as ShoppingCartIcon,
+  Diamond as DiamondIcon,
+  Tune as TuneIcon,
+  Check as CheckIcon,
+  CreditScore as CreditScoreIcon,
+  Search as SearchIcon,
+  AccountBalanceWallet as AccountBalanceWalletIcon,
 } from '@mui/icons-material';
 import {
   Box,
   Container,
-  Grid,
   Typography,
   Chip,
   useTheme,
   alpha,
   Button,
-  TextField,
-  InputAdornment,
   CircularProgress,
   Alert,
-  Collapse,
   Divider,
   Stack,
   Menu,
   MenuItem,
+  ListItemIcon,
+  ListItemText,
+  TextField,
+  InputAdornment,
+  Collapse,
   Paper,
 } from '@mui/material';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { useOpportunities } from '@/hooks/useOpportunities';
 import { useAuth } from '@/lib/auth/AuthContext';
-
-// Constants and types
-const RISK_LEVELS = {
-  LOW: { max: 2, icon: CheckCircleIcon, color: 'success' },
-  MEDIUM: { max: 3, icon: InfoOutlinedIcon, color: 'info' },
-  HIGH: { max: 4, icon: WarningIcon, color: 'warning' },
-  CRITICAL: { max: 5, icon: ErrorOutlineIcon, color: 'error' },
-} as const;
-
-const REQUIREMENT_TYPES = {
-  SPEND: { match: ['spend', 'purchase'], icon: AttachMoneyIcon },
-  DEPOSIT: { match: ['direct deposit', 'payment'], icon: PaymentsIcon },
-  BALANCE: { match: ['balance', 'maintain'], icon: AccountBalanceWalletIcon },
-  TIME: { match: ['days', 'month', 'time'], icon: CalendarTodayIcon },
-  APPROVAL: { match: ['approved', 'eligible'], icon: VerifiedIcon },
-  BONUS: { match: ['bonus', 'points', 'reward'], icon: MonetizationOnIcon },
-  DEFAULT: { match: [], icon: InfoOutlinedIcon },
-} as const;
-
-// Utility functions
-const formatCurrency = (value: number | string) => {
-  const numericValue =
-    typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g, '')) : value;
-  return !isNaN(numericValue)
-    ? numericValue.toLocaleString('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-      })
-    : '$0.00';
-};
-
-const getRiskLevel = (level: number = 0) => {
-  const riskLevel =
-    Object.values(RISK_LEVELS).find((r) => level <= r.max) ?? RISK_LEVELS.CRITICAL;
-  const Icon = riskLevel.icon;
-  return {
-    icon: <Icon fontSize="small" color="inherit" />,
-    color: riskLevel.color,
-  };
-};
-
-const getRequirementType = (requirement: string) => {
-  const text = requirement.toLowerCase();
-  const type =
-    Object.values(REQUIREMENT_TYPES).find((t) => t.match.some((m) => text.includes(m))) ??
-    REQUIREMENT_TYPES.DEFAULT;
-
-  const Icon = type.icon;
-  return <Icon fontSize="small" sx={{ color: 'text.secondary' }} />;
-};
-
-// Reusable components
-
-const SearchBar = ({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) => {
-  const theme = useTheme();
-
-  return (
-    <TextField
-      placeholder="Search opportunities..."
-      size="small"
-      fullWidth
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      sx={{
-        '& .MuiOutlinedInput-root': {
-          bgcolor:
-            theme.palette.mode === 'dark'
-              ? alpha(theme.palette.background.paper, 0.6)
-              : alpha(theme.palette.background.paper, 0.8),
-          borderRadius: 1,
-          '& fieldset': {
-            borderColor:
-              theme.palette.mode === 'dark'
-                ? alpha(theme.palette.primary.main, 0.2)
-                : alpha(theme.palette.primary.main, 0.1),
-          },
-          '&:hover fieldset': {
-            borderColor: alpha(theme.palette.primary.main, 0.3),
-          },
-          '&.Mui-focused fieldset': {
-            borderColor: theme.palette.primary.main,
-          },
-        },
-        '& .MuiInputBase-input': {
-          color: theme.palette.text.primary,
-        },
-      }}
-      InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">
-            <SearchIcon sx={{ color: 'text.secondary' }} />
-          </InputAdornment>
-        ),
-      }}
-    />
-  );
-};
+import { Opportunity } from '@/types/opportunity';
 
 // Add types for opportunities
-interface OpportunityMetadata {
-  signupBonus?: string;
-  spendRequirement?: string;
-  annualFee?: string;
-  categoryBonuses?: Record<string, string>;
-  benefits?: string[];
-  accountType?: string;
-  bonusAmount?: string;
-  directDepositRequired?: boolean;
-  minimumBalance?: string;
-  monthlyFees?: string;
-  avoidableFees?: boolean;
-  progress?: number;
-  target?: number;
-  riskLevel?: number;
-  riskFactors?: string[];
-  notifications?: Array<{
-    type: string;
-    message: string;
-    date: string;
-  }>;
-  completedRequirements?: string[];
-}
-
-interface Opportunity {
-  id: string;
-  title: string;
-  type: 'credit_card' | 'bank_account';
-  value: number | string;
-  bank: string;
-  description: string;
-  requirements: string[];
-  source: 'reddit' | 'doc';
-  sourceLink: string;
-  postedDate: string;
-  expirationDate?: string;
-  confidence: number;
-  status: string;
-  metadata?: OpportunityMetadata | null;
-  timeframe?: string;
-}
-
-const ValueDisplay = ({ value }: { value: string | number }) => {
-  const theme = useTheme();
-  const [isHovered, setIsHovered] = useState(false);
-  const isDark = theme.palette.mode === 'dark';
-
-  // Helper function to safely parse and format the value
-  const displayValue = (val: string | number) => {
-    if (typeof val === 'number') return formatCurrency(val);
-    // Remove any existing currency formatting
-    const numericValue = parseFloat(val.replace(/[$,]/g, ''));
-    return isNaN(numericValue) ? '$0' : formatCurrency(numericValue);
-  };
-
-  return (
-    <Box
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      sx={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1,
-        p: 1.5,
-        borderRadius: 2,
-        border: '1px solid',
-        borderColor: isHovered
-          ? alpha(theme.palette.primary.main, isDark ? 0.5 : 0.3)
-          : alpha(theme.palette.divider, isDark ? 0.2 : 0.1),
-        background: isHovered
-          ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.primary.light, 0.02)})`
-          : 'transparent',
-        backdropFilter: 'blur(8px)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
-        boxShadow: isHovered
-          ? `0 4px 20px ${alpha(theme.palette.primary.main, 0.15)}`
-          : 'none',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderRadius: 2,
-          border: '1px solid',
-          borderColor: 'transparent',
-          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)}, ${alpha(theme.palette.primary.light, 0.2)})`,
-          opacity: isHovered ? 1 : 0,
-          transition: 'opacity 0.3s',
-          zIndex: -1,
-        },
-      }}
-    >
-      <Typography
-        variant="h4"
-        component="span"
-        sx={{
-          fontWeight: 700,
-          background: isHovered
-            ? `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`
-            : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.9)}, ${alpha(theme.palette.primary.light, 0.9)})`,
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          transition: 'all 0.3s',
-          filter: isHovered ? 'brightness(1.2) contrast(1.1)' : 'none',
-          textShadow: isHovered
-            ? `0 0 20px ${alpha(theme.palette.primary.main, 0.3)}`
-            : 'none',
-          letterSpacing: '0.02em',
-          transform: isHovered ? 'scale(1.02)' : 'scale(1)',
-        }}
-      >
-        {displayValue(value)}
-      </Typography>
-      <Box
-        component={motion.div}
-        animate={{
-          x: isHovered ? [0, 4, 0] : 0,
-          opacity: isHovered ? 1 : 0,
-        }}
-        transition={{
-          duration: 0.5,
-          ease: 'easeInOut',
-        }}
-      >
-        <ArrowForwardIcon
-          sx={{
-            color: theme.palette.primary.main,
-            fontSize: '1.5rem',
-            filter: `drop-shadow(0 0 8px ${alpha(theme.palette.primary.main, 0.4)})`,
-          }}
-        />
-      </Box>
-    </Box>
-  );
-};
-
-const ProgressIndicator = ({
-  progress,
-  target,
-}: {
-  progress: number;
-  target: number;
-}) => {
-  const percentage = target > 0 ? (progress / target) * 100 : 0;
-  const isComplete = percentage >= 100;
-  const color = isComplete ? 'success' : 'primary';
-
-  return (
-    <Box position="relative" display="flex" alignItems="center" gap={2}>
-      <Box position="relative" sx={{ width: 48, height: 48 }}>
-        <CircularProgress
-          variant="determinate"
-          value={100}
-          size={48}
-          thickness={4}
-          sx={{ color: 'action.hover', position: 'absolute' }}
-        />
-        <CircularProgress
-          variant="determinate"
-          value={Math.min(percentage, 100)}
-          size={48}
-          thickness={4}
-          color={color}
-          sx={{
-            position: 'absolute',
-            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-        />
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            bottom: 0,
-            right: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Typography
-            variant="caption"
-            sx={{
-              color: `${color}.main`,
-              fontWeight: 'medium',
-              transition: 'all 0.3s',
-            }}
-          >
-            {Math.round(percentage)}%
-          </Typography>
-        </Box>
-      </Box>
-      <Box flex={1}>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          Progress
-        </Typography>
-        <Typography variant="body2">
-          {formatCurrency(progress)} of {formatCurrency(target)}
-        </Typography>
-      </Box>
-    </Box>
-  );
-};
-
-const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
-  const theme = useTheme();
-  const [expanded, setExpanded] = useState(false);
-  const [hasBeenExpanded, setHasBeenExpanded] = useState(false);
-  const progress = opportunity.metadata?.progress || 0;
-  const target = opportunity.metadata?.target || 0;
-  const isDark = theme.palette.mode === 'dark';
-
-  const handleExpand = () => {
-    setExpanded(!expanded);
-    if (!hasBeenExpanded) {
-      setHasBeenExpanded(true);
-    }
-  };
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        mb: 2,
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        transform: expanded ? 'scale(1.01)' : 'scale(1)',
-        bgcolor: isDark
-          ? alpha(theme.palette.background.paper, 0.6)
-          : 'background.default',
-        borderColor: isDark ? alpha(theme.palette.divider, 0.3) : 'divider',
-        backdropFilter: 'blur(8px)',
-        '&:hover': {
-          boxShadow: expanded ? 4 : 2,
-          transform: expanded ? 'scale(1.01)' : 'scale(1.005)',
-          borderColor: isDark
-            ? theme.palette.primary.main
-            : alpha(theme.palette.primary.main, 0.5),
-          bgcolor: isDark
-            ? alpha(theme.palette.background.paper, 0.8)
-            : 'background.default',
-        },
-      }}
-    >
-      <Box
-        p={2}
-        display="flex"
-        alignItems="center"
-        justifyContent="space-between"
-        onClick={handleExpand}
-        sx={{
-          cursor: 'pointer',
-          position: 'relative',
-          overflow: 'hidden',
-          '&:hover': {
-            bgcolor: isDark
-              ? alpha(theme.palette.primary.main, 0.15)
-              : alpha(theme.palette.primary.main, 0.05),
-          },
-        }}
-      >
-        <Box display="flex" alignItems="center" gap={2}>
-          {opportunity.type === 'credit_card' ? (
-            <CreditCardIcon
-              color="primary"
-              sx={{
-                fontSize: '2rem',
-                transition: 'transform 0.3s',
-                transform: expanded ? 'rotate(360deg)' : 'none',
-              }}
-            />
-          ) : (
-            <AccountBalanceIcon
-              color="primary"
-              sx={{
-                fontSize: '2rem',
-                transition: 'transform 0.3s',
-                transform: expanded ? 'rotate(360deg)' : 'none',
-              }}
-            />
-          )}
-          <Box>
-            <Typography
-              variant="h6"
-              sx={{
-                mb: 0.5,
-                transition: 'color 0.3s',
-                color: expanded ? 'primary.main' : 'text.primary',
-              }}
-            >
-              {opportunity.title}
-            </Typography>
-            <Box display="flex" alignItems="center" gap={1}>
-              <Chip
-                size="small"
-                label={opportunity.bank}
-                sx={{
-                  bgcolor: expanded
-                    ? alpha(
-                        theme.palette.primary.main,
-                        theme.palette.mode === 'dark' ? 0.2 : 0.1
-                      )
-                    : alpha(
-                        theme.palette.primary.main,
-                        theme.palette.mode === 'dark' ? 0.1 : 0.05
-                      ),
-                  color: expanded ? 'primary.main' : 'text.primary',
-                  transition: 'all 0.3s',
-                  border: '1px solid',
-                  borderColor: expanded ? 'primary.main' : 'transparent',
-                }}
-              />
-              <Box display="flex" alignItems="center" gap={0.5}>
-                <ScheduleIcon sx={{ fontSize: '0.875rem', color: 'text.secondary' }} />
-                <Typography variant="body2" color="text.secondary">
-                  {opportunity.timeframe || '3 months'} timeframe
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-        <Box
-          sx={{
-            ml: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-          }}
-        >
-          <ValueDisplay value={opportunity.value} />
-          {opportunity.timeframe && (
-            <Chip
-              icon={<TimerIcon sx={{ fontSize: '0.875rem !important' }} />}
-              label={opportunity.timeframe}
-              size="small"
-              color="info"
-              variant="outlined"
-              sx={{
-                mt: 1,
-                fontWeight: 500,
-                fontSize: '0.75rem',
-              }}
-            />
-          )}
-        </Box>
-      </Box>
-
-      <Collapse in={expanded} timeout={300}>
-        <Divider />
-        <Box
-          p={2}
-          sx={{
-            bgcolor:
-              theme.palette.mode === 'dark' ? 'background.paper' : 'background.default',
-          }}
-        >
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={8}>
-              <Box mb={3}>
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5,
-                    fontSize: '1.25rem',
-                    fontWeight: 500,
-                    mb: 2,
-                    opacity: hasBeenExpanded ? 1 : 0,
-                    transform: hasBeenExpanded ? 'translateY(0)' : 'translateY(10px)',
-                    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                >
-                  <AssignmentTurnedIn
-                    sx={{
-                      fontSize: '1.5rem',
-                      color: 'primary.main',
-                    }}
-                  />
-                  Requirements
-                </Typography>
-                {opportunity.requirements.map((req, index) => (
-                  <Box
-                    key={index}
-                    sx={{
-                      mt: 2,
-                      opacity: hasBeenExpanded ? 1 : 0,
-                      transform: hasBeenExpanded ? 'translateX(0)' : 'translateX(-10px)',
-                      transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                      transitionDelay: `${index * 0.1}s`,
-                    }}
-                  >
-                    <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                      {getRequirementType(req)}
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: hasBeenExpanded ? 'text.primary' : 'text.secondary',
-                          transition: 'color 0.3s',
-                        }}
-                      >
-                        {req}
-                      </Typography>
-                    </Box>
-                    {index === 0 && target > 0 && (
-                      <ProgressIndicator progress={progress} target={target} />
-                    )}
-                  </Box>
-                ))}
-              </Box>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <Box
-                sx={{
-                  opacity: hasBeenExpanded ? 1 : 0,
-                  transform: hasBeenExpanded ? 'translateY(0)' : 'translateY(20px)',
-                  transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                  transitionDelay: '0.3s',
-                }}
-              >
-                <RiskAssessment
-                  level={opportunity.metadata?.riskLevel || 0}
-                  factors={opportunity.metadata?.riskFactors}
-                />
-              </Box>
-
-              <Box
-                mt={2}
-                sx={{
-                  opacity: hasBeenExpanded ? 1 : 0,
-                  transform: hasBeenExpanded ? 'translateY(0)' : 'translateY(20px)',
-                  transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                  transitionDelay: '0.4s',
-                }}
-              >
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  startIcon={<LaunchIcon />}
-                  component={Link}
-                  href={`/opportunities/${opportunity.id}`}
-                  sx={{
-                    textTransform: 'none',
-                    boxShadow: 2,
-                    background: 'linear-gradient(45deg, primary.main, primary.light)',
-                    transition: 'all 0.3s',
-                    '&:hover': {
-                      boxShadow: 4,
-                      transform: 'translateY(-2px)',
-                    },
-                  }}
-                >
-                  View Details
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
-        </Box>
-      </Collapse>
-    </Paper>
-  );
-};
-
-// Custom hooks for data fetching and state management
-const useOpportunities = () => {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchOpportunities = async () => {
-      try {
-        const response = await fetch('http://localhost:8000/opportunities/recent');
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        setOpportunities(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch opportunities');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOpportunities();
-  }, []);
-
-  return { opportunities, loading, error };
-};
-
-// Add these new types and constants
 interface QuickFilter {
   id: string;
   label: string;
   icon: typeof CreditCardIcon;
   color: string;
+  filter: (opp: Opportunity) => boolean;
 }
 
 const QUICK_FILTERS: QuickFilter[] = [
   {
-    id: 'high_value',
-    label: 'High Value',
+    id: 'premium_offers',
+    label: 'Premium ($500+)',
     icon: MonetizationOnIcon,
-    color: '#2e7d32',
+    color: '#9c27b0',
+    filter: (opp: Opportunity) => opp.value >= 500,
   },
   {
-    id: 'quick_win',
-    label: 'Quick Wins',
-    icon: CheckCircleIcon,
-    color: '#1976d2',
-  },
-  {
-    id: 'credit_cards',
+    id: 'credit_card',
     label: 'Credit Cards',
     icon: CreditCardIcon,
-    color: '#0288d1',
+    color: '#1976d2',
+    filter: (opp: Opportunity) => opp.type === 'credit_card',
   },
   {
-    id: 'bank_accounts',
+    id: 'bank_account',
     label: 'Bank Accounts',
     icon: AccountBalanceIcon,
+    color: '#2e7d32',
+    filter: (opp: Opportunity) => opp.type === 'bank_account',
+  },
+  {
+    id: 'brokerage',
+    label: 'Brokerage',
+    icon: MonetizationOnIcon,
     color: '#ed6c02',
+    filter: (opp: Opportunity) => opp.type === 'brokerage',
+  },
+  {
+    id: 'quick_bonus',
+    label: 'Quick Win',
+    icon: TimerIcon,
+    color: '#0288d1',
+    filter: (opp: Opportunity) =>
+      opp.requirements.some(
+        (req) =>
+          req.toLowerCase().includes('single') ||
+          req.toLowerCase().includes('one time') ||
+          req.toLowerCase().includes('first')
+      ),
+  },
+  {
+    id: 'nationwide',
+    label: 'Nationwide',
+    icon: PublicIcon,
+    color: '#388e3c',
+    filter: (opp: Opportunity) =>
+      opp.metadata?.availability?.regions?.toLowerCase().includes('nationwide') ||
+      opp.metadata?.availability?.regions?.toLowerCase().includes('all states'),
+  },
+];
+
+// Add new types for smart filtering
+interface SmartFilter {
+  id: string;
+  label: string;
+  icon: typeof CreditCardIcon;
+  color: string;
+  filter: (opp: Opportunity) => boolean;
+}
+
+interface FilterGroup {
+  label: string;
+  filters: SmartFilter[];
+}
+
+const FILTER_GROUPS: FilterGroup[] = [
+  {
+    label: 'Value Tiers',
+    filters: [
+      {
+        id: 'ultra_premium',
+        label: 'Ultra ($1000+)',
+        icon: DiamondIcon,
+        color: '#9c27b0',
+        filter: (opp: Opportunity) => opp.value >= 1000,
+      },
+      {
+        id: 'premium',
+        label: 'Premium ($500+)',
+        icon: MonetizationOnIcon,
+        color: '#2e7d32',
+        filter: (opp: Opportunity) => opp.value >= 500 && opp.value < 1000,
+      },
+      {
+        id: 'standard',
+        label: 'Standard ($200+)',
+        icon: AttachMoneyIcon,
+        color: '#1976d2',
+        filter: (opp: Opportunity) => opp.value >= 200 && opp.value < 500,
+      },
+    ],
+  },
+  {
+    label: 'Requirements',
+    filters: [
+      {
+        id: 'direct_deposit',
+        label: 'Direct Deposit',
+        icon: PaymentsIcon,
+        color: '#0288d1',
+        filter: (opp: Opportunity) =>
+          opp.requirements.some((req) => req.toLowerCase().includes('direct deposit')),
+      },
+      {
+        id: 'no_direct_deposit',
+        label: 'No DD Required',
+        icon: BlockIcon,
+        color: '#d32f2f',
+        filter: (opp: Opportunity) =>
+          !opp.requirements.some((req) => req.toLowerCase().includes('direct deposit')),
+      },
+      {
+        id: 'low_spend',
+        label: 'Low Spend',
+        icon: ShoppingCartIcon,
+        color: '#388e3c',
+        filter: (opp: Opportunity) => {
+          const spendMatch = opp.requirements.join(' ').match(/\$(\d+)/);
+          if (!spendMatch) return false;
+          return parseInt(spendMatch[1]) <= 500;
+        },
+      },
+    ],
+  },
+  {
+    label: 'Credit Impact',
+    filters: [
+      {
+        id: 'soft_pull',
+        label: 'Soft Pull Only',
+        icon: CreditScoreIcon,
+        color: '#2e7d32',
+        filter: (opp: Opportunity) =>
+          opp.metadata.credit?.inquiry?.toLowerCase().includes('soft') ?? false,
+      },
+      {
+        id: 'no_524',
+        label: 'No 5/24 Impact',
+        icon: CheckCircleIcon,
+        color: '#1976d2',
+        filter: (opp: Opportunity) =>
+          opp.type === 'credit_card' && !opp.metadata.credit?.chase_524_rule,
+      },
+    ],
+  },
+  {
+    label: 'Fees',
+    filters: [
+      {
+        id: 'no_annual_fee',
+        label: 'No Annual Fee',
+        icon: AttachMoneyIcon,
+        color: '#2e7d32',
+        filter: (opp: Opportunity) =>
+          opp.type === 'credit_card' &&
+          (opp.metadata.fees?.annual?.toLowerCase().includes('no') ?? false),
+      },
+      {
+        id: 'no_monthly_fee',
+        label: 'No Monthly Fee',
+        icon: PaymentsIcon,
+        color: '#2e7d32',
+        filter: (opp: Opportunity) =>
+          (opp.type === 'bank_account' || opp.type === 'brokerage') &&
+          (opp.metadata.fees?.monthly?.toLowerCase().includes('no') ?? false),
+      },
+      {
+        id: 'no_foreign_transaction',
+        label: 'No Foreign Transaction',
+        icon: PublicIcon,
+        color: '#0288d1',
+        filter: (opp: Opportunity) =>
+          opp.type === 'credit_card' &&
+          (opp.metadata.fees?.foreign_transaction?.toLowerCase().includes('no') ?? false),
+      },
+    ],
+  },
+  {
+    label: 'Availability',
+    filters: [
+      {
+        id: 'nationwide',
+        label: 'Nationwide',
+        icon: PublicIcon,
+        color: '#2e7d32',
+        filter: (opp: Opportunity) =>
+          opp.metadata.availability?.regions?.toLowerCase().includes('nationwide'),
+      },
+      {
+        id: 'no_citizenship',
+        label: 'No Citizenship Req.',
+        icon: VerifiedIcon,
+        color: '#0288d1',
+        filter: (opp: Opportunity) =>
+          !opp.metadata.availability?.citizenship_requirements?.length,
+      },
+      {
+        id: 'no_language',
+        label: 'No Language Req.',
+        icon: CheckCircleIcon,
+        color: '#0288d1',
+        filter: (opp: Opportunity) =>
+          !opp.metadata.availability?.language_requirements?.length,
+      },
+    ],
+  },
+  {
+    label: 'Timing',
+    filters: [
+      {
+        id: 'quick_approval',
+        label: 'Quick Approval',
+        icon: TimerIcon,
+        color: '#0288d1',
+        filter: (opp: Opportunity) =>
+          (opp.metadata.timing?.approval_time?.toLowerCase().includes('instant') ??
+            false) ||
+          (opp.metadata.timing?.approval_time?.toLowerCase().includes('same day') ??
+            false),
+      },
+      {
+        id: 'fast_bonus',
+        label: 'Fast Bonus Posting',
+        icon: MonetizationOnIcon,
+        color: '#2e7d32',
+        filter: (opp: Opportunity) => {
+          const time = opp.metadata.timing?.bonus_posting_time?.toLowerCase() || '';
+          return time.includes('day') || time.includes('week');
+        },
+      },
+    ],
   },
 ];
 
@@ -693,20 +300,32 @@ const useOpportunityFilters = (opportunities: Opportunity[]) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'value' | 'risk' | 'date'>('value');
+  const [sortBy, setSortBy] = useState<'value' | 'regions' | 'date'>('value');
+  const [selectedSmartFilters, setSelectedSmartFilters] = useState<string[]>([]);
 
-  // Get unique banks from opportunities
-  const availableBanks = Array.from(new Set(opportunities.map((opp) => opp.bank))).sort();
+  // Get unique banks from valid opportunities
+  const availableBanks = Array.from(
+    new Set(
+      opportunities.filter((opp) => opp && opp.id && opp.bank).map((opp) => opp.bank)
+    )
+  ).sort();
 
   const getFilteredAndSortedOpportunities = () => {
-    let filtered = [...opportunities];
+    // First filter out any invalid opportunities
+    let filtered = opportunities.filter((opp) => opp && opp.id);
 
     // Apply search filter
     if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (opp) =>
-          opp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          opp.bank.toLowerCase().includes(searchTerm.toLowerCase())
+          (opp.title || '').toLowerCase().includes(searchLower) ||
+          (opp.bank || '').toLowerCase().includes(searchLower) ||
+          (opp.description || '').toLowerCase().includes(searchLower) ||
+          (opp.requirements || []).some((req) =>
+            req.toLowerCase().includes(searchLower)
+          ) ||
+          (opp.metadata?.availability?.regions || '').toLowerCase().includes(searchLower)
       );
     }
 
@@ -717,34 +336,36 @@ const useOpportunityFilters = (opportunities: Opportunity[]) => {
 
     // Apply quick filters
     if (activeFilter) {
-      filtered = filtered.filter((opp) => {
-        switch (activeFilter) {
-          case 'high_value':
-            return parseFloat(String(opp.value)) >= 1000;
-          case 'quick_win':
-            return (
-              (opp.metadata?.riskLevel || 0) <= 2 &&
-              (!opp.timeframe || parseInt(opp.timeframe) <= 3)
-            );
-          case 'credit_cards':
-            return opp.type === 'credit_card';
-          case 'bank_accounts':
-            return opp.type === 'bank_account';
-          default:
-            return true;
-        }
-      });
+      const quickFilter = QUICK_FILTERS.find((f) => f.id === activeFilter);
+      if (quickFilter?.filter) {
+        filtered = filtered.filter(quickFilter.filter);
+      }
     }
 
-    // Apply sorting
+    // Apply smart filters
+    if (selectedSmartFilters.length > 0) {
+      const activeFilters = FILTER_GROUPS.flatMap((group) => group.filters).filter(
+        (filter) => selectedSmartFilters.includes(filter.id)
+      );
+
+      filtered = filtered.filter((opp) =>
+        activeFilters.every((filter) => filter.filter(opp))
+      );
+    }
+
+    // Apply sorting with null checks
     return filtered.sort((a, b) => {
       switch (sortBy) {
         case 'value':
-          return parseFloat(String(b.value)) - parseFloat(String(a.value));
-        case 'risk':
-          return (a.metadata?.riskLevel || 0) - (b.metadata?.riskLevel || 0);
+          return (b.value || 0) - (a.value || 0);
+        case 'regions':
+          return (a.metadata?.availability?.regions || 'Unknown').localeCompare(
+            b.metadata?.availability?.regions || 'Unknown'
+          );
         case 'date':
-          return new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime();
+          return (
+            new Date(b.postedDate || 0).getTime() - new Date(a.postedDate || 0).getTime()
+          );
         default:
           return 0;
       }
@@ -752,6 +373,23 @@ const useOpportunityFilters = (opportunities: Opportunity[]) => {
   };
 
   const filteredOpportunities = getFilteredAndSortedOpportunities();
+
+  // Calculate statistics for the filtered results
+  const stats = {
+    total: filteredOpportunities.length,
+    averageValue: Math.round(
+      filteredOpportunities.reduce((sum, opp) => sum + (opp.value || 0), 0) /
+        filteredOpportunities.length
+    ),
+    byType: {
+      credit_card: filteredOpportunities.filter((opp) => opp.type === 'credit_card')
+        .length,
+      bank_account: filteredOpportunities.filter((opp) => opp.type === 'bank_account')
+        .length,
+      brokerage: filteredOpportunities.filter((opp) => opp.type === 'brokerage').length,
+    },
+    highValue: filteredOpportunities.filter((opp) => opp.value >= 500).length,
+  };
 
   return {
     searchTerm,
@@ -763,7 +401,10 @@ const useOpportunityFilters = (opportunities: Opportunity[]) => {
     availableBanks,
     sortBy,
     setSortBy,
+    selectedSmartFilters,
+    setSelectedSmartFilters,
     filteredOpportunities,
+    stats,
   };
 };
 
@@ -879,7 +520,7 @@ const QuickFilters = ({
 
         return (
           <Box
-            key={filter.id}
+            key={`filter-${filter.id}`}
             onClick={() => onFilterChange(isActive ? null : filter.id)}
             sx={{
               display: 'flex',
@@ -933,7 +574,57 @@ const QuickFilters = ({
   );
 };
 
-const OpportunitiesHeader = ({
+// Add SearchBar component
+const SearchBar = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) => {
+  const theme = useTheme();
+
+  return (
+    <TextField
+      placeholder="Search opportunities..."
+      size="small"
+      fullWidth
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      sx={{
+        '& .MuiOutlinedInput-root': {
+          bgcolor:
+            theme.palette.mode === 'dark'
+              ? alpha(theme.palette.background.paper, 0.6)
+              : alpha(theme.palette.background.paper, 0.8),
+          borderRadius: 1,
+        },
+      }}
+      InputProps={{
+        startAdornment: (
+          <InputAdornment position="start">
+            <SearchIcon sx={{ color: 'text.secondary' }} />
+          </InputAdornment>
+        ),
+      }}
+    />
+  );
+};
+
+// Update the OpportunitiesHeader component to show collection status
+interface OpportunitiesHeaderProps {
+  total: number;
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
+  sortBy: string;
+  onSortChange: (value: 'value' | 'regions' | 'date') => void;
+  selectedBank: string | null;
+  onBankChange: (bank: string | null) => void;
+  availableBanks: string[];
+  isCollecting: boolean;
+}
+
+const OpportunitiesHeader: React.FC<OpportunitiesHeaderProps> = ({
   total,
   searchTerm,
   onSearchChange,
@@ -942,249 +633,428 @@ const OpportunitiesHeader = ({
   selectedBank,
   onBankChange,
   availableBanks,
-}: {
-  total: number;
-  searchTerm: string;
-  onSearchChange: (value: string) => void;
-  sortBy: string;
-  onSortChange: (value: 'value' | 'risk' | 'date') => void;
-  selectedBank: string | null;
-  onBankChange: (bank: string | null) => void;
-  availableBanks: string[];
+  isCollecting,
 }) => {
   const theme = useTheme();
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+
+  const handleFilterClick = (filterId: string) => {
+    setSelectedFilters((prev) =>
+      prev.includes(filterId) ? prev.filter((id) => id !== filterId) : [...prev, filterId]
+    );
+  };
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
+    <Box sx={{ mb: 4 }}>
+      {/* Header Title and Stats */}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          mb: 3,
+        }}
+      >
         <Box>
           <Typography
             variant="h4"
-            gutterBottom
             sx={{
-              color: 'text.primary',
               fontWeight: 600,
+              color: 'text.primary',
+              mb: 1,
             }}
           >
             Available Opportunities
           </Typography>
-          <Typography
-            variant="body1"
-            color="text.secondary"
+          <Box display="flex" alignItems="center" gap={1}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+              }}
+            >
+              <AssignmentTurnedIn fontSize="small" />
+              {total} opportunities available
+            </Typography>
+            {isCollecting && (
+              <Chip
+                size="small"
+                icon={<RefreshIcon />}
+                label="Updating..."
+                color="primary"
+                variant="outlined"
+                sx={{
+                  animation: 'pulse 2s infinite',
+                  '@keyframes pulse': {
+                    '0%': { opacity: 1 },
+                    '50%': { opacity: 0.6 },
+                    '100%': { opacity: 1 },
+                  },
+                }}
+              />
+            )}
+          </Box>
+        </Box>
+
+        {/* Action Buttons */}
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            onClick={(e) => setAnchorEl(e.currentTarget)}
+            startIcon={<TuneIcon />}
             sx={{
-              opacity: theme.palette.mode === 'dark' ? 0.8 : 0.7,
+              textTransform: 'none',
+              borderColor: selectedFilters.length > 0 ? 'primary.main' : 'divider',
+              color: selectedFilters.length > 0 ? 'primary.main' : 'text.primary',
             }}
           >
-            {total} opportunities found from Reddit and Doctor of Credit
-          </Typography>
-        </Box>
-        <Box display="flex" alignItems="center" gap={1}>
+            Filters
+            {selectedFilters.length > 0 && (
+              <Chip
+                size="small"
+                label={selectedFilters.length}
+                color="primary"
+                sx={{ ml: 1 }}
+              />
+            )}
+          </Button>
+
           <BankFilter
             banks={availableBanks}
             selectedBank={selectedBank}
             onBankChange={onBankChange}
           />
-          {['value', 'risk', 'date'].map((option) => (
-            <Button
-              key={option}
-              size="small"
-              variant={sortBy === option ? 'contained' : 'outlined'}
-              onClick={() => onSortChange(option as 'value' | 'risk' | 'date')}
-              startIcon={
-                option === 'value' ? (
-                  <MonetizationOnIcon />
-                ) : option === 'risk' ? (
-                  <Assessment />
-                ) : (
-                  <CalendarTodayIcon />
-                )
-              }
-              sx={{
-                textTransform: 'none',
-                bgcolor:
-                  sortBy === option && theme.palette.mode === 'dark'
-                    ? alpha(theme.palette.primary.main, 0.2)
-                    : 'transparent',
-                borderColor:
-                  sortBy === option
-                    ? 'primary.main'
-                    : theme.palette.mode === 'dark'
-                      ? alpha(theme.palette.primary.main, 0.2)
-                      : alpha(theme.palette.primary.main, 0.1),
-              }}
-            >
-              {option.charAt(0).toUpperCase() + option.slice(1)}
-            </Button>
-          ))}
-        </Box>
+
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 1,
+              p: 0.5,
+              bgcolor: alpha(theme.palette.primary.main, 0.05),
+              borderRadius: 1,
+            }}
+          >
+            {['value', 'regions', 'date'].map((option) => (
+              <Button
+                key={option}
+                size="small"
+                variant={sortBy === option ? 'contained' : 'text'}
+                onClick={() => onSortChange(option as 'value' | 'regions' | 'date')}
+                sx={{
+                  minWidth: 'auto',
+                  px: 2,
+                  textTransform: 'none',
+                  color: sortBy === option ? 'white' : 'text.primary',
+                  '&:hover': {
+                    bgcolor:
+                      sortBy === option
+                        ? theme.palette.primary.dark
+                        : alpha(theme.palette.primary.main, 0.1),
+                  },
+                }}
+              >
+                {option.charAt(0).toUpperCase() + option.slice(1)}
+              </Button>
+            ))}
+          </Box>
+        </Stack>
       </Box>
-      <Box display="flex" flexDirection="column" gap={2} mb={3}>
+
+      {/* Search Bar */}
+      <Box sx={{ maxWidth: 600 }}>
         <SearchBar value={searchTerm} onChange={onSearchChange} />
       </Box>
+
+      {/* Smart Filters Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={() => setAnchorEl(null)}
+        PaperProps={{
+          elevation: 3,
+          sx: {
+            mt: 1,
+            minWidth: 320,
+            maxHeight: 480,
+            overflow: 'auto',
+          },
+        }}
+      >
+        {FILTER_GROUPS.map((group) => (
+          <Box key={group.label}>
+            <Typography
+              variant="overline"
+              sx={{
+                px: 2,
+                py: 1,
+                display: 'block',
+                color: 'text.secondary',
+                bgcolor: 'background.default',
+              }}
+            >
+              {group.label}
+            </Typography>
+            {group.filters.map((filter) => {
+              const Icon = filter.icon;
+              const isSelected = selectedFilters.includes(filter.id);
+              return (
+                <MenuItem
+                  key={filter.id}
+                  onClick={() => handleFilterClick(filter.id)}
+                  sx={{
+                    py: 1,
+                    px: 2,
+                    borderLeft: 2,
+                    borderColor: isSelected ? filter.color : 'transparent',
+                    '&:hover': {
+                      bgcolor: alpha(filter.color, 0.1),
+                    },
+                  }}
+                >
+                  <ListItemIcon>
+                    <Icon sx={{ color: isSelected ? filter.color : 'text.secondary' }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={filter.label}
+                    sx={{
+                      '& .MuiTypography-root': {
+                        color: isSelected ? filter.color : 'text.primary',
+                        fontWeight: isSelected ? 500 : 400,
+                      },
+                    }}
+                  />
+                  {isSelected && (
+                    <CheckIcon fontSize="small" sx={{ color: filter.color }} />
+                  )}
+                </MenuItem>
+              );
+            })}
+            <Divider />
+          </Box>
+        ))}
+      </Menu>
     </Box>
   );
 };
 
-const RiskAssessment = ({
-  level = 0,
-  factors = [],
-}: {
-  level?: number;
-  factors?: string[];
-}) => {
+const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
   const theme = useTheme();
+  const [expanded, setExpanded] = useState(false);
   const isDark = theme.palette.mode === 'dark';
-  const { icon, color } = getRiskLevel(level);
 
-  const getColorFromPalette = (colorName: string) => {
-    switch (colorName) {
-      case 'success':
+  const getHighlightColor = (type: string) => {
+    switch (type) {
+      case 'positive':
         return theme.palette.success.main;
-      case 'info':
-        return theme.palette.info.main;
       case 'warning':
         return theme.palette.warning.main;
-      case 'error':
-        return theme.palette.error.main;
+      case 'info':
+        return theme.palette.info.main;
       default:
-        return theme.palette.primary.main;
+        return theme.palette.text.primary;
     }
   };
 
-  const riskColor = getColorFromPalette(color);
+  const getHighlights = () =>
+    [
+      {
+        icon: MonetizationOnIcon,
+        label: 'Bonus Value',
+        value: `$${opportunity.value.toLocaleString()}`,
+        type: 'positive',
+      },
+      opportunity.type === 'credit_card' && opportunity.metadata.credit?.inquiry
+        ? {
+            icon: CreditScoreIcon,
+            label: 'Credit Check',
+            value: opportunity.metadata.credit.inquiry,
+            type: opportunity.metadata.credit.inquiry.toLowerCase().includes('soft')
+              ? 'positive'
+              : 'warning',
+          }
+        : null,
+      opportunity.metadata.availability?.regions
+        ? {
+            icon: PublicIcon,
+            label: 'Availability',
+            value: opportunity.metadata.availability.regions
+              .toLowerCase()
+              .includes('nationwide')
+              ? 'Nationwide'
+              : 'Regional',
+            type: opportunity.metadata.availability.regions
+              .toLowerCase()
+              .includes('nationwide')
+              ? 'positive'
+              : 'info',
+          }
+        : null,
+    ].filter(
+      (
+        item
+      ): item is {
+        icon: typeof MonetizationOnIcon;
+        label: string;
+        value: string;
+        type: string;
+      } => item !== null
+    );
 
   return (
-    <Box
-      bgcolor={
-        isDark ? alpha(theme.palette.background.paper, 0.4) : theme.palette.action.hover
-      }
-      p={2}
-      borderRadius={2}
+    <Paper
+      elevation={0}
       sx={{
+        mb: 2,
+        bgcolor: isDark ? alpha(theme.palette.background.paper, 0.6) : 'background.paper',
         border: '1px solid',
-        borderColor: isDark ? alpha(theme.palette.divider, 0.2) : theme.palette.divider,
-        backdropFilter: 'blur(8px)',
-        position: 'relative',
+        borderColor: expanded ? 'primary.main' : 'divider',
+        borderRadius: 2,
         overflow: 'hidden',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: 4,
-          height: '100%',
-          background: isDark ? alpha(riskColor, 0.7) : riskColor,
-          transition: 'width 0.3s',
-        },
+        transition: 'all 0.2s',
         '&:hover': {
-          bgcolor: isDark
-            ? alpha(theme.palette.background.paper, 0.6)
-            : alpha(theme.palette.action.hover, 0.8),
-          borderColor: isDark
-            ? alpha(theme.palette.primary.main, 0.3)
-            : theme.palette.divider,
-          '&::before': {
-            width: 6,
-          },
+          borderColor: 'primary.main',
+          transform: 'translateY(-2px)',
+          boxShadow: 1,
         },
       }}
     >
-      <Typography
-        variant="subtitle2"
-        gutterBottom
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          color: theme.palette.text.primary,
-          fontWeight: 500,
-        }}
-      >
-        <Assessment
-          fontSize="small"
-          sx={{ color: isDark ? alpha(riskColor, 0.9) : riskColor }}
-        />
-        Risk Assessment
-      </Typography>
       <Box
-        display="flex"
-        alignItems="center"
-        gap={1}
-        mb={2}
+        onClick={() => setExpanded(!expanded)}
         sx={{
-          transform: 'scale(1)',
-          transition: 'transform 0.3s',
-          '&:hover': {
-            transform: 'scale(1.05)',
-          },
+          p: 3,
+          cursor: 'pointer',
         }}
       >
-        {icon}
-        <Typography
-          variant="body2"
-          sx={{
-            color: isDark ? alpha(riskColor, 0.9) : riskColor,
-            fontWeight: 'medium',
-          }}
-        >
-          Level {level}/5
-        </Typography>
-      </Box>
-      <Stack spacing={1}>
-        {factors?.map((factor, index) => (
+        {/* Header */}
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
           <Box
-            key={index}
-            display="flex"
-            alignItems="center"
-            gap={1}
             sx={{
-              opacity: 0,
-              transform: 'translateX(-10px)',
-              animation: 'slideIn 0.5s forwards',
-              animationDelay: `${index * 0.1}s`,
-              '@keyframes slideIn': {
-                to: {
-                  opacity: 1,
-                  transform: 'translateX(0)',
-                },
-              },
+              p: 1.5,
+              borderRadius: 1,
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              color: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            <RadioButtonUncheckedIcon
-              fontSize="small"
+            {opportunity.type === 'credit_card' ? (
+              <CreditCardIcon sx={{ fontSize: '1.5rem' }} />
+            ) : opportunity.type === 'brokerage' ? (
+              <AccountBalanceWalletIcon sx={{ fontSize: '1.5rem' }} />
+            ) : (
+              <AccountBalanceIcon sx={{ fontSize: '1.5rem' }} />
+            )}
+          </Box>
+          <Box flex={1}>
+            <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
+              {opportunity.title}
+            </Typography>
+            <Chip
+              size="small"
+              label={opportunity.bank}
               sx={{
-                color: isDark
-                  ? alpha(theme.palette.text.secondary, 0.7)
-                  : theme.palette.text.secondary,
-                transition: 'color 0.3s',
-                '&:hover': {
-                  color: isDark ? alpha(riskColor, 0.9) : riskColor,
-                },
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                color: theme.palette.primary.main,
+                fontWeight: 500,
               }}
             />
-            <Typography
-              variant="body2"
-              sx={{
-                color: isDark
-                  ? alpha(theme.palette.text.secondary, 0.9)
-                  : theme.palette.text.secondary,
-                transition: 'color 0.3s',
-                '&:hover': {
-                  color: theme.palette.text.primary,
-                },
-              }}
-            >
-              {factor}
-            </Typography>
           </Box>
-        ))}
-      </Stack>
-    </Box>
+        </Box>
+
+        {/* Highlights */}
+        <Box display="flex" gap={2}>
+          {getHighlights().map((highlight, index) => {
+            const Icon = highlight.icon;
+            const color = getHighlightColor(highlight.type);
+            return (
+              <Box
+                key={index}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  py: 1.5,
+                  px: 2,
+                  borderRadius: 1,
+                  bgcolor: alpha(color, 0.1),
+                  flex: 1,
+                }}
+              >
+                <Icon sx={{ color, fontSize: '1.25rem' }} />
+                <Box>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {highlight.label}
+                  </Typography>
+                  <Typography variant="body2" color={color} fontWeight="600">
+                    {highlight.value}
+                  </Typography>
+                </Box>
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+
+      <Collapse in={expanded}>
+        <Divider />
+        <Box p={3} bgcolor={alpha(theme.palette.background.default, 0.5)}>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            {opportunity.description}
+          </Typography>
+          {opportunity.requirements.length > 0 && (
+            <>
+              <Typography
+                variant="subtitle2"
+                color="primary"
+                gutterBottom
+                sx={{ mt: 2, fontWeight: 600 }}
+              >
+                Requirements
+              </Typography>
+              <Box
+                component="ul"
+                sx={{
+                  m: 0,
+                  pl: 2,
+                  listStyle: 'none',
+                  '& li': {
+                    position: 'relative',
+                    '&::before': {
+                      content: '"•"',
+                      position: 'absolute',
+                      left: -16,
+                      color: theme.palette.primary.main,
+                    },
+                  },
+                }}
+              >
+                {opportunity.requirements.map((req, index) => (
+                  <Typography
+                    component="li"
+                    key={index}
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 1 }}
+                  >
+                    {req}
+                  </Typography>
+                ))}
+              </Box>
+            </>
+          )}
+        </Box>
+      </Collapse>
+    </Paper>
   );
 };
 
-function AIOpportunitiesSection() {
-  const { opportunities, loading, error } = useOpportunities();
+function OpportunitiesSection() {
+  const { opportunities, isLoading: loading, error, isCollecting } = useOpportunities();
   const {
     searchTerm,
     setSearchTerm,
@@ -1210,7 +1080,7 @@ function AIOpportunitiesSection() {
     return (
       <Box>
         <Typography color="error" gutterBottom>
-          {error}
+          {error.message}
         </Typography>
         <Button
           variant="outlined"
@@ -1234,6 +1104,7 @@ function AIOpportunitiesSection() {
         selectedBank={selectedBank}
         onBankChange={setSelectedBank}
         availableBanks={availableBanks}
+        isCollecting={isCollecting}
       />
 
       <QuickFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
@@ -1253,7 +1124,10 @@ function AIOpportunitiesSection() {
       ) : (
         <Box mt={3}>
           {filteredOpportunities.map((opportunity) => (
-            <OpportunityCard key={opportunity.id} opportunity={opportunity} />
+            <OpportunityCard
+              key={`opportunity-${opportunity.id}`}
+              opportunity={opportunity}
+            />
           ))}
         </Box>
       )}
@@ -1294,7 +1168,7 @@ export default function OpportunitiesPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <AIOpportunitiesSection />
+      <OpportunitiesSection />
     </div>
   );
 }

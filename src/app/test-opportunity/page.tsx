@@ -18,13 +18,13 @@ interface Opportunity {
 
 async function getOpportunity() {
   const res = await fetch('http://localhost:8000/opportunities/recent', {
-    cache: 'no-store'
+    cache: 'no-store',
   });
-  
+
   if (!res.ok) {
     throw new Error('Failed to fetch opportunities');
   }
-  
+
   const opportunities = await res.json();
   return opportunities.find((opp: Opportunity) => opp.id === '1h1spck_1');
 }
@@ -42,4 +42,4 @@ export default async function TestPage() {
       </div>
     </Suspense>
   );
-} 
+}
