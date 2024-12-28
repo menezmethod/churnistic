@@ -34,6 +34,7 @@ import {
   Typography,
   alpha,
   useTheme,
+  Tooltip,
 } from '@mui/material';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
@@ -42,59 +43,189 @@ import { useParams } from 'next/navigation';
 import React from 'react';
 
 import { useOpportunities } from '@/hooks/useOpportunities';
+import { Opportunity } from '@/types/opportunity';
 
 interface DetailItemProps {
   label: string;
-  value: string | number | string[] | React.ReactNode | null | undefined;
+  value:
+    | string
+    | number
+    | string[]
+    | React.ReactNode
+    | { amount: number; waivable: boolean }
+    | null
+    | undefined;
   icon: React.ElementType;
   valueStyle?: React.CSSProperties;
 }
 
-interface Fee {
-  amount?: number | string;
-  waivable?: boolean;
-  waiver_conditions?: string;
-  original_text?: string;
+// Add state name mapping
+const STATE_NAMES: { [key: string]: string } = {
+  AL: 'Alabama',
+  AK: 'Alaska',
+  AZ: 'Arizona',
+  AR: 'Arkansas',
+  CA: 'California',
+  CO: 'Colorado',
+  CT: 'Connecticut',
+  DE: 'Delaware',
+  FL: 'Florida',
+  GA: 'Georgia',
+  HI: 'Hawaii',
+  ID: 'Idaho',
+  IL: 'Illinois',
+  IN: 'Indiana',
+  IA: 'Iowa',
+  KS: 'Kansas',
+  KY: 'Kentucky',
+  LA: 'Louisiana',
+  ME: 'Maine',
+  MD: 'Maryland',
+  MA: 'Massachusetts',
+  MI: 'Michigan',
+  MN: 'Minnesota',
+  MS: 'Mississippi',
+  MO: 'Missouri',
+  MT: 'Montana',
+  NE: 'Nebraska',
+  NV: 'Nevada',
+  NH: 'New Hampshire',
+  NJ: 'New Jersey',
+  NM: 'New Mexico',
+  NY: 'New York',
+  NC: 'North Carolina',
+  ND: 'North Dakota',
+  OH: 'Ohio',
+  OK: 'Oklahoma',
+  OR: 'Oregon',
+  PA: 'Pennsylvania',
+  RI: 'Rhode Island',
+  SC: 'South Carolina',
+  SD: 'South Dakota',
+  TN: 'Tennessee',
+  TX: 'Texas',
+  UT: 'Utah',
+  VT: 'Vermont',
+  VA: 'Virginia',
+  WA: 'Washington',
+  WV: 'West Virginia',
+  WI: 'Wisconsin',
+  WY: 'Wyoming',
+  DC: 'District of Columbia',
+  PR: 'Puerto Rico',
+  VI: 'U.S. Virgin Islands',
+};
+
+// Helper function to validate and format state codes
+const validateStateCode = (state: string): string | null => {
+  const code = state.toUpperCase().trim();
+
+  // Check if it's a valid state code
+  if (STATE_NAMES[code]) {
+    return code;
+  }
+
+  // Check if it's a state name that we can convert to code
+  const stateEntry = Object.entries(STATE_NAMES).find(
+    ([, name]) => name.toLowerCase() === state.toLowerCase().trim()
+  );
+
+  return stateEntry ? stateEntry[0] : null;
+};
+
+// Add a smart state display component
+const SmartStateChip = ({ state }: { state: string }) => {
+  const theme = useTheme();
+  const validState = validateStateCode(state);
+
+  // Skip rendering invalid states
+  if (!validState) {
+    return null;
+  }
+
+  const displayName = STATE_NAMES[validState];
+
+  return (
+    <Tooltip title={displayName} arrow placement="top">
+      <Chip
+        label={displayName.length > 12 ? validState : displayName}
+        size="small"
+        sx={{
+          bgcolor: alpha(theme.palette.primary.main, 0.1),
+          color: 'primary.main',
+          fontWeight: 600,
+          transition: 'all 0.2s ease-in-out',
+          '&:hover': {
+            bgcolor: alpha(theme.palette.primary.main, 0.15),
+            transform: 'translateY(-2px)',
+          },
+        }}
+      />
+    </Tooltip>
+  );
+};
+
+// Add the StateDisplay component
+interface StateDisplayProps {
+  states: string[];
 }
 
-const DetailItem: React.FC<DetailItemProps> = ({ label, value, icon: Icon, valueStyle }) => {
+const StateDisplay = ({ states }: StateDisplayProps) => {
+  const validStates = React.useMemo(
+    () =>
+      Array.from(new Set(states))
+        .map(validateStateCode)
+        .filter((code): code is string => code !== null),
+    [states]
+  );
+
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+      {validStates.map((state) => (
+        <SmartStateChip key={state} state={state} />
+      ))}
+    </Box>
+  );
+};
+
+const DetailItem: React.FC<DetailItemProps> = ({
+  label,
+  value,
+  icon: Icon,
+  valueStyle,
+}) => {
   const theme = useTheme();
   if (!value) return null;
 
-  const formatFee = (fee: number | Fee | string): string => {
+  const formatFee = (
+    fee: number | { amount: number; waivable: boolean } | string
+  ): string => {
     if (typeof fee === 'number') {
       return fee === 0 ? 'No Fee' : `$${fee}`;
     }
-    if (typeof fee === 'object') {
-      if (fee.amount !== undefined) {
-        const amount =
-          typeof fee.amount === 'number' ? fee.amount : parseFloat(fee.amount);
-        if (fee.waivable) {
-          const waiver = fee.waiver_conditions
-            ? ` (${fee.waiver_conditions})`
-            : ' (Waivable)';
-          return amount === 0 ? 'No Fee' : `$${amount}${waiver}`;
-        }
-        return amount === 0 ? 'No Fee' : `$${amount}`;
-      }
-      return fee.original_text || 'See Details';
+    if (typeof fee === 'object' && 'amount' in fee) {
+      const { amount, waivable } = fee;
+      const feeText = amount === 0 ? 'No Fee' : `$${amount}`;
+      return waivable ? `${feeText} (Waivable)` : feeText;
     }
     return String(fee);
   };
 
-  const formatValue = (
-    val: string | number | Fee | (string | number | Fee)[] | React.ReactNode
-  ): string | string[] => {
-    if (typeof val === 'object' && val !== null && !Array.isArray(val) && 'type' in val) {
-      return React.isValidElement(val) ? 'React Element' : String(val);
+  const formatValue = (val: DetailItemProps['value']): string | string[] => {
+    if (!val) return '';
+    if (typeof val === 'object' && !Array.isArray(val)) {
+      if ('amount' in val) {
+        return formatFee(val);
+      }
+      if (React.isValidElement(val)) {
+        return 'React Element';
+      }
     }
-    if (label.toLowerCase().includes('fee')) {
-      return formatFee(val as number | Fee | string);
+    if (label.toLowerCase().includes('fee') && typeof val !== 'object') {
+      return formatFee(val as number | string);
     }
     if (Array.isArray(val)) {
-      return val.map((item) =>
-        typeof item === 'object' ? formatFee(item as Fee) : String(item)
-      );
+      return val.map(String);
     }
     return String(val);
   };
@@ -162,7 +293,7 @@ const DetailItem: React.FC<DetailItemProps> = ({ label, value, icon: Icon, value
                 sx={{
                   mb: 1,
                   '&:last-child': { mb: 0 },
-                  ...valueStyle
+                  ...valueStyle,
                 }}
               >
                 {item}
@@ -186,6 +317,9 @@ export default function OpportunityDetailsPage() {
   const isDark = theme.palette.mode === 'dark';
   const opportunity = opportunities.find((opp) => opp.id === params?.id);
 
+  console.log('Full opportunity:', opportunity);
+  console.log('Availability:', opportunity?.metadata.availability);
+
   if (!opportunity) {
     return (
       <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -205,7 +339,7 @@ export default function OpportunityDetailsPage() {
             transition={{
               duration: 2,
               repeat: Infinity,
-              ease: "easeInOut",
+              ease: 'easeInOut',
             }}
           >
             <Box
@@ -268,9 +402,10 @@ export default function OpportunityDetailsPage() {
     );
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string | Date) => {
+    if (!dateString) return 'Not specified';
     try {
-      const date = new Date(dateString);
+      const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       if (isNaN(date.getTime())) {
         return 'Invalid date';
       }
@@ -669,6 +804,46 @@ export default function OpportunityDetailsPage() {
     }
   };
 
+  const getCreditCheckText = (opportunity: Opportunity) => {
+    const credit = opportunity.metadata?.credit;
+    if (!credit) return 'Unknown';
+    if (typeof credit.inquiry === 'string') {
+      return credit.inquiry;
+    }
+    return credit.inquiry?.monthly ? 'Hard Pull' : 'Soft Pull';
+  };
+
+  const renderAvailability = (opportunity: Opportunity) => {
+    const availability = opportunity.metadata?.availability;
+    if (!availability) return null;
+
+    if (availability.is_nationwide) {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Public sx={{ fontSize: '1rem', color: 'primary.main' }} />
+          <Typography variant="body2">Nationwide</Typography>
+        </Box>
+      );
+    }
+
+    if (Array.isArray(availability.regions) && availability.regions.length > 0) {
+      return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <LocationOn sx={{ fontSize: '1rem', color: 'primary.main' }} />
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              {availability.regions.length}{' '}
+              {availability.regions.length === 1 ? 'state' : 'states'}
+            </Typography>
+          </Box>
+          <StateDisplay states={availability.regions} />
+        </Box>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <Container
       maxWidth="lg"
@@ -706,7 +881,7 @@ export default function OpportunityDetailsPage() {
           component={motion.div}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
           sx={{
             p: 4,
             borderRadius: 3,
@@ -734,11 +909,11 @@ export default function OpportunityDetailsPage() {
               left: 0,
               right: 0,
               bottom: 0,
-              background: isDark 
+              background: isDark
                 ? 'radial-gradient(circle at top right, rgba(25, 118, 210, 0.05), transparent 70%)'
                 : 'radial-gradient(circle at top right, rgba(25, 118, 210, 0.08), transparent 70%)',
               pointerEvents: 'none',
-            }
+            },
           }}
         >
           <Grid container spacing={3} alignItems="center">
@@ -820,20 +995,29 @@ export default function OpportunityDetailsPage() {
                         },
                       }}
                     />
-                    {opportunity.metadata.availability?.regions === 'Nationwide' && (
-                      <Chip
-                        icon={<Public />}
-                        label="Nationwide"
-                        color="info"
-                        sx={{
-                          fontWeight: 600,
-                          transition: 'all 0.3s',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                          },
-                        }}
-                      />
-                    )}
+                    {opportunity.metadata.availability &&
+                      (console.log(
+                        'Rendering availability chip:',
+                        opportunity.metadata.availability
+                      ),
+                      (
+                        <Chip
+                          icon={<Public />}
+                          label={
+                            opportunity.metadata.availability.is_nationwide
+                              ? 'Nationwide'
+                              : `${opportunity.metadata.availability.regions.length} States`
+                          }
+                          color="info"
+                          sx={{
+                            fontWeight: 600,
+                            transition: 'all 0.3s',
+                            '&:hover': {
+                              transform: 'translateY(-2px)',
+                            },
+                          }}
+                        />
+                      ))}
                     {opportunity.expirationDate && (
                       <Chip
                         icon={<Timer />}
@@ -1152,7 +1336,7 @@ export default function OpportunityDetailsPage() {
 
         <Grid item xs={12} md={4}>
           {/* Availability Section */}
-          {opportunity.metadata?.availability && (
+          {opportunity.metadata.availability && (
             <Paper
               elevation={0}
               sx={{
@@ -1195,22 +1379,11 @@ export default function OpportunityDetailsPage() {
               >
                 <LocationOn /> Availability
               </Typography>
-              <DetailItem
-                label="Nationwide"
-                value={opportunity.metadata.availability.regions === 'Nationwide' ? 'Yes' : 'No'}
-                icon={Public}
-              />
-              {opportunity.metadata.availability.regions && (
-                <DetailItem
-                  label="Regions"
-                  value={opportunity.metadata.availability.regions}
-                  icon={LocationOn}
-                />
-              )}
-              {opportunity.metadata.availability.details && (
+              {renderAvailability(opportunity)}
+              {opportunity.metadata.availability.restrictions && (
                 <DetailItem
                   label="Restrictions"
-                  value={opportunity.metadata.availability.details}
+                  value={opportunity.metadata.availability.restrictions}
                   icon={Warning}
                 />
               )}
@@ -1327,7 +1500,7 @@ export default function OpportunityDetailsPage() {
               </Typography>
               <DetailItem
                 label="Credit Inquiry"
-                value={opportunity.metadata.credit.inquiry}
+                value={getCreditCheckText(opportunity)}
                 icon={CreditScore}
               />
               {opportunity.metadata.credit.impact && (
@@ -1336,7 +1509,7 @@ export default function OpportunityDetailsPage() {
                   value={opportunity.metadata.credit.impact}
                   icon={Warning}
                   valueStyle={{
-                    color: theme.palette.warning.main
+                    color: theme.palette.warning.main,
                   }}
                 />
               )}
@@ -1348,10 +1521,10 @@ export default function OpportunityDetailsPage() {
                 />
               )}
               {opportunity.metadata.credit.chase_524_rule && (
-                <Alert 
-                  severity="warning" 
-                  icon={<Warning />} 
-                  sx={{ 
+                <Alert
+                  severity="warning"
+                  icon={<Warning />}
+                  sx={{
                     borderRadius: 2,
                     mt: 2,
                     '& .MuiAlert-message': {
@@ -1360,7 +1533,8 @@ export default function OpportunityDetailsPage() {
                   }}
                 >
                   <AlertTitle>Chase 5/24 Rule Applies</AlertTitle>
-                  You must have opened fewer than 5 credit cards in the past 24 months to be eligible.
+                  You must have opened fewer than 5 credit cards in the past 24 months to
+                  be eligible.
                 </Alert>
               )}
             </Paper>

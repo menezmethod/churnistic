@@ -28,19 +28,44 @@ import { formatCurrency } from '@/utils/formatters';
 
 interface OpportunityDetailsProps {
   opportunity: {
+    _id: string;
     id: string;
+    institution: string;
+    type: 'credit_card' | 'bank_account' | 'brokerage';
+    value: number;
     title: string;
-    type: 'credit_card' | 'bank_account';
-    value: string | number;
-    bank: string;
     description: string;
     requirements: string[];
-    source: string;
-    sourceLink: string;
-    postedDate: string;
-    expirationDate: string | null;
-    confidence: number;
-    status: string;
+    url: string;
+    source: {
+      name: string;
+      url: string;
+    };
+    metadata: {
+      created_at: string;
+      last_updated: string;
+      version: string;
+    };
+    created_at: string;
+    last_updated: string;
+    bonus: {
+      amount: number;
+      currency: string;
+      requirements: string[];
+    };
+    availability: {
+      regions: string[];
+      is_nationwide: boolean;
+      restrictions: string | null;
+    };
+    timing: {
+      posted_date: string;
+      last_verified: string;
+      expiration: string;
+    };
+    offer_link: string;
+    status: 'active' | 'expired' | 'pending';
+    confidence?: number;
   };
 }
 
@@ -138,6 +163,186 @@ const ValueDisplay = ({ value }: { value: string | number }) => {
         />
       </Box>
     </Box>
+  );
+};
+
+const AvailabilitySection = ({
+  availability,
+}: {
+  availability: OpportunityDetailsProps['opportunity']['availability'];
+}) => {
+  const theme = useTheme();
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 4,
+        mb: 3,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 2,
+        background: 'transparent',
+        transition: 'all 0.3s',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: theme.shadows[4],
+        },
+      }}
+    >
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: 600,
+          mb: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          '&::after': {
+            content: '""',
+            flex: 1,
+            height: 2,
+            background: `linear-gradient(90deg, ${alpha(
+              theme.palette.primary.main,
+              0.3
+            )}, transparent)`,
+            borderRadius: 1,
+          },
+        }}
+      >
+        Availability
+      </Typography>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Status
+          </Typography>
+          <Chip
+            label={availability.is_nationwide ? 'Nationwide' : 'Selected States'}
+            color={availability.is_nationwide ? 'success' : 'primary'}
+            sx={{ fontWeight: 600 }}
+          />
+        </Box>
+
+        {!availability.is_nationwide && availability.regions.length > 0 && (
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Available States ({availability.regions.length})
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {availability.regions.map((region) => (
+                <Chip
+                  key={region}
+                  label={region}
+                  size="small"
+                  sx={{
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    color: 'primary.main',
+                    fontWeight: 600,
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
+        )}
+
+        {availability.restrictions !== null && (
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Restrictions
+            </Typography>
+            <Typography variant="body2">{availability.restrictions}</Typography>
+          </Box>
+        )}
+      </Box>
+    </Paper>
+  );
+};
+
+const TimingSection = ({
+  timing,
+}: {
+  timing: OpportunityDetailsProps['opportunity']['timing'];
+}) => {
+  const theme = useTheme();
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 4,
+        mb: 3,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 2,
+        background: 'transparent',
+        transition: 'all 0.3s',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: theme.shadows[4],
+        },
+      }}
+    >
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: 600,
+          mb: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          '&::after': {
+            content: '""',
+            flex: 1,
+            height: 2,
+            background: `linear-gradient(90deg, ${alpha(
+              theme.palette.primary.main,
+              0.3
+            )}, transparent)`,
+            borderRadius: 1,
+          },
+        }}
+      >
+        Timing
+      </Typography>
+
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={4}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Posted Date
+          </Typography>
+          <Chip
+            icon={<CalendarTodayIcon />}
+            label={new Date(timing.posted_date).toLocaleDateString()}
+            sx={{ fontWeight: 600 }}
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={4}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Last Verified
+          </Typography>
+          <Chip
+            icon={<TimerIcon />}
+            label={new Date(timing.last_verified).toLocaleDateString()}
+            sx={{ fontWeight: 600 }}
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={4}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Expiration
+          </Typography>
+          <Chip
+            icon={<TimerIcon />}
+            label={new Date(timing.expiration).toLocaleDateString()}
+            color="warning"
+            sx={{ fontWeight: 600 }}
+          />
+        </Grid>
+      </Grid>
+    </Paper>
   );
 };
 
@@ -252,7 +457,7 @@ export default function OpportunityDetails({ opportunity }: OpportunityDetailsPr
                   </Typography>
                   <Box display="flex" gap={1} flexWrap="wrap">
                     <Chip
-                      label={opportunity.bank}
+                      label={opportunity.institution}
                       size="small"
                       sx={{
                         bgcolor: alpha(theme.palette.primary.main, 0.1),
@@ -279,19 +484,14 @@ export default function OpportunityDetails({ opportunity }: OpportunityDetailsPr
                         },
                       }}
                     />
-                    <Chip
-                      icon={<StarIcon sx={{ fontSize: '1rem !important' }} />}
-                      label={`${opportunity.confidence * 100}% Confidence`}
-                      size="small"
-                      color="warning"
-                      sx={{
-                        fontWeight: 600,
-                        transition: 'all 0.3s',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                        },
-                      }}
-                    />
+                    {opportunity.confidence !== undefined && (
+                      <Chip
+                        icon={<StarIcon sx={{ fontSize: '1rem !important' }} />}
+                        label={`${opportunity.confidence * 100}% Confidence`}
+                        size="small"
+                        color="warning"
+                      />
+                    )}
                   </Box>
                 </Box>
               </Box>
@@ -309,7 +509,7 @@ export default function OpportunityDetails({ opportunity }: OpportunityDetailsPr
                 <Box display="flex" gap={1}>
                   <Chip
                     icon={<CalendarTodayIcon sx={{ fontSize: '1rem !important' }} />}
-                    label={new Date(opportunity.postedDate).toLocaleDateString()}
+                    label={new Date(opportunity.timing.posted_date).toLocaleDateString()}
                     size="small"
                     sx={{
                       bgcolor: alpha(theme.palette.info.main, 0.1),
@@ -324,10 +524,10 @@ export default function OpportunityDetails({ opportunity }: OpportunityDetailsPr
                       },
                     }}
                   />
-                  {opportunity.expirationDate && (
+                  {opportunity.timing.expiration && (
                     <Chip
                       icon={<TimerIcon sx={{ fontSize: '1rem !important' }} />}
-                      label={`Expires: ${new Date(opportunity.expirationDate).toLocaleDateString()}`}
+                      label={`Expires: ${new Date(opportunity.timing.expiration).toLocaleDateString()}`}
                       size="small"
                       color="warning"
                       sx={{
@@ -493,7 +693,13 @@ export default function OpportunityDetails({ opportunity }: OpportunityDetailsPr
           </Grid>
         </Paper>
 
-        {/* Source Section */}
+        {/* Add Availability Section */}
+        <AvailabilitySection availability={opportunity.availability} />
+
+        {/* Add Timing Section */}
+        <TimingSection timing={opportunity.timing} />
+
+        {/* Source Section - Update to use the correct source structure */}
         <Paper
           elevation={0}
           sx={{
@@ -522,33 +728,41 @@ export default function OpportunityDetails({ opportunity }: OpportunityDetailsPr
             <Box display="flex" alignItems="center" gap={1}>
               <LinkIcon color="primary" />
               <Typography variant="subtitle1" fontWeight={600}>
-                Source: {opportunity.source}
+                Source: {opportunity.source.name}
               </Typography>
             </Box>
-            <Button
-              variant="contained"
-              endIcon={<ArrowForwardIcon />}
-              component="a"
-              href={opportunity.sourceLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  '& .MuiSvgIcon-root': {
-                    transform: 'translateX(4px)',
-                  },
-                },
-                '& .MuiSvgIcon-root': {
-                  transition: 'transform 0.2s',
-                },
-              }}
-            >
-              View Original
-            </Button>
+            <Box display="flex" gap={2}>
+              <Button
+                variant="outlined"
+                endIcon={<ArrowForwardIcon />}
+                component="a"
+                href={opportunity.source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                View Source
+              </Button>
+              <Button
+                variant="contained"
+                endIcon={<ArrowForwardIcon />}
+                component="a"
+                href={opportunity.offer_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                Apply Now
+              </Button>
+            </Box>
           </Box>
         </Paper>
 

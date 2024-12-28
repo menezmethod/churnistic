@@ -57,9 +57,9 @@ interface Bonus {
 }
 
 interface Availability {
-  regions: string;
-  details: string;
-  household_limit: string;
+  regions: string[];
+  is_nationwide?: boolean;
+  restrictions?: string | null;
 }
 
 interface Timing {
@@ -215,9 +215,9 @@ export async function GET() {
                 tiers: [],
               },
               availability: {
-                regions: 'Nationwide',
-                details: '',
-                household_limit: null,
+                regions: opp.availability?.regions || [],
+                is_nationwide: opp.availability?.is_nationwide ?? false,
+                restrictions: opp.availability?.restrictions ?? null,
               },
               lastVerified: opp.last_updated,
               tracking: {
