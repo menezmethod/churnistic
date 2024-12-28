@@ -20,10 +20,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for Firebase Auth token
-  const idToken = request.cookies.get('firebase-token')?.value;
-  if (!idToken) {
-    console.log('No auth token found');
+  // Check for session cookie
+  const sessionCookie = request.cookies.get('session')?.value;
+  if (!sessionCookie) {
+    console.log('No session cookie found');
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 

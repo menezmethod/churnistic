@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box';
 import { Inter } from 'next/font/google';
+import 'firebaseui/dist/firebaseui.css';
 
 import AppNavbar from '@/components/AppNavbar';
 
