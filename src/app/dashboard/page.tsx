@@ -58,6 +58,7 @@ import { useEffect, useState } from 'react';
 import OpportunityCardSkeleton from '@/components/skeletons/OpportunityCardSkeleton';
 import ProgressCardSkeleton from '@/components/skeletons/ProgressCardSkeleton';
 import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton';
+import { useOpportunities } from '@/hooks/useOpportunities';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { formatCurrency } from '@/utils/formatters';
 
@@ -69,7 +70,10 @@ interface Opportunity {
   bank: string;
   description: string;
   requirements: string[];
-  source: string;
+  source: {
+    name: string;
+    url: string;
+  };
   sourceLink: string;
   postedDate: string;
   expirationDate?: string;
@@ -82,6 +86,10 @@ interface Opportunity {
     riskFactors?: string[];
   };
   timeframe?: string;
+  timing?: {
+    posted_date: string;
+    expiration: string;
+  };
 }
 
 interface TrackedOpportunity {
@@ -169,9 +177,14 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
   // Helper function to safely parse and format the value
   const displayValue = (value: string | number) => {
     if (typeof value === 'number') return formatCurrency(value);
-    // Remove any existing currency formatting
     const numericValue = parseFloat(value.replace(/[$,]/g, ''));
     return isNaN(numericValue) ? '$0' : formatCurrency(numericValue);
+  };
+
+  // Helper function to format requirements nicely
+  const formatRequirements = (requirements: string[]) => {
+    if (!requirements || requirements.length === 0) return 'No requirements specified';
+    return requirements[0];
   };
 
   return (
@@ -255,15 +268,21 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
                 </Box>
               )}
             </Box>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                mb: 1,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                lineHeight: '1.4',
+              }}
+            >
+              {formatRequirements(opportunity.requirements)}
+            </Typography>
             <Box display="flex" alignItems="center" gap={1}>
-              <Chip
-                label={opportunity.bank}
-                size="small"
-                sx={{
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  fontWeight: 500,
-                }}
-              />
               {opportunity.expirationDate && (
                 <Chip
                   icon={<TimerIcon sx={{ fontSize: '1rem !important' }} />}
@@ -449,45 +468,6 @@ const ProgressCard = ({ opportunity }: { opportunity: TrackedOpportunity }) => {
       </Paper>
     </Fade>
   );
-};
-
-const useOpportunities = () => {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchOpportunities = async () => {
-      try {
-        const response = await fetch('http://localhost:8000/opportunities/recent');
-        if (!response.ok) {
-          throw new Error('Failed to fetch opportunities');
-        }
-        const data = await response.json();
-        // Sort opportunities by value (converting string values if needed)
-        const sortedData = data.sort((a: Opportunity, b: Opportunity) => {
-          const valueA =
-            typeof a.value === 'string'
-              ? parseFloat(a.value.replace(/[^0-9.-]+/g, ''))
-              : a.value;
-          const valueB =
-            typeof b.value === 'string'
-              ? parseFloat(b.value.replace(/[^0-9.-]+/g, ''))
-              : b.value;
-          return valueB - valueA;
-        });
-        setOpportunities(sortedData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch opportunities');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOpportunities();
-  }, []);
-
-  return { opportunities, loading, error };
 };
 
 const recentActivities: Activity[] = [
@@ -691,11 +671,19 @@ const StatCard = ({
 };
 
 export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth();
+  const { opportunities, loading: oppsLoading, error } = useOpportunities();
   const theme = useTheme();
   const [activityExpanded, setActivityExpanded] = useState(false);
-  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { opportunities, loading: oppsLoading } = useOpportunities();
+
+  useEffect(() => {
+    console.log('Auth state:', { user, authLoading });
+  }, [user, authLoading]);
+
+  useEffect(() => {
+    console.log('Opportunities state:', { opportunities, loading: oppsLoading, error });
+  }, [opportunities, oppsLoading, error]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -776,11 +764,9 @@ export default function DashboardPage() {
       icon: TrendingUpIcon,
       title: 'POTENTIAL VALUE',
       value: formatCurrency(
-        opportunities.reduce((sum: number, opp: Opportunity) => {
+        opportunities.reduce((sum, opp) => {
           const value =
-            typeof opp.value === 'string'
-              ? parseFloat(opp.value.replace(/[$,]/g, ''))
-              : opp.value;
+            typeof opp.value === 'number' ? opp.value : parseFloat(String(opp.value));
           return sum + (isNaN(value) ? 0 : value);
         }, 0)
       ),
@@ -797,7 +783,7 @@ export default function DashboardPage() {
     {
       icon: CheckCircleIcon,
       title: 'Completed',
-      value: opportunities.filter((opp) => opp.status === 'completed').length.toString(),
+      value: opportunities.filter((opp) => opp.status === 'expired').length.toString(),
       trend: { value: 18, label: 'success rate' },
       color: 'success' as const,
     },
@@ -847,9 +833,61 @@ export default function DashboardPage() {
   }
 
   // Get top 3 opportunities by value for quick opportunities section
-  const quickOpportunities = opportunities
-    .filter((opp) => opp.status === 'active')
-    .slice(0, 3);
+  const quickOpportunities = (() => {
+    console.log('Starting quickOpportunities calculation');
+    console.log('Raw opportunities:', opportunities);
+
+    if (!opportunities || opportunities.length === 0) {
+      console.log('No opportunities available');
+      return [];
+    }
+
+    // Create a map to store one opportunity of each type
+    const typeMap = new Map();
+
+    // Sort opportunities by value
+    const sortedOpps = opportunities.sort((a, b) => {
+      console.log('Comparing opportunities:', { a: a.value, b: b.value });
+      const valueA = typeof a.value === 'number' ? a.value : 0;
+      const valueB = typeof b.value === 'number' ? b.value : 0;
+      return valueB - valueA;
+    });
+
+    console.log('Sorted opportunities:', sortedOpps);
+
+    // Get highest value opportunity for each type
+    sortedOpps.forEach((opp) => {
+      console.log('Processing opportunity:', {
+        id: opp.id,
+        type: opp.type,
+        value: opp.value,
+      });
+      if (!typeMap.has(opp.type)) {
+        const mappedOpp = {
+          id: opp.id,
+          title: opp.title,
+          type: opp.type,
+          value: opp.value,
+          bank: opp.bank,
+          description: opp.description,
+          requirements: opp.requirements,
+          source: opp.source.name,
+          sourceLink: opp.source.url,
+          postedDate: opp.timing?.posted_date,
+          expirationDate: opp.timing?.expiration,
+          confidence: opp.confidence || 1,
+          status: opp.status || 'active',
+        };
+        console.log(`Adding ${opp.type} opportunity:`, mappedOpp);
+        typeMap.set(opp.type, mappedOpp);
+      }
+    });
+
+    // Convert map values to array and take top 3
+    const result = Array.from(typeMap.values()).slice(0, 3);
+    console.log('Final quick opportunities:', result);
+    return result;
+  })();
 
   return (
     <Container

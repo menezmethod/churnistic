@@ -22,7 +22,6 @@ import {
   ArrowForward as ArrowForwardIcon,
   GridView as GridViewIcon,
   ViewList as ViewListIcon,
-  Info as InfoIcon,
   LocationOn as LocationOnIcon,
 } from '@mui/icons-material';
 import {
@@ -1416,79 +1415,6 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
               <ArrowForwardIcon sx={{ ml: 1, fontSize: '0.9rem' }} />
             </Button>
           </Link>
-          <Tooltip
-            title={
-              <Box sx={{ p: 1.5 }}>
-                {opportunity.metadata.features?.slice(0, 3).map((feature, i) => (
-                  <Typography
-                    key={i}
-                    variant="body2"
-                    component="div"
-                    sx={{
-                      mb: 1,
-                      color: 'white',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: 4,
-                        height: 4,
-                        borderRadius: '50%',
-                        bgcolor: 'primary.main',
-                      }}
-                    />
-                    {feature}
-                  </Typography>
-                ))}
-                {opportunity.metadata.credit?.score_requirements && (
-                  <Typography
-                    variant="body2"
-                    component="div"
-                    sx={{ color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}
-                  >
-                    <Box
-                      sx={{
-                        width: 4,
-                        height: 4,
-                        borderRadius: '50%',
-                        bgcolor: 'primary.main',
-                      }}
-                    />
-                    Min Score: {opportunity.metadata.credit.score_requirements}
-                  </Typography>
-                )}
-              </Box>
-            }
-            arrow
-            placement="top-end"
-            componentsProps={{
-              tooltip: {
-                sx: {
-                  bgcolor: 'rgba(0, 0, 0, 0.9)',
-                  maxWidth: 280,
-                  '& .MuiTooltip-arrow': {
-                    color: 'rgba(0, 0, 0, 0.9)',
-                  },
-                },
-              },
-            }}
-          >
-            <Button
-              variant="outlined"
-              sx={{
-                minWidth: 'unset',
-                width: 42,
-                height: 42,
-                borderRadius: '8px',
-                borderColor: 'divider',
-              }}
-            >
-              <InfoIcon sx={{ fontSize: '1.1rem', color: 'text.secondary' }} />
-            </Button>
-          </Tooltip>
         </Box>
       </Box>
     </Paper>
@@ -1545,7 +1471,7 @@ const standardizeOpportunityForGrid = (opp: Opportunity) => {
 };
 
 function OpportunitiesSection() {
-  const { opportunities, isLoading: loading, error, isCollecting } = useOpportunities();
+  const { opportunities, loading, error, isCollecting } = useOpportunities();
   const [activeTab, setActiveTab] = useState<'all' | 'credit' | 'bank' | 'brokerage'>(
     'all'
   );
