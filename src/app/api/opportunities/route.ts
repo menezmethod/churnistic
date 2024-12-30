@@ -40,7 +40,8 @@ export async function POST(request: Request) {
     // Check if opportunity already exists
     const existingOpportunity = await prisma.opportunity.findFirst({
       where: {
-        sourceId: dbOpportunity.sourceId,
+        id: dbOpportunity.id,
+        source: dbOpportunity.source,
       },
     });
 

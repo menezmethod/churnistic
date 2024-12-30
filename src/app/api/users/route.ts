@@ -71,7 +71,6 @@ export async function GET(request: NextRequest) {
           photoURL: true,
           role: true,
           status: true,
-          businessVerified: true,
           createdAt: true,
           updatedAt: true,
         },
