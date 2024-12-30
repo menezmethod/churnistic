@@ -234,7 +234,7 @@ enum RequirementType {
 }
 
 model Opportunity {
-  id              String    @id @default(cuid())
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
   title           String
   description     String
   value           Float
@@ -250,6 +250,7 @@ model Opportunity {
   metadata        Json      @default("{}")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  userOpportunities UserOpportunity[]
 
   @@index([type])
   @@index([bank])
