@@ -33,26 +33,12 @@ model User {
   status           String    @default("active") // "active" or "inactive"
   creditScore      Int?      
   monthlyIncome    Int?      
-  businessVerified Boolean   @default(false)  // For business card applications
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   applications     CardApplication[]
   bankAccounts     BankAccount[]
   creditPulls      CreditPull[]
-  investmentAccounts InvestmentAccount[]
-  householdId      String?   @db.ObjectId  // For P2 tracking
-  household        Household? @relation(fields: [householdId], references: [id])
-  referrals        Referral[] @relation("Referrer")
-  referredBy       Referral[] @relation("Referred")
   userOpportunities UserOpportunity[]
-}
-
-model Household {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  name            String    // e.g., "Smith Family"
-  members         User[]
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
 }
 
 model Card {
@@ -122,18 +108,6 @@ model RetentionOffer {
   notes           String?
   card            Card      @relation(fields: [cardId], references: [id])
   application     CardApplication @relation(fields: [applicationId], references: [id])
-}
-
-model Referral {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  referrerId      String    @db.ObjectId  // User who referred
-  referredId      String    @db.ObjectId  // User who was referred
-  cardId          String    @db.ObjectId
-  referralDate    DateTime  @default(now())
-  bonusEarned     Boolean   @default(false)
-  bonusEarnedAt   DateTime?
-  referrer        User      @relation("Referrer", fields: [referrerId], references: [id])
-  referred        User      @relation("Referred", fields: [referredId], references: [id])
 }
 
 model IssuerRule {
@@ -257,54 +231,6 @@ enum RequirementType {
   MINIMUM_BALANCE
   DEBIT_TRANSACTIONS
   BILL_PAY
-}
-
-model InvestmentAccount {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId          String    @db.ObjectId
-  platform        String    // e.g., "Fidelity", "Robinhood"
-  accountType     String    // e.g., "Individual", "IRA"
-  bonusAmount     Int       // in dollars
-  requirements    String    // e.g., "Deposit $5000"
-  depositAmount   Int       // Amount deposited
-  holdingPeriod   Int       // Required holding period in days
-  openedAt        DateTime  @default(now())
-  bonusEarnedAt   DateTime?
-  closedAt        DateTime?
-  notes           String?
-  user            User      @relation(fields: [userId], references: [id])
-}
-
-model Company {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  name            String
-  industry        String?
-  size            String?
-  website         String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  customers       Customer[]
-}
-
-model Customer {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  companyId       String    @db.ObjectId
-  email           String
-  name            String?
-  status          String    // "active", "at_risk", "churned"
-  lastActive      DateTime
-  churnedAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  company         Company   @relation(fields: [companyId], references: [id])
-}
-
-model Cache {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  key       String   @unique
-  data      String
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
 }
 
 model Opportunity {
