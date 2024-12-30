@@ -24,7 +24,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { formatCurrency } from '@/utils/formatters';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 interface OpportunityDetailsProps {
   opportunity: {

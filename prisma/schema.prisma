@@ -308,24 +308,26 @@ model Cache {
 }
 
 model Opportunity {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  id              String    @id @default(cuid())
   title           String
-  type            String    // "credit_card" or "bank_account"
-  value           Float     // Numeric value of the bonus
-  bank            String
   description     String
+  value           Float
+  type            String    // credit_card, bank_account, brokerage
+  bank            String
   requirements    String[]
-  source          String    // e.g., "reddit"
+  source          String    // e.g., "doc"
   sourceLink      String
-  sourceId        String?   // Unique identifier from the source
-  postedDate      DateTime
+  postedDate      DateTime  @default(now())
   expirationDate  DateTime?
-  confidence      Float
+  confidence      Float     @default(1)
   status          String    @default("active")
-  metadata        Json?     // Flexible metadata storage
+  metadata        Json      @default("{}")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  userOpportunities UserOpportunity[]
+
+  @@index([type])
+  @@index([bank])
+  @@index([status])
 }
 
 model UserOpportunity {
@@ -338,32 +340,4 @@ model UserOpportunity {
   updatedAt       DateTime  @updatedAt
   user            User      @relation(fields: [userId], references: [id])
   opportunity     Opportunity @relation(fields: [opportunityId], references: [id])
-}
-
-model RedditThread {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  threadId        String    // Reddit's thread ID
-  title           String
-  content         String
-  permalink       String
-  author          String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  lastProcessed   DateTime?
-  comments        RedditComment[]
-
-  @@unique([threadId])
-}
-
-model RedditComment {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  threadId        String    @db.ObjectId
-  commentId       String    // Reddit's comment ID
-  content         String
-  author          String
-  createdAt       DateTime  @default(now())
-  thread          RedditThread @relation(fields: [threadId], references: [id])
-
-  @@unique([commentId])
-  @@index([threadId])
 }

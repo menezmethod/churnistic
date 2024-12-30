@@ -36,8 +36,27 @@ jest.mock('firebase/auth', () => {
     GoogleAuthProvider: jest.fn(() => ({ providerId: 'google.com' })),
     GithubAuthProvider: jest.fn(() => ({ providerId: 'github.com' })),
     signInWithPopup: jest.fn().mockResolvedValue(mockCredential),
+    connectAuthEmulator: jest.fn(),
   };
 });
+
+// Mock Firestore
+jest.mock('firebase/firestore', () => ({
+  getFirestore: jest.fn(),
+  connectFirestoreEmulator: jest.fn(),
+}));
+
+// Mock Storage
+jest.mock('firebase/storage', () => ({
+  getStorage: jest.fn(),
+  connectStorageEmulator: jest.fn(),
+}));
+
+// Mock Functions
+jest.mock('firebase/functions', () => ({
+  getFunctions: jest.fn(),
+  connectFunctionsEmulator: jest.fn(),
+}));
 
 // Mock console methods
 const originalError = console.error;
