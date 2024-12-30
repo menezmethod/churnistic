@@ -60,7 +60,7 @@ import ProgressCardSkeleton from '@/components/skeletons/ProgressCardSkeleton';
 import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton';
 import { useOpportunities } from '@/hooks/useOpportunities';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { formatCurrency } from '@/utils/formatters';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 interface Opportunity {
   id: string;

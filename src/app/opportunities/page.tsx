@@ -53,8 +53,8 @@ import React from 'react';
 
 import { useOpportunities } from '@/hooks/useOpportunities';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { isSoftPull } from '@/lib/utils/creditInquiry';
 import { Opportunity } from '@/types/opportunity';
-import { isSoftPull } from '@/utils/creditInquiry';
 
 // Add types for opportunities
 interface QuickFilter {

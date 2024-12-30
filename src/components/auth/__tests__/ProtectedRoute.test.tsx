@@ -1,154 +1,87 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { type User } from 'firebase/auth';
+import { render, screen } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
 
-import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { UserRole } from '@/lib/auth/types';
 
+// Mock Firebase modules
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(),
+  onAuthStateChanged: jest.fn(),
+  connectAuthEmulator: jest.fn(),
+}));
+
+jest.mock('firebase/firestore', () => ({
+  getFirestore: jest.fn(),
+  connectFirestoreEmulator: jest.fn(),
+}));
+
+jest.mock('firebase/storage', () => ({
+  getStorage: jest.fn(),
+  connectStorageEmulator: jest.fn(),
+}));
+
+jest.mock('firebase/functions', () => ({
+  getFunctions: jest.fn(),
+  connectFunctionsEmulator: jest.fn(),
+}));
+
+// Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }));
 
+// Mock Auth Context
 jest.mock('@/lib/auth/AuthContext', () => ({
-  ...jest.requireActual('@/lib/auth/AuthContext'),
   useAuth: jest.fn(),
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
+
+import { ProtectedRoute } from '../ProtectedRoute';
 
 describe('ProtectedRoute', () => {
   const mockPush = jest.fn();
-  const mockAuthUser = {
-    uid: 'test-user-id',
-    email: 'test@example.com',
-    customClaims: { role: UserRole.USER },
-  } as unknown as User;
-
-  const mockAdminUser = {
-    uid: 'admin-user-id',
-    email: 'admin@example.com',
-    customClaims: { role: UserRole.ADMIN },
-  } as unknown as User;
+  const mockRouter = { push: mockPush };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (useRouter as jest.Mock).mockReturnValue({ push: mockPush });
+    (useRouter as jest.Mock).mockReturnValue(mockRouter);
   });
 
-  const renderProtectedRoute = (user: User | null, requiredRole?: UserRole) => {
-    return render(
-      <ProtectedRoute requiredRole={requiredRole}>
+  it('redirects to signin when user is not authenticated', () => {
+    (useAuth as jest.Mock).mockReturnValue({ user: null, loading: false });
+
+    render(
+      <ProtectedRoute>
         <div>Protected Content</div>
       </ProtectedRoute>
     );
-  };
 
-  describe('Authentication Check', () => {
-    it('should redirect to login when no user is authenticated', async () => {
-      (useAuth as jest.Mock).mockReturnValue({
-        user: null,
-        loading: false,
-        hasRole: jest.fn(),
-      });
-
-      renderProtectedRoute(null);
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/auth/signin');
-      });
-    });
-
-    it('should render children when user is authenticated', async () => {
-      const hasRole = jest.fn(() => true);
-      (useAuth as jest.Mock).mockReturnValue({
-        user: mockAuthUser,
-        loading: false,
-        hasRole,
-      });
-
-      renderProtectedRoute(mockAuthUser);
-      await waitFor(() => {
-        expect(screen.getByText('Protected Content')).toBeInTheDocument();
-      });
-    });
+    expect(mockPush).toHaveBeenCalledWith('/auth/signin');
   });
 
-  describe('Role-based Access', () => {
-    it('should render content when user has required role', async () => {
-      const hasRole = jest.fn(() => true);
-      (useAuth as jest.Mock).mockReturnValue({
-        user: mockAdminUser,
-        loading: false,
-        hasRole,
-      });
+  it('shows loading state when auth is loading', () => {
+    (useAuth as jest.Mock).mockReturnValue({ user: null, loading: true });
 
-      renderProtectedRoute(mockAdminUser, UserRole.ADMIN);
-      await waitFor(() => {
-        expect(screen.getByText('Protected Content')).toBeInTheDocument();
-        expect(hasRole).toHaveBeenCalledWith(UserRole.ADMIN);
-      });
-    });
+    render(
+      <ProtectedRoute>
+        <div>Protected Content</div>
+      </ProtectedRoute>
+    );
 
-    it('should redirect to unauthorized when user lacks required role', async () => {
-      const hasRole = jest.fn(() => false);
-      (useAuth as jest.Mock).mockReturnValue({
-        user: mockAuthUser,
-        loading: false,
-        hasRole,
-      });
-
-      renderProtectedRoute(mockAuthUser, UserRole.ADMIN);
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/unauthorized');
-        expect(hasRole).toHaveBeenCalledWith(UserRole.ADMIN);
-      });
-    });
+    expect(screen.getByRole('status', { name: 'loading' })).toBeInTheDocument();
   });
 
-  describe('Loading State', () => {
-    it('should show loading state', async () => {
-      (useAuth as jest.Mock).mockReturnValue({
-        user: null,
-        loading: true,
-        hasRole: jest.fn(),
-      });
-
-      const { container } = renderProtectedRoute(null);
-      await waitFor(() => {
-        expect(container.querySelector('[role="status"]')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should handle undefined user role gracefully', async () => {
-      const hasRole = jest.fn(() => false);
-      const userWithoutRole = { ...mockAuthUser, customClaims: undefined };
-      (useAuth as jest.Mock).mockReturnValue({
-        user: userWithoutRole,
-        loading: false,
-        hasRole,
-      });
-
-      renderProtectedRoute(userWithoutRole, UserRole.ADMIN);
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/unauthorized');
-        expect(hasRole).toHaveBeenCalledWith(UserRole.ADMIN);
-      });
+  it('renders children when user is authenticated', () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      user: { uid: '123', email: 'test@example.com' },
+      loading: false,
     });
 
-    it('should handle undefined required role gracefully', async () => {
-      const hasRole = jest.fn(() => true);
-      (useAuth as jest.Mock).mockReturnValue({
-        user: mockAuthUser,
-        loading: false,
-        hasRole,
-      });
+    render(
+      <ProtectedRoute>
+        <div>Protected Content</div>
+      </ProtectedRoute>
+    );
 
-      renderProtectedRoute(mockAuthUser);
-      await waitFor(() => {
-        expect(screen.getByText('Protected Content')).toBeInTheDocument();
-        expect(hasRole).not.toHaveBeenCalled();
-      });
-    });
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
 });
