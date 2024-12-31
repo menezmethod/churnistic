@@ -1,4 +1,4 @@
-'use client';;
+'use client';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -6,11 +6,10 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
+import type { JSX } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { signOut } from '@/lib/firebase/auth';
-
-import type { JSX } from "react";
 
 export function Header(): JSX.Element {
   const router = useRouter();

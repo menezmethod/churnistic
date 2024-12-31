@@ -1,8 +1,7 @@
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import type { JSX } from 'react';
 
 import { useTheme, ThemeProvider } from '../ThemeContext';
-
-import type { JSX } from "react";
 
 // Mock component to test useTheme hook
 function TestComponent(): JSX.Element {

@@ -19,20 +19,27 @@ export const getBankRewardsConfig = (): BankRewardsConfig => {
 };
 
 export const BANKREWARDS_SELECTORS = {
-  LOAD_MORE_BUTTON: 'button:has-text("Load More")',
-  OFFER_CARD: '.offer-card',
+  LOAD_MORE_BUTTON: 'button.MuiButton-root',
+  OFFER_CARD: '.MuiCard-root',
   OFFER_DETAILS: {
-    TITLE: '.offer-title',
-    INSTITUTION: '.institution-name',
-    VALUE: '.offer-value',
-    TYPE: '.offer-type',
-    REQUIREMENTS: '.requirements-list li',
-    EXPIRATION: '.expiration-date',
+    TITLE: 'h6',
+    INSTITUTION: 'h6 + .MuiTypography-subtitle2',
+    VALUE: '.MuiBox-root p',
+    TYPE: '.MuiTypography-subtitle2:first-of-type',
+    REQUIREMENTS: '.MuiBox-root p',
+    EXPIRATION: '.MuiTypography-body1',
+    AVAILABILITY: '.MuiTypography-body2',
+    MONTHLY_FEES: '.MuiTypography-body1',
+    PERKS: '.MuiTypography-body1',
+    CASH_BACK: '.MuiTypography-body1',
+    DETAILS_BUTTON: 'a.MuiButton-containedSecondary',
   },
 };
 
 export const BANKREWARDS_URLS = {
-  BASE_URL: 'https://bankrewards.io',
+  BASE_URL: 'https://www.bankrewards.io',
   OFFERS_PAGE: '/offers',
-  OFFER_DETAILS: (id: string) => `/offers/${id}`,
+  BANK_DETAILS: (id: string) => `/bank/${id}`,
+  CARD_DETAILS: (id: string) => `/card/${id}`,
+  BROKERAGE_DETAILS: (id: string) => `/brokerage/${id}`,
 };
