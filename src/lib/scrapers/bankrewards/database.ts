@@ -120,7 +120,7 @@ export class BankRewardsDatabase {
 
     // Create a unique key using both the ID and title to handle duplicate IDs
     const uniqueKey = `${offer.id}-${offer.title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-    
+
     // Add or update the offer in memory
     this.offers.set(uniqueKey, {
       ...offer,
