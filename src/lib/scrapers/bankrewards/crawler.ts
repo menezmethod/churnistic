@@ -9,6 +9,7 @@ interface Card {
   bonus: string;
   htmlContent: string;
   offerBaseUrl: string;
+  uniqueId: string;
 }
 
 interface CardElement extends HTMLElement {
@@ -18,8 +19,11 @@ interface CardElement extends HTMLElement {
 
 export class BankRewardsCrawler {
   private dataset!: Dataset;
-  private offersProcessed = 0;
   private config: BankRewardsConfig;
+  private processedIds = new Set<string>();
+  private processedUrls = new Set<string>();
+  private processedTitles = new Set<string>();
+  private offersProcessed = 0;
 
   constructor(config: BankRewardsConfig) {
     this.config = config;
@@ -39,6 +43,104 @@ export class BankRewardsCrawler {
       };
     }
     return { error: String(error) };
+  }
+
+  private generateUniqueId(card: Partial<Card>): string {
+    // Create a unique ID combining multiple fields to avoid duplicates
+    const normalizedTitle = card.title?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+    const normalizedUrl = (card.detailsUrl || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normalizedBonus = card.bonus?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+    return `${normalizedTitle}-${normalizedUrl}-${normalizedBonus}`;
+  }
+
+  private isDuplicate(card: Partial<Card>): boolean {
+    const uniqueId = this.generateUniqueId(card);
+    const fullUrl = (card.detailsUrl || '').startsWith('http')
+      ? card.detailsUrl || ''
+      : `https://www.bankrewards.io${card.detailsUrl || ''}`;
+    
+    if (this.processedIds.has(uniqueId) || 
+        this.processedUrls.has(fullUrl) || 
+        this.processedTitles.has(card.title?.toLowerCase() || '')) {
+      this.log(`Skipping duplicate offer: ${card.title}`, {
+        reason: {
+          idMatch: this.processedIds.has(uniqueId),
+          urlMatch: this.processedUrls.has(fullUrl),
+          titleMatch: this.processedTitles.has(card.title?.toLowerCase() || '')
+        }
+      });
+      return true;
+    }
+
+    this.processedIds.add(uniqueId);
+    this.processedUrls.add(fullUrl);
+    this.processedTitles.add(card.title?.toLowerCase() || '');
+    return false;
+  }
+
+  private async processCard(card: Card, ctx: BrowserContext): Promise<void> {
+    if (!card.detailsUrl || !card.title || this.isDuplicate(card)) {
+      return;
+    }
+
+    const fullUrl = card.detailsUrl.startsWith('http')
+      ? card.detailsUrl
+      : `https://www.bankrewards.io${card.detailsUrl}`;
+
+    const type = card.detailsUrl.includes('/credit-card/') || card.detailsUrl.includes('/card/')
+      ? 'CREDIT_CARD'
+      : card.detailsUrl.includes('/bank/')
+        ? 'BANK_ACCOUNT'
+        : 'BROKERAGE';
+
+    const detailsPage = await ctx.newPage();
+    let rawHtml = '';
+
+    try {
+      const detailsStartTime = Date.now();
+      await Promise.all([
+        detailsPage.goto(fullUrl, { waitUntil: 'domcontentloaded' }),
+        detailsPage.waitForLoadState('domcontentloaded'),
+      ]);
+
+      // Only capture essential HTML content
+      rawHtml = await detailsPage.evaluate(() => {
+        const mainContent = document.querySelector('main');
+        if (!mainContent) return '';
+        const clone = mainContent.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll('script, style, iframe, img').forEach(el => el.remove());
+        return clone.innerHTML.replace(/\\u[\dA-F]{4}/gi, match => 
+          String.fromCharCode(parseInt(match.replace(/\\u/g, ''), 16))
+        );
+      });
+
+      const fullOffer = {
+        id: card.detailsUrl.split('/').pop() || '',
+        sourceUrl: fullUrl,
+        sourceId: card.detailsUrl.split('/').pop() || '',
+        title: card.title,
+        type,
+        metadata: {
+          bonus: card.bonus,
+          rawHtml,
+          lastChecked: new Date(),
+          status: 'active' as const,
+          offerBaseUrl: card.offerBaseUrl || '',
+        },
+      };
+
+      await this.dataset?.pushData(fullOffer);
+      this.offersProcessed++;
+      this.log(`Processed offer ${this.offersProcessed}`, {
+        title: card.title,
+        type,
+        timeMs: Date.now() - detailsStartTime,
+      });
+    } catch (error) {
+      this.log(`Error processing details page: ${fullUrl}`, this.logError(error));
+    } finally {
+      await detailsPage.close();
+    }
   }
 
   public async run(startUrls: string[]) {
@@ -131,6 +233,11 @@ export class BankRewardsCrawler {
                     bonus: bonusEl?.textContent?.trim() || '',
                     htmlContent: element.outerHTML,
                     offerBaseUrl,
+                    uniqueId: this.generateUniqueId({ 
+                      title: titleEl?.textContent?.trim() || '', 
+                      detailsUrl: detailsButton?.getAttribute('href') ?? '', 
+                      bonus: bonusEl?.textContent?.trim() || '' 
+                    }),
                   };
                 });
               }
@@ -151,66 +258,7 @@ export class BankRewardsCrawler {
                 chunk.map(async (card) => {
                   if (!card.detailsUrl || !card.title) return;
 
-                  const fullUrl = card.detailsUrl.startsWith('http')
-                    ? card.detailsUrl
-                    : `https://www.bankrewards.io${card.detailsUrl}`;
-
-                  if (processedUrls.has(fullUrl) || processedTitles.has(card.title)) {
-                    return;
-                  }
-
-                  processedUrls.add(fullUrl);
-                  processedTitles.add(card.title);
-
-                  const type = card.detailsUrl.includes('/credit-card/') || card.detailsUrl.includes('/card/')
-                    ? 'CREDIT_CARD'
-                    : card.detailsUrl.includes('/bank/')
-                      ? 'BANK_ACCOUNT'
-                      : 'BROKERAGE';
-
-                  const detailsPage = await ctx.newPage();
-                  let rawHtml = '';
-
-                  try {
-                    const detailsStartTime = Date.now();
-                    await Promise.all([
-                      detailsPage.goto(fullUrl, { waitUntil: 'domcontentloaded' }),
-                      detailsPage.waitForLoadState('domcontentloaded'),
-                    ]);
-
-                    rawHtml = await detailsPage.evaluate(() => {
-                      const clone = document.documentElement.cloneNode(true) as HTMLElement;
-                      clone.querySelectorAll('script, style').forEach(el => el.remove());
-                      return clone.outerHTML;
-                    });
-
-                    const fullOffer = {
-                      id: card.detailsUrl.split('/').pop() || '',
-                      sourceUrl: fullUrl,
-                      sourceId: card.detailsUrl.split('/').pop() || '',
-                      title: card.title,
-                      type,
-                      metadata: {
-                        bonus: card.bonus,
-                        rawHtml,
-                        lastChecked: new Date(),
-                        status: 'active' as const,
-                        offerBaseUrl: card.offerBaseUrl || '',
-                      },
-                    };
-
-                    await this.dataset?.pushData(fullOffer);
-                    this.offersProcessed++;
-                    this.log(`Processed offer ${this.offersProcessed}`, {
-                      title: card.title,
-                      type,
-                      timeMs: Date.now() - detailsStartTime,
-                    });
-                  } catch (error) {
-                    this.log(`Error processing details page: ${fullUrl}`, this.logError(error));
-                  } finally {
-                    await detailsPage.close();
-                  }
+                  await this.processCard(card, ctx);
                 })
               );
               this.log(`Processed chunk ${chunkNum++}/${chunks.length} in ${Date.now() - chunkStartTime}ms`);
