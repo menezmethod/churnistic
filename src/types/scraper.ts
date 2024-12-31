@@ -21,21 +21,19 @@ export interface BankRewardsConfig {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
 }
 
+export type OfferType = 'CREDIT_CARD' | 'BANK_ACCOUNT' | 'BROKERAGE';
+
 export interface BankRewardsOffer {
   id: string;
-  type: 'CREDIT_CARD' | 'BANK_ACCOUNT' | 'BROKERAGE';
-  name: string;
-  institution: string;
-  value: number;
-  requirements: string[];
-  expirationDate?: Date;
+  title: string;
+  type: 'BANK_ACCOUNT' | 'CREDIT_CARD' | 'BROKERAGE';
   sourceUrl: string;
   sourceId: string;
   metadata: {
-    rawHtml?: string;
+    bonus: string;
+    rawHtml: string;
     lastChecked: Date;
-    status: 'active' | 'expired' | 'error';
-    errorDetails?: string;
+    status: 'active' | 'expired';
   };
 }
 

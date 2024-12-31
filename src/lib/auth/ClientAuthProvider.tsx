@@ -1,7 +1,7 @@
-'use client';;
-import { AuthProvider } from './AuthContext';
+'use client';
+import type { JSX } from 'react';
 
-import type { JSX } from "react";
+import { AuthProvider } from './AuthContext';
 
 export function ClientAuthProvider({
   children,

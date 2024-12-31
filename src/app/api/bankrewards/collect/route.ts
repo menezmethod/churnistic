@@ -10,9 +10,9 @@ export async function POST() {
   try {
     const config = getBankRewardsConfig();
     const collector = new BankRewardsCollector(config);
-    
+
     const result = await collector.collect();
-    
+
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error running BankRewards collector:', error);

@@ -1,10 +1,9 @@
-'use client';;
+'use client';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
+import type { JSX } from 'react';
 
 import { ThemeProvider as CustomThemeProvider } from '@/lib/theme/ThemeContext';
-
-import type { JSX } from "react";
 
 interface ClientLayoutProps {
   children: React.ReactNode;
