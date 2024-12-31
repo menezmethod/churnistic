@@ -42,7 +42,7 @@ import {
 import type { WithFieldValue, DocumentData } from 'firebase/firestore';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, type JSX } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { db, storage } from '@/lib/firebase/config';
@@ -1509,112 +1509,109 @@ const SettingsPage = (): JSX.Element => {
       void handlePreferenceChange('timezone', e.target.value);
     };
 
-    return (
-      <>
-        <Typography
-          variant="h6"
-          sx={{ fontSize: '1.125rem', fontWeight: 600, color: 'text.primary', mb: 1 }}
-        >
-          Preferences
-        </Typography>
-        <Typography
-          variant="body2"
-          sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 4 }}
-        >
-          Customize your experience with personal preferences
-        </Typography>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Box>
-            <Typography
-              variant="subtitle2"
-              sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary', mb: 2 }}
-            >
-              Theme
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              {['light', 'dark', 'system'].map((option) => (
-                <Button
-                  key={option}
-                  variant={
-                    (profile?.preferences?.theme || 'system') === option
-                      ? 'contained'
-                      : 'outlined'
-                  }
-                  onClick={(): void => handleThemeChange(option)}
-                  sx={{
-                    textTransform: 'capitalize',
-                    px: 3,
-                    py: 1,
-                    ...(profile?.preferences?.theme === option
-                      ? {
-                          bgcolor: '#0B5CFF',
-                          '&:hover': {
-                            bgcolor: '#0B4ECC',
-                          },
-                        }
-                      : {
-                          color: 'text.primary',
-                          borderColor: '#D0D5DD',
-                          '&:hover': {
-                            borderColor: '#98A2B3',
-                          },
-                        }),
-                  }}
-                >
-                  {option}
-                </Button>
-              ))}
-            </Box>
-          </Box>
-
-          <Box>
-            <Typography
-              variant="subtitle2"
-              sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary', mb: 2 }}
-            >
-              Language
-            </Typography>
-            <StyledTextField
-              select
-              fullWidth
-              value={profile?.preferences?.language ?? 'en'}
-              onChange={handleLanguageChange}
-            >
-              {languages.map((lang) => (
-                <MenuItem key={lang.code} value={lang.code}>
-                  {lang.name}
-                </MenuItem>
-              ))}
-            </StyledTextField>
-          </Box>
-
-          <Box>
-            <Typography
-              variant="subtitle2"
-              sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary', mb: 2 }}
-            >
-              Timezone
-            </Typography>
-            <StyledTextField
-              select
-              fullWidth
-              value={
-                profile?.preferences?.timezone ??
-                Intl.DateTimeFormat().resolvedOptions().timeZone
-              }
-              onChange={handleTimezoneUpdate}
-            >
-              {timezones.map((timezone) => (
-                <MenuItem key={timezone} value={timezone}>
-                  {timezone.replace(/_/g, ' ')}
-                </MenuItem>
-              ))}
-            </StyledTextField>
+    return (<>
+      <Typography
+        variant="h6"
+        sx={{ fontSize: '1.125rem', fontWeight: 600, color: 'text.primary', mb: 1 }}
+      >
+        Preferences
+      </Typography>
+      <Typography
+        variant="body2"
+        sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 4 }}
+      >
+        Customize your experience with personal preferences
+      </Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box>
+          <Typography
+            variant="subtitle2"
+            sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary', mb: 2 }}
+          >
+            Theme
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            {['light', 'dark', 'system'].map((option) => (
+              <Button
+                key={option}
+                variant={
+                  (profile?.preferences?.theme || 'system') === option
+                    ? 'contained'
+                    : 'outlined'
+                }
+                onClick={(): void => handleThemeChange(option)}
+                sx={{
+                  textTransform: 'capitalize',
+                  px: 3,
+                  py: 1,
+                  ...(profile?.preferences?.theme === option
+                    ? {
+                        bgcolor: '#0B5CFF',
+                        '&:hover': {
+                          bgcolor: '#0B4ECC',
+                        },
+                      }
+                    : {
+                        color: 'text.primary',
+                        borderColor: '#D0D5DD',
+                        '&:hover': {
+                          borderColor: '#98A2B3',
+                        },
+                      }),
+                }}
+              >
+                {option}
+              </Button>
+            ))}
           </Box>
         </Box>
-      </>
-    );
+
+        <Box>
+          <Typography
+            variant="subtitle2"
+            sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary', mb: 2 }}
+          >
+            Language
+          </Typography>
+          <StyledTextField
+            select
+            fullWidth
+            value={profile?.preferences?.language ?? 'en'}
+            onChange={handleLanguageChange}
+          >
+            {languages.map((lang) => (
+              <MenuItem key={lang.code} value={lang.code}>
+                {lang.name}
+              </MenuItem>
+            ))}
+          </StyledTextField>
+        </Box>
+
+        <Box>
+          <Typography
+            variant="subtitle2"
+            sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary', mb: 2 }}
+          >
+            Timezone
+          </Typography>
+          <StyledTextField
+            select
+            fullWidth
+            value={
+              profile?.preferences?.timezone ??
+              Intl.DateTimeFormat().resolvedOptions().timeZone
+            }
+            onChange={handleTimezoneUpdate}
+          >
+            {timezones.map((timezone) => (
+              <MenuItem key={timezone} value={timezone}>
+                {timezone.replace(/_/g, ' ')}
+              </MenuItem>
+            ))}
+          </StyledTextField>
+        </Box>
+      </Box>
+    </>);
   };
 
   const handlePasswordChange = (): void => {

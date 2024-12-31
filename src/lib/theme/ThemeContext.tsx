@@ -43,7 +43,7 @@ const gray = {
 export const ThemeProvider = ({
   children,
   defaultMode = 'system',
-}: ThemeProviderProps): React.ReactElement => {
+}: ThemeProviderProps): React.ReactElement<any> => {
   const [mode, setMode] = useState<ThemeMode>(defaultMode);
   const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>('light');
 

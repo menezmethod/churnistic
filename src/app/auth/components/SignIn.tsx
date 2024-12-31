@@ -1,5 +1,4 @@
-'use client';
-
+'use client';;
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import MuiCard from '@mui/material/Card';
@@ -22,6 +21,8 @@ import { signInWithEmail, signInWithGoogle } from '@/lib/firebase/auth';
 
 import { ForgotPassword } from './ForgotPassword';
 import { GoogleIcon } from './icons';
+
+import type { JSX } from "react";
 
 const Card = styled(MuiCard)(({ theme }) => ({
   display: 'flex',

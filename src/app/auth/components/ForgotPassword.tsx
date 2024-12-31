@@ -1,5 +1,4 @@
-'use client';
-
+'use client';;
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -11,6 +10,8 @@ import TextField from '@mui/material/TextField';
 import * as React from 'react';
 
 import { resetPassword } from '@/lib/firebase/auth';
+
+import type { JSX } from "react";
 
 interface ForgotPasswordProps {
   open: boolean;

@@ -3,7 +3,8 @@ import type { NextRequest } from 'next/server';
 
 import { prisma } from '@/lib/prisma';
 
-export async function GET(request: NextRequest, { params }: { params: { uid: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ uid: string }> }) {
+  const params = await props.params;
   try {
     const user = await prisma.user.findUnique({
       where: { firebaseUid: params.uid },
