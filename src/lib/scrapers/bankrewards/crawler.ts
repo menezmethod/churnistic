@@ -109,9 +109,9 @@ export class BankRewardsCrawler {
         if (!mainContent) return '';
         const clone = mainContent.cloneNode(true) as HTMLElement;
         clone.querySelectorAll('script, style, iframe, img').forEach(el => el.remove());
-        return clone.innerHTML.replace(/\\u[\dA-F]{4}/gi, match => 
-          String.fromCharCode(parseInt(match.replace(/\\u/g, ''), 16))
-        );
+        const div = document.createElement('div');
+        div.appendChild(clone);
+        return div.innerHTML;
       });
 
       const fullOffer = {
@@ -122,7 +122,13 @@ export class BankRewardsCrawler {
         type,
         metadata: {
           bonus: card.bonus,
-          rawHtml,
+          rawHtml: rawHtml.replace(/\\u[\dA-F]{4}/gi, match => 
+            String.fromCharCode(parseInt(match.replace(/\\u/g, ''), 16))
+          ).replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'"),
           lastChecked: new Date(),
           status: 'active' as const,
           offerBaseUrl: card.offerBaseUrl || '',
