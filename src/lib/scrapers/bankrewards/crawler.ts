@@ -8,6 +8,7 @@ interface Card {
   detailsUrl: string;
   bonus: string;
   htmlContent: string;
+  offerBaseUrl: string;
 }
 
 interface CardElement extends HTMLElement {
@@ -98,7 +99,6 @@ export class BankRewardsCrawler {
           let pageNum = 1;
 
           while (hasMoreOffers) {
-            const pageProcessStartTime = Date.now();
             this.log(`Processing page ${pageNum}`, {
               processed: processedUrls.size,
               uniqueTitles: processedTitles.size,
@@ -112,12 +112,25 @@ export class BankRewardsCrawler {
                   const titleEl = element.querySelector('.MuiTypography-h6');
                   const detailsButton = element.querySelector('a[class*="MuiButton-containedSecondary"]');
                   const bonusEl = element.querySelector('.MuiTypography-body2');
+                  const offerButton = element.querySelector('a[class*="MuiButton-containedPrimary"][target="_blank"]');
+                  
+                  // Extract base URL from offer link
+                  let offerBaseUrl = '';
+                  if (offerButton?.getAttribute('href')) {
+                    try {
+                      const url = new URL(offerButton.getAttribute('href') || '');
+                      offerBaseUrl = `${url.protocol}//${url.hostname}`;
+                    } catch (e) {
+                      // Invalid URL, leave base empty
+                    }
+                  }
 
                   return {
                     title: titleEl?.textContent?.trim() || '',
                     detailsUrl: detailsButton?.getAttribute('href') || '',
                     bonus: bonusEl?.textContent?.trim() || '',
                     htmlContent: element.outerHTML,
+                    offerBaseUrl,
                   };
                 });
               }
@@ -182,6 +195,7 @@ export class BankRewardsCrawler {
                         rawHtml,
                         lastChecked: new Date(),
                         status: 'active' as const,
+                        offerBaseUrl: card.offerBaseUrl || '',
                       },
                     };
 
@@ -202,35 +216,94 @@ export class BankRewardsCrawler {
               this.log(`Processed chunk ${chunkNum++}/${chunks.length} in ${Date.now() - chunkStartTime}ms`);
             }
 
-            const loadMoreButton = await page.$('button.MuiButton-containedPrimary:visible');
-            
-            if (loadMoreButton && await loadMoreButton.isVisible() && await loadMoreButton.isEnabled()) {
+            // Handle Load More with retries
+            const maxRetries = 3;
+            let retries = 0;
+            const hasMoreContent = true;
+
+            while (hasMoreContent && retries < maxRetries) {
               try {
-                this.log('Found Load More button, loading next page');
-                const currentCardCount = await page.evaluate(() => 
-                  document.querySelectorAll('div[class*="MuiGrid-root MuiGrid-item"]').length
+                this.log(`Attempting to find Load More button (attempt ${retries + 1})`);
+
+                // Find the Load More button using the exact structure
+                const loadMoreButton = await page.$(
+                  'div[style*="display: flex"][style*="justify-content: center"] button.MuiButton-containedPrimary:has-text("Load More")'
                 );
 
-                await Promise.all([
-                  loadMoreButton.click(),
-                  page.waitForResponse(response => 
-                    response.url().includes('/api/') && response.status() === 200
-                  ),
-                ]);
+                if (!loadMoreButton) {
+                  this.log('No more offers to load (Load More button not found)');
+                  hasMoreOffers = false;
+                  break;
+                }
 
-                await page.waitForFunction(`
-                  document.querySelectorAll('div[class*="MuiGrid-root MuiGrid-item"]').length > ${currentCardCount}
-                `, { timeout: 5000 });
+                const isEnabled = await loadMoreButton.isEnabled();
+                if (!isEnabled) {
+                  this.log('Load More button found but disabled');
+                  hasMoreOffers = false;
+                  break;
+                }
 
-                pageNum++;
-                this.log(`Page ${pageNum} loaded in ${Date.now() - pageProcessStartTime}ms`);
+                // Get current card count
+                const currentCardCount = await page.evaluate(() => 
+                  document.querySelectorAll('div[class*="MuiGrid-root MuiGrid-item MuiGrid-grid-sm-12 MuiGrid-grid-md-6 MuiGrid-grid-xl-4"]').length
+                );
+
+                // Scroll to button with offset
+                this.log('Scrolling to Load More button');
+                await page.evaluate((button: Element) => {
+                  button.scrollIntoView();
+                  window.scrollBy(0, -100);
+                }, loadMoreButton);
+
+                await page.waitForTimeout(2000);
+
+                // Click using JavaScript
+                this.log('Clicking Load More button');
+                await page.evaluate((button: Element) => {
+                  (button as HTMLElement).click();
+                }, loadMoreButton);
+
+                // Wait for new content
+                try {
+                  this.log('Waiting for new offers to load');
+                  await page.waitForFunction(
+                    `document.querySelectorAll('div[class*="MuiGrid-root MuiGrid-item MuiGrid-grid-sm-12 MuiGrid-grid-md-6 MuiGrid-grid-xl-4"]').length > ${currentCardCount}`,
+                    { timeout: 10000 }
+                  );
+                  
+                  // Verify new content was loaded
+                  const newCardCount = await page.evaluate(() => 
+                    document.querySelectorAll('div[class*="MuiGrid-root MuiGrid-item MuiGrid-grid-sm-12 MuiGrid-grid-md-6 MuiGrid-grid-xl-4"]').length
+                  );
+
+                  if (newCardCount > currentCardCount) {
+                    pageNum++;
+                    this.log(`Successfully loaded page ${pageNum} with ${newCardCount} total offers`);
+                    break;
+                  } else {
+                    this.log(`No new offers loaded after clicking Load More (attempt ${retries + 1})`);
+                    retries++;
+                  }
+                } catch (error) {
+                  this.log(`Timeout waiting for new offers to load (attempt ${retries + 1})`, this.logError(error));
+                  retries++;
+                  if (retries >= maxRetries) {
+                    this.log('Max retries reached for Load More button');
+                    hasMoreOffers = false;
+                    break;
+                  }
+                  await page.waitForTimeout(2000); // Wait before retrying
+                }
               } catch (error) {
-                this.log('No more pages to load');
-                hasMoreOffers = false;
+                this.log(`Error handling Load More button (attempt ${retries + 1})`, this.logError(error));
+                retries++;
+                if (retries >= maxRetries) {
+                  this.log('Max retries reached for Load More button');
+                  hasMoreOffers = false;
+                  break;
+                }
+                await page.waitForTimeout(2000);
               }
-            } else {
-              this.log('No more Load More button found');
-              hasMoreOffers = false;
             }
           }
         } catch (error) {
