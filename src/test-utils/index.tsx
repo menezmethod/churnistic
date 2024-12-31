@@ -2,7 +2,7 @@ import { render } from '@testing-library/react';
 import React from 'react';
 
 // Custom render function for testing
-const customRender = (ui: React.ReactElement<any>, options = {}) =>
+const customRender = (ui: React.ReactElement<unknown>, options = {}) =>
   render(ui, {
     wrapper: ({ children }) => children,
     ...options,

@@ -3,7 +3,7 @@ import { render as rtlRender, screen } from '@testing-library/react';
 import RootLayout from '../layout';
 
 // Custom render function for Next.js app router components
-function render(ui: React.ReactElement<any>) {
+function render(ui: React.ReactElement<unknown>) {
   // Suppress validateDOMNesting warning for html and body tags
   const originalError = console.error;
   console.error = (...args: unknown[]) => {

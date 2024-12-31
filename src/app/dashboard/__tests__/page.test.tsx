@@ -179,7 +179,7 @@ jest.mock('@emotion/react', () => ({
   keyframes: () => 'animation-name',
 }));
 
-const renderWithTheme = (component: React.ReactElement<any>) => {
+const renderWithTheme = (component: React.ReactElement<unknown>) => {
   return render(<ThemeProvider theme={theme}>{component}</ThemeProvider>);
 };
 
