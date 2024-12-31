@@ -40,7 +40,7 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type JSX } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';

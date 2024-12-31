@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react';
 
 import { ClientLayout } from '../ClientLayout';
 
+import type { JSX } from "react";
+
 // Mock Material-UI components and theme
 jest.mock('@mui/material-nextjs/v14-appRouter', () => ({
   AppRouterCacheProvider: ({ children }: { children: React.ReactNode }): JSX.Element => (

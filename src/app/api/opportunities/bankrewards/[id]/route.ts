@@ -5,7 +5,8 @@ interface BankRewardsResponse {
   data: Record<string, unknown>;
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const response = await fetch(
       `${process.env.BANKREWARDS_API_URL}/offers/${params.id}`,

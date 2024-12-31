@@ -2,6 +2,8 @@ import { render } from '@testing-library/react';
 
 import SignUpPage from '../page';
 
+import type { JSX } from "react";
+
 // Mock the SignUpForm component
 jest.mock('../../components/SignUpForm', () => {
   return function MockSignUpForm(): JSX.Element {
