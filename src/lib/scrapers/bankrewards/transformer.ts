@@ -488,8 +488,12 @@ export class BankRewardsTransformer {
   }
 
   private getLogo(name: string): Logo {
-    // Try to find favicon image in the HTML
-    const faviconImg = this.$('img[alt$="favicon"]');
+    // Try to find favicon image in the HTML that is NOT base64
+    const faviconImg = this.$('img[alt$="favicon"]').filter(function() {
+      const src = this.attribs['src'];
+      return Boolean(src && !src.startsWith('data:'));
+    });
+
     if (faviconImg.length) {
       const srcset = faviconImg.attr('srcset');
       const src = faviconImg.attr('src');
@@ -498,30 +502,38 @@ export class BankRewardsTransformer {
       if (srcset) {
         const srcsetParts = srcset.split(',');
         const lastSrcset = srcsetParts[srcsetParts.length - 1].trim().split(' ')[0];
-        const url = lastSrcset.startsWith('/_next') ? 
-          `https://bankrewards.io${lastSrcset}` : lastSrcset;
-        
-        // Skip if it's a base64 image that's too large
-        if (url.startsWith('data:image') && url.length > 10000) {
-          return this.getDefaultLogo();
+        if (!lastSrcset.startsWith('data:')) {
+          const url = lastSrcset.startsWith('/_next') ? 
+            `https://bankrewards.io${lastSrcset}` : lastSrcset;
+          return {
+            type: 'icon',
+            url
+          };
         }
-        
-        return {
-          type: 'icon',
-          url
-        };
       }
       
       // Fallback to src if no srcset
+      if (src && !src.startsWith('data:')) {
+        const url = src.startsWith('/_next') ? 
+          `https://bankrewards.io${src}` : src;
+        return {
+          type: 'icon',
+          url
+        };
+      }
+    }
+
+    // Try to find any image with bank/card name that is NOT base64
+    const nameImg = this.$(`img[alt*="${name.toLowerCase()}"]`).filter(function() {
+      const src = this.attribs['src'];
+      return Boolean(src && !src.startsWith('data:'));
+    });
+
+    if (nameImg.length) {
+      const src = nameImg.attr('src');
       if (src) {
         const url = src.startsWith('/_next') ? 
           `https://bankrewards.io${src}` : src;
-          
-        // Skip if it's a base64 image that's too large
-        if (url.startsWith('data:image') && url.length > 10000) {
-          return this.getDefaultLogo();
-        }
-        
         return {
           type: 'icon',
           url
@@ -529,24 +541,7 @@ export class BankRewardsTransformer {
       }
     }
 
-    // Try to find any image with bank/card name
-    const nameImg = this.$(`img[alt*="${name.toLowerCase()}"]`);
-    if (nameImg.length) {
-      const src = nameImg.attr('src');
-      if (src && !src.startsWith('data:image')) {
-        const url = src.startsWith('/_next') ? 
-          `https://bankrewards.io${src}` : src;
-        return {
-          type: 'icon',
-          url
-        };
-      }
-    }
-
-    return this.getDefaultLogo();
-  }
-
-  private getDefaultLogo(): Logo {
+    // If no valid image found, return default logo
     return {
       type: 'icon',
       url: 'https://bankrewards.io/_next/image?url=%2Fblacklogo.png&w=128&q=75'
