@@ -1,10 +1,11 @@
 import * as cheerio from 'cheerio';
 
 import { BankRewardsOffer } from '@/types/scraper';
-import { TransformedOffer, BonusTier, Details } from '@/types/transformed';
+import { TransformedOffer, BonusTier, Details, Logo } from '@/types/transformed';
 
 export class BankRewardsTransformer {
   private $: cheerio.CheerioAPI = cheerio.load('');
+  private type: 'bank' | 'credit_card' | 'brokerage' = 'bank';
 
   private initCheerio(html: string) {
     this.$ = cheerio.load(html);
@@ -201,30 +202,54 @@ export class BankRewardsTransformer {
     // Look for common requirement patterns in the content
     const text = this.$('div').text();
     const patterns = [
-      // Spending requirement
+      // Direct deposit requirement with amount and timeframe
+      /(?:direct\s+deposit|dd)\s+(?:of\s+)?\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:or\s+more\s+)?(?:within|in|during)\s+(\d+)\s+(?:days?|months?)/i,
+      // Direct deposit requirement with timeframe only
+      /(?:direct\s+deposit|dd)\s+(?:within|in|during)\s+(\d+)\s+(?:days?|months?)/i,
+      // Spending requirement with amount and timeframe
       /(?:spend|purchase)\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:or\s+more\s+)?(?:within|in|during)\s+(\d+)\s+(?:days?|months?)/i,
-      // Direct deposit requirement
-      /(?:direct\s+deposit|dd)\s+of\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:or\s+more\s+)?(?:within|in|during)\s+(\d+)\s+(?:days?|months?)/i,
-      // Account opening requirement
-      /open\s+(?:a\s+new\s+)?account\s+(?:and|with)\s+(?:minimum\s+)?(?:deposit|balance)\s+of\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i
+      // Debit card transactions requirement
+      /(?:make|complete)\s+(\d+)\s+(?:debit\s+card\s+)?(?:purchases?|transactions?)/i,
+      // Minimum deposit requirement
+      /(?:minimum|initial)\s+deposit\s+of\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      // Maintain balance requirement
+      /maintain\s+(?:a\s+)?(?:minimum\s+)?balance\s+of\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:for|during)\s+(\d+)\s+(?:days?|months?)/i
     ];
 
     for (const pattern of patterns) {
       const match = text.match(pattern);
       if (match) {
+        if (pattern.source.includes('direct deposit') && match[1] && match[2]) {
+          return `Set up direct deposit of $${this.normalizeAmount(match[1])} within ${match[2]} ${match[2] === '1' ? 'month' : 'months'}`;
+        }
+        if (pattern.source.includes('direct deposit') && match[1]) {
+          return `Set up direct deposit within ${match[1]} ${match[1] === '1' ? 'month' : 'months'}`;
+        }
         if (pattern.source.includes('spend')) {
           return `Spend $${this.normalizeAmount(match[1])} within ${match[2]} ${match[2] === '1' ? 'month' : 'months'}`;
         }
-        if (pattern.source.includes('direct')) {
-          return `Set up direct deposit of $${this.normalizeAmount(match[1])} within ${match[2]} ${match[2] === '1' ? 'month' : 'months'}`;
+        if (pattern.source.includes('debit card')) {
+          return `Complete ${match[1]} debit card transactions`;
         }
-        if (pattern.source.includes('open')) {
-          return `Open a new account with minimum deposit of $${this.normalizeAmount(match[1])}`;
+        if (pattern.source.includes('minimum deposit')) {
+          return `Make a minimum deposit of $${this.normalizeAmount(match[1])}`;
+        }
+        if (pattern.source.includes('maintain')) {
+          return `Maintain a balance of $${this.normalizeAmount(match[1])} for ${match[2]} ${match[2] === '1' ? 'month' : 'months'}`;
         }
       }
     }
 
-    return '';
+    // Look for requirements in the bonus description
+    const bonusDesc = this.extractBonusDescription().toLowerCase();
+    if (bonusDesc.includes('direct deposit')) {
+      return 'Set up direct deposit';
+    }
+    if (bonusDesc.includes('debit card')) {
+      return 'Complete debit card transactions';
+    }
+
+    return 'Contact bank for specific requirements';
   }
 
   private extractAdditionalInfo(): string | undefined {
@@ -242,32 +267,77 @@ export class BankRewardsTransformer {
     return undefined;
   }
 
+  private extractRewards(): { card_perks?: string, cash_back?: string } | undefined {
+    const rewards: { card_perks?: string, cash_back?: string } = {};
+
+    // Extract cash back rates
+    const cashBackPattern = /(\d+(?:\.\d+)?%)\s+cash\s+back/i;
+    const text = this.$('div').text();
+    const cashBackMatch = text.match(cashBackPattern);
+    if (cashBackMatch) {
+      rewards.cash_back = cashBackMatch[0];
+    }
+
+    // Extract card perks
+    const perksSection = this.$('p:contains("Card Perks:")').next();
+    if (perksSection.length) {
+      const perks = this.cleanText(perksSection.text());
+      if (perks) {
+        rewards.card_perks = perks;
+      }
+    }
+
+    // Only return if we found any rewards
+    return Object.keys(rewards).length > 0 ? rewards : undefined;
+  }
+
+  private extractCardDetails(details: Details): void {
+    // Extract annual fees
+    const annualFeesText = this.$('p:contains("Annual Fees:")').text();
+    if (annualFeesText) {
+      details.annual_fees = this.cleanText(annualFeesText.split(':')[1]);
+    }
+
+    // Extract foreign transaction fees
+    const foreignFeesText = this.$('p:contains("Foreign Transaction Fees:")').text();
+    if (foreignFeesText) {
+      details.foreign_transaction_fees = this.cleanText(foreignFeesText.split(':')[1]);
+    }
+
+    // Extract 5/24 status for credit cards
+    const under524Text = this.$('p:contains("Under 5/24:")').text();
+    if (under524Text) {
+      details.under_5_24 = this.cleanText(under524Text.split(':')[1]);
+    }
+  }
+
   private extractDetails(): Details {
     const details: Details = {};
 
-    // Extract monthly fees
+    // Extract monthly fees with proper formatting
     const monthlyFeesText = this.$('p:contains("Monthly Fees:")').text();
     if (monthlyFeesText) {
       const amount = this.cleanText(monthlyFeesText.split(':')[1]);
-      details.monthly_fees = amount || 'None';
+      if (amount) {
+        if (amount.toLowerCase() === 'none' || amount === '0' || amount === '$0') {
+          details.monthly_fees = 'None';
+        } else {
+          const match = amount.match(/\$?(\d+(?:\.\d{2})?)/);
+          if (match) {
+            details.monthly_fees = `$${parseFloat(match[1]).toFixed(2)}`;
+          } else {
+            details.monthly_fees = amount;
+          }
+        }
+      } else {
+        details.monthly_fees = 'None';
+      }
     }
 
     // Extract account type
     const accountTypeText = this.$('p:contains("Account Type:")').text();
     if (accountTypeText) {
       details.account_type = this.cleanText(accountTypeText.split(':')[1]);
-    }
-
-    // Extract options trading
-    const optionsTradingText = this.$('p:contains("Options Trading:")').text();
-    if (optionsTradingText) {
-      details.options_trading = this.cleanText(optionsTradingText.split(':')[1]);
-    }
-
-    // Extract IRA accounts
-    const iraAccountsText = this.$('p:contains("IRA Accounts:")').text();
-    if (iraAccountsText) {
-      details.ira_accounts = this.cleanText(iraAccountsText.split(':')[1]);
     }
 
     // Extract availability
@@ -316,6 +386,26 @@ export class BankRewardsTransformer {
       details.expiration = this.cleanText(expirationText.split(':')[1]) || 'None Listed';
     }
 
+    // Extract brokerage-specific details
+    if (this.type === 'brokerage') {
+      // Extract options trading
+      const optionsTradingText = this.$('p:contains("Options Trading:")').text();
+      if (optionsTradingText) {
+        details.options_trading = this.cleanText(optionsTradingText.split(':')[1]);
+      }
+
+      // Extract IRA accounts
+      const iraAccountsText = this.$('p:contains("IRA Accounts:")').text();
+      if (iraAccountsText) {
+        details.ira_accounts = this.cleanText(iraAccountsText.split(':')[1]);
+      }
+    }
+
+    // Extract credit card specific details if this is a credit card
+    if (this.type === 'credit_card') {
+      this.extractCardDetails(details);
+    }
+
     return details;
   }
 
@@ -330,6 +420,7 @@ export class BankRewardsTransformer {
 
   public transform(offer: BankRewardsOffer): TransformedOffer {
     this.initCheerio(offer.metadata.rawHtml);
+    this.type = offer.type.toLowerCase() as 'bank' | 'credit_card' | 'brokerage';
     
     // Extract tiers first - try table format, then fallback to text patterns
     const tableTiers = this.extractTableTiers();
@@ -337,8 +428,9 @@ export class BankRewardsTransformer {
     const tiers = tableTiers.length > 0 ? tableTiers : textTiers;
 
     const transformed: TransformedOffer = {
+      id: offer.id,
       name: offer.title,
-      type: offer.type.toLowerCase() as 'bank' | 'credit_card' | 'brokerage',
+      type: this.type,
       logo: this.getLogo(offer.title),
       offer_link: offer.metadata.offerBaseUrl || '',
       bonus: {
@@ -352,6 +444,7 @@ export class BankRewardsTransformer {
         ...(this.extractAdditionalInfo() && { additional_info: this.extractAdditionalInfo() })
       },
       details: this.extractDetails(),
+      ...(this.extractRewards() && { rewards: this.extractRewards() }),
       ...(this.extractDisclosure() && { disclosure: this.extractDisclosure() }),
       metadata: {
         created: this.formatDate(offer.metadata.lastChecked),
@@ -394,22 +487,69 @@ export class BankRewardsTransformer {
     return num.toLocaleString();
   }
 
-  private getLogo(name: string): { type: string; url: string } {
-    // Map product names to their logos
-    const logoMap: Record<string, string> = {
-      'WeBull': 'webull-logo.svg',
-      'Moomoo': 'moomoo-logo.svg',
-      'SoFi': 'sofi-logo.svg',
-      'Chase': 'chase-logo.svg',
-      'Capital One': 'capital-one-logo.svg',
-      'Key': 'key-logo.svg',
-      'Thomaston': 'thomaston-logo.svg'
-    };
+  private getLogo(name: string): Logo {
+    // Try to find favicon image in the HTML
+    const faviconImg = this.$('img[alt$="favicon"]');
+    if (faviconImg.length) {
+      const srcset = faviconImg.attr('srcset');
+      const src = faviconImg.attr('src');
+      
+      // Extract the highest resolution image URL from srcset if available
+      if (srcset) {
+        const srcsetParts = srcset.split(',');
+        const lastSrcset = srcsetParts[srcsetParts.length - 1].trim().split(' ')[0];
+        const url = lastSrcset.startsWith('/_next') ? 
+          `https://bankrewards.io${lastSrcset}` : lastSrcset;
+        
+        // Skip if it's a base64 image that's too large
+        if (url.startsWith('data:image') && url.length > 10000) {
+          return this.getDefaultLogo();
+        }
+        
+        return {
+          type: 'icon',
+          url
+        };
+      }
+      
+      // Fallback to src if no srcset
+      if (src) {
+        const url = src.startsWith('/_next') ? 
+          `https://bankrewards.io${src}` : src;
+          
+        // Skip if it's a base64 image that's too large
+        if (url.startsWith('data:image') && url.length > 10000) {
+          return this.getDefaultLogo();
+        }
+        
+        return {
+          type: 'icon',
+          url
+        };
+      }
+    }
 
-    const logoName = Object.keys(logoMap).find(key => name.includes(key));
+    // Try to find any image with bank/card name
+    const nameImg = this.$(`img[alt*="${name.toLowerCase()}"]`);
+    if (nameImg.length) {
+      const src = nameImg.attr('src');
+      if (src && !src.startsWith('data:image')) {
+        const url = src.startsWith('/_next') ? 
+          `https://bankrewards.io${src}` : src;
+        return {
+          type: 'icon',
+          url
+        };
+      }
+    }
+
+    return this.getDefaultLogo();
+  }
+
+  private getDefaultLogo(): Logo {
     return {
       type: 'icon',
-      url: `path/to/${logoName ? logoMap[logoName] : 'default-logo.svg'}`
+      url: 'https://bankrewards.io/_next/image?url=%2Fblacklogo.png&w=128&q=75'
     };
   }
 
