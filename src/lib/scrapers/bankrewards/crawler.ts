@@ -99,7 +99,7 @@ export class BankRewardsCrawler {
 
           while (hasMoreOffers) {
             this.log(`Processing page ${pageNum}`, {
-              processed: processedIds.size
+              processed: processedIds.size,
             });
 
             const cards = await page.$$eval(
@@ -108,10 +108,14 @@ export class BankRewardsCrawler {
                 return elements.map((el: Element): Card => {
                   const element = el as CardElement;
                   const titleEl = element.querySelector('.MuiTypography-h6');
-                  const detailsButton = element.querySelector('a[class*="MuiButton-containedSecondary"]');
+                  const detailsButton = element.querySelector(
+                    'a[class*="MuiButton-containedSecondary"]'
+                  );
                   const bonusEl = element.querySelector('.MuiTypography-body2');
-                  const offerButton = element.querySelector('a[class*="MuiButton-containedPrimary"][target="_blank"]');
-                  
+                  const offerButton = element.querySelector(
+                    'a[class*="MuiButton-containedPrimary"][target="_blank"]'
+                  );
+
                   // Extract base URL from offer link
                   let offerBaseUrl = '';
                   if (offerButton?.getAttribute('href')) {
@@ -154,18 +158,20 @@ export class BankRewardsCrawler {
                     : `https://www.bankrewards.io${card.detailsUrl}`;
 
                   const offerId = card.detailsUrl.split('/').pop() || '';
-                  
+
                   if (processedIds.has(offerId)) {
                     return;
                   }
 
                   processedIds.add(offerId);
 
-                  const type = card.detailsUrl.includes('/credit-card/') || card.detailsUrl.includes('/card/')
-                    ? 'CREDIT_CARD'
-                    : card.detailsUrl.includes('/bank/')
-                      ? 'BANK_ACCOUNT'
-                      : 'BROKERAGE';
+                  const type =
+                    card.detailsUrl.includes('/credit-card/') ||
+                    card.detailsUrl.includes('/card/')
+                      ? 'CREDIT_CARD'
+                      : card.detailsUrl.includes('/bank/')
+                        ? 'BANK_ACCOUNT'
+                        : 'BROKERAGE';
 
                   const detailsPage = await ctx.newPage();
                   let rawHtml = '';
@@ -178,8 +184,12 @@ export class BankRewardsCrawler {
                     ]);
 
                     rawHtml = await detailsPage.evaluate(() => {
-                      const clone = document.documentElement.cloneNode(true) as HTMLElement;
-                      clone.querySelectorAll('script, style').forEach(el => el.remove());
+                      const clone = document.documentElement.cloneNode(
+                        true
+                      ) as HTMLElement;
+                      clone
+                        .querySelectorAll('script, style')
+                        .forEach((el) => el.remove());
                       return clone.outerHTML;
                     });
 
@@ -206,13 +216,18 @@ export class BankRewardsCrawler {
                       timeMs: Date.now() - detailsStartTime,
                     });
                   } catch (error) {
-                    this.log(`Error processing details page: ${fullUrl}`, this.logError(error));
+                    this.log(
+                      `Error processing details page: ${fullUrl}`,
+                      this.logError(error)
+                    );
                   } finally {
                     await detailsPage.close();
                   }
                 })
               );
-              this.log(`Processed chunk ${chunkNum++}/${chunks.length} in ${Date.now() - chunkStartTime}ms`);
+              this.log(
+                `Processed chunk ${chunkNum++}/${chunks.length} in ${Date.now() - chunkStartTime}ms`
+              );
             }
 
             // Handle Load More with retries
@@ -243,8 +258,11 @@ export class BankRewardsCrawler {
                 }
 
                 // Get current card count
-                const currentCardCount = await page.evaluate(() => 
-                  document.querySelectorAll('div[class*="MuiGrid-root MuiGrid-item MuiGrid-grid-sm-12 MuiGrid-grid-md-6 MuiGrid-grid-xl-4"]').length
+                const currentCardCount = await page.evaluate(
+                  () =>
+                    document.querySelectorAll(
+                      'div[class*="MuiGrid-root MuiGrid-item MuiGrid-grid-sm-12 MuiGrid-grid-md-6 MuiGrid-grid-xl-4"]'
+                    ).length
                 );
 
                 // Scroll to button with offset and ensure it's in view
@@ -269,31 +287,44 @@ export class BankRewardsCrawler {
                     `document.querySelectorAll('div[class*="MuiGrid-root MuiGrid-item MuiGrid-grid-sm-12 MuiGrid-grid-md-6 MuiGrid-grid-xl-4"]').length > ${currentCardCount}`,
                     { timeout: 15000 }
                   );
-                  
+
                   // Verify new content was loaded
-                  const newCardCount = await page.evaluate(() => 
-                    document.querySelectorAll('div[class*="MuiGrid-root MuiGrid-item MuiGrid-grid-sm-12 MuiGrid-grid-md-6 MuiGrid-grid-xl-4"]').length
+                  const newCardCount = await page.evaluate(
+                    () =>
+                      document.querySelectorAll(
+                        'div[class*="MuiGrid-root MuiGrid-item MuiGrid-grid-sm-12 MuiGrid-grid-md-6 MuiGrid-grid-xl-4"]'
+                      ).length
                   );
 
                   if (newCardCount > currentCardCount) {
                     pageNum++;
-                    this.log(`Successfully loaded page ${pageNum} with ${newCardCount} total offers`);
+                    this.log(
+                      `Successfully loaded page ${pageNum} with ${newCardCount} total offers`
+                    );
                     hasMoreContent = true;
                     retries = 0;
                     break;
                   } else {
-                    this.log(`No new offers loaded after clicking Load More (attempt ${retries + 1})`);
+                    this.log(
+                      `No new offers loaded after clicking Load More (attempt ${retries + 1})`
+                    );
                     retries++;
                     hasMoreContent = retries < maxRetries;
                   }
                 } catch (error) {
-                  this.log(`Timeout waiting for new offers to load (attempt ${retries + 1})`, this.logError(error));
+                  this.log(
+                    `Timeout waiting for new offers to load (attempt ${retries + 1})`,
+                    this.logError(error)
+                  );
                   retries++;
                   hasMoreContent = retries < maxRetries;
                   await page.waitForTimeout(3000);
                 }
               } catch (error) {
-                this.log(`Error handling Load More button (attempt ${retries + 1})`, this.logError(error));
+                this.log(
+                  `Error handling Load More button (attempt ${retries + 1})`,
+                  this.logError(error)
+                );
                 retries++;
                 hasMoreContent = retries < maxRetries;
                 await page.waitForTimeout(3000);
@@ -307,7 +338,9 @@ export class BankRewardsCrawler {
     } finally {
       if (browser) {
         await browser.close();
-        this.log(`Crawler finished. Total time: ${(Date.now() - startTime) / 1000}s, Offers processed: ${this.offersProcessed}`);
+        this.log(
+          `Crawler finished. Total time: ${(Date.now() - startTime) / 1000}s, Offers processed: ${this.offersProcessed}`
+        );
       }
     }
   }
