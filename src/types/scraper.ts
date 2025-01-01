@@ -32,8 +32,9 @@ export interface BankRewardsOffer {
   metadata: {
     bonus: string;
     rawHtml: string;
-    lastChecked: Date;
+    lastChecked: Date | string;
     status: 'active' | 'expired';
+    offerBaseUrl?: string;
   };
 }
 
