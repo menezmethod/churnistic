@@ -67,6 +67,7 @@ export interface Metadata {
 }
 
 export interface TransformedOffer {
+  id: string;
   name: string;
   type: 'bank' | 'credit_card' | 'brokerage';
   logo?: Logo;
