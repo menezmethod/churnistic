@@ -1,5 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import type { Query } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
 import { SessionData } from '@/lib/auth/session';
@@ -9,6 +10,37 @@ import { db } from '@/lib/firebase/admin';
 import { adminProcedure, protectedProcedure, router } from '../trpc';
 
 const USERS_COLLECTION = 'users';
+
+interface UserDocument {
+  email: string;
+  displayName?: string;
+  role: string;
+  isSuperAdmin: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+interface UserResponse {
+  id: string;
+  email: string;
+  displayName?: string;
+  role: string;
+  isSuperAdmin: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function formatUserData(id: string, data: UserDocument): UserResponse {
+  return {
+    id,
+    email: data.email,
+    displayName: data.displayName,
+    role: data.role,
+    isSuperAdmin: data.isSuperAdmin,
+    createdAt: data.createdAt.toDate().toISOString(),
+    updatedAt: data.updatedAt.toDate().toISOString(),
+  };
+}
 
 export const userRouter = router({
   me: protectedProcedure.query(async ({ ctx }) => {
@@ -26,23 +58,18 @@ export const userRouter = router({
     // In emulator mode, create the user if it doesn't exist
     if (!userDoc.exists && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
       console.log('Creating user document in emulator mode:', session);
-      await userRef.set({
-        email: session.email,
+      const now = Timestamp.now();
+      const userData: UserDocument = {
+        email: session.email || '',
         displayName: session.name,
-        role: session.role,
-        isSuperAdmin: session.isSuperAdmin,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      return {
-        id: session.uid,
-        email: session.email,
-        displayName: session.name,
-        role: session.role,
-        isSuperAdmin: session.isSuperAdmin,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        role: session.role || UserRole.USER,
+        isSuperAdmin: session.isSuperAdmin || false,
+        createdAt: now,
+        updatedAt: now,
       };
+
+      await userRef.set(userData);
+      return formatUserData(session.uid, userData);
     }
 
     if (!userDoc.exists) {
@@ -52,7 +79,7 @@ export const userRouter = router({
       });
     }
 
-    return { id: userDoc.id, ...userDoc.data() };
+    return formatUserData(userDoc.id, userDoc.data() as UserDocument);
   }),
 
   getById: adminProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
@@ -65,7 +92,7 @@ export const userRouter = router({
       });
     }
 
-    return { id: userDoc.id, ...userDoc.data() };
+    return formatUserData(userDoc.id, userDoc.data() as UserDocument);
   }),
 
   update: protectedProcedure
@@ -106,13 +133,13 @@ export const userRouter = router({
       const updateData = {
         ...(input.displayName && { displayName: input.displayName }),
         ...(input.email && { email: input.email }),
-        updatedAt: new Date(),
+        updatedAt: Timestamp.now(),
       };
 
       await userRef.update(updateData);
 
       const updatedDoc = await userRef.get();
-      return { id: updatedDoc.id, ...updatedDoc.data() };
+      return formatUserData(updatedDoc.id, updatedDoc.data() as UserDocument);
     }),
 
   delete: adminProcedure
@@ -128,8 +155,9 @@ export const userRouter = router({
         });
       }
 
+      const userData = formatUserData(userDoc.id, userDoc.data() as UserDocument);
       await userRef.delete();
-      return { id: userDoc.id, ...userDoc.data() };
+      return userData;
     }),
 
   list: adminProcedure
@@ -162,6 +190,6 @@ export const userRouter = router({
       }
 
       const snapshot = await query.get();
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      return snapshot.docs.map((doc) => formatUserData(doc.id, doc.data() as UserDocument));
     }),
 });
