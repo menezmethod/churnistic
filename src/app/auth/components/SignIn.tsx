@@ -115,26 +115,14 @@ export function SignIn(): JSX.Element {
     }
 
     try {
-      const { error } = await signInWithEmail(email, password);
-      if (error) {
-        if (
-          error.code === 'auth/user-not-found' ||
-          error.code === 'auth/wrong-password' ||
-          error.code === 'auth/invalid-credential' ||
-          error.code === 'auth/invalid-email'
-        ) {
-          setEmailError(true);
-          setPasswordError(true);
-          setEmailErrorMessage('Invalid email or password.');
-          setPasswordErrorMessage('Invalid email or password.');
-        } else {
-          throw error;
-        }
-      }
-    } catch (error) {
+      await signInWithEmail(email, password);
+      router.push('/dashboard');
+    } catch (error: unknown) {
       console.error('Sign in error:', error);
       setEmailError(true);
-      setEmailErrorMessage('An error occurred. Please try again.');
+      setPasswordError(true);
+      setEmailErrorMessage('Invalid email or password.');
+      setPasswordErrorMessage('Invalid email or password.');
     } finally {
       setIsLoading(false);
     }
@@ -142,6 +130,11 @@ export function SignIn(): JSX.Element {
 
   const handleGoogleSignIn = async (): Promise<void> => {
     setIsLoading(true);
+    setEmailError(false);
+    setPasswordError(false);
+    setEmailErrorMessage('');
+    setPasswordErrorMessage('');
+
     try {
       const { error } = await signInWithGoogle();
       if (error) {
@@ -163,7 +156,7 @@ export function SignIn(): JSX.Element {
           setEmailErrorMessage('This domain is not authorized for Google sign-in.');
         } else {
           setEmailError(true);
-          setEmailErrorMessage(`Google sign in failed: ${error.message}`);
+          setEmailErrorMessage('Failed to sign in with Google');
         }
         throw error;
       }
@@ -173,10 +166,8 @@ export function SignIn(): JSX.Element {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
       });
-      if (!emailError) {
-        setEmailError(true);
-        setEmailErrorMessage('An error occurred with Google sign in. Please try again.');
-      }
+      setEmailError(true);
+      setEmailErrorMessage('Failed to sign in with Google');
     } finally {
       setIsLoading(false);
     }

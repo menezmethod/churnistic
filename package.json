@@ -30,7 +30,6 @@
   },
   "dependencies": {
     "@crawlee/browser-pool": "^3.7.2",
-    "@crawlee/core": "^3.7.2",
     "@crawlee/playwright": "^3.12.1",
     "@crawlee/utils": "^3.7.2",
     "@emotion/styled": "^11.11.0",
@@ -43,7 +42,7 @@
     "@mui/x-tree-view": "^7.0.0",
     "@tanstack/react-query": "^4.36.1",
     "@trpc/client": "^10.45.2",
-    "@trpc/next": "^10.45.1",
+    "@trpc/next": "^10.45.2",
     "@trpc/react-query": "^10.45.2",
     "cheerio": "^1.0.0",
     "critters": "^0.0.20",
@@ -62,6 +61,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@crawlee/core": "^3.12.1",
     "@emotion/jest": "^11.11.0",
     "@emotion/react": "^11.14.0",
     "@next/eslint-plugin-next": "15.1.3",
@@ -74,13 +74,15 @@
     "@types/jest": "^29.5.11",
     "@types/node": "^20.17.11",
     "@types/node-fetch": "^2.6.11",
-    "@types/react": "19.0.2",
+    "@types/react": "^19.0.2",
     "@types/react-dom": "19.0.2",
+    "@types/testing-library__jest-dom": "^5.14.9",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
     "assert": "^2.1.0",
     "babel-jest": "^29.7.0",
     "browserify-zlib": "^0.2.0",
+    "browserslist": "^4.24.3",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.0",
     "cypress": "^13.6.3",
@@ -95,6 +97,8 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-security": "^2.1.0",
     "firebase-admin": "^12.7.0",
+    "got-scraping": "^4.0.8",
+    "header-generator": "^2.1.61",
     "https-browserify": "^1.0.0",
     "husky": "^8.0.3",
     "identity-obj-proxy": "^3.0.0",
@@ -116,7 +120,8 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
-    "url": "^0.11.3"
+    "url": "^0.11.3",
+    "whatwg-fetch": "^3.6.20"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
@@ -128,7 +133,6 @@
     ]
   },
   "overrides": {
-    "@types/react": "19.0.2",
     "@types/react-dom": "19.0.2"
   }
 }

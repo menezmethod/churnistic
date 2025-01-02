@@ -88,7 +88,7 @@ const headCells: readonly HeadCell[] = [
   },
 ];
 
-function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
+function descendingComparator<T extends User>(a: T, b: T, orderBy: keyof T) {
   if (b[orderBy] < a[orderBy]) {
     return -1;
   }
@@ -101,7 +101,7 @@ function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
 function getComparator<Key extends keyof User>(
   order: Order,
   orderBy: Key
-): (a: { [key in Key]: User[Key] }, b: { [key in Key]: User[Key] }) => number {
+): (a: User, b: User) => number {
   return order === 'desc'
     ? (a, b) => descendingComparator(a, b, orderBy)
     : (a, b) => -descendingComparator(a, b, orderBy);
@@ -184,7 +184,7 @@ export default function UsersPage() {
     setPage(0);
   };
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: User | null) => {
     setEditingUser(user);
   };
 
@@ -236,7 +236,7 @@ export default function UsersPage() {
       ) &&
       (filters.role === '' || user.role === filters.role)
     );
-  });
+  }) as User[];
 
   const sortedUsers = [...filteredUsers].sort(getComparator(order, orderBy));
   const paginatedUsers = sortedUsers.slice(
@@ -325,7 +325,7 @@ export default function UsersPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paginatedUsers.map((user) => (
+                {paginatedUsers.map((user: User) => (
                   <TableRow hover key={user.id}>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.displayName}</TableCell>

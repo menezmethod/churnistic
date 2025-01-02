@@ -58,63 +58,30 @@ import { useEffect, useState } from 'react';
 import OpportunityCardSkeleton from '@/components/skeletons/OpportunityCardSkeleton';
 import ProgressCardSkeleton from '@/components/skeletons/ProgressCardSkeleton';
 import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton';
-import { useOpportunities } from '@/hooks/useOpportunities';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { formatCurrency } from '@/lib/utils/formatters';
 
 interface Opportunity {
   id: string;
   title: string;
-  type: 'credit_card' | 'bank_account' | 'brokerage';
-  value: number;
+  type: 'credit_card' | 'bank_account';
+  value: string | number;
   bank: string;
   description: string;
   requirements: string[];
-  source: {
-    name: string;
-    url: string;
-  };
-  metadata?: {
-    bonus?: {
-      value: number;
-      description: string;
-      requirements: {
-        description: string;
-      };
-    };
-    credit?: {
-      inquiry: string | { monthly?: boolean };
-      chase_524_rule?: boolean;
-      impact?: string;
-      score_requirements?: string;
-      type?: string;
-    };
-    fees?: {
-      annual?: string | { amount: number; waivable: boolean };
-      monthly?: string;
-      foreign_transaction?: string;
-      details?: string;
-    };
-    timing?: {
-      approval_time?: string;
-      bonus_posting_time?: string;
-    };
-    availability?: {
-      type: 'Nationwide' | 'State';
-      states?: string[];
-      details?: string;
-      regions?: string[];
-    };
-    features?: string[];
-    perks?: string[];
-  };
-  timing?: {
-    posted_date: string;
-    expiration: string;
-  };
-  status: 'active' | 'expired' | 'pending';
-  confidence?: number;
+  source: string;
+  sourceLink: string;
+  postedDate: string;
   expirationDate?: string;
+  confidence: number;
+  status: string;
+  metadata?: {
+    progress?: number;
+    target?: number;
+    riskLevel?: number;
+    riskFactors?: string[];
+  };
+  timeframe?: string;
 }
 
 interface TrackedOpportunity {
@@ -200,14 +167,11 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
   const theme = useTheme();
 
   // Helper function to safely parse and format the value
-  const displayValue = (value: number) => {
-    return formatCurrency(value);
-  };
-
-  // Helper function to format requirements nicely
-  const formatRequirements = (requirements: string[]) => {
-    if (!requirements || requirements.length === 0) return 'No requirements specified';
-    return requirements[0];
+  const displayValue = (value: string | number) => {
+    if (typeof value === 'number') return formatCurrency(value);
+    // Remove any existing currency formatting
+    const numericValue = parseFloat(value.replace(/[$,]/g, ''));
+    return isNaN(numericValue) ? '$0' : formatCurrency(numericValue);
   };
 
   return (
@@ -265,8 +229,6 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
           >
             {opportunity.type === 'credit_card' ? (
               <CreditCardIcon color="primary" sx={{ fontSize: '2rem' }} />
-            ) : opportunity.type === 'brokerage' ? (
-              <AccountBalanceWalletIcon color="primary" sx={{ fontSize: '2rem' }} />
             ) : (
               <AccountBalanceIcon color="primary" sx={{ fontSize: '2rem' }} />
             )}
@@ -276,7 +238,7 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
               <Typography variant="subtitle1" fontWeight={600}>
                 {opportunity.title}
               </Typography>
-              {(opportunity.confidence ?? 0) >= 0.9 && (
+              {opportunity.confidence >= 0.9 && (
                 <Box
                   component={motion.div}
                   animate={{
@@ -293,21 +255,15 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
                 </Box>
               )}
             </Box>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                mb: 1,
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                lineHeight: '1.4',
-              }}
-            >
-              {formatRequirements(opportunity.requirements)}
-            </Typography>
             <Box display="flex" alignItems="center" gap={1}>
+              <Chip
+                label={opportunity.bank}
+                size="small"
+                sx={{
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  fontWeight: 500,
+                }}
+              />
               {opportunity.expirationDate && (
                 <Chip
                   icon={<TimerIcon sx={{ fontSize: '1rem !important' }} />}
@@ -493,6 +449,45 @@ const ProgressCard = ({ opportunity }: { opportunity: TrackedOpportunity }) => {
       </Paper>
     </Fade>
   );
+};
+
+const useOpportunities = () => {
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchOpportunities = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/opportunities?format=detailed');
+        if (!response.ok) {
+          throw new Error('Failed to fetch opportunities');
+        }
+        const data = await response.json();
+        // Sort opportunities by value (converting string values if needed)
+        const sortedData = data.offers.sort((a: Opportunity, b: Opportunity) => {
+          const valueA =
+            typeof a.value === 'string'
+              ? parseFloat(a.value.replace(/[^0-9.-]+/g, ''))
+              : a.value;
+          const valueB =
+            typeof b.value === 'string'
+              ? parseFloat(b.value.replace(/[^0-9.-]+/g, ''))
+              : b.value;
+          return valueB - valueA;
+        });
+        setOpportunities(sortedData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch opportunities');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOpportunities();
+  }, []);
+
+  return { opportunities, loading, error };
 };
 
 const recentActivities: Activity[] = [
@@ -696,19 +691,11 @@ const StatCard = ({
 };
 
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth();
-  const { opportunities, loading: oppsLoading, error } = useOpportunities();
   const theme = useTheme();
   const [activityExpanded, setActivityExpanded] = useState(false);
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-
-  useEffect(() => {
-    console.log('Auth state:', { user, authLoading });
-  }, [user, authLoading]);
-
-  useEffect(() => {
-    console.log('Opportunities state:', { opportunities, loading: oppsLoading, error });
-  }, [opportunities, oppsLoading, error]);
+  const { opportunities, loading: oppsLoading } = useOpportunities();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -789,7 +776,13 @@ export default function DashboardPage() {
       icon: TrendingUpIcon,
       title: 'POTENTIAL VALUE',
       value: formatCurrency(
-        opportunities.reduce((sum, opp) => sum + (opp.value || 0), 0)
+        opportunities.reduce((sum: number, opp: Opportunity) => {
+          const value =
+            typeof opp.value === 'string'
+              ? parseFloat(opp.value.replace(/[$,]/g, ''))
+              : opp.value;
+          return sum + (isNaN(value) ? 0 : value);
+        }, 0)
       ),
       trend: { value: 15, label: 'vs last month' },
       color: 'warning' as const,
@@ -804,7 +797,7 @@ export default function DashboardPage() {
     {
       icon: CheckCircleIcon,
       title: 'Completed',
-      value: opportunities.filter((opp) => opp.status === 'expired').length.toString(),
+      value: opportunities.filter((opp) => opp.status === 'completed').length.toString(),
       trend: { value: 18, label: 'success rate' },
       color: 'success' as const,
     },
@@ -854,45 +847,9 @@ export default function DashboardPage() {
   }
 
   // Get top 3 opportunities by value for quick opportunities section
-  const quickOpportunities = (() => {
-    if (!opportunities || opportunities.length === 0) {
-      return [];
-    }
-
-    // Create a map to store one opportunity of each type
-    const typeMap = new Map();
-
-    // Sort opportunities by value
-    const sortedOpps = opportunities.sort((a, b) => {
-      const valueA = a.value || 0;
-      const valueB = b.value || 0;
-      return valueB - valueA;
-    });
-
-    // Get highest value opportunity for each type
-    sortedOpps.forEach((opp) => {
-      if (!typeMap.has(opp.type)) {
-        const mappedOpp = {
-          id: opp.id,
-          title: opp.title,
-          type: opp.type,
-          value: opp.value,
-          bank: opp.bank,
-          description: opp.description,
-          requirements: opp.requirements,
-          source: opp.source,
-          sourceLink: opp.source?.url,
-          expirationDate: opp.timing?.expiration,
-          confidence: opp.confidence || 1,
-          status: opp.status || 'active',
-        };
-        typeMap.set(opp.type, mappedOpp);
-      }
-    });
-
-    // Convert map values to array and take top 3
-    return Array.from(typeMap.values()).slice(0, 3);
-  })();
+  const quickOpportunities = opportunities
+    .filter((opp) => opp.status === 'active')
+    .slice(0, 3);
 
   return (
     <Container
