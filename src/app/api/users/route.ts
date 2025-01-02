@@ -1,9 +1,9 @@
-import { Prisma } from '@prisma/client';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { UserRole } from '@/lib/auth/types';
-import { prisma } from '@/lib/prisma';
+import { db } from '@/lib/firebase/admin';
+import type { DatabaseUser } from '@/types/user';
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,75 +32,59 @@ export async function GET(request: NextRequest) {
       search,
     });
 
-    // Build where clause
-    const where: Prisma.UserWhereInput = {
-      ...(role && { role: role as UserRole }),
-      ...(status && { status }),
-      ...(search && {
-        OR: [
-          { displayName: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
-          { email: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
-        ],
-      }),
-    };
-
-    console.log('Where clause:', where);
-
     try {
-      // First, get all users to verify the query works
-      console.log('Fetching all users from database...');
-      const allUsers = await prisma.user.findMany();
-      console.log('All users in database:', allUsers.length);
-      console.log('All users:', JSON.stringify(allUsers, null, 2));
+      // Build query
+      let query = db.collection('users');
+
+      // Apply filters
+      if (role) {
+        query = query.where('role', '==', role);
+      }
+      if (status) {
+        query = query.where('status', '==', status);
+      }
+
+      // Apply sorting
+      query = query.orderBy(sortField, sortDirection.toLowerCase() as 'desc' | 'asc');
 
       // Get total count
-      console.log('Getting total count with where clause:', where);
-      const total = await prisma.user.count({ where });
+      const snapshot = await query.get();
+      const total = snapshot.size;
       console.log('Total users matching query:', total);
 
-      // Log query for debugging
-      const query = {
-        where,
-        orderBy: { [sortField]: sortDirection.toLowerCase() },
-        skip: (page - 1) * limit,
-        take: limit,
-        select: {
-          id: true,
-          email: true,
-          displayName: true,
-          photoURL: true,
-          role: true,
-          status: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      } satisfies Prisma.UserFindManyArgs;
-      console.log('Prisma query:', JSON.stringify(query, null, 2));
+      // Apply pagination
+      const startAt = (page - 1) * limit;
+      query = query.limit(limit).offset(startAt);
 
-      // Try a simpler query first
-      console.log('Trying simpler query without pagination...');
-      const allUsersWithWhere = await prisma.user.findMany({ where });
-      console.log('All users with where clause:', allUsersWithWhere.length);
-      console.log('Users with where:', JSON.stringify(allUsersWithWhere, null, 2));
-
-      // Now try with just sorting
-      console.log('Trying query with just sorting...');
-      const allUsersWithSort = await prisma.user.findMany({
-        where,
-        orderBy: { [sortField]: sortDirection.toLowerCase() },
+      // Execute query
+      const querySnapshot = await query.get();
+      const users = querySnapshot.docs.map(doc => {
+        const data = doc.data() as DatabaseUser;
+        return {
+          id: doc.id,
+          email: data.email,
+          displayName: data.displayName,
+          photoURL: data.photoURL,
+          role: data.role,
+          status: data.status,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        };
       });
-      console.log('All users with sort:', allUsersWithSort.length);
-      console.log('Users with sort:', JSON.stringify(allUsersWithSort, null, 2));
 
-      // Get users with pagination
-      console.log('Fetching users with pagination...');
-      const users = await prisma.user.findMany(query);
-      console.log('Found users:', users.length);
-      console.log('Users with pagination:', JSON.stringify(users, null, 2));
+      // If search is provided, filter results in memory
+      // Note: Firestore doesn't support case-insensitive search
+      const filteredUsers = search
+        ? users.filter(
+            user =>
+              user.displayName?.toLowerCase().includes(search.toLowerCase()) ||
+              user.email.toLowerCase().includes(search.toLowerCase())
+          )
+        : users;
 
       const response = {
-        users,
-        total,
+        users: filteredUsers,
+        total: search ? filteredUsers.length : total,
         hasMore: total > page * limit,
       };
 
@@ -138,20 +122,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Create user in MongoDB
-    const userData: Prisma.UserCreateInput = {
+    // Create user in Firestore
+    const userData: DatabaseUser = {
+      id: firebaseUid,
       firebaseUid,
       email,
       displayName: displayName || null,
+      customDisplayName: null,
+      photoURL: null,
       role: UserRole.USER,
       status: 'active',
+      creditScore: null,
+      monthlyIncome: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      businessVerified: false,
     };
 
-    const user = await prisma.user.create({
-      data: userData,
-    });
+    await db.collection('users').doc(firebaseUid).set(userData);
 
-    return NextResponse.json(user);
+    return NextResponse.json(userData);
   } catch (error) {
     console.error('Error creating user:', error);
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
@@ -163,14 +153,15 @@ export async function PATCH(request: NextRequest) {
     const { userIds, update } = await request.json();
 
     // Update multiple users
-    await prisma.user.updateMany({
-      where: {
-        id: {
-          in: userIds,
-        },
-      },
-      data: update,
-    });
+    const batch = db.batch();
+    for (const userId of userIds) {
+      const userRef = db.collection('users').doc(userId);
+      batch.update(userRef, {
+        ...update,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    await batch.commit();
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -190,13 +181,12 @@ export async function DELETE(request: NextRequest) {
     const { userIds } = await request.json();
 
     // Delete multiple users
-    await prisma.user.deleteMany({
-      where: {
-        id: {
-          in: userIds,
-        },
-      },
-    });
+    const batch = db.batch();
+    for (const userId of userIds) {
+      const userRef = db.collection('users').doc(userId);
+      batch.delete(userRef);
+    }
+    await batch.commit();
 
     return NextResponse.json({ success: true });
   } catch (error) {

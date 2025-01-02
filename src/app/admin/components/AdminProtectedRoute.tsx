@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
+import { trpc } from '@/lib/trpc/client';
 
 interface AdminProtectedRouteProps {
   children: React.ReactNode;
@@ -16,21 +17,46 @@ export default function AdminProtectedRoute({
   children,
   requiredRole = UserRole.ADMIN,
 }: AdminProtectedRouteProps) {
-  const { user, loading, hasRole } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { data: userProfile, isLoading: profileLoading } = trpc.user.me.useQuery(
+    undefined,
+    {
+      enabled: !!user, // Only fetch profile when user is authenticated
+    }
+  );
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/signin');
+    if (!authLoading && !user) {
+      router.push('/auth/signin');
       return;
     }
 
-    if (!loading && user && !hasRole(requiredRole)) {
+    if (
+      !profileLoading &&
+      userProfile &&
+      !hasRequiredRole(userProfile.role, requiredRole)
+    ) {
       router.push('/unauthorized');
+      return;
     }
-  }, [user, loading, hasRole, requiredRole, router]);
+  }, [user, authLoading, profileLoading, userProfile, requiredRole, router]);
 
-  if (loading) {
+  // Helper function to check if user has required role
+  const hasRequiredRole = (
+    userRole: UserRole | undefined,
+    required: UserRole
+  ): boolean => {
+    if (!userRole) return false;
+
+    // Admin has access to everything
+    if (userRole === UserRole.ADMIN) return true;
+
+    // For other roles, they must match exactly
+    return userRole === required;
+  };
+
+  if (authLoading || profileLoading) {
     return (
       <Box
         sx={{
@@ -49,7 +75,7 @@ export default function AdminProtectedRoute({
     );
   }
 
-  if (!user || !hasRole(requiredRole)) {
+  if (!user || !userProfile || !hasRequiredRole(userProfile.role, requiredRole)) {
     return null;
   }
 

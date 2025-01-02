@@ -10,7 +10,7 @@ import type { Permission, UserRole } from '@/lib/auth/types';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: UserRole;
-  requiredPermissions?: Permission[];
+  requiredPermission?: Permission;
   redirectTo?: string;
   loadingComponent?: React.ReactNode;
 }
@@ -18,7 +18,7 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({
   children,
   requiredRole,
-  requiredPermissions,
+  requiredPermission,
   redirectTo = '/auth/signin',
   loadingComponent,
 }: ProtectedRouteProps) {
@@ -39,14 +39,9 @@ export function ProtectedRoute({
       return;
     }
 
-    if (requiredPermissions) {
-      const hasAllPermissions = requiredPermissions.every((permission) =>
-        hasPermission(permission)
-      );
-      if (!hasAllPermissions) {
-        router.push('/unauthorized');
-        return;
-      }
+    if (requiredPermission && !hasPermission(requiredPermission)) {
+      router.push('/unauthorized');
+      return;
     }
 
     setIsAuthorized(true);
@@ -54,7 +49,7 @@ export function ProtectedRoute({
     user,
     loading,
     requiredRole,
-    requiredPermissions,
+    requiredPermission,
     hasRole,
     hasPermission,
     router,

@@ -1,51 +1,52 @@
-import { Auth, User } from 'firebase/auth';
+import { Auth } from 'firebase/auth';
 import { Firestore } from 'firebase/firestore';
 import { Functions } from 'firebase/functions';
-import type { FirebaseStorage } from 'firebase/storage';
+import { FirebaseStorage } from 'firebase/storage';
 
-const mockUser: User = {
-  uid: 'test-uid',
-  email: 'test@example.com',
-  displayName: 'Test User',
-  emailVerified: true,
-  isAnonymous: false,
-  metadata: {},
-  providerData: [],
-  refreshToken: 'test-refresh-token',
-  tenantId: null,
-  delete: jest.fn(),
-  getIdToken: jest.fn(),
-  getIdTokenResult: jest.fn(),
-  reload: jest.fn(),
-  toJSON: jest.fn(),
-  phoneNumber: null,
-  photoURL: null,
-  providerId: 'password',
-};
-
-export const auth = {
-  currentUser: mockUser,
-  onAuthStateChanged: jest.fn((callback) => {
-    callback(mockUser);
-    return () => {};
-  }),
+export const mockAuth = {
+  currentUser: null,
+  onAuthStateChanged: jest.fn(),
+  signOut: jest.fn(),
   signInWithEmailAndPassword: jest.fn(),
   createUserWithEmailAndPassword: jest.fn(),
-  signOut: jest.fn(),
+  signInWithPopup: jest.fn(),
   sendPasswordResetEmail: jest.fn(),
+  app: {
+    name: '[DEFAULT]',
+    options: {},
+  },
+  name: 'mock-auth',
+  config: {},
+  setPersistence: jest.fn(),
 } as unknown as Auth;
 
-export const db = {
+export const mockDb = {
   collection: jest.fn(),
-  doc: jest.fn(),
+  app: {
+    name: '[DEFAULT]',
+    options: {},
+  },
+  type: 'firestore',
+  toJSON: () => ({}),
 } as unknown as Firestore;
 
-export const functions = {
-  httpsCallable: jest.fn(),
-} as unknown as Functions;
-
-export const storage = {
-  ref: jest.fn(),
+export const mockStorage = {
+  app: {
+    name: '[DEFAULT]',
+    options: {},
+  },
+  maxUploadRetryTime: 0,
+  maxOperationRetryTime: 0,
 } as unknown as FirebaseStorage;
 
-export const onAuthStateChanged = auth.onAuthStateChanged;
+export const mockFunctions = {
+  app: {
+    name: '[DEFAULT]',
+    options: {},
+  },
+} as unknown as Functions;
+
+export const auth = mockAuth;
+export const db = mockDb;
+export const storage = mockStorage;
+export const functions = mockFunctions;

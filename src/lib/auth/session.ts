@@ -24,12 +24,23 @@ export async function verifySession(sessionCookie: string): Promise<SessionData 
     if (useEmulators) {
       console.log('🔧 Using Firebase Emulators for session verification');
       try {
-        // In emulator mode, verify the ID token directly
-        decodedToken = await auth.verifyIdToken(sessionCookie);
-        console.log(
-          'Session token verified in emulator mode for user:',
-          decodedToken.uid
-        );
+        // In emulator mode, try to verify the token in different formats
+        try {
+          // First, try to verify as a session cookie
+          decodedToken = await auth.verifySessionCookie(sessionCookie, true);
+          console.log('Session cookie verified in emulator mode');
+        } catch (cookieError) {
+          console.log('Failed to verify as session cookie, trying as ID token');
+          // If that fails, try to verify as an ID token
+          decodedToken = await auth.verifyIdToken(sessionCookie);
+          console.log('ID token verified in emulator mode');
+        }
+
+        if (!decodedToken) {
+          throw new Error('Failed to verify token in any format');
+        }
+
+        console.log('Token verified in emulator mode for user:', decodedToken.uid);
       } catch (error) {
         console.error('Failed to verify token in emulator mode:', error);
         return null;
@@ -45,16 +56,35 @@ export async function verifySession(sessionCookie: string): Promise<SessionData 
       }
     }
 
-    const sessionData: SessionData = {
-      ...decodedToken,
-      role: decodedToken.role || 'user',
-      permissions: decodedToken.permissions || [],
-      isSuperAdmin: decodedToken.isSuperAdmin || false,
-      lastActivity: Date.now(),
-    };
+    // Get user record to ensure we have the latest claims
+    try {
+      const userRecord = await auth.getUser(decodedToken.uid);
+      const sessionData: SessionData = {
+        ...decodedToken,
+        role: userRecord.customClaims?.role || decodedToken.role || 'user',
+        permissions:
+          userRecord.customClaims?.permissions || decodedToken.permissions || [],
+        isSuperAdmin:
+          userRecord.customClaims?.isSuperAdmin || decodedToken.isSuperAdmin || false,
+        lastActivity: Date.now(),
+      };
 
-    console.log('Session data:', sessionData);
-    return sessionData;
+      console.log('Session data:', sessionData);
+      return sessionData;
+    } catch (error) {
+      console.error('Failed to get user record:', error);
+      // Fall back to decoded token data if user record fetch fails
+      const sessionData: SessionData = {
+        ...decodedToken,
+        role: decodedToken.role || 'user',
+        permissions: decodedToken.permissions || [],
+        isSuperAdmin: decodedToken.isSuperAdmin || false,
+        lastActivity: Date.now(),
+      };
+
+      console.log('Session data (fallback):', sessionData);
+      return sessionData;
+    }
   } catch (error) {
     console.error('Session verification error:', error);
     return null;

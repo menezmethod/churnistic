@@ -1,9 +1,9 @@
-import type { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
 import { UserRole } from '@/lib/auth/types';
 import { auth } from '@/lib/firebase/admin';
-import { prisma } from '@/lib/prisma';
+import { db } from '@/lib/firebase/admin';
+import type { DatabaseUser } from '@/types/user';
 
 export async function POST() {
   try {
@@ -18,32 +18,35 @@ export async function POST() {
       errors: 0,
     };
 
-    // Sync each user to MongoDB
+    // Sync each user to Firestore
     for (const firebaseUser of users) {
       try {
-        // Check if user already exists in MongoDB
-        const existingUser = await prisma.user.findUnique({
-          where: { firebaseUid: firebaseUser.uid },
-        });
+        // Check if user already exists in Firestore
+        const userDoc = await db.collection('users').doc(firebaseUser.uid).get();
 
-        if (!existingUser) {
-          // Create user in MongoDB
-          const userData: Prisma.UserCreateInput = {
+        if (!userDoc.exists) {
+          // Create user in Firestore
+          const userData: DatabaseUser = {
+            id: firebaseUser.uid,
             firebaseUid: firebaseUser.uid,
             email: firebaseUser.email || '',
-            displayName:
-              firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+            displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+            customDisplayName: null,
             photoURL: firebaseUser.photoURL || null,
-            role: ((firebaseUser.customClaims?.role as UserRole) ||
-              UserRole.USER) as UserRole,
+            role: ((firebaseUser.customClaims?.role as UserRole) || UserRole.USER) as UserRole,
             status: 'active',
+            creditScore: null,
+            monthlyIncome: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            businessVerified: false,
           };
 
-          await prisma.user.create({ data: userData });
-          console.log(`Created MongoDB user for: ${firebaseUser.email}`);
+          await db.collection('users').doc(firebaseUser.uid).set(userData);
+          console.log(`Created Firestore user for: ${firebaseUser.email}`);
           results.created++;
         } else {
-          console.log(`User already exists in MongoDB: ${firebaseUser.email}`);
+          console.log(`User already exists in Firestore: ${firebaseUser.email}`);
           results.existing++;
         }
       } catch (error) {
