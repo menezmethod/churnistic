@@ -1,4 +1,4 @@
-import { Metadata } from 'next'
+import { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: {
@@ -6,7 +6,12 @@ export const metadata: Metadata = {
     default: 'Churnistic - Customer Churn Analytics',
   },
   description: 'Advanced analytics platform for tracking and preventing customer churn',
-  keywords: ['churn analytics', 'customer retention', 'business analytics', 'customer insights'],
+  keywords: [
+    'churn analytics',
+    'customer retention',
+    'business analytics',
+    'customer insights',
+  ],
   authors: [{ name: 'Churnistic Team' }],
   viewport: 'width=device-width, initial-scale=1',
   robots: {
@@ -23,4 +28,4 @@ export const metadata: Metadata = {
     title: 'Churnistic - Customer Churn Analytics',
     description: 'Advanced analytics platform for tracking and preventing customer churn',
   },
-} 
+};

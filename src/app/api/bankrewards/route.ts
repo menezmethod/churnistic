@@ -50,15 +50,13 @@ export async function GET(request: NextRequest) {
     });
 
     const db = new BankRewardsDatabase();
-    const [offers, stats] = await Promise.all([
-      db.getOffers(),
-      db.getStats(),
-    ]);
+    const [offers, stats] = await Promise.all([db.getOffers(), db.getStats()]);
 
     // If detailed format is requested, transform the offers
-    const transformedOffers = format === 'detailed'
-      ? offers.map((offer) => new BankRewardsTransformer().transform(offer))
-      : offers;
+    const transformedOffers =
+      format === 'detailed'
+        ? offers.map((offer) => new BankRewardsTransformer().transform(offer))
+        : offers;
 
     return NextResponse.json({
       data: {

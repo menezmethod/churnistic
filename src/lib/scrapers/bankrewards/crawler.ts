@@ -122,7 +122,7 @@ export class BankRewardsCrawler {
                     try {
                       const url = new URL(offerButton.getAttribute('href') || '');
                       offerBaseUrl = `${url.protocol}//${url.hostname}`;
-                    } catch (e) {
+                    } catch {
                       // Invalid URL, leave base empty
                     }
                   }
@@ -335,6 +335,9 @@ export class BankRewardsCrawler {
           this.log(`Error processing URL ${url}`, this.logError(error));
         }
       }
+    } catch (error) {
+      this.log('Error running crawler', this.logError(error));
+      throw error;
     } finally {
       if (browser) {
         await browser.close();

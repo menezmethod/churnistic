@@ -85,7 +85,8 @@ export async function POST(request: NextRequest) {
       {
         error: {
           message: 'Failed to initialize claims',
-          details: error instanceof Error ? error.message : 'An unexpected error occurred',
+          details:
+            error instanceof Error ? error.message : 'An unexpected error occurred',
         },
       },
       { status: 500 }

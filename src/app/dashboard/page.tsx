@@ -459,7 +459,9 @@ const useOpportunities = () => {
   useEffect(() => {
     const fetchOpportunities = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/opportunities?format=detailed');
+        const response = await fetch(
+          'http://localhost:3000/api/opportunities?format=detailed'
+        );
         if (!response.ok) {
           throw new Error('Failed to fetch opportunities');
         }
