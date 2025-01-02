@@ -2,7 +2,7 @@ export interface Opportunity {
   _id: string;
   id: string;
   title: string;
-  type: 'credit_card' | 'bank_account' | 'brokerage';
+  type: 'credit_card' | 'bank_account' | 'brokerage' | 'bank';
   value: number;
   bank: string;
   description: string;
@@ -34,14 +34,17 @@ export interface Opportunity {
       bonus_posting_time?: string;
     };
     availability?: {
-      regions: string[];
-      is_nationwide: boolean;
-      restrictions: string | null;
+      type: 'Nationwide' | 'State';
+      states?: string[];
+      details?: string;
+      regions?: string[];
     };
     bonus?: {
       value: number;
       description: string;
-      requirements: string[];
+      requirements: {
+        description: string;
+      };
       details: string;
       tiers?: Array<{
         bonus: string;
@@ -50,29 +53,34 @@ export interface Opportunity {
       }>;
       expiration?: string;
       terms?: string;
+      additional_info?: string;
     };
     features?: string[];
     perks?: string[];
-    brokerage_features?: {
-      account_types: string[];
-      trading_options: string[];
-      research_tools: string[];
-      mobile_trading: boolean;
-      fractional_shares: boolean;
-      minimum_balance: string;
+  };
+  details?: {
+    credit_inquiry?: string;
+    annual_fees?: string;
+    monthly_fees?: {
+      amount: string;
+      waiver_details?: string;
     };
-    source?: {
-      name: string;
-      url: string;
-      last_verified: string;
+    foreign_transaction_fees?: string;
+    availability?: {
+      type: string;
+      states?: string[];
+      details?: string;
     };
+    under_5_24?: string;
   };
   created_at: string;
   last_updated: string;
-  bonus: {
+  bonus?: {
     amount: number;
     currency: string;
-    requirements: string[];
+    requirements: Requirement[];
+    additional_info?: string;
+    description?: string;
   };
   timing: {
     posted_date: string;
@@ -88,4 +96,17 @@ export interface Opportunity {
   postedDate?: Date;
   expirationDate?: string;
   disclosure?: string;
+  name?: string;
+}
+
+export interface Requirement {
+  description: string;
+}
+
+export interface Bonus {
+  amount: number;
+  currency: string;
+  requirements: Requirement[];
+  additional_info?: string;
+  description?: string;
 }

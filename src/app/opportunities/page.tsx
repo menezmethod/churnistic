@@ -53,7 +53,6 @@ import React from 'react';
 
 import { useOpportunities } from '@/hooks/useOpportunities';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { isSoftPull } from '@/lib/utils/creditInquiry';
 import { Opportunity } from '@/types/opportunity';
 
 // Add types for opportunities
@@ -81,11 +80,11 @@ const QUICK_FILTERS: QuickFilter[] = [
     filter: (opp: Opportunity) => opp.type === 'credit_card',
   },
   {
-    id: 'bank_account',
+    id: 'bank',
     label: 'Bank Accounts',
     icon: AccountBalanceIcon,
     color: '#2e7d32',
-    filter: (opp: Opportunity) => opp.type === 'bank_account',
+    filter: (opp: Opportunity) => opp.type === 'bank',
   },
   {
     id: 'brokerage',
@@ -99,20 +98,21 @@ const QUICK_FILTERS: QuickFilter[] = [
     label: 'Quick Win',
     icon: TimerIcon,
     color: '#0288d1',
-    filter: (opp: Opportunity) =>
-      opp.requirements.some(
-        (req) =>
-          req.toLowerCase().includes('single') ||
-          req.toLowerCase().includes('one time') ||
-          req.toLowerCase().includes('first')
-      ),
+    filter: (opp: Opportunity) => {
+      const bonusDesc = opp.bonus?.description?.toLowerCase() || '';
+      return (
+        bonusDesc.includes('single') ||
+        bonusDesc.includes('one time') ||
+        bonusDesc.includes('first')
+      );
+    },
   },
   {
     id: 'nationwide',
     label: 'Nationwide',
     icon: PublicIcon,
     color: '#388e3c',
-    filter: (opp: Opportunity) => opp.metadata?.availability?.is_nationwide === true,
+    filter: (opp: Opportunity) => opp.metadata.availability?.type === 'Nationwide',
   },
 ];
 
@@ -128,13 +128,6 @@ interface SmartFilter {
 interface FilterGroup {
   label: string;
   filters: SmartFilter[];
-}
-
-// Update the Availability interface to match the actual API data structure
-interface Availability {
-  regions: string[];
-  is_nationwide: boolean;
-  restrictions: null | string;
 }
 
 // Add a helper function to check if availability data is valid
@@ -175,7 +168,11 @@ const FILTER_GROUPS: FilterGroup[] = [
         icon: PaymentsIcon,
         color: '#0288d1',
         filter: (opp: Opportunity) =>
-          opp.requirements.some((req) => req.toLowerCase().includes('direct deposit')),
+          Boolean(
+            opp.metadata.bonus?.requirements?.description
+              ?.toLowerCase()
+              .includes('direct deposit')
+          ),
       },
       {
         id: 'no_direct_deposit',
@@ -183,7 +180,11 @@ const FILTER_GROUPS: FilterGroup[] = [
         icon: BlockIcon,
         color: '#d32f2f',
         filter: (opp: Opportunity) =>
-          !opp.requirements.some((req) => req.toLowerCase().includes('direct deposit')),
+          !Boolean(
+            opp.metadata.bonus?.requirements?.description
+              ?.toLowerCase()
+              .includes('direct deposit')
+          ),
       },
       {
         id: 'low_spend',
@@ -191,7 +192,8 @@ const FILTER_GROUPS: FilterGroup[] = [
         icon: ShoppingCartIcon,
         color: '#388e3c',
         filter: (opp: Opportunity) => {
-          const spendMatch = opp.requirements.join(' ').match(/\$(\d+)/);
+          const req = opp.metadata.bonus?.requirements?.description || '';
+          const spendMatch = req.match(/\$(\d+)/);
           if (!spendMatch) return false;
           return parseInt(spendMatch[1]) <= 500;
         },
@@ -206,7 +208,8 @@ const FILTER_GROUPS: FilterGroup[] = [
         label: 'Soft Pull Only',
         icon: CreditScoreIcon,
         color: '#2e7d32',
-        filter: (opp: Opportunity) => isSoftPull(opp.metadata.credit?.inquiry),
+        filter: (opp: Opportunity) =>
+          opp.details?.credit_inquiry?.toLowerCase().includes('soft') || false,
       },
       {
         id: 'no_524',
@@ -214,7 +217,7 @@ const FILTER_GROUPS: FilterGroup[] = [
         icon: CheckCircleIcon,
         color: '#1976d2',
         filter: (opp: Opportunity) =>
-          opp.type === 'credit_card' && !opp.metadata.credit?.chase_524_rule,
+          opp.type === 'credit_card' && opp.details?.under_5_24 === 'No',
       },
     ],
   },
@@ -226,11 +229,13 @@ const FILTER_GROUPS: FilterGroup[] = [
         label: 'No Annual Fee',
         icon: AttachMoneyIcon,
         color: '#2e7d32',
-        filter: (opp: Opportunity) =>
-          opp.type === 'credit_card' &&
-          (typeof opp.metadata.fees?.annual === 'string'
-            ? opp.metadata.fees.annual.toLowerCase().includes('no')
-            : opp.metadata.fees?.annual?.amount === 0),
+        filter: (opp: Opportunity) => {
+          if (opp.type !== 'credit_card' || !opp.details?.annual_fees) {
+            return false;
+          }
+          const feesLower = opp.details.annual_fees.toLowerCase();
+          return feesLower.includes('none') || feesLower.includes('no');
+        },
       },
       {
         id: 'no_monthly_fee',
@@ -238,17 +243,21 @@ const FILTER_GROUPS: FilterGroup[] = [
         icon: PaymentsIcon,
         color: '#2e7d32',
         filter: (opp: Opportunity) =>
-          (opp.type === 'bank_account' || opp.type === 'brokerage') &&
-          (opp.metadata.fees?.monthly?.toLowerCase().includes('no') ?? false),
+          (opp.type === 'bank' || opp.type === 'brokerage') &&
+          !!opp.details?.monthly_fees?.amount?.toLowerCase().includes('none'),
       },
       {
         id: 'no_foreign_transaction',
         label: 'No Foreign Transaction',
         icon: PublicIcon,
         color: '#0288d1',
-        filter: (opp: Opportunity) =>
-          opp.type === 'credit_card' &&
-          (opp.metadata.fees?.foreign_transaction?.toLowerCase().includes('no') ?? false),
+        filter: (opp: Opportunity) => {
+          if (opp.type !== 'credit_card' || !opp.details?.foreign_transaction_fees) {
+            return false;
+          }
+          const feesLower = opp.details.foreign_transaction_fees.toLowerCase();
+          return feesLower.includes('none') || feesLower.includes('no');
+        },
       },
     ],
   },
@@ -260,14 +269,14 @@ const FILTER_GROUPS: FilterGroup[] = [
         label: 'Nationwide',
         icon: PublicIcon,
         color: '#2e7d32',
-        filter: (opp: Opportunity) => opp.metadata?.availability?.is_nationwide === true,
+        filter: (opp: Opportunity) => opp.metadata.availability?.type === 'Nationwide',
       },
       {
         id: 'no_restrictions',
         label: 'No Restrictions',
         icon: VerifiedIcon,
         color: '#0288d1',
-        filter: (opp: Opportunity) => opp.metadata?.availability?.restrictions === null,
+        filter: (opp: Opportunity) => !opp.metadata.availability?.details,
       },
       {
         id: 'multi_state',
@@ -275,8 +284,8 @@ const FILTER_GROUPS: FilterGroup[] = [
         icon: CheckCircleIcon,
         color: '#0288d1',
         filter: (opp: Opportunity) =>
-          Array.isArray(opp.metadata?.availability?.regions) &&
-          opp.metadata.availability.regions.length > 1,
+          Array.isArray(opp.metadata.availability?.states) &&
+          opp.metadata.availability.states.length > 1,
       },
     ],
   },
@@ -289,10 +298,9 @@ const FILTER_GROUPS: FilterGroup[] = [
         icon: TimerIcon,
         color: '#0288d1',
         filter: (opp: Opportunity) =>
-          (opp.metadata.timing?.approval_time?.toLowerCase().includes('instant') ??
-            false) ||
-          (opp.metadata.timing?.approval_time?.toLowerCase().includes('same day') ??
-            false),
+          opp.bonus?.additional_info?.toLowerCase().includes('instant approval') ||
+          opp.bonus?.additional_info?.toLowerCase().includes('same day') ||
+          false,
       },
       {
         id: 'fast_bonus',
@@ -300,8 +308,11 @@ const FILTER_GROUPS: FilterGroup[] = [
         icon: MonetizationOnIcon,
         color: '#2e7d32',
         filter: (opp: Opportunity) => {
-          const time = opp.metadata.timing?.bonus_posting_time?.toLowerCase() || '';
-          return time.includes('day') || time.includes('week');
+          const info = opp.bonus?.additional_info?.toLowerCase() || '';
+          return (
+            info.includes('bonus posts') &&
+            (info.includes('day') || info.includes('week'))
+          );
         },
       },
     ],
@@ -339,7 +350,7 @@ const useOpportunityFilters = (opportunities: Opportunity[]) => {
             req.toLowerCase().includes(searchLower)
           ) ||
           (Array.isArray(opp.metadata?.availability?.regions) &&
-            opp.metadata.availability.regions.some((r) =>
+            opp.metadata.availability.regions.some((r: string) =>
               r.toLowerCase().includes(searchLower)
             ))
       );
@@ -404,8 +415,7 @@ const useOpportunityFilters = (opportunities: Opportunity[]) => {
     byType: {
       credit_card: filteredOpportunities.filter((opp) => opp.type === 'credit_card')
         .length,
-      bank_account: filteredOpportunities.filter((opp) => opp.type === 'bank_account')
-        .length,
+      bank: filteredOpportunities.filter((opp) => opp.type === 'bank').length,
       brokerage: filteredOpportunities.filter((opp) => opp.type === 'brokerage').length,
     },
     highValue: filteredOpportunities.filter((opp) => opp.value >= 500).length,
@@ -868,7 +878,7 @@ const getOpportunityStyles = (type: string, theme: Theme) => {
         chipBgColor: alpha(theme.palette.primary.main, 0.1),
         chipColor: theme.palette.primary.main,
       };
-    case 'bank_account':
+    case 'bank':
       return {
         gradientColors: `${theme.palette.info.main}, ${theme.palette.info.dark}`,
         icon: AccountBalanceIcon,
@@ -893,23 +903,13 @@ const getOpportunityStyles = (type: string, theme: Theme) => {
 };
 
 // Helper functions for formatting data
-const getCreditCheckText = (opportunity: Opportunity) => {
-  if (!opportunity.metadata.credit) return 'Unknown';
-  if (typeof opportunity.metadata.credit.inquiry === 'string') {
-    return opportunity.metadata.credit.inquiry;
-  }
-  const inquiry = opportunity.metadata.credit.inquiry as { monthly?: boolean };
-  return inquiry?.monthly ? 'Hard Pull' : 'Soft Pull';
-};
-
-interface FeeObject {
-  amount: number;
-  waivable: boolean;
-}
-
 const summarizeRequirements = (opportunity: Opportunity) => {
-  if (!opportunity.requirements?.length) return 'View offer details';
-  const req = opportunity.requirements[0];
+  const requirements = opportunity.bonus?.requirements;
+  if (!requirements?.length || !requirements[0]?.description) {
+    return 'View offer details';
+  }
+  
+  const req = requirements[0].description;
 
   // Handle spending requirements
   if (req.toLowerCase().includes('spend')) {
@@ -1117,10 +1117,14 @@ const StateDisplay = React.memo(
 StateDisplay.displayName = 'StateDisplay';
 
 // Update the availability display in the opportunity card
-const renderAvailability = (availability?: Availability) => {
-  if (!availability) return '';
+const renderAvailability = (availability?: {
+  type: 'Nationwide' | 'State';
+  states?: string[];
+  details?: string;
+}) => {
+  if (!availability) return null;
 
-  if (availability.is_nationwide) {
+  if (availability.type === 'Nationwide') {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         <PublicIcon
@@ -1140,22 +1144,22 @@ const renderAvailability = (availability?: Availability) => {
     );
   }
 
-  if (Array.isArray(availability.regions) && availability.regions.length > 0) {
+  if (Array.isArray(availability.states) && availability.states.length > 0) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <LocationOnIcon sx={{ fontSize: '1rem', color: 'primary.main' }} />
           <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            {availability.regions.length}{' '}
-            {availability.regions.length === 1 ? 'state' : 'states'}
+            {availability.states.length}{' '}
+            {availability.states.length === 1 ? 'state' : 'states'}
           </Typography>
         </Box>
-        <StateDisplay states={availability.regions} />
+        <StateDisplay states={availability.states} />
       </Box>
     );
   }
 
-  return '';
+  return null;
 };
 
 const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
@@ -1240,7 +1244,7 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
           >
             {opportunity.type === 'credit_card'
               ? 'Credit Card'
-              : opportunity.type === 'bank_account'
+              : opportunity.type === 'bank'
                 ? 'Bank Account'
                 : 'Brokerage Account'}
           </Typography>
@@ -1424,48 +1428,38 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
 // Add this function before the OpportunitiesSection component
 const standardizeOpportunityForGrid = (opp: Opportunity) => {
   let feeText = 'None';
-  const fees = opp.metadata.fees;
+  const details = opp.details;
 
-  if (fees?.annual) {
-    const annualFee = fees.annual;
-    if (typeof annualFee === 'string') {
-      feeText = annualFee === 'None' ? 'None' : annualFee;
-    } else if (
-      typeof annualFee === 'object' &&
-      'amount' in annualFee &&
-      'waivable' in annualFee
-    ) {
-      const amount = (annualFee as FeeObject).amount;
-      const waivable = (annualFee as FeeObject).waivable;
-      if (amount > 0) {
-        feeText = `$${amount}/year${waivable ? ' (waivable)' : ''}`;
-      }
+  if (opp.type === 'credit_card' && details?.annual_fees) {
+    feeText = details.annual_fees;
+  } else if (details?.monthly_fees?.amount) {
+    feeText = details.monthly_fees.amount;
+    if (details.monthly_fees.waiver_details) {
+      feeText += ` (${details.monthly_fees.waiver_details})`;
     }
   }
 
   // Format regions for display
   let availabilityText = 'Unknown';
-  if (opp.metadata.availability?.regions) {
-    if (Array.isArray(opp.metadata.availability.regions)) {
-      availabilityText = opp.metadata.availability.regions.join(', ');
-    } else {
-      availabilityText = String(opp.metadata.availability.regions);
-    }
+  if (details?.availability?.type === 'Nationwide') {
+    availabilityText = 'Nationwide';
+  } else if (details?.availability?.states) {
+    availabilityText = details.availability.states.join(', ');
   }
 
   return {
     id: opp.id,
-    title: opp.title.split('-')[0].trim(),
+    title: opp.name,
     value: `$${opp.value.toLocaleString()}`,
     type:
       opp.type === 'credit_card'
         ? 'Credit Card'
-        : opp.type === 'bank_account'
+        : opp.type === 'bank'
           ? 'Bank Account'
           : 'Brokerage',
-    creditCheck: getCreditCheckText(opp),
+    creditCheck: details?.credit_inquiry || 'Unknown',
     fee: feeText,
-    requirements: summarizeRequirements(opp),
+    requirements: opp.bonus?.requirements?.[0]?.description || 'View offer details',
     availability: availabilityText,
   };
 };
@@ -1495,7 +1489,7 @@ function OpportunitiesSection() {
   // Organize opportunities by type
   const organizedOpportunities = {
     credit: filteredOpportunities.filter((opp) => opp.type === 'credit_card'),
-    bank: filteredOpportunities.filter((opp) => opp.type === 'bank_account'),
+    bank: filteredOpportunities.filter((opp) => opp.type === 'bank'),
     brokerage: filteredOpportunities.filter((opp) => opp.type === 'brokerage'),
   };
 

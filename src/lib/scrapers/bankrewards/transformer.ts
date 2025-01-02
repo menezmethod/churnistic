@@ -1,7 +1,18 @@
 import * as cheerio from 'cheerio';
 
 import { BankRewardsOffer } from '@/types/scraper';
-import { TransformedOffer, BonusTier, Details, Logo } from '@/types/transformed';
+import {
+  TransformedOffer,
+  BonusTier,
+  Details,
+  Logo,
+  Metadata,
+  Bonus,
+} from '@/types/transformed';
+
+export interface EnhancedTransformedOffer extends TransformedOffer {
+  value: number;
+}
 
 export class BankRewardsTransformer {
   private $: cheerio.CheerioAPI = cheerio.load('');
@@ -190,59 +201,72 @@ export class BankRewardsTransformer {
 
   private extractBonusRequirements(): string {
     // First try to find the requirements section
-    const requirementsSection = this.$('p:contains("Bonus Requirements:"), p:contains("Requirements:")');
+    const requirementsSection = this.$(
+      'p:contains("Bonus Requirements:"), p:contains("Requirements:")'
+    );
     if (requirementsSection.length) {
-        // Get all text nodes after the requirements label
-        const reqContent = requirementsSection.nextAll().slice(0, 3);
-        const requirements = reqContent
-            .map((_, el) => {
-                const text = this.$(el).text().trim();
-                // Only include text that looks like spending requirements
-                if (text.toLowerCase().includes('spend') || 
-                    text.toLowerCase().includes('purchase') || 
-                    text.toLowerCase().includes('deposit')) {
-                    return text;
-                }
-                return null;
-            })
-            .get()
-            .filter(Boolean)[0]; // Take the first valid requirement
+      // Get all text nodes after the requirements label
+      const reqContent = requirementsSection.nextAll().slice(0, 3);
+      const requirements = reqContent
+        .map((_, el) => {
+          const text = this.$(el).text().trim();
+          // Only include text that looks like spending requirements
+          if (
+            text.toLowerCase().includes('spend') ||
+            text.toLowerCase().includes('purchase') ||
+            text.toLowerCase().includes('deposit')
+          ) {
+            return text;
+          }
+          return null;
+        })
+        .get()
+        .filter(Boolean)[0]; // Take the first valid requirement
 
-        if (requirements) {
-            // Extract amount and timeframe using simpler patterns
-            const amount = requirements.match(/\$?([\d,]+)/)?.[1];
-            const months = requirements.match(/(\d+)\s*months?/)?.[1];
-            const days = requirements.match(/(\d+)\s*days?/)?.[1];
-            
-            if (amount && (months || days)) {
-                const timeframe = months ? `${months} ${months === '1' ? 'month' : 'months'}` : `${days} days`;
-                return `Spend $${this.normalizeAmount(amount)} in ${timeframe}`;
-            }
-            
-            // If we can't parse it cleanly, at least clean up any duplicates
-            return this.cleanText(requirements)
-                .replace(/(?:spend\s+\$[\d,]+\s+in\s+(?:\d+\s+(?:months?|days?))\s*)+/gi, (match) => match.split(/\s+in\s+/)[0] + ' in ' + match.split(/\s+in\s+/)[1])
-                .replace(/\s+months?\s+months?/, ' months');
+      if (requirements) {
+        // Extract amount and timeframe using simpler patterns
+        const amount = requirements.match(/\$?([\d,]+)/)?.[1];
+        const months = requirements.match(/(\d+)\s*months?/)?.[1];
+        const days = requirements.match(/(\d+)\s*days?/)?.[1];
+
+        if (amount && (months || days)) {
+          const timeframe = months
+            ? `${months} ${months === '1' ? 'month' : 'months'}`
+            : `${days} days`;
+          return `Spend $${this.normalizeAmount(amount)} in ${timeframe}`;
         }
+
+        // If we can't parse it cleanly, at least clean up any duplicates
+        return this.cleanText(requirements)
+          .replace(
+            /(?:spend\s+\$[\d,]+\s+in\s+(?:\d+\s+(?:months?|days?))\s*)+/gi,
+            (match) => match.split(/\s+in\s+/)[0] + ' in ' + match.split(/\s+in\s+/)[1]
+          )
+          .replace(/\s+months?\s+months?/, ' months');
+      }
     }
 
     // If we can't find a dedicated requirements section, look in the bonus description
     const bonusDesc = this.extractBonusDescription();
-    const spendMatch = bonusDesc.match(/(?:spending|spend)\s+\$?([\d,]+)(?:\s+(?:within|in)\s+(\d+)\s+(days?|months?))?/i);
+    const spendMatch = bonusDesc.match(
+      /(?:spending|spend)\s+\$?([\d,]+)(?:\s+(?:within|in)\s+(\d+)\s+(days?|months?))?/i
+    );
     if (spendMatch) {
-        const [, amount, period, unit] = spendMatch;
-        if (period) {
-            return `Spend $${this.normalizeAmount(amount)} in ${period} ${unit}`;
-        }
-        return `Spend $${this.normalizeAmount(amount)}`;
+      const [, amount, period, unit] = spendMatch;
+      if (period) {
+        return `Spend $${this.normalizeAmount(amount)} in ${period} ${unit}`;
+      }
+      return `Spend $${this.normalizeAmount(amount)}`;
     }
 
     // Fallback to looking in the general content with simpler patterns
     const text = this.$('div').text();
-    const generalSpendMatch = text.match(/spend\s+\$?([\d,]+)(?:\s+(?:within|in)\s+(\d+)\s+(days?|months?))/i);
+    const generalSpendMatch = text.match(
+      /spend\s+\$?([\d,]+)(?:\s+(?:within|in)\s+(\d+)\s+(days?|months?))/i
+    );
     if (generalSpendMatch) {
-        const [, amount, period, unit] = generalSpendMatch;
-        return `Spend $${this.normalizeAmount(amount)} in ${period} ${unit}`;
+      const [, amount, period, unit] = generalSpendMatch;
+      return `Spend $${this.normalizeAmount(amount)} in ${period} ${unit}`;
     }
 
     return 'Contact bank for specific requirements';
@@ -260,6 +284,29 @@ export class BankRewardsTransformer {
         }
       }
     }
+
+    // Look for additional terms or conditions
+    const terms = this.$(
+      'p:contains("Terms:"), p:contains("Additional Terms:"), p:contains("Conditions:")'
+    ).next();
+    if (terms.length) {
+      const text = this.cleanText(terms.text());
+      if (text) {
+        return text;
+      }
+    }
+
+    // Look for any other important information
+    const additionalInfo = this.$(
+      'p:contains("Additional Information:"), p:contains("Note:")'
+    ).next();
+    if (additionalInfo.length) {
+      const text = this.cleanText(additionalInfo.text());
+      if (text) {
+        return text;
+      }
+    }
+
     return undefined;
   }
 
@@ -283,7 +330,7 @@ export class BankRewardsTransformer {
         /complimentary\s+(?:access|membership)\s+to\s+([^.]+)/gi,
         /(?:receive|get|earn)\s+([^.]+(?:status|membership)[^.]+)/gi,
         /(\d+(?:,\d+)?)\s+(?:bonus\s+)?points?\s+(?:each|per|every)\s+(?:card\s+)?anniversary/gi,
-        /(\d+)%\s+(?:discount|savings?|off)\s+(?:when|on)\s+([^.]+)/gi
+        /(\d+)%\s+(?:discount|savings?|off)\s+(?:when|on)\s+([^.]+)/gi,
       ];
 
       const allPerks: string[] = [];
@@ -291,7 +338,7 @@ export class BankRewardsTransformer {
         const matches = Array.from(text.matchAll(pattern));
         for (const match of matches) {
           if (match[1]) {
-            const perk = match[2] 
+            const perk = match[2]
               ? `${match[1]}% discount on ${match[2].trim()}`
               : this.cleanText(match[1]);
             allPerks.push(perk);
@@ -305,7 +352,9 @@ export class BankRewardsTransformer {
     }
 
     // Extract points/cash back rates
-    const cashBackSection = this.$('p:contains("Card Cash Back:"), p:contains("Card Rewards:")').next();
+    const cashBackSection = this.$(
+      'p:contains("Card Cash Back:"), p:contains("Card Rewards:")'
+    ).next();
     if (cashBackSection.length) {
       const cashBack = this.cleanText(cashBackSection.text());
       if (cashBack) {
@@ -322,7 +371,7 @@ export class BankRewardsTransformer {
         // Flat rate points/cash back
         /(\d+(?:\.\d+)?(?:x|%))\s+(?:points?|cash\s+back|rewards?)\s+on\s+(?:all|every|other)\s+(?:purchases?|spending)/gi,
         // Statement credits
-        /\$(\d+)\s+(?:annual|monthly)?\s+statement\s+credit\s+for\s+([^.]+)/gi
+        /\$(\d+)\s+(?:annual|monthly)?\s+statement\s+credit\s+for\s+([^.]+)/gi,
       ];
 
       const allRewards: string[] = [];
@@ -512,7 +561,11 @@ export class BankRewardsTransformer {
     const text = this.$('div').text().toLowerCase();
     const imgAlt = cardImg.attr('alt')?.toLowerCase() || '';
     let network = 'Unknown';
-    if (text.includes('visa') || imgAlt.includes('visa') || this.$('img[alt*="visa" i]').length) {
+    if (
+      text.includes('visa') ||
+      imgAlt.includes('visa') ||
+      this.$('img[alt*="visa" i]').length
+    ) {
       network = 'VISA';
     } else if (text.includes('mastercard') || imgAlt.includes('mastercard')) {
       network = 'MASTERCARD';
@@ -556,65 +609,465 @@ export class BankRewardsTransformer {
     };
   }
 
-  public transform(offer: BankRewardsOffer): TransformedOffer {
+  private standardizeValue(text: string): number {
+    // Helper function to estimate stock value based on historical data
+    const estimateStockValue = (numStocks: number, company?: string): number => {
+      // Historical average values for common stock rewards
+      const stockValues: { [key: string]: number } = {
+        moomoo: 15, // Futu Holdings stock ~$15
+        webull: 10, // Common stock rewards ~$10
+        robinhood: 12, // Common stock rewards ~$12
+        sofi: 8, // SoFi stock ~$8
+        public: 10, // Common stock rewards ~$10
+        tastyworks: 12, // Common stock rewards ~$12
+        firstrade: 10, // Common stock rewards ~$10
+        default: 12, // Default estimate for unknown brokers
+      };
+
+      // Try to find company-specific value
+      const companyValue = company
+        ? Object.entries(stockValues).find(([key]) =>
+            company.toLowerCase().includes(key)
+          )?.[1] || stockValues.default
+        : stockValues.default;
+
+      return Math.round(numStocks * companyValue * 100) / 100;
+    };
+
+    // Helper function to convert points to dollars based on program
+    const pointsToDollars = (points: number, text: string): number => {
+      // First check for explicit point value hints in the text
+      const pointValueMatch = text.match(
+        /(?:estimated|worth|valued at|rate of roughly|redeemed.*?at|value of)\s+(?:\$|)?(\d+(?:\.\d+)?)\s*(?:cents?|¢)\s+(?:per|each|\/)\s+point/i
+      );
+      if (pointValueMatch) {
+        const centsPerPoint = parseFloat(pointValueMatch[1]) / 100;
+        return Math.round(points * centsPerPoint * 100) / 100;
+      }
+
+      // Check for program-specific rates based on historical values
+      const conversionRates: { [key: string]: number } = {
+        'United Mileage Plus': 0.013, // United points worth ~1.3 cents each
+        'United Miles': 0.013, // United points worth ~1.3 cents each
+        'Southwest Rapid Rewards': 0.014, // Southwest points worth ~1.4 cents each
+        'Chase Ultimate Rewards': 0.0175, // Chase UR points worth ~1.75 cents each (avg between CSP/CSR)
+        'American Express Membership Rewards': 0.017, // Amex MR points worth ~1.7 cents each with transfers
+        'Capital One': 0.015, // Capital One miles worth ~1.5 cents each
+        'Marriott Bonvoy': 0.007, // Marriott points worth ~0.7 cents each
+        'Hilton Honors': 0.005, // Hilton points worth ~0.5 cents each
+        'Delta Skymiles': 0.011, // Delta points worth ~1.1 cents each
+        AAdvantage: 0.014, // American Airlines miles worth ~1.4 cents each
+        Avios: 0.014, // Avios points worth ~1.4 cents each
+        ThankYou: 0.016, // Citi ThankYou points worth ~1.6 cents each with transfers
+        Aeroplan: 0.015, // Aeroplan points worth ~1.5 cents each
+        'Alaska Mileage Plan': 0.016, // Alaska miles worth ~1.6 cents each
+        'JetBlue TrueBlue': 0.013, // JetBlue points worth ~1.3 cents each
+        'IHG Rewards': 0.005, // IHG points worth ~0.5 cents each
+        'World of Hyatt': 0.017, // Hyatt points worth ~1.7 cents each
+        'Wyndham Rewards': 0.009, // Wyndham points worth ~0.9 cents each
+        'Choice Privileges': 0.006, // Choice points worth ~0.6 cents each
+        'Hotel Rewards': 0.007, // Generic hotel points worth ~0.7 cents each
+        'Airline Miles': 0.013, // Generic airline miles worth ~1.3 cents each
+        'Bank Points': 0.01, // Generic bank points worth ~1 cent each
+        default: 0.012, // Default 1.2 cents per point for unknown programs
+      };
+
+      // Find the matching rate or use default
+      const rate =
+        Object.entries(conversionRates).find(([key]) =>
+          text.toLowerCase().includes(key.toLowerCase())
+        )?.[1] || conversionRates.default;
+
+      return Math.round(points * rate * 100) / 100;
+    };
+
+    // Check for stock rewards first for brokerage offers
+    const stockPatterns = [
+      /(?:get|earn|receive)\s+(?:up\s+to\s+)?(\d+)\s+(?:free\s+)?(?:stocks?|shares?)/i,
+      /(\d+)\s+(?:free\s+)?(?:stocks?|shares?)\s+(?:worth|valued at)/i,
+      /(?:stocks?|shares?)\s+valued\s+(?:up\s+to|at)\s+\$(\d+)/i,
+      /free\s+(?:stocks?|shares?)\s+valued\s+between\s+\$(\d+)\s+(?:to|-|and)\s+\$(\d+)/i,
+    ];
+
+    for (const pattern of stockPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        if (pattern.source.includes('valued')) {
+          // If explicit value given, use that
+          return parseFloat(this.normalizeAmount(match[1]));
+        } else {
+          // Otherwise estimate based on number of stocks
+          const numStocks = parseInt(match[1]);
+          return estimateStockValue(numStocks, text);
+        }
+      }
+    }
+
+    // Check for points/miles patterns
+    const pointsPatterns = [
+      /(?:earn|get|receive)\s+(?:up\s+to\s+)?(\d+(?:,\d+)?k?)\s*(?:points?|miles?|Membership\s+Rewards|Ultimate\s+Rewards|Mileage\s+Plus|Rapid\s+Rewards|Bonvoy|Avios|AAdvantage|ThankYou|Aeroplan)/i,
+      /(\d+(?:,\d+)?k?)\s*(?:points?|miles?|Membership\s+Rewards|Ultimate\s+Rewards|Mileage\s+Plus|Rapid\s+Rewards|Bonvoy|Avios|AAdvantage|ThankYou|Aeroplan)/i,
+      /(?:points?|miles?|rewards?)\s+bonus\s+of\s+(\d+(?:,\d+)?k?)/i,
+      /bonus\s+(?:of\s+)?(\d+(?:,\d+)?k?)\s*(?:points?|miles?)/i,
+      /earn\s+(\d+(?:,\d+)?k?)\s*(?:points?|miles?)/i,
+      /get\s+(\d+(?:,\d+)?k?)\s*(?:points?|miles?)/i,
+      /(\d+(?:,\d+)?k?)\s*bonus\s*(?:points?|miles?)/i,
+      /bonus\s+of\s+(?:\$\d+\s*\+\s*)?(\d+(?:,\d+)?k?)\s*Points?/i,
+      /\+\s*(\d+(?:,\d+)?k?)\s*Points?/i,
+      /\+\s*(\d+(?:,\d+)?k?)\s*points?/i,
+      /(\d+(?:,\d+)?k?)\s*(?:points?|miles?)\s+bonus/i,
+    ];
+
+    for (const pattern of pointsPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const points = parseFloat(this.normalizeAmount(match[1]));
+        return pointsToDollars(points, text);
+      }
+    }
+
+    // Helper function to extract the highest number from a range
+    const getHighestFromRange = (text: string): number => {
+      const patterns = [
+        /(?:between\s+)?\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s*(?:to|-|and)\s*\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+        /up\s+to\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+        /as\s+much\s+as\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+        /earn\s+up\s+to\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+        /best\s+tier\s+being\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+        /totally\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+        /tiered\s+bonus\s+of\s+(?:\$?\d+(?:,\d+)?(?:\.\d{2})?k?\/)*\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+        /highest\s+tier\s+being\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+        /maximum\s+of\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      ];
+
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) {
+          if (match.length === 3) {
+            return Math.max(
+              parseFloat(this.normalizeAmount(match[1])),
+              parseFloat(this.normalizeAmount(match[2]))
+            );
+          }
+          return parseFloat(this.normalizeAmount(match[1]));
+        }
+      }
+      return 0;
+    };
+
+    // Check for explicit dollar amounts with more patterns
+    const dollarPatterns = [
+      /\$(\d+(?:,\d+)?(?:\.\d{2})?k?)\s*(?:bonus|cash\s+back|reward|statement\s*credits?)/i,
+      /\$(\d+(?:,\d+)?(?:\.\d{2})?k?)\s*(?:gift\s*card|gc)\b/i,
+      /earn\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /get\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /receive\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /worth\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /valued\s+at\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /(\d+(?:,\d+)?(?:\.\d{2})?k?)\s*dollars?\b/i,
+      /cash\s+bonus\s+of\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /\$(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+cash/i,
+      /bonus:\s*\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /tier\s+being\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /bonus\s+of\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /\$(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+for\s+(?:checking|savings)/i,
+      /\$(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:welcome|sign[\s-]up)\s+(?:bonus|reward)/i,
+      /\$(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+in\s+(?:bonus|rewards?)/i,
+      /\$(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+after\s+/i,
+      /\$(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+when\s+/i,
+    ];
+
+    for (const pattern of dollarPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        return parseFloat(this.normalizeAmount(match[1]));
+      }
+    }
+
+    // Check for ranges and use the higher value
+    const rangeValue = getHighestFromRange(text);
+    if (rangeValue > 0) {
+      return rangeValue;
+    }
+
+    // Check for percentage cashback with spending caps
+    const cashbackPatterns = [
+      /(\d+(?:\.\d+)?%?)(?:\s*cash\s*back|\s*rewards?)\s+.*?up\s+to\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /(\d+(?:\.\d+)?%?)\s+back\s+.*?up\s+to\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /earn\s+(\d+(?:\.\d+)?%?)\s+back\s+.*?up\s+to\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /(\d+(?:\.\d+)?%?)\s+cash\s+back\s+on\s+.*?up\s+to\s+\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+    ];
+
+    for (const pattern of cashbackPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        return parseFloat(this.normalizeAmount(match[2]));
+      }
+    }
+
+    // Check for hotel nights with value
+    const nightsMatch = text.match(/(\d+)\s+(?:free\s+)?(?:hotel\s+)?nights?/i);
+    if (nightsMatch) {
+      const nights = parseInt(nightsMatch[1]);
+      const valueMatch = text.match(
+        /valued\s*(?:at|up\s+to)\s*(?:\$|\s*)?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i
+      );
+      const nightValue = valueMatch
+        ? parseFloat(this.normalizeAmount(valueMatch[1]))
+        : 200; // Default to $200 per night
+      return nights * nightValue;
+    }
+
+    // Check for monthly bonuses
+    const monthlyBonusMatch = text.match(
+      /\$(\d+(?:,\d+)?(?:\.\d{2})?k?)\/month\s+for\s+(\d+)\s+months/i
+    );
+    if (monthlyBonusMatch) {
+      const monthlyAmount = parseFloat(this.normalizeAmount(monthlyBonusMatch[1]));
+      const months = parseInt(monthlyBonusMatch[2]);
+      return monthlyAmount * months;
+    }
+
+    // Check for gift cards and merchandise
+    const giftCardPatterns = [
+      /\$(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:amazon|visa|gift)\s+card/i,
+      /(?:amazon|visa|gift)\s+card\s+(?:worth\s+)?\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /(?:amazon|visa|gift)\s+card\s+(?:valued\s+at\s+)?\$(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+    ];
+
+    for (const pattern of giftCardPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        return parseFloat(this.normalizeAmount(match[1]));
+      }
+    }
+
+    // Check for percentage-based rewards without caps
+    const percentageMatch = text.match(/earn\s+(\d+(?:\.\d+)?%?)\s+back/i);
+    if (percentageMatch) {
+      const percentage = parseFloat(percentageMatch[1]);
+      // For percentage-based rewards without caps, estimate a reasonable value
+      // based on typical spending patterns
+      const estimatedMonthlySpend = 1000; // Assume $1000/month typical spend
+      const estimatedAnnualValue = (estimatedMonthlySpend * 12 * percentage) / 100;
+      return Math.min(estimatedAnnualValue, 500); // Cap at $500 to be conservative
+    }
+
+    // Check for tiered bonuses with multiple values
+    const tieredBonusMatches = text.match(
+      /\$(\d+(?:,\d+)?(?:\.\d{2})?k?)(?:\s*\/\s*\$(\d+(?:,\d+)?(?:\.\d{2})?k?)){1,}/g
+    );
+    if (tieredBonusMatches) {
+      const values = tieredBonusMatches[0].match(/\d+(?:,\d+)?(?:\.\d{2})?k?/g);
+      if (values) {
+        return Math.max(...values.map((v) => parseFloat(this.normalizeAmount(v))));
+      }
+    }
+
+    return 0;
+  }
+
+  private extractValue(html: string): number {
+    this.initCheerio(html);
+
+    // First check if we have a bonus value in metadata
+    const metaDesc = this.$('meta[name="description"]').attr('content') || '';
+    const bonusMatch = metaDesc.match(
+      /metadata\.bonus:\s*\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i
+    );
+    if (bonusMatch) {
+      return parseFloat(this.normalizeAmount(bonusMatch[1]));
+    }
+
+    // Get value from bonus description if no point value found
+    const bonusSection = this.$('p:contains("Bonus Details:")').next();
+    const bonusText = bonusSection.length ? bonusSection.text() : '';
+    const bonusValue = bonusText ? this.standardizeValue(bonusText) : 0;
+
+    // Get value from requirements if it exists
+    const requirementsSection = this.$('p:contains("Bonus Requirements:")').next();
+    const requirementsText = requirementsSection.length ? requirementsSection.text() : '';
+    const requirementsValue = requirementsText
+      ? this.standardizeValue(requirementsText)
+      : 0;
+
+    // Get value from additional info if it exists
+    const additionalInfo = this.extractAdditionalInfo();
+    const additionalValue = additionalInfo ? this.standardizeValue(additionalInfo) : 0;
+
+    // Get value from tiers if they exist
+    const tiers = this.extractTableTiers();
+    const tiersValue = tiers.length > 0 ? this.estimateValueFromTiers(tiers) : 0;
+
+    // Get value from cash back section if it exists
+    const cashBackSection = this.$('p:contains("Card Cash Back:")').next();
+    const cashBackText = cashBackSection.length ? cashBackSection.text() : '';
+    const cashBackValue = cashBackText ? this.standardizeValue(cashBackText) : 0;
+
+    // Return the highest non-zero value found
+    return (
+      Math.max(
+        bonusValue,
+        requirementsValue,
+        additionalValue,
+        tiersValue,
+        cashBackValue
+      ) || 0
+    );
+  }
+
+  private estimateValueFromTiers(tiers: BonusTier[]): number {
+    if (tiers.length === 0) return 0;
+
+    // For each tier, calculate its value
+    const tierValues = tiers.map((tier) => {
+      // Handle share/stock rewards
+      const sharesMatch = tier.reward.match(/(\d+)\s*(?:shares?|stocks?)/i);
+      if (sharesMatch) {
+        return parseInt(sharesMatch[1]) * 3; // Assume $3 per share
+      }
+
+      // Handle direct monetary values
+      const match = tier.reward.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/);
+      if (match) {
+        return parseFloat(this.normalizeAmount(match[1]));
+      }
+
+      return 0;
+    });
+
+    // For stock/share rewards, sum up all tiers as they might be cumulative
+    if (
+      tiers.some(
+        (tier) =>
+          tier.reward.toLowerCase().includes('share') ||
+          tier.reward.toLowerCase().includes('stock')
+      )
+    ) {
+      return tierValues.reduce((sum, value) => sum + value, 0);
+    }
+
+    // For other rewards, take the highest value
+    return Math.max(...tierValues);
+  }
+
+  public transform(offer: BankRewardsOffer): EnhancedTransformedOffer {
     this.initCheerio(offer.metadata.rawHtml);
-    this.type = offer.type.toLowerCase() as 'bank' | 'credit_card' | 'brokerage';
 
-    // Extract tiers first - try table format, then fallback to text patterns
-    const tableTiers = this.extractTableTiers();
-    const textTiers = this.extractTextTiers(offer.metadata.rawHtml);
-    const tiers = tableTiers.length > 0 ? tableTiers : textTiers;
+    // Set the type based on the offer type
+    this.type =
+      offer.type.toLowerCase() === 'credit_card'
+        ? 'credit_card'
+        : offer.type.toLowerCase() === 'brokerage'
+          ? 'brokerage'
+          : 'bank';
 
-    const transformed: TransformedOffer = {
+    const tiers = this.extractTableTiers();
+    if (tiers.length === 0) {
+      const textTiers = this.extractTextTiers(this.$('div').text());
+      tiers.push(...textTiers);
+    }
+
+    const bonusDescription = this.extractBonusDescription();
+    const bonusRequirements = this.extractBonusRequirements();
+
+    // Helper function to estimate stock value based on historical data
+    const estimateStockValue = (numStocks: number, company?: string): number => {
+      // Historical average values for common stock rewards
+      const stockValues: { [key: string]: number } = {
+        moomoo: 15, // Futu Holdings stock ~$15
+        webull: 10, // Common stock rewards ~$10
+        robinhood: 12, // Common stock rewards ~$12
+        sofi: 8, // SoFi stock ~$8
+        public: 10, // Common stock rewards ~$10
+        tastyworks: 12, // Common stock rewards ~$12
+        firstrade: 10, // Common stock rewards ~$10
+        default: 12, // Default estimate for unknown brokers
+      };
+
+      // Try to find company-specific value
+      const companyValue = company
+        ? Object.entries(stockValues).find(([key]) =>
+            company.toLowerCase().includes(key)
+          )?.[1] || stockValues.default
+        : stockValues.default;
+
+      return Math.round(numStocks * companyValue * 100) / 100;
+    };
+
+    // Use metadata.bonus if available, otherwise fall back to extractValue
+    let estimatedValue = 0;
+    if (offer.metadata.bonus) {
+      // Check for stock format (e.g. "15 Stocks")
+      const stockMatch = offer.metadata.bonus.match(/(\d+)\s*stocks?/i);
+      if (stockMatch) {
+        const numStocks = parseInt(stockMatch[1]);
+        estimatedValue = estimateStockValue(numStocks, offer.title);
+      } else {
+        // Check for dollar amount format
+        const match = offer.metadata.bonus.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/);
+        if (match) {
+          estimatedValue = parseFloat(this.normalizeAmount(match[1]));
+        }
+      }
+    }
+
+    // If no value from metadata.bonus, try extracting from HTML
+    if (estimatedValue === 0) {
+      const extractedValue = this.extractValue(offer.metadata.rawHtml);
+      const tiersValue = this.estimateValueFromTiers(tiers);
+      estimatedValue = Math.max(extractedValue, tiersValue);
+    }
+
+    const additionalInfo = this.extractAdditionalInfo();
+
+    const bonus: Bonus = {
+      title: 'Bonus Details',
+      description: bonusDescription,
+      requirements: {
+        title: 'Bonus Requirements',
+        description: bonusRequirements,
+      },
+      tiers: tiers.length > 0 ? tiers : undefined,
+      additional_info: additionalInfo,
+    };
+
+    const details = this.extractDetails();
+
+    const metadata: Metadata = {
+      created: new Date(offer.metadata.lastChecked).toISOString(),
+      updated: new Date(offer.metadata.lastChecked).toISOString(),
+    };
+
+    return {
       id: offer.id,
       name: offer.title,
       type: this.type,
-      logo: this.getLogo(offer.title),
-      ...(this.type === 'credit_card' && { card_image: this.getCardImage() }),
       offer_link: offer.metadata.offerBaseUrl || '',
-      bonus: {
-        title: 'Bonus Details:',
-        description: this.extractBonusDescription(),
-        requirements: {
-          title: 'Bonus Requirements:',
-          description: this.extractBonusRequirements(),
-        },
-        ...(tiers.length > 0 && { tiers }),
-        ...(this.extractAdditionalInfo() && {
-          additional_info: this.extractAdditionalInfo(),
-        }),
-      },
-      details: this.extractDetails(),
-      ...(this.extractRewards() && { rewards: this.extractRewards() }),
-      ...(this.extractDisclosure() && { disclosure: this.extractDisclosure() }),
-      metadata: {
-        created: this.formatDate(offer.metadata.lastChecked),
-        updated: this.formatDate(offer.metadata.lastChecked),
-      },
+      value: estimatedValue,
+      bonus,
+      details,
+      metadata,
     };
-
-    return transformed;
   }
 
   private cleanText(text: string): string {
     if (!text) return '';
 
     // Decode HTML entities and normalize spaces
-    const decoded = this.$('<div>').html(text).text()
-        .replace(/\s+/g, ' ')
-        .trim();
+    const decoded = this.$('<div>').html(text).text().replace(/\s+/g, ' ').trim();
 
     // Remove common field labels
     const cleaned = decoded.replace(
-        /(?:Bonus|Monthly Fee|Credit Inquiry|Household Limit|Early Account Closure Fee|ChexSystems|Expiration|Disclosure)\s*Details?:?/gi,
-        ''
+      /(?:Bonus|Monthly Fee|Credit Inquiry|Household Limit|Early Account Closure Fee|ChexSystems|Expiration|Disclosure)\s*Details?:?/gi,
+      ''
     );
 
     // Remove duplicate phrases
     return [...new Set(cleaned.split(/\.\s+/))]
-        .join('. ')
-        .replace(/[.,:;]+$/, '')
-        .trim();
+      .join('. ')
+      .replace(/[.,:;]+$/, '')
+      .trim();
   }
 
   private normalizeAmount(amount: string): string {
