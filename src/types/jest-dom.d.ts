@@ -35,14 +35,20 @@ declare global {
       toHaveErrorMessage(text?: string | RegExp): R;
       toHaveFormValues(values: { [key: string]: any }): R;
       toHaveStyle(css: string | Record<string, any>): R;
-      toHaveTextContent(text: string | RegExp, options?: { normalizeWhitespace: boolean }): R;
+      toHaveTextContent(
+        text: string | RegExp,
+        options?: { normalizeWhitespace: boolean }
+      ): R;
       toHaveValue(value?: string | string[] | number): R;
       toBeChecked(): R;
       toBePartiallyChecked(): R;
       toHaveAttribute(attr: string, value?: string): R;
       toHaveClass(...classNames: string[]): R;
       toHaveStyle(css: string | Record<string, any>): R;
-      toHaveTextContent(text: string | RegExp, options?: { normalizeWhitespace: boolean }): R;
+      toHaveTextContent(
+        text: string | RegExp,
+        options?: { normalizeWhitespace: boolean }
+      ): R;
       toHaveValue(value?: string | string[] | number): R;
       toBeEmptyDOMElement(): R;
       toBeInTheDocument(): R;
@@ -63,7 +69,10 @@ declare global {
       toHaveErrorMessage(text?: string | RegExp): R;
       toHaveFormValues(values: { [key: string]: any }): R;
       toHaveStyle(css: string | Record<string, any>): R;
-      toHaveTextContent(text: string | RegExp, options?: { normalizeWhitespace: boolean }): R;
+      toHaveTextContent(
+        text: string | RegExp,
+        options?: { normalizeWhitespace: boolean }
+      ): R;
       toHaveValue(value?: string | string[] | number): R;
     }
   }

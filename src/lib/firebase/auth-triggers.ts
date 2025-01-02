@@ -3,6 +3,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 
 import { UserRole } from '../auth/types';
+
 import type { DatabaseUser } from '@/types/user';
 
 interface AuthEvent {

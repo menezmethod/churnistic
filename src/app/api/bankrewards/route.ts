@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { getBankRewardsConfig } from './config';
+
 import { BankRewardsCollector } from '@/lib/scrapers/bankrewards/collector';
 import { BankRewardsDatabase } from '@/lib/scrapers/bankrewards/database';
 import { BankRewardsTransformer } from '@/lib/scrapers/bankrewards/transformer';
-
-import { getBankRewardsConfig } from './config';
 
 export async function POST() {
   try {

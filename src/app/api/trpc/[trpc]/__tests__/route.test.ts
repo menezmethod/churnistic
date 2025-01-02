@@ -85,7 +85,7 @@ describe('tRPC Route', () => {
       expect.objectContaining({
         code: undefined,
         message: 'Test error',
-        path: 'test.path'
+        path: 'test.path',
       })
     );
 

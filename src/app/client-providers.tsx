@@ -1,11 +1,11 @@
 'use client';
 import type { JSX } from 'react';
 
+import { Providers } from './providers';
+
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { ThemeProvider } from '@/lib/theme/ThemeContext';
 import { TRPCProvider } from '@/lib/trpc/provider';
-
-import { Providers } from './providers';
 
 interface ClientProvidersProps {
   children: React.ReactNode;

@@ -1,11 +1,11 @@
 import { Box, Container, Grid } from '@mui/material';
 import React from 'react';
 
-import { ChurningOpportunity } from '@/types/churning';
-
 import { OpportunitiesGrid } from './OpportunitiesGrid';
 import { RiskAssessmentCard } from './RiskAssessmentCard';
 import { SummaryCard } from './SummaryCard';
+
+import { ChurningOpportunity } from '@/types/churning';
 
 const mockOpportunities: ChurningOpportunity[] = [
   {

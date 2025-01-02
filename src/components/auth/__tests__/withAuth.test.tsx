@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
 
+import { withAuth } from '../withAuth';
+
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
-
-import { withAuth } from '../withAuth';
 
 // Mock the useAuth hook
 jest.mock('@/lib/auth/AuthContext', () => ({

@@ -64,9 +64,12 @@ export function initializeAdminDb(): Firestore {
 
     if (!adminDb) {
       adminDb = getFirestore(adminApp);
-      
+
       if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
-        console.log('📚 Connecting Admin to Firestore Emulator at:', process.env.FIRESTORE_EMULATOR_HOST);
+        console.log(
+          '📚 Connecting Admin to Firestore Emulator at:',
+          process.env.FIRESTORE_EMULATOR_HOST
+        );
         adminDb.settings({
           host: process.env.FIRESTORE_EMULATOR_HOST,
           ssl: false,

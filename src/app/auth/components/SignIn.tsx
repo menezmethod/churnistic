@@ -17,11 +17,11 @@ import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import type { JSX } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-import { signInWithEmail, signInWithGoogle } from '@/lib/firebase/auth';
-
 import { ForgotPassword } from './ForgotPassword';
 import { GoogleIcon } from './icons';
+
+import { useAuth } from '@/lib/auth/AuthContext';
+import { signInWithEmail, signInWithGoogle } from '@/lib/firebase/auth';
 
 const Card = styled(MuiCard)(({ theme }) => ({
   display: 'flex',

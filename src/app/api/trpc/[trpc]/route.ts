@@ -1,6 +1,6 @@
+import { type TRPCError } from '@trpc/server';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { type NextRequest } from 'next/server';
-import { type TRPCError } from '@trpc/server';
 
 import { createContext } from '@/server/context';
 import { appRouter } from '@/server/routers/_app';

@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 
-import { UserRole } from '@/lib/auth/types';
-
 import { ProtectedRoute } from '../ProtectedRoute';
+
+import { UserRole } from '@/lib/auth/types';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({

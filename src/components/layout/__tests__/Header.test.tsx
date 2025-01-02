@@ -3,10 +3,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
+import { Header } from '../Header';
+
 import { useAuth } from '@/lib/auth/AuthContext';
 import { signOut } from '@/lib/firebase/auth';
-
-import { Header } from '../Header';
 
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
