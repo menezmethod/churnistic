@@ -14,9 +14,9 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 
-import { UserRole } from '@/lib/auth/types';
-
 import type { User } from '../hooks/useUsers';
+
+import { UserRole } from '@/lib/auth/types';
 
 interface UserDetailsModalProps {
   user: User | null;

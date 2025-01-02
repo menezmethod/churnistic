@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 
       // Execute query
       const querySnapshot = await query.get();
-      const users = querySnapshot.docs.map(doc => {
+      const users = querySnapshot.docs.map((doc) => {
         const data = doc.data() as DatabaseUser;
         return {
           id: doc.id,
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       // Note: Firestore doesn't support case-insensitive search
       const filteredUsers = search
         ? users.filter(
-            user =>
+            (user) =>
               user.displayName?.toLowerCase().includes(search.toLowerCase()) ||
               user.email.toLowerCase().includes(search.toLowerCase())
           )

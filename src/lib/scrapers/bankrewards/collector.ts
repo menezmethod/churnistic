@@ -1,8 +1,8 @@
-import { BANKREWARDS_URLS } from '@/app/api/bankrewards/config';
-import { BankRewardsConfig, BankRewardsOffer } from '@/types/scraper';
-
 import { BankRewardsCrawler } from './crawler';
 import { BankRewardsDatabase } from './database';
+
+import { BANKREWARDS_URLS } from '@/app/api/bankrewards/config';
+import { BankRewardsConfig, BankRewardsOffer } from '@/types/scraper';
 
 export class BankRewardsCollector {
   private config: BankRewardsConfig;

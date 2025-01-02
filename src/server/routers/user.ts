@@ -2,10 +2,10 @@ import { TRPCError } from '@trpc/server';
 import type { Query } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
+import { router, protectedProcedure, adminProcedure } from '../trpc';
+
 import { UserRole } from '@/lib/auth/types';
 import { db } from '@/lib/firebase/admin';
-
-import { router, protectedProcedure, adminProcedure } from '../trpc';
 
 const USERS_COLLECTION = 'users';
 
@@ -30,20 +30,18 @@ export const userRouter = router({
     return { id: userDoc.id, ...userDoc.data() };
   }),
 
-  getById: adminProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ input }) => {
-      const userDoc = await db.collection(USERS_COLLECTION).doc(input.id).get();
+  getById: adminProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
+    const userDoc = await db.collection(USERS_COLLECTION).doc(input.id).get();
 
-      if (!userDoc.exists) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'User not found',
-        });
-      }
+    if (!userDoc.exists) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'User not found',
+      });
+    }
 
-      return { id: userDoc.id, ...userDoc.data() };
-    }),
+    return { id: userDoc.id, ...userDoc.data() };
+  }),
 
   update: protectedProcedure
     .input(
@@ -87,7 +85,7 @@ export const userRouter = router({
       };
 
       await userRef.update(updateData);
-      
+
       const updatedDoc = await userRef.get();
       return { id: updatedDoc.id, ...updatedDoc.data() };
     }),
@@ -125,8 +123,9 @@ export const userRouter = router({
       if (input?.search) {
         // Note: Firestore doesn't support case-insensitive search
         // We'll need to implement a more sophisticated search solution later
-        query = query.where('displayName', '>=', input.search)
-                    .where('displayName', '<=', input.search + '\uf8ff');
+        query = query
+          .where('displayName', '>=', input.search)
+          .where('displayName', '<=', input.search + '\uf8ff');
       }
 
       if (input?.limit) {
@@ -138,6 +137,6 @@ export const userRouter = router({
       }
 
       const snapshot = await query.get();
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     }),
 });

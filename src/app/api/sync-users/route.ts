@@ -30,10 +30,12 @@ export async function POST() {
             id: firebaseUser.uid,
             firebaseUid: firebaseUser.uid,
             email: firebaseUser.email || '',
-            displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+            displayName:
+              firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
             customDisplayName: null,
             photoURL: firebaseUser.photoURL || null,
-            role: ((firebaseUser.customClaims?.role as UserRole) || UserRole.USER) as UserRole,
+            role: ((firebaseUser.customClaims?.role as UserRole) ||
+              UserRole.USER) as UserRole,
             status: 'active',
             creditScore: null,
             monthlyIncome: null,
