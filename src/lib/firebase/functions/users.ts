@@ -1,8 +1,8 @@
 import { httpsCallable } from 'firebase/functions';
 
-import { functions } from '../config';
-
 import { UserRole } from '@/lib/auth/types';
+
+import { functions } from '../config';
 
 interface UpdateRoleData {
   userId: string;

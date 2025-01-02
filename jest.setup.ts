@@ -1,9 +1,5 @@
 /// <reference types="node" />
 import '@testing-library/jest-dom';
-import React from 'react';
-
-import { TextDecoder, TextEncoder } from 'util';
-
 import { jest } from '@jest/globals';
 import type {
   Auth,
@@ -13,6 +9,8 @@ import type {
   ErrorFn,
   CompleteFn,
 } from 'firebase/auth';
+import React from 'react';
+import { TextDecoder, TextEncoder } from 'util';
 
 const nodeFetch = require('node-fetch');
 const { Headers: NodeHeaders, Request: NodeRequest, Response } = nodeFetch;

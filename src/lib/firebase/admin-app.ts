@@ -1,4 +1,8 @@
-// Set up emulator environment variables first
+// IMPORTANT: Environment variables must be set before any firebase imports
+process.env.FIREBASE_CONFIG = JSON.stringify({
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic',
+});
+
 if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
   process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
   process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
@@ -70,10 +74,6 @@ export function initializeAdminDb(): Firestore {
           '📚 Connecting Admin to Firestore Emulator at:',
           process.env.FIRESTORE_EMULATOR_HOST
         );
-        adminDb.settings({
-          host: process.env.FIRESTORE_EMULATOR_HOST,
-          ssl: false,
-        });
       }
     }
 

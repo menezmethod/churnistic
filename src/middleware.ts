@@ -7,7 +7,6 @@ const protectedPaths = ['/dashboard', '/admin', '/api/users'];
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
-
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   console.log('Middleware - Processing request for path:', path);

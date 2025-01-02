@@ -1,9 +1,9 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { OpenApiMeta } from 'trpc-openapi';
 
-import { type Context } from './context';
-
 import { UserRole } from '@/lib/auth/types';
+
+import { Context } from './context';
 
 const t = initTRPC.context<Context>().meta<OpenApiMeta>().create();
 
