@@ -13,7 +13,9 @@ import type {
   ErrorFn,
   CompleteFn,
 } from 'firebase/auth';
-import { Headers as NodeHeaders, Request as NodeRequest, Response } from 'node-fetch';
+
+const nodeFetch = require('node-fetch');
+const { Headers: NodeHeaders, Request: NodeRequest, Response } = nodeFetch;
 
 declare global {
   namespace NodeJS {

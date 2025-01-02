@@ -1,5 +1,10 @@
 import { Box } from '@mui/material';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
+import {
+  DataGrid,
+  GridColDef,
+  GridValueGetterParams,
+  GridRenderCellParams,
+} from '@mui/x-data-grid';
 import React from 'react';
 
 import { ChurningOpportunity } from '@/types/churning';
@@ -17,7 +22,7 @@ const columns: GridColDef[] = [
     field: 'value',
     headerName: 'Value',
     width: 130,
-    valueFormatter: (params) => {
+    valueFormatter: (params: GridValueGetterParams) => {
       if (typeof params.value === 'string') {
         const value = parseFloat(params.value);
         if (!isNaN(value)) {
@@ -34,17 +39,17 @@ const columns: GridColDef[] = [
     field: 'requirements',
     headerName: 'Requirements',
     width: 300,
-    renderCell: (params) => (
-      <div style={{ whiteSpace: 'pre-wrap' }}>{params.value.join(', ')}</div>
+    renderCell: (params: GridRenderCellParams<ChurningOpportunity, string[]>) => (
+      <div style={{ whiteSpace: 'pre-wrap' }}>{params.value?.join(', ')}</div>
     ),
   },
   {
     field: 'risk_level',
     headerName: 'Risk Level',
     width: 130,
-    valueFormatter: (params) => {
+    valueFormatter: (params: GridValueGetterParams) => {
       const riskLevels = ['Low', 'Medium', 'High'];
-      return riskLevels[params.value - 1] || 'Unknown';
+      return riskLevels[Number(params.value) - 1] || 'Unknown';
     },
   },
 ];
