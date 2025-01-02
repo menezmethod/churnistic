@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 import { BankRewardsCollector } from '@/lib/scrapers/bankrewards/collector';
 import { BankRewardsDatabase } from '@/lib/scrapers/bankrewards/database';
@@ -6,18 +7,35 @@ import { BankRewardsTransformer } from '@/lib/scrapers/bankrewards/transformer';
 
 import { getBankRewardsConfig } from './config';
 
+// Validation schemas
+const getQuerySchema = z.object({
+  format: z.enum(['detailed', 'simple']).optional(),
+});
+
+// Types
+interface BankRewardsStats {
+  total: number;
+  active: number;
+  expired: number;
+}
+
 export async function POST() {
   try {
     const config = getBankRewardsConfig();
     const collector = new BankRewardsCollector(config);
     const result = await collector.collect();
-    return NextResponse.json(result);
+
+    return NextResponse.json({
+      data: result,
+    });
   } catch (error) {
     console.error('Error running BankRewards scraper:', error);
     return NextResponse.json(
       {
-        error: 'Failed to run scraper',
-        details: error instanceof Error ? error.message : String(error),
+        error: {
+          message: 'Failed to run scraper',
+          details: error instanceof Error ? error.message : String(error),
+        },
       },
       { status: 500 }
     );
@@ -27,35 +45,47 @@ export async function POST() {
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const format = searchParams.get('format');
+    const { format } = getQuerySchema.parse({
+      format: searchParams.get('format') || 'simple',
+    });
+
     const db = new BankRewardsDatabase();
-    const offers = await db.getOffers();
-    const stats = await db.getStats();
+    const [offers, stats] = await Promise.all([
+      db.getOffers(),
+      db.getStats(),
+    ]);
 
     // If detailed format is requested, transform the offers
-    if (format === 'detailed') {
-      const transformer = new BankRewardsTransformer();
-      const transformedOffers = offers.map((offer) => transformer.transform(offer));
+    const transformedOffers = format === 'detailed'
+      ? offers.map((offer) => new BankRewardsTransformer().transform(offer))
+      : offers;
 
-      return NextResponse.json({
-        success: true,
-        stats,
-        offers: transformedOffers,
-      });
-    }
-
-    // Otherwise return original format
     return NextResponse.json({
-      success: true,
-      stats,
-      offers,
+      data: {
+        stats: stats as BankRewardsStats,
+        offers: transformedOffers,
+      },
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          error: {
+            message: 'Invalid request parameters',
+            details: error.errors,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     console.error('Error fetching BankRewards offers:', error);
     return NextResponse.json(
       {
-        error: 'Failed to fetch offers',
-        details: error instanceof Error ? error.message : String(error),
+        error: {
+          message: 'Failed to fetch offers',
+          details: error instanceof Error ? error.message : String(error),
+        },
       },
       { status: 500 }
     );
