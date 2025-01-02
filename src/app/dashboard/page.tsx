@@ -65,8 +65,8 @@ import { formatCurrency } from '@/lib/utils/formatters';
 interface Opportunity {
   id: string;
   title: string;
-  type: 'credit_card' | 'bank_account';
-  value: string | number;
+  type: 'credit_card' | 'bank_account' | 'brokerage';
+  value: number;
   bank: string;
   description: string;
   requirements: string[];
@@ -74,22 +74,47 @@ interface Opportunity {
     name: string;
     url: string;
   };
-  sourceLink: string;
-  postedDate: string;
-  expirationDate?: string;
-  confidence: number;
-  status: string;
   metadata?: {
-    progress?: number;
-    target?: number;
-    riskLevel?: number;
-    riskFactors?: string[];
+    bonus?: {
+      value: number;
+      description: string;
+      requirements: {
+        description: string;
+      };
+    };
+    credit?: {
+      inquiry: string | { monthly?: boolean };
+      chase_524_rule?: boolean;
+      impact?: string;
+      score_requirements?: string;
+      type?: string;
+    };
+    fees?: {
+      annual?: string | { amount: number; waivable: boolean };
+      monthly?: string;
+      foreign_transaction?: string;
+      details?: string;
+    };
+    timing?: {
+      approval_time?: string;
+      bonus_posting_time?: string;
+    };
+    availability?: {
+      type: 'Nationwide' | 'State';
+      states?: string[];
+      details?: string;
+      regions?: string[];
+    };
+    features?: string[];
+    perks?: string[];
   };
-  timeframe?: string;
   timing?: {
     posted_date: string;
     expiration: string;
   };
+  status: 'active' | 'expired' | 'pending';
+  confidence?: number;
+  expirationDate?: string;
 }
 
 interface TrackedOpportunity {
@@ -175,10 +200,8 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
   const theme = useTheme();
 
   // Helper function to safely parse and format the value
-  const displayValue = (value: string | number) => {
-    if (typeof value === 'number') return formatCurrency(value);
-    const numericValue = parseFloat(value.replace(/[$,]/g, ''));
-    return isNaN(numericValue) ? '$0' : formatCurrency(numericValue);
+  const displayValue = (value: number) => {
+    return formatCurrency(value);
   };
 
   // Helper function to format requirements nicely
@@ -242,6 +265,8 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
           >
             {opportunity.type === 'credit_card' ? (
               <CreditCardIcon color="primary" sx={{ fontSize: '2rem' }} />
+            ) : opportunity.type === 'brokerage' ? (
+              <AccountBalanceWalletIcon color="primary" sx={{ fontSize: '2rem' }} />
             ) : (
               <AccountBalanceIcon color="primary" sx={{ fontSize: '2rem' }} />
             )}
@@ -251,7 +276,7 @@ const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
               <Typography variant="subtitle1" fontWeight={600}>
                 {opportunity.title}
               </Typography>
-              {opportunity.confidence >= 0.9 && (
+              {(opportunity.confidence ?? 0) >= 0.9 && (
                 <Box
                   component={motion.div}
                   animate={{
@@ -764,11 +789,7 @@ export default function DashboardPage() {
       icon: TrendingUpIcon,
       title: 'POTENTIAL VALUE',
       value: formatCurrency(
-        opportunities.reduce((sum, opp) => {
-          const value =
-            typeof opp.value === 'number' ? opp.value : parseFloat(String(opp.value));
-          return sum + (isNaN(value) ? 0 : value);
-        }, 0)
+        opportunities.reduce((sum, opp) => sum + (opp.value || 0), 0)
       ),
       trend: { value: 15, label: 'vs last month' },
       color: 'warning' as const,
@@ -834,11 +855,7 @@ export default function DashboardPage() {
 
   // Get top 3 opportunities by value for quick opportunities section
   const quickOpportunities = (() => {
-    console.log('Starting quickOpportunities calculation');
-    console.log('Raw opportunities:', opportunities);
-
     if (!opportunities || opportunities.length === 0) {
-      console.log('No opportunities available');
       return [];
     }
 
@@ -847,21 +864,13 @@ export default function DashboardPage() {
 
     // Sort opportunities by value
     const sortedOpps = opportunities.sort((a, b) => {
-      console.log('Comparing opportunities:', { a: a.value, b: b.value });
-      const valueA = typeof a.value === 'number' ? a.value : 0;
-      const valueB = typeof b.value === 'number' ? b.value : 0;
+      const valueA = a.value || 0;
+      const valueB = b.value || 0;
       return valueB - valueA;
     });
 
-    console.log('Sorted opportunities:', sortedOpps);
-
     // Get highest value opportunity for each type
     sortedOpps.forEach((opp) => {
-      console.log('Processing opportunity:', {
-        id: opp.id,
-        type: opp.type,
-        value: opp.value,
-      });
       if (!typeMap.has(opp.type)) {
         const mappedOpp = {
           id: opp.id,
@@ -871,22 +880,18 @@ export default function DashboardPage() {
           bank: opp.bank,
           description: opp.description,
           requirements: opp.requirements,
-          source: opp.source.name,
-          sourceLink: opp.source.url,
-          postedDate: opp.timing?.posted_date,
+          source: opp.source,
+          sourceLink: opp.source?.url,
           expirationDate: opp.timing?.expiration,
           confidence: opp.confidence || 1,
           status: opp.status || 'active',
         };
-        console.log(`Adding ${opp.type} opportunity:`, mappedOpp);
         typeMap.set(opp.type, mappedOpp);
       }
     });
 
     // Convert map values to array and take top 3
-    const result = Array.from(typeMap.values()).slice(0, 3);
-    console.log('Final quick opportunities:', result);
-    return result;
+    return Array.from(typeMap.values()).slice(0, 3);
   })();
 
   return (
