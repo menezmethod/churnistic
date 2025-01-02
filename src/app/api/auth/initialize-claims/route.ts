@@ -1,31 +1,96 @@
-import { type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 import { UserRole, ROLE_PERMISSIONS } from '@/lib/auth/types';
 import { auth, db } from '@/lib/firebase/admin';
 
+// Validation schemas
+const initializeClaimsSchema = z.object({
+  uid: z.string().min(1, 'User ID is required'),
+});
+
+interface UserClaims {
+  role: UserRole;
+  permissions: string[];
+  isSuperAdmin: boolean;
+}
+
 export async function POST(request: NextRequest) {
-  const { uid } = await request.json();
-
   try {
-    const userDoc = await db.collection('users').doc(uid).get();
-    const userData = userDoc.data();
-
-    if (!userData) {
-      return Response.json({ error: 'User not found' }, { status: 404 });
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          error: {
+            message: 'Invalid request body',
+            details: 'Could not parse JSON body',
+          },
+        },
+        { status: 400 }
+      );
     }
 
-    const permissions =
-      ROLE_PERMISSIONS[userData.role as UserRole] || ROLE_PERMISSIONS[UserRole.USER];
+    try {
+      const { uid } = initializeClaimsSchema.parse(body);
+      const userDoc = await db.collection('users').doc(uid).get();
+      const userData = userDoc.data();
 
-    await auth.setCustomUserClaims(uid, {
-      role: userData.role,
-      permissions,
-      isSuperAdmin: userData.role === UserRole.ADMIN,
-    });
+      if (!userData) {
+        return NextResponse.json(
+          {
+            error: {
+              message: 'User not found',
+              details: `No user found with ID: ${uid}`,
+            },
+          },
+          { status: 404 }
+        );
+      }
 
-    return Response.json({ success: true });
+      const userRole = userData.role as UserRole;
+      const claims: UserClaims = {
+        role: userRole,
+        permissions: ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS[UserRole.USER],
+        isSuperAdmin: userRole === UserRole.ADMIN,
+      };
+
+      await auth.setCustomUserClaims(uid, claims);
+
+      return NextResponse.json({
+        data: {
+          success: true,
+          claims,
+        },
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          {
+            error: {
+              message: 'Invalid request data',
+              details: error.errors,
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      throw error; // Let the outer catch block handle other errors
+    }
   } catch (error) {
     console.error('Error initializing claims:', error);
-    return Response.json({ error: 'Failed to initialize claims' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: {
+          message: 'Failed to initialize claims',
+          details: error instanceof Error ? error.message : 'An unexpected error occurred',
+        },
+      },
+      { status: 500 }
+    );
   }
 }
+
+export const dynamic = 'force-dynamic';
