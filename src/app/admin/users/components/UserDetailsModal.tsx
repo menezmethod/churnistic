@@ -11,6 +11,12 @@ import {
   Stack,
   FormControl,
   InputLabel,
+  Chip,
+  Box,
+  Autocomplete,
+  Divider,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import { useState } from 'react';
 
@@ -18,13 +24,32 @@ import { UserRole } from '@/lib/auth/types';
 
 import type { User } from '../hooks/useUsers';
 
+// Define available permissions
+const AVAILABLE_PERMISSIONS = [
+  'users.read',
+  'users.write',
+  'users.delete',
+  'content.read',
+  'content.write',
+  'content.delete',
+  'settings.read',
+  'settings.write',
+] as const;
+
 interface UserDetailsModalProps {
   user: User | null;
   open: boolean;
   onClose: () => void;
   onSave: (
     user: User,
-    data: { email?: string; displayName?: string; photoURL?: string }
+    data: {
+      email?: string;
+      displayName?: string;
+      photoURL?: string;
+      role?: string;
+      permissions?: string[];
+      isSuperAdmin?: boolean;
+    }
   ) => Promise<void>;
 }
 
@@ -38,7 +63,7 @@ export default function UserDetailsModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (field: keyof User, value: string | boolean) => {
+  const handleChange = (field: keyof User, value: string | boolean | string[]) => {
     if (!formData) return;
     setFormData({
       ...formData,
@@ -55,6 +80,9 @@ export default function UserDetailsModal({
         email: formData.email,
         displayName: formData.displayName ?? undefined,
         photoURL: formData.photoURL ?? undefined,
+        role: formData.role,
+        permissions: formData.permissions,
+        isSuperAdmin: formData.isSuperAdmin,
       });
       onClose();
     } catch (err) {
@@ -68,11 +96,17 @@ export default function UserDetailsModal({
   if (!formData) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <form onSubmit={handleSubmit}>
-        <DialogTitle>{formData.id ? 'Edit User' : 'Create User'}</DialogTitle>
+        <DialogTitle>
+          {formData.id ? 'Edit User' : 'Create User'} - {formData.email}
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 2 }}>
+            {/* Basic Information */}
+            <Typography variant="h6" color="primary">
+              Basic Information
+            </Typography>
             <TextField
               label="Display Name"
               value={formData.displayName ?? ''}
@@ -87,6 +121,13 @@ export default function UserDetailsModal({
               required
               type="email"
             />
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Role and Permissions */}
+            <Typography variant="h6" color="primary">
+              Role & Permissions
+            </Typography>
             <FormControl fullWidth>
               <InputLabel>Role</InputLabel>
               <Select
@@ -99,6 +140,47 @@ export default function UserDetailsModal({
                 <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
               </Select>
             </FormControl>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formData.isSuperAdmin}
+                  onChange={(e) => handleChange('isSuperAdmin', e.target.checked)}
+                />
+              }
+              label="Super Admin"
+            />
+
+            <Autocomplete
+              multiple
+              options={AVAILABLE_PERMISSIONS}
+              value={formData.permissions || []}
+              onChange={(_e, newValue) => handleChange('permissions', newValue)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Permissions"
+                  placeholder="Select permissions"
+                />
+              )}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => (
+                  <Chip
+                    label={option}
+                    {...getTagProps({ index })}
+                    key={option}
+                    size="small"
+                  />
+                ))
+              }
+            />
+
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary">
+                * Super Admin users have access to all permissions regardless of their
+                role
+              </Typography>
+            </Box>
           </Stack>
           {error && (
             <Typography color="error" sx={{ mt: 2 }}>

@@ -9,13 +9,13 @@ import {
   AccountBalance,
   Analytics,
   Notifications,
-  Business,
   AccountBalanceWallet,
   TrendingUp,
   Assessment,
   Help,
   PersonAdd,
   Login,
+  AdminPanelSettings,
 } from '@mui/icons-material';
 import {
   AppBar,
@@ -116,10 +116,12 @@ const managementMenuItems: MenuItemType[] = [
     description: 'Manage users, roles, and permissions',
   },
   {
-    text: 'Business Settings',
-    icon: <Business />,
-    path: '/admin/business',
+    text: 'Offer Validation',
+    icon: <AdminPanelSettings />,
+    path: '/admin/opportunities',
     roles: [UserRole.ADMIN],
+    description: 'Review and validate scraped rewards and offers',
+    badge: 5, // Shows number of pending reviews
   },
 ];
 

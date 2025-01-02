@@ -1,30 +1,22 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { useRouter } from 'next/navigation';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
-import { useAuth } from '@/lib/auth/AuthContext';
+import { auth } from '@/lib/firebase/client';
 
 import SignUpForm from '../SignUpForm';
 
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(),
-}));
-
-jest.mock('@/lib/auth/AuthContext', () => ({
-  useAuth: jest.fn(),
+jest.mock('firebase/auth', () => ({
+  createUserWithEmailAndPassword: jest.fn(),
 }));
 
 describe('SignUpForm', () => {
-  const mockPush = jest.fn();
-  const mockSignUp = jest.fn();
-
   beforeEach(() => {
     jest.clearAllMocks();
-    (useRouter as jest.Mock).mockReturnValue({ push: mockPush });
-    (useAuth as jest.Mock).mockReturnValue({ signUp: mockSignUp });
   });
 
-  it('renders sign up form correctly', () => {
+  it('renders correctly', () => {
     render(<SignUpForm />);
+
     expect(screen.getByText('Create Account')).toBeInTheDocument();
     expect(screen.getByTestId('displayname-input')).toBeInTheDocument();
     expect(screen.getByTestId('email-input')).toBeInTheDocument();
@@ -34,7 +26,9 @@ describe('SignUpForm', () => {
   });
 
   it('handles successful sign up', async () => {
-    mockSignUp.mockResolvedValue(undefined);
+    (createUserWithEmailAndPassword as jest.Mock).mockResolvedValueOnce({
+      user: { email: 'test@example.com' },
+    });
 
     render(<SignUpForm />);
 
@@ -60,8 +54,11 @@ describe('SignUpForm', () => {
     fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(mockSignUp).toHaveBeenCalledWith('test@example.com', 'password123');
-      expect(mockPush).toHaveBeenCalledWith('/dashboard');
+      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(
+        auth,
+        'test@example.com',
+        'password123'
+      );
     });
   });
 
@@ -93,7 +90,9 @@ describe('SignUpForm', () => {
   });
 
   it('shows error when sign up fails', async () => {
-    mockSignUp.mockRejectedValue(new Error('Sign up failed'));
+    (createUserWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(
+      new Error('Sign up failed')
+    );
 
     render(<SignUpForm />);
 

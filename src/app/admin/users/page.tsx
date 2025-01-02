@@ -24,10 +24,17 @@ import {
   TextField,
   Toolbar,
   Typography,
+  Chip,
+  Stack,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import { visuallyHidden } from '@mui/utils';
 import { useState } from 'react';
 
+import { UserRole } from '@/lib/auth/types';
 import { trpc } from '@/lib/trpc/client';
 
 import UserDetailsModal from './components/UserDetailsModal';
@@ -39,6 +46,7 @@ interface HeadCell {
   id: keyof User;
   label: string;
   numeric: boolean;
+  sortable?: boolean;
 }
 
 const headCells: readonly HeadCell[] = [
@@ -46,21 +54,37 @@ const headCells: readonly HeadCell[] = [
     id: 'email',
     numeric: false,
     label: 'Email',
+    sortable: true,
   },
   {
     id: 'displayName',
     numeric: false,
     label: 'Display Name',
+    sortable: true,
+  },
+  {
+    id: 'role',
+    numeric: false,
+    label: 'Role',
+    sortable: true,
+  },
+  {
+    id: 'permissions',
+    numeric: false,
+    label: 'Permissions',
+    sortable: false,
   },
   {
     id: 'createdAt',
     numeric: false,
     label: 'Created At',
+    sortable: true,
   },
   {
     id: 'updatedAt',
     numeric: false,
     label: 'Last Updated',
+    sortable: true,
   },
 ];
 
@@ -91,6 +115,7 @@ export default function UsersPage() {
   const [filters, setFilters] = useState({
     email: '',
     displayName: '',
+    role: '',
   });
 
   // State for user actions
@@ -206,7 +231,10 @@ export default function UsersPage() {
   const filteredUsers = users.filter((user) => {
     return (
       user.email.toLowerCase().includes(filters.email.toLowerCase()) &&
-      (user.displayName?.toLowerCase() ?? '').includes(filters.displayName.toLowerCase())
+      (user.displayName?.toLowerCase() ?? '').includes(
+        filters.displayName.toLowerCase()
+      ) &&
+      (filters.role === '' || user.role === filters.role)
     );
   });
 
@@ -224,26 +252,44 @@ export default function UsersPage() {
             sx={{
               pl: { sm: 2 },
               pr: { xs: 1, sm: 1 },
+              display: 'flex',
+              justifyContent: 'space-between',
             }}
           >
-            <Typography sx={{ flex: '1 1 100%' }} variant="h6" component="div">
-              Users
+            <Typography variant="h6" component="div">
+              User Management
             </Typography>
+            <Button variant="contained" onClick={() => handleEditUser(null)}>
+              Add User
+            </Button>
           </Toolbar>
           <Box sx={{ p: 2 }}>
-            <TextField
-              label="Filter by Email"
-              value={filters.email}
-              onChange={(e) => setFilters({ ...filters, email: e.target.value })}
-              size="small"
-              sx={{ mr: 2 }}
-            />
-            <TextField
-              label="Filter by Name"
-              value={filters.displayName}
-              onChange={(e) => setFilters({ ...filters, displayName: e.target.value })}
-              size="small"
-            />
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Filter by Email"
+                value={filters.email}
+                onChange={(e) => setFilters({ ...filters, email: e.target.value })}
+                size="small"
+              />
+              <TextField
+                label="Filter by Name"
+                value={filters.displayName}
+                onChange={(e) => setFilters({ ...filters, displayName: e.target.value })}
+                size="small"
+              />
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>Role</InputLabel>
+                <Select
+                  value={filters.role}
+                  onChange={(e) => setFilters({ ...filters, role: e.target.value })}
+                  label="Role"
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value={UserRole.USER}>User</MenuItem>
+                  <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
           </Box>
           <TableContainer>
             <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle" size="medium">
@@ -255,18 +301,24 @@ export default function UsersPage() {
                       align={headCell.numeric ? 'right' : 'left'}
                       sortDirection={orderBy === headCell.id ? order : false}
                     >
-                      <TableSortLabel
-                        active={orderBy === headCell.id}
-                        direction={orderBy === headCell.id ? order : 'asc'}
-                        onClick={() => handleRequestSort(headCell.id)}
-                      >
-                        {headCell.label}
-                        {orderBy === headCell.id ? (
-                          <Box component="span" sx={visuallyHidden}>
-                            {order === 'desc' ? 'sorted descending' : 'sorted ascending'}
-                          </Box>
-                        ) : null}
-                      </TableSortLabel>
+                      {headCell.sortable ? (
+                        <TableSortLabel
+                          active={orderBy === headCell.id}
+                          direction={orderBy === headCell.id ? order : 'asc'}
+                          onClick={() => handleRequestSort(headCell.id)}
+                        >
+                          {headCell.label}
+                          {orderBy === headCell.id ? (
+                            <Box component="span" sx={visuallyHidden}>
+                              {order === 'desc'
+                                ? 'sorted descending'
+                                : 'sorted ascending'}
+                            </Box>
+                          ) : null}
+                        </TableSortLabel>
+                      ) : (
+                        headCell.label
+                      )}
                     </TableCell>
                   ))}
                   <TableCell>Actions</TableCell>
@@ -277,20 +329,47 @@ export default function UsersPage() {
                   <TableRow hover key={user.id}>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.displayName}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.role}
+                        color={user.role === UserRole.ADMIN ? 'primary' : 'default'}
+                        size="small"
+                      />
+                      {user.isSuperAdmin && (
+                        <Chip
+                          label="Super Admin"
+                          color="secondary"
+                          size="small"
+                          sx={{ ml: 1 }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} flexWrap="wrap">
+                        {user.permissions?.map((permission) => (
+                          <Chip
+                            key={permission}
+                            label={permission}
+                            size="small"
+                            variant="outlined"
+                          />
+                        ))}
+                      </Stack>
+                    </TableCell>
                     <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>{new Date(user.updatedAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <IconButton
                         size="small"
                         onClick={() => handleEditUser(user)}
-                        aria-label="edit"
+                        color="primary"
                       >
                         <EditIcon />
                       </IconButton>
                       <IconButton
                         size="small"
                         onClick={() => handleDeleteUser(user)}
-                        aria-label="delete"
+                        color="error"
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -312,38 +391,28 @@ export default function UsersPage() {
         </Paper>
       </Box>
 
-      {/* Edit User Modal */}
-      {editingUser && (
-        <UserDetailsModal
-          open={!!editingUser}
-          user={editingUser}
-          onClose={() => setEditingUser(null)}
-          onSave={handleUpdateUser}
-        />
-      )}
+      <UserDetailsModal
+        open={!!editingUser}
+        user={editingUser}
+        onClose={() => setEditingUser(null)}
+        onSave={handleUpdateUser}
+      />
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={!!deletingUser}
-        onClose={() => setDeletingUser(null)}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
-      >
-        <DialogTitle id="alert-dialog-title">Confirm Delete</DialogTitle>
+      <Dialog open={!!deletingUser} onClose={() => setDeletingUser(null)}>
+        <DialogTitle>Delete User</DialogTitle>
         <DialogContent>
-          <DialogContentText id="alert-dialog-description">
+          <DialogContentText>
             Are you sure you want to delete this user? This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeletingUser(null)}>Cancel</Button>
-          <Button onClick={handleConfirmDelete} autoFocus>
+          <Button onClick={handleConfirmDelete} color="error">
             Delete
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}

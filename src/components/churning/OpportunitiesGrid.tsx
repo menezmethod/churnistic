@@ -1,10 +1,5 @@
 import { Box } from '@mui/material';
-import {
-  DataGrid,
-  GridColDef,
-  GridValueGetterParams,
-  GridRenderCellParams,
-} from '@mui/x-data-grid';
+import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import React from 'react';
 
 import { ChurningOpportunity } from '@/types/churning';
@@ -15,42 +10,48 @@ interface OpportunitiesGridProps {
 }
 
 const columns: GridColDef[] = [
-  { field: 'type', headerName: 'Type', width: 130 },
-  { field: 'bank_name', headerName: 'Bank', width: 200 },
-  { field: 'title', headerName: 'Title', width: 300 },
   {
-    field: 'value',
-    headerName: 'Value',
+    field: 'id',
+    headerName: 'ID',
+    width: 90,
+  },
+  {
+    field: 'name',
+    headerName: 'Name',
     width: 130,
-    valueFormatter: (params: GridValueGetterParams) => {
-      if (typeof params.value === 'string') {
-        const value = parseFloat(params.value);
-        if (!isNaN(value)) {
-          return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-          }).format(value);
+  },
+  {
+    field: 'amount',
+    headerName: 'Amount',
+    width: 130,
+    valueFormatter: ({ value }) => {
+      if (typeof value === 'string') {
+        const numValue = parseFloat(value);
+        if (!isNaN(numValue)) {
+          return `$${numValue.toLocaleString()}`;
         }
       }
-      return params.value;
+      return value;
     },
   },
   {
-    field: 'requirements',
-    headerName: 'Requirements',
-    width: 300,
-    renderCell: (params: GridRenderCellParams<ChurningOpportunity, string[]>) => (
-      <div style={{ whiteSpace: 'pre-wrap' }}>{params.value?.join(', ')}</div>
-    ),
+    field: 'status',
+    headerName: 'Status',
+    width: 130,
   },
   {
-    field: 'risk_level',
+    field: 'riskLevel',
     headerName: 'Risk Level',
     width: 130,
-    valueFormatter: (params: GridValueGetterParams) => {
+    valueFormatter: ({ value }) => {
       const riskLevels = ['Low', 'Medium', 'High'];
-      return riskLevels[Number(params.value) - 1] || 'Unknown';
+      return riskLevels[Number(value) - 1] || 'Unknown';
     },
+  },
+  {
+    field: 'lastContact',
+    headerName: 'Last Contact',
+    width: 130,
   },
 ];
 

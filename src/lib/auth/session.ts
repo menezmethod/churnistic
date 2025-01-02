@@ -23,7 +23,9 @@ export async function verifySession(sessionCookie: string): Promise<SessionData 
     if (useEmulators) {
       console.log('🔧 Using Firebase Emulators for session verification');
       try {
-        const tokenData = JSON.parse(Buffer.from(sessionCookie.split('.')[1], 'base64').toString());
+        const tokenData = JSON.parse(
+          Buffer.from(sessionCookie.split('.')[1], 'base64').toString()
+        );
         decodedToken = {
           ...tokenData,
           uid: tokenData.user_id || tokenData.sub,
@@ -68,8 +70,10 @@ export async function verifySession(sessionCookie: string): Promise<SessionData 
       const sessionData: SessionData = {
         ...decodedToken,
         role: userRecord.customClaims?.role || decodedToken.role || 'user',
-        permissions: userRecord.customClaims?.permissions || decodedToken.permissions || [],
-        isSuperAdmin: userRecord.customClaims?.isSuperAdmin || decodedToken.isSuperAdmin || false,
+        permissions:
+          userRecord.customClaims?.permissions || decodedToken.permissions || [],
+        isSuperAdmin:
+          userRecord.customClaims?.isSuperAdmin || decodedToken.isSuperAdmin || false,
         lastActivity: Date.now(),
       };
       console.log('Session data:', sessionData);

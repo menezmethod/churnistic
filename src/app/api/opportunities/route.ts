@@ -1,19 +1,15 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 
-import { prisma } from '@/lib/prisma/db';
+import { db } from '@/lib/firebase/admin';
 
 export async function GET() {
   try {
-    console.log('Fetching opportunities from Prisma...');
-    const opportunities = await prisma.opportunity.findMany({
-      orderBy: [{ confidence: 'desc' }, { postedDate: 'desc' }],
-      where: {
-        status: 'active',
-      },
-    });
-
-    console.log(`Found ${opportunities.length} opportunities`);
-    console.log('First opportunity:', opportunities[0]);
+    console.log('Fetching opportunities from Firestore...');
+    const opportunitiesSnapshot = await db.collection('opportunities').get();
+    const opportunities = opportunitiesSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
 
     return NextResponse.json(opportunities);
   } catch (error) {
@@ -22,78 +18,84 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const opportunity = await request.json();
+    const data = await req.json();
 
-    // Convert dates from strings to Date objects
-    const dbOpportunity = {
-      ...opportunity,
-      postedDate: new Date(opportunity.postedDate),
-      expirationDate: opportunity.expirationDate
-        ? new Date(opportunity.expirationDate)
-        : null,
-      value: parseFloat(opportunity.value.toString()), // Ensure value is a number
-      confidence: parseFloat(opportunity.confidence.toString()), // Ensure confidence is a number
-    };
+    // Check if opportunity with same name exists
+    const existingOpportunitySnapshot = await db
+      .collection('opportunities')
+      .where('name', '==', data.name)
+      .get();
 
-    // Check if opportunity already exists
-    const existingOpportunity = await prisma.opportunity.findFirst({
-      where: {
-        id: dbOpportunity.id,
-        source: dbOpportunity.source,
-      },
-    });
-
-    if (existingOpportunity) {
-      // Update if new opportunity has higher confidence
-      if (dbOpportunity.confidence > existingOpportunity.confidence) {
-        console.log(
-          'Updating existing opportunity with higher confidence:',
-          dbOpportunity.sourceId
-        );
-        const updatedOpportunity = await prisma.opportunity.update({
-          where: { id: existingOpportunity.id },
-          data: dbOpportunity,
-        });
-        return NextResponse.json(updatedOpportunity);
-      }
-      console.log('Skipping update for existing opportunity:', dbOpportunity.sourceId);
-      return NextResponse.json(existingOpportunity);
+    if (!existingOpportunitySnapshot.empty) {
+      return NextResponse.json(
+        { error: 'Opportunity with this name already exists' },
+        { status: 400 }
+      );
     }
 
     // Create new opportunity
-    console.log('Creating new opportunity:', dbOpportunity.sourceId);
-    const newOpportunity = await prisma.opportunity.create({
-      data: dbOpportunity,
+    const docRef = await db.collection('opportunities').add({
+      ...data,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
+
+    const newOpportunitySnapshot = await docRef.get();
+    const newOpportunity = {
+      id: newOpportunitySnapshot.id,
+      ...newOpportunitySnapshot.data(),
+    };
 
     return NextResponse.json(newOpportunity);
   } catch (error) {
-    console.error('Error saving opportunity:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to save opportunity',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    console.error('Error creating opportunity:', error);
+    return NextResponse.json({ error: 'Failed to create opportunity' }, { status: 500 });
   }
 }
 
-export async function DELETE(request: Request) {
+export async function PUT(req: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const data = await req.json();
+    const { id, ...updateData } = data;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Opportunity ID is required' }, { status: 400 });
+    }
+
+    // Update opportunity
+    await db
+      .collection('opportunities')
+      .doc(id)
+      .update({
+        ...updateData,
+        updatedAt: new Date().toISOString(),
+      });
+
+    const updatedOpportunitySnapshot = await db.collection('opportunities').doc(id).get();
+    const updatedOpportunity = {
+      id: updatedOpportunitySnapshot.id,
+      ...updatedOpportunitySnapshot.data(),
+    };
+
+    return NextResponse.json(updatedOpportunity);
+  } catch (error) {
+    console.error('Error updating opportunity:', error);
+    return NextResponse.json({ error: 'Failed to update opportunity' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'Missing opportunity ID' }, { status: 400 });
+      return NextResponse.json({ error: 'Opportunity ID is required' }, { status: 400 });
     }
 
-    await prisma.opportunity.update({
-      where: { id },
-      data: { status: 'deleted' },
-    });
+    await db.collection('opportunities').doc(id).delete();
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,34 +1,36 @@
 /// <reference types="node" />
 import '@testing-library/jest-dom';
+import '@testing-library/react';
 import { jest } from '@jest/globals';
-import type {
-  Auth,
-  NextOrObserver,
-  User,
-  Unsubscribe,
-  ErrorFn,
-  CompleteFn,
-} from 'firebase/auth';
-import React from 'react';
 import { TextDecoder, TextEncoder } from 'util';
 
-const nodeFetch = require('node-fetch');
-const { Headers: NodeHeaders, Request: NodeRequest, Response } = nodeFetch;
+import { mockFirestore } from '@/mocks/firestore';
+
+const {
+  Headers: NodeHeaders,
+  Request: NodeRequest,
+  Response,
+} = await import('node-fetch');
 
 declare global {
-  namespace NodeJS {
-    interface Global {
-      fetch: typeof fetch;
-      Request: typeof NodeRequest;
-      Response: typeof Response;
-    }
+  interface Window {
+    fetch: typeof fetch;
+    Request: typeof NodeRequest;
+    Response: typeof Response;
+  }
+}
+
+declare module '@testing-library/jest-dom' {
+  export interface Matchers<R> {
+    toBeInTheDocument(): R;
+    toHaveStyle(style: Record<string, unknown>): R;
   }
 }
 
 // Set up global fetch API
 (global.fetch as unknown) = jest
   .fn()
-  .mockImplementation((): Promise<Response> => Promise.resolve(new Response()));
+  .mockImplementation(() => Promise.resolve(new Response() as unknown));
 (global.Request as unknown) = NodeRequest;
 (global.Response as unknown) = Response;
 
@@ -48,76 +50,51 @@ Object.defineProperty(global, 'Request', {
   value: NodeRequest,
 });
 
-// Mock Firebase
+// Mock TextEncoder/TextDecoder
+global.TextEncoder = TextEncoder as unknown as typeof global.TextEncoder;
+global.TextDecoder = TextDecoder as unknown as typeof global.TextDecoder;
+
+// Mock window.matchMedia
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: jest.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
+});
+
+// Mock Firebase Admin
+jest.mock('@/lib/firebase/admin', () => ({
+  db: mockFirestore,
+  auth: {
+    verifyIdToken: jest.fn(),
+    getUser: jest.fn(),
+    createCustomToken: jest.fn(),
+    setCustomUserClaims: jest.fn(),
+  },
+}));
+
+// Mock Firebase Client
 jest.mock('firebase/app', () => ({
-  initializeApp: jest.fn(() => ({
-    name: '[DEFAULT]',
-    options: {
-      apiKey: 'test-api-key',
-      authDomain: 'test-auth-domain',
-      projectId: 'test-project-id',
-      storageBucket: 'test-storage-bucket',
-      messagingSenderId: 'test-messaging-sender-id',
-      appId: 'test-app-id',
-    },
-  })),
+  initializeApp: jest.fn(),
   getApps: jest.fn(() => []),
-  getApp: jest.fn(() => ({
-    name: '[DEFAULT]',
-    options: {
-      apiKey: 'test-api-key',
-      authDomain: 'test-auth-domain',
-      projectId: 'test-project-id',
-      storageBucket: 'test-storage-bucket',
-      messagingSenderId: 'test-messaging-sender-id',
-      appId: 'test-app-id',
-    },
-  })),
+  getApp: jest.fn(),
 }));
 
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(() => ({
     currentUser: null,
-    onAuthStateChanged: jest.fn(),
     signInWithEmailAndPassword: jest.fn(),
-    signInWithPopup: jest.fn(),
     signOut: jest.fn(),
   })),
-  onAuthStateChanged: jest.fn(),
   signInWithEmailAndPassword: jest.fn(),
-  signInWithPopup: jest.fn(),
   signOut: jest.fn(),
-  GoogleAuthProvider: jest.fn(() => ({
-    addScope: jest.fn(),
-  })),
-  GithubAuthProvider: jest.fn(() => ({
-    addScope: jest.fn(),
-  })),
-}));
-
-jest.mock('firebase/firestore', () => ({
-  getFirestore: jest.fn(() => ({})),
-  collection: jest.fn(),
-  doc: jest.fn(),
-  getDoc: jest.fn(),
-  getDocs: jest.fn(),
-  query: jest.fn(),
-  where: jest.fn(),
-  orderBy: jest.fn(),
-  limit: jest.fn(),
-  startAfter: jest.fn(),
-}));
-
-jest.mock('firebase/functions', () => ({
-  getFunctions: jest.fn(() => ({})),
-  httpsCallable: jest.fn(),
-}));
-
-jest.mock('firebase/storage', () => ({
-  getStorage: jest.fn(() => ({})),
-  ref: jest.fn(),
-  uploadBytes: jest.fn(),
-  getDownloadURL: jest.fn(),
 }));
 
 // Mock next/navigation
@@ -125,186 +102,17 @@ jest.mock('next/navigation', () => ({
   useRouter: jest.fn(() => ({
     push: jest.fn(),
     replace: jest.fn(),
-    prefetch: jest.fn(),
+    refresh: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
   })),
   usePathname: jest.fn(() => '/'),
+  useSearchParams: jest.fn(() => new URLSearchParams()),
 }));
 
-// Mock next/link
-jest.mock('next/link', () => {
-  return {
-    __esModule: true,
-    default: ({ children, href }: { children: React.ReactNode; href: string }) =>
-      React.createElement('a', { href }, children),
-  };
-});
-
-// Test accounts
-const TEST_USER = {
-  email: process.env.TEST_USER_EMAIL || 'qa.tester@churnistic.com',
-  password: process.env.TEST_USER_PASSWORD || 'TestUser@2024',
-  uid: 'test-user-uid',
-};
-
-const TEST_ADMIN = {
-  email: process.env.TEST_ADMIN_EMAIL || 'admin@churnistic.com',
-  password: process.env.TEST_ADMIN_PASSWORD || 'AdminUser@2024',
-  uid: 'admin-user-uid',
-};
-
-// Mock Firebase auth instance
-jest.mock('@/lib/firebase/auth', () => {
-  let currentUser: User | null = null;
-
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const validatePassword = (password: string): boolean => {
-    return password.length >= 6;
-  };
-
-  const createAuthError = (code: string, message: string, originalError?: unknown) => ({
-    code,
-    message,
-    originalError,
-  });
-
-  return {
-    auth: {
-      currentUser: null,
-      onAuthStateChanged: jest.fn(
-        (callback: NextOrObserver<User | null>): Unsubscribe => {
-          if (typeof callback === 'function') {
-            callback(currentUser);
-          }
-          return jest.fn();
-        }
-      ),
-    },
-    signInWithEmail: jest.fn(async (email: string, password: string) => {
-      if (!email || !password) {
-        return {
-          user: null,
-          error: createAuthError('auth/invalid-input', 'Email and password are required'),
-        };
-      }
-
-      if (!validateEmail(email)) {
-        return {
-          user: null,
-          error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
-        };
-      }
-
-      if (!validatePassword(password)) {
-        return {
-          user: null,
-          error: createAuthError(
-            'auth/weak-password',
-            'Password should be at least 6 characters'
-          ),
-        };
-      }
-
-      // Check test accounts
-      if (
-        (email === TEST_USER.email && password === TEST_USER.password) ||
-        (email === TEST_ADMIN.email && password === TEST_ADMIN.password)
-      ) {
-        const user = {
-          uid: email === TEST_USER.email ? TEST_USER.uid : TEST_ADMIN.uid,
-          email,
-          emailVerified: true,
-        } as User;
-        currentUser = user;
-        return { user, error: null };
-      }
-
-      return {
-        user: null,
-        error: createAuthError('auth/invalid-credential', 'Invalid email or password'),
-      };
-    }),
-    signUpWithEmail: jest.fn(),
-    signOut: jest.fn(async () => {
-      currentUser = null;
-      return { error: null };
-    }),
-    signInWithGoogle: jest.fn(),
-    signInWithGithub: jest.fn(),
-    resetPassword: jest.fn(async (email: string) => {
-      if (!email) {
-        return {
-          error: createAuthError('auth/invalid-input', 'Email is required'),
-        };
-      }
-
-      if (!validateEmail(email)) {
-        return {
-          error: createAuthError('auth/invalid-email-format', 'Invalid email format'),
-        };
-      }
-
-      // Only allow password reset for test accounts
-      if (email === TEST_USER.email || email === TEST_ADMIN.email) {
-        return { error: null };
-      }
-
-      return {
-        error: createAuthError('auth/user-not-found', 'No user found with this email'),
-      };
-    }),
-    getCurrentUser: jest.fn(() => currentUser),
-    onAuthStateChange: jest.fn((callback: (user: User | null) => void) => {
-      callback(currentUser);
-      return jest.fn();
-    }),
-  };
-});
-
-// Mock Firebase Admin
-jest.mock('firebase-admin/app', () => ({
-  initializeApp: jest.fn(() => ({
-    name: '[DEFAULT]',
-    options: {},
-  })),
-  getApps: jest.fn(() => []),
-  cert: jest.fn(() => ({
-    projectId: 'mock-project-id',
-    clientEmail: 'mock-client-email',
-    privateKey: 'mock-private-key',
-  })),
-}));
-
-jest.mock('firebase-admin/auth', () => ({
-  getAuth: jest.fn(() => ({
-    verifyIdToken: jest.fn(() =>
-      Promise.resolve({
-        uid: 'mock-uid',
-        email: 'mock@email.com',
-      })
-    ),
-    createCustomToken: jest.fn(() => Promise.resolve('mock-custom-token')),
-  })),
-}));
-
-// Mock window.matchMedia
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(
-    (query: unknown): MediaQueryList => ({
-      matches: false,
-      media: query as string,
-      onchange: null,
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(() => true),
-    })
-  ),
+// Reset mocks between tests
+beforeEach(() => {
+  jest.clearAllMocks();
 });
 
 // Mock IntersectionObserver
@@ -397,51 +205,3 @@ process.env = {
   FIREBASE_ADMIN_CLIENT_EMAIL: 'mock-client-email',
   FIREBASE_ADMIN_PRIVATE_KEY: 'mock-private-key',
 };
-
-// Add missing Web APIs
-if (typeof global.TextEncoder === 'undefined') {
-  global.TextEncoder = TextEncoder as unknown as typeof global.TextEncoder;
-}
-if (typeof global.TextDecoder === 'undefined') {
-  global.TextDecoder = TextDecoder as unknown as typeof global.TextDecoder;
-}
-
-// Clean up after each test
-afterEach(() => {
-  jest.clearAllMocks();
-});
-
-// Mock Prisma
-jest.mock('@prisma/client', () => ({
-  PrismaClient: jest.fn(() => ({
-    $connect: jest.fn(),
-    $disconnect: jest.fn(),
-    user: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
-    bank: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
-    card: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
-  })),
-}));
-
-declare global {
-  namespace jest {
-    interface Matchers<R> {
-      toBeInTheDocument(): R;
-      toHaveStyle(style: Record<string, any>): R;
-    }
-  }
-}

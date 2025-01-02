@@ -17,6 +17,8 @@ export interface User {
   updatedAt: string;
   firebaseUid: string;
   customDisplayName: string | null;
+  permissions?: string[];
+  isSuperAdmin?: boolean;
 }
 
 interface UseUsersOptions {
