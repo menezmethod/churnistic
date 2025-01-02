@@ -908,7 +908,7 @@ const summarizeRequirements = (opportunity: Opportunity) => {
   if (!requirements?.length || !requirements[0]?.description) {
     return 'View offer details';
   }
-  
+
   const req = requirements[0].description;
 
   // Handle spending requirements

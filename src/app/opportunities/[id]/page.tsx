@@ -498,7 +498,7 @@ export default function OpportunityDetailsPage() {
           <Grid item xs={12} sm={6}>
             <DetailItem
               label="Requirements"
-              value={opportunity.metadata.bonus.requirements}
+              value={opportunity.metadata.bonus.requirements.description}
               icon={CheckCircle}
             />
           </Grid>
@@ -586,7 +586,7 @@ export default function OpportunityDetailsPage() {
   const getTypeSpecificDetails = () => {
     switch (opportunity.type) {
       case 'brokerage':
-        return opportunity.metadata.brokerage_features ? (
+        return opportunity.metadata.features ? (
           <Paper
             elevation={0}
             sx={{
@@ -630,18 +630,11 @@ export default function OpportunityDetailsPage() {
               <AccountBalanceWallet /> Brokerage Features
             </Typography>
             <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <DetailItem
-                  label="Account Types"
-                  value={opportunity.metadata.brokerage_features.account_types}
+                  label="Features"
+                  value={opportunity.metadata.features}
                   icon={Layers}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <DetailItem
-                  label="Trading Options"
-                  value={opportunity.metadata.brokerage_features.trading_options}
-                  icon={AccountBalance}
                 />
               </Grid>
             </Grid>
@@ -817,7 +810,7 @@ export default function OpportunityDetailsPage() {
     const availability = opportunity.metadata?.availability;
     if (!availability) return null;
 
-    if (availability.is_nationwide) {
+    if (availability.type === 'Nationwide') {
       return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Public sx={{ fontSize: '1rem', color: 'primary.main' }} />
@@ -826,7 +819,7 @@ export default function OpportunityDetailsPage() {
       );
     }
 
-    if (Array.isArray(availability.regions) && availability.regions.length > 0) {
+    if (availability.regions && availability.regions.length > 0) {
       return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1004,9 +997,11 @@ export default function OpportunityDetailsPage() {
                         <Chip
                           icon={<Public />}
                           label={
-                            opportunity.metadata.availability.is_nationwide
+                            opportunity.metadata.availability?.type === 'Nationwide'
                               ? 'Nationwide'
-                              : `${opportunity.metadata.availability.regions.length} States`
+                              : opportunity.metadata.availability?.regions
+                              ? `${opportunity.metadata.availability.regions.length} States`
+                              : 'Unknown'
                           }
                           color="info"
                           sx={{
@@ -1380,10 +1375,10 @@ export default function OpportunityDetailsPage() {
                 <LocationOn /> Availability
               </Typography>
               {renderAvailability(opportunity)}
-              {opportunity.metadata.availability.restrictions && (
+              {opportunity.metadata.availability?.details && (
                 <DetailItem
                   label="Restrictions"
-                  value={opportunity.metadata.availability.restrictions}
+                  value={opportunity.metadata.availability.details}
                   icon={Warning}
                 />
               )}
@@ -1438,10 +1433,10 @@ export default function OpportunityDetailsPage() {
               value={formatDate(opportunity.postedDate)}
               icon={CalendarToday}
             />
-            {opportunity.metadata.source?.last_verified && (
+            {opportunity.timing?.last_verified && (
               <DetailItem
                 label="Last Verified"
-                value={formatDate(opportunity.metadata.source.last_verified)}
+                value={formatDate(opportunity.timing.last_verified)}
                 icon={Update}
               />
             )}

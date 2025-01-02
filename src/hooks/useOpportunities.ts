@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 
 import { Opportunity } from '@/types/opportunity';
+import { TransformedOffer } from '@/types/transformed';
 
 export function useOpportunities() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -42,65 +43,69 @@ export function useOpportunities() {
         }
 
         // Transform the offers into the expected Opportunity format
-        const transformedOpportunities = data.offers.map((offer: any) => ({
-          _id: offer.id,
-          id: offer.id,
-          title: offer.name,
-          type: offer.type,
-          value: offer.value,
-          bank: offer.name.split(' ')[0],
-          description: offer.bonus?.description || '',
-          requirements: [offer.bonus?.requirements?.description || ''],
-          url: offer.offer_link,
-          source: {
-            name: 'BankRewards',
+        const transformedOpportunities = data.offers.map((offer: TransformedOffer) => {
+          // Extract value from bonus description
+          const bonusValue = parseFloat(
+            offer.bonus?.description
+              ?.match(/\$?(\d+(?:,\d+)?)/)?.[1]
+              ?.replace(',', '') || '0'
+          );
+
+          return {
+            _id: offer.id,
+            id: offer.id,
+            title: offer.name,
+            type: offer.type,
+            value: bonusValue,
+            bank: offer.name.split(' ')[0],
+            description: offer.bonus?.description || '',
+            requirements: [offer.bonus?.requirements?.description || ''],
             url: offer.offer_link,
-          },
-          metadata: {
+            source: {
+              name: 'BankRewards',
+              url: offer.offer_link,
+            },
+            metadata: {
+              created_at: offer.metadata.created,
+              last_updated: offer.metadata.updated,
+              version: '1.0',
+              credit: offer.details?.credit_inquiry
+                ? {
+                    inquiry: offer.details.credit_inquiry,
+                    chase_524_rule: offer.details?.under_5_24 || false,
+                  }
+                : undefined,
+              fees: {
+                annual: offer.details?.annual_fees || 'None',
+                monthly: typeof offer.details?.monthly_fees === 'string' 
+                  ? offer.details.monthly_fees 
+                  : offer.details?.monthly_fees?.amount || 'None',
+                foreign_transaction: offer.details?.foreign_transaction_fees,
+              },
+              availability: {
+                type: offer.details?.availability?.type === 'Nationwide' ? 'Nationwide' : 'State',
+                regions: offer.details?.availability?.states || [],
+                details: offer.details?.availability?.details,
+              },
+            },
             created_at: offer.metadata.created,
             last_updated: offer.metadata.updated,
-            version: '1.0',
-            credit: offer.details?.credit_inquiry
-              ? {
-                  inquiry: offer.details.credit_inquiry,
-                  chase_524_rule: offer.details?.under_5_24 || false,
-                }
-              : undefined,
-            fees: {
-              annual: offer.details?.annual_fees || 'None',
-              monthly: offer.details?.monthly_fees?.amount || 'None',
-              foreign_transaction: offer.details?.foreign_transaction_fees,
+            bonus: {
+              amount: bonusValue,
+              currency: 'USD',
+              requirements: [{ description: offer.bonus?.requirements?.description || '' }],
             },
-            availability:
-              offer.details?.availability?.type === 'Nationwide'
-                ? { regions: [], is_nationwide: true, restrictions: null }
-                : {
-                    regions: offer.details?.availability?.states || [],
-                    is_nationwide: false,
-                    restrictions: null,
-                  },
-          },
-          created_at: offer.metadata.created,
-          last_updated: offer.metadata.updated,
-          bonus: {
-            amount: parseFloat(
-              offer.bonus?.description
-                ?.match(/\$?(\d+(?:,\d+)?)/)?.[1]
-                ?.replace(',', '') || '0'
-            ),
-            currency: 'USD',
-            requirements: [offer.bonus?.requirements?.description || ''],
-          },
-          timing: {
-            posted_date: offer.metadata.created,
-            last_verified: offer.metadata.updated,
-            expiration: offer.details?.expiration || 'None Listed',
-          },
-          offer_link: offer.offer_link,
-          status: 'active',
-          logo: offer.logo,
-          card_image: offer.card_image,
-        }));
+            timing: {
+              posted_date: offer.metadata.created,
+              last_verified: offer.metadata.updated,
+              expiration: offer.details?.expiration || 'None Listed',
+            },
+            offer_link: offer.offer_link,
+            status: 'active',
+            logo: offer.logo,
+            card_image: offer.card_image,
+          };
+        });
 
         console.log('Transformed opportunities:', transformedOpportunities);
         setOpportunities(transformedOpportunities);
