@@ -190,6 +190,8 @@ export const userRouter = router({
       }
 
       const snapshot = await query.get();
-      return snapshot.docs.map((doc) => formatUserData(doc.id, doc.data() as UserDocument));
+      return snapshot.docs.map((doc) =>
+        formatUserData(doc.id, doc.data() as UserDocument)
+      );
     }),
 });

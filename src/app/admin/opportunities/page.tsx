@@ -247,7 +247,9 @@ export default function OfferValidationPage() {
                       </Typography>
                       <Chip
                         size="small"
-                        label={opp.type === 'credit_card' ? 'Credit Card' : 'Bank Account'}
+                        label={
+                          opp.type === 'credit_card' ? 'Credit Card' : 'Bank Account'
+                        }
                         sx={{ mt: 1 }}
                       />
                     </Box>
@@ -318,4 +320,4 @@ export default function OfferValidationPage() {
       </Box>
     </Container>
   );
-} 
+}

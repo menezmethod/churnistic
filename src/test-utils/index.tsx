@@ -1,15 +1,15 @@
+import { screen, fireEvent, waitFor } from '@testing-library/dom';
 import { render } from '@testing-library/react';
-import React from 'react';
+import { type ReactElement } from 'react';
 
-// Custom render function for testing
-const customRender = (ui: React.ReactElement<unknown>, options = {}) =>
-  render(ui, {
-    wrapper: ({ children }) => children,
-    ...options,
-  });
+interface RenderOptions {
+  wrapper?: React.ComponentType<{ children: React.ReactNode }>;
+}
 
-// Re-export everything
+function customRender(ui: ReactElement, options: RenderOptions = {}) {
+  const { wrapper = ({ children }) => <>{children}</>, ...rest } = options;
+  return render(ui, { wrapper, ...rest });
+}
+
 export * from '@testing-library/react';
-
-// Override render method
-export { customRender as render };
+export { customRender as render, screen, fireEvent, waitFor };

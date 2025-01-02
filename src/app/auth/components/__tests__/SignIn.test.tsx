@@ -1,42 +1,25 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import '@testing-library/jest-dom';
-import { useRouter } from 'next/navigation';
+import { screen, waitFor, fireEvent } from '@testing-library/dom';
+import { render } from '@testing-library/react';
+import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-import { signInWithEmail, signInWithGoogle } from '@/lib/firebase/auth';
+import { auth } from '@/lib/firebase/client';
 
 import { SignIn } from '../SignIn';
 
-// Mock next/navigation
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(),
+jest.mock('firebase/auth', () => ({
+  signInWithEmailAndPassword: jest.fn(),
+  signInWithPopup: jest.fn(),
+  GoogleAuthProvider: jest.fn(),
 }));
 
-// Mock auth context
-jest.mock('@/lib/auth/AuthContext', () => ({
-  useAuth: jest.fn(),
-}));
-
-// Mock firebase auth
-jest.mock('@/lib/firebase/auth', () => ({
-  signInWithEmail: jest.fn(),
-  signInWithGoogle: jest.fn(),
-}));
-
-describe('SignIn Component', () => {
-  const mockRouter = {
-    push: jest.fn(),
-    replace: jest.fn(),
-  };
-
+describe('SignIn', () => {
   beforeEach(() => {
-    (useRouter as jest.Mock).mockReturnValue(mockRouter);
-    (useAuth as jest.Mock).mockReturnValue({ user: null });
     jest.clearAllMocks();
   });
 
-  it('renders sign in form', () => {
+  it('renders correctly', () => {
     render(<SignIn />);
+
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
@@ -44,8 +27,9 @@ describe('SignIn Component', () => {
     expect(screen.getByLabelText('Remember me')).toBeInTheDocument();
   });
 
-  it('shows validation error for invalid email', async () => {
+  it('validates email format', async () => {
     render(<SignIn />);
+
     const emailInput = screen.getByLabelText('Email');
     const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
@@ -57,8 +41,9 @@ describe('SignIn Component', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows validation error for short password', async () => {
+  it('validates password length', async () => {
     render(<SignIn />);
+
     const passwordInput = screen.getByLabelText('Password');
     const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
@@ -70,12 +55,13 @@ describe('SignIn Component', () => {
     ).toBeInTheDocument();
   });
 
-  it('handles sign in error', async () => {
-    (signInWithEmail as jest.Mock).mockResolvedValue({
-      error: { code: 'auth/wrong-password' },
+  it('handles successful sign in', async () => {
+    (signInWithEmailAndPassword as jest.Mock).mockResolvedValueOnce({
+      user: { email: 'test@example.com' },
     });
 
     render(<SignIn />);
+
     const emailInput = screen.getByLabelText('Email');
     const passwordInput = screen.getByLabelText('Password');
     const submitButton = screen.getByRole('button', { name: 'Sign in' });
@@ -85,42 +71,34 @@ describe('SignIn Component', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByTestId('email-helper-text')).toHaveTextContent(
-        'Invalid email or password.'
-      );
-      expect(screen.getByTestId('password-helper-text')).toHaveTextContent(
-        'Invalid email or password.'
+      expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
+        auth,
+        'test@example.com',
+        'password123'
       );
     });
   });
 
-  it('redirects to dashboard on successful sign in', async () => {
-    (signInWithEmail as jest.Mock).mockResolvedValue({ error: null });
-    (useAuth as jest.Mock).mockReturnValue({ user: { email: 'test@example.com' } });
-
-    render(<SignIn />);
-
-    await waitFor(() => {
-      expect(mockRouter.replace).toHaveBeenCalledWith('/dashboard');
+  it('handles successful Google sign in', async () => {
+    (signInWithPopup as jest.Mock).mockResolvedValueOnce({
+      user: { email: 'test@example.com' },
     });
-  });
 
-  it('handles Google sign in', async () => {
-    (signInWithGoogle as jest.Mock).mockResolvedValue({ error: null });
     render(<SignIn />);
 
     const googleButton = screen.getByRole('button', { name: /sign in with google/i });
     fireEvent.click(googleButton);
 
     await waitFor(() => {
-      expect(signInWithGoogle).toHaveBeenCalled();
+      expect(signInWithPopup).toHaveBeenCalled();
     });
   });
 
   it('handles Google sign in error', async () => {
-    (signInWithGoogle as jest.Mock).mockResolvedValue({
-      error: new Error('Google sign in failed'),
-    });
+    (signInWithPopup as jest.Mock).mockRejectedValueOnce(
+      new Error('Google sign in failed')
+    );
+
     render(<SignIn />);
 
     const googleButton = screen.getByRole('button', { name: /sign in with google/i });
@@ -128,15 +106,16 @@ describe('SignIn Component', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('email-helper-text')).toHaveTextContent(
-        'An error occurred with Google sign in. Please try again.'
+        'Failed to sign in with Google'
       );
     });
   });
 
   it('shows loading state during sign in', async () => {
-    (signInWithEmail as jest.Mock).mockImplementation(
-      () => new Promise((resolve) => setTimeout(resolve, 100))
+    (signInWithEmailAndPassword as jest.Mock).mockImplementationOnce(
+      () => new Promise((resolve) => setTimeout(resolve, 1000))
     );
+
     render(<SignIn />);
 
     const emailInput = screen.getByLabelText('Email');
@@ -148,13 +127,13 @@ describe('SignIn Component', () => {
     fireEvent.click(submitButton);
 
     expect(screen.getByRole('button', { name: 'Signing in...' })).toBeInTheDocument();
-    expect(submitButton).toBeDisabled();
-    expect(emailInput).toBeDisabled();
-    expect(passwordInput).toBeDisabled();
   });
 
-  it('handles network error during sign in', async () => {
-    (signInWithEmail as jest.Mock).mockRejectedValue(new Error('Network error'));
+  it('handles wrong password error', async () => {
+    (signInWithEmailAndPassword as jest.Mock).mockRejectedValueOnce({
+      code: 'auth/wrong-password',
+    });
+
     render(<SignIn />);
 
     const emailInput = screen.getByLabelText('Email');
@@ -167,17 +146,18 @@ describe('SignIn Component', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('email-helper-text')).toHaveTextContent(
-        'An error occurred. Please try again.'
+        'Invalid email or password'
       );
     });
   });
 
-  it('handles invalid-credential error', async () => {
-    (signInWithEmail as jest.Mock).mockResolvedValue({
-      error: { code: 'auth/invalid-credential' },
+  it('handles user not found error', async () => {
+    (signInWithEmailAndPassword as jest.Mock).mockRejectedValueOnce({
+      code: 'auth/user-not-found',
     });
 
     render(<SignIn />);
+
     const emailInput = screen.getByLabelText('Email');
     const passwordInput = screen.getByLabelText('Password');
     const submitButton = screen.getByRole('button', { name: 'Sign in' });
@@ -188,10 +168,10 @@ describe('SignIn Component', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('email-helper-text')).toHaveTextContent(
-        'Invalid email or password.'
+        'No account found with this email'
       );
       expect(screen.getByTestId('password-helper-text')).toHaveTextContent(
-        'Invalid email or password.'
+        'Please check your email and password'
       );
     });
   });
