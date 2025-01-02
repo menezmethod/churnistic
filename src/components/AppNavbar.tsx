@@ -4,7 +4,6 @@ import {
   CreditCard,
   Settings,
   People,
-  Security,
   Logout,
   Menu as MenuIcon,
   AccountBalance,
@@ -110,16 +109,11 @@ const analyticsMenuItems: MenuItemType[] = [
 
 const managementMenuItems: MenuItemType[] = [
   {
-    text: 'User Management',
+    text: 'Users & Permissions',
     icon: <People />,
     path: '/admin/users',
     roles: [UserRole.ADMIN],
-  },
-  {
-    text: 'Role Management',
-    icon: <Security />,
-    path: '/admin/roles',
-    roles: [UserRole.ADMIN],
+    description: 'Manage users, roles, and permissions',
   },
   {
     text: 'Business Settings',
