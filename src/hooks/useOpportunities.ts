@@ -12,7 +12,7 @@ export function useOpportunities() {
     async function fetchOpportunities() {
       console.log('Starting to fetch opportunities...');
       try {
-        const url = 'http://localhost:8000/api/opportunities/bankrewards';
+        const url = 'http://localhost:3000/api/bankrewards?format=detailed';
         console.log('Making fetch request to:', url);
         const response = await fetch(url);
         console.log('Fetch response status:', response.status, response.statusText);
@@ -36,35 +36,74 @@ export function useOpportunities() {
         }
 
         // Check if data is in the expected format
-        if (!data || typeof data !== 'object') {
-          console.error('Invalid response format - not an object:', data);
+        if (!data || typeof data !== 'object' || !Array.isArray(data.offers)) {
+          console.error('Invalid response format:', data);
           throw new Error('Invalid response format from server');
         }
 
-        // Check if data has an opportunities array
-        const opportunities = Array.isArray(data.opportunities)
-          ? data.opportunities
-          : Array.isArray(data.data)
-            ? data.data
-            : Array.isArray(data)
-              ? data
-              : [];
+        // Transform the offers into the expected Opportunity format
+        const transformedOpportunities = data.offers.map((offer: any) => ({
+          _id: offer.id,
+          id: offer.id,
+          title: offer.name,
+          type: offer.type,
+          value: offer.value,
+          bank: offer.name.split(' ')[0],
+          description: offer.bonus?.description || '',
+          requirements: [offer.bonus?.requirements?.description || ''],
+          url: offer.offer_link,
+          source: {
+            name: 'BankRewards',
+            url: offer.offer_link,
+          },
+          metadata: {
+            created_at: offer.metadata.created,
+            last_updated: offer.metadata.updated,
+            version: '1.0',
+            credit: offer.details?.credit_inquiry
+              ? {
+                  inquiry: offer.details.credit_inquiry,
+                  chase_524_rule: offer.details?.under_5_24 || false,
+                }
+              : undefined,
+            fees: {
+              annual: offer.details?.annual_fees || 'None',
+              monthly: offer.details?.monthly_fees?.amount || 'None',
+              foreign_transaction: offer.details?.foreign_transaction_fees,
+            },
+            availability:
+              offer.details?.availability?.type === 'Nationwide'
+                ? { regions: [], is_nationwide: true, restrictions: null }
+                : {
+                    regions: offer.details?.availability?.states || [],
+                    is_nationwide: false,
+                    restrictions: null,
+                  },
+          },
+          created_at: offer.metadata.created,
+          last_updated: offer.metadata.updated,
+          bonus: {
+            amount: parseFloat(
+              offer.bonus?.description
+                ?.match(/\$?(\d+(?:,\d+)?)/)?.[1]
+                ?.replace(',', '') || '0'
+            ),
+            currency: 'USD',
+            requirements: [offer.bonus?.requirements?.description || ''],
+          },
+          timing: {
+            posted_date: offer.metadata.created,
+            last_verified: offer.metadata.updated,
+            expiration: offer.details?.expiration || 'None Listed',
+          },
+          offer_link: offer.offer_link,
+          status: 'active',
+          logo: offer.logo,
+          card_image: offer.card_image,
+        }));
 
-        console.log('Extracted opportunities array:', opportunities);
-
-        // Sort opportunities by value (converting string values if needed)
-        const sortedOpportunities = [...opportunities].sort(
-          (a: Opportunity, b: Opportunity) => {
-            const valueA =
-              typeof a.value === 'number' ? a.value : parseFloat(String(a.value));
-            const valueB =
-              typeof b.value === 'number' ? b.value : parseFloat(String(b.value));
-            return valueB - valueA;
-          }
-        );
-
-        console.log('Sorted opportunities:', sortedOpportunities);
-        setOpportunities(sortedOpportunities);
+        console.log('Transformed opportunities:', transformedOpportunities);
+        setOpportunities(transformedOpportunities);
         setIsCollecting(false);
       } catch (err) {
         console.error('Error in useOpportunities:', err);
