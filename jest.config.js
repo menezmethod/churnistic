@@ -10,6 +10,7 @@ const config = {
     '^@testing-library/jest-dom$': '<rootDir>/node_modules/@testing-library/jest-dom',
     '^@testing-library/jest-dom/extend-expect$':
       '<rootDir>/node_modules/@testing-library/jest-dom',
+    '^@/lib/firebase/config$': '<rootDir>/src/lib/firebase/__mocks__/config.ts',
   },
   transform: {
     '^.+\\.(ts|tsx)$': [

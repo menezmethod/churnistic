@@ -18,33 +18,23 @@ if check_port 3000; then
     kill_port 3000
 fi
 
-if check_port 8000; then
-    echo "Port 8000 is in use. Killing process..."
-    kill_port 8000
-fi
-
 if check_port 9099; then
     echo "Port 9099 is in use. Killing process..."
     kill_port 9099
 fi
 
+if check_port 8080; then
+    echo "Port 8080 is in use. Killing process..."
+    kill_port 8080
+fi
+
 # Start Firebase emulator in the background
 echo "Starting Firebase emulator..."
-firebase emulators:start &
+firebase emulators:start --only auth,firestore &
 FIREBASE_PID=$!
 
 # Wait for Firebase to start
 sleep 5
-
-# Start Python service in the background
-echo "Starting Python service..."
-cd python-service
-source .venv/bin/activate
-uvicorn app.api.main:app --reload --port 8000 &
-PYTHON_PID=$!
-
-# Go back to root directory
-cd ..
 
 # Start Next.js
 echo "Starting Next.js..."
@@ -54,7 +44,6 @@ npm run dev
 cleanup() {
     echo "Shutting down services..."
     kill $FIREBASE_PID 2>/dev/null
-    kill $PYTHON_PID 2>/dev/null
     exit 0
 }
 

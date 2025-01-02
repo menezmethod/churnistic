@@ -38,9 +38,10 @@ import {
   useTheme,
   Button,
 } from '@mui/material';
+import { type User } from 'firebase/auth';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useState, type JSX } from 'react';
+import { useState, type JSX, useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
@@ -158,6 +159,17 @@ export default function AppNavbar() {
 
   const isAdmin = hasRole(UserRole.ADMIN);
   const isAnalyst = hasRole(UserRole.USER);
+
+  // Only log in development and when user state changes
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('AppNavbar user state:', {
+        email: user?.email,
+        role: user?.customClaims?.role,
+        isAdmin: hasRole(UserRole.ADMIN),
+      });
+    }
+  }, [user, hasRole]);
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);

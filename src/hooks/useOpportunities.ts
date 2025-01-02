@@ -70,8 +70,9 @@ const transformOffer = (offer: TransformedOffer): Opportunity => ({
   id: offer.id,
   title: offer.name,
   type: offer.type,
-  value: offer.bonus.requirements.description.match(/\$(\d+)/)?.[1] ? 
-    parseInt(offer.bonus.requirements.description.match(/\$(\d+)/)?.[1] || '0') : 0,
+  value: offer.bonus.requirements.description.match(/\$(\d+)/)?.[1]
+    ? parseInt(offer.bonus.requirements.description.match(/\$(\d+)/)?.[1] || '0')
+    : 0,
   bank: offer.name.split(' ')[0],
   description: offer.bonus.description,
   requirements: [offer.bonus.requirements.description],
@@ -92,9 +93,10 @@ const transformOffer = (offer: TransformedOffer): Opportunity => ({
       : undefined,
     fees: {
       annual: offer.details?.annual_fees,
-      monthly: typeof offer.details?.monthly_fees === 'string' 
-        ? offer.details.monthly_fees 
-        : offer.details?.monthly_fees?.amount,
+      monthly:
+        typeof offer.details?.monthly_fees === 'string'
+          ? offer.details.monthly_fees
+          : offer.details?.monthly_fees?.amount,
       foreign_transaction: offer.details?.foreign_transaction_fees,
     },
     timing: {

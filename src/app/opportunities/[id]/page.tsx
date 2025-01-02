@@ -1000,8 +1000,8 @@ export default function OpportunityDetailsPage() {
                             opportunity.metadata.availability?.type === 'Nationwide'
                               ? 'Nationwide'
                               : opportunity.metadata.availability?.regions
-                              ? `${opportunity.metadata.availability.regions.length} States`
-                              : 'Unknown'
+                                ? `${opportunity.metadata.availability.regions.length} States`
+                                : 'Unknown'
                           }
                           color="info"
                           sx={{

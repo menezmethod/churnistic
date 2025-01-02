@@ -1,10 +1,20 @@
-import type { User as PrismaUser } from '@prisma/client';
+export interface DatabaseUser {
+  id: string;
+  firebaseUid: string;
+  email: string;
+  displayName: string | null;
+  customDisplayName: string | null;
+  photoURL: string | null;
+  role: string;
+  status: string;
+  creditScore: number | null;
+  monthlyIncome: number | null;
+  createdAt: string;
+  updatedAt: string;
+  businessVerified?: boolean;
+}
 
-export type DatabaseUser = PrismaUser & {
-  businessVerified: boolean;
-};
-
-export type UserWithoutPassword = Omit<DatabaseUser, 'password'>;
+export type UserWithoutPassword = DatabaseUser;
 
 export interface UserProfile {
   id: string;

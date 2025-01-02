@@ -1,10 +1,9 @@
-import type { Prisma } from '@prisma/client';
 import type { UserRecord } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 
 import { UserRole } from '../auth/types';
-import { prisma } from '../prisma';
+import type { DatabaseUser } from '@/types/user';
 
 interface AuthEvent {
   type: 'created' | 'updated' | 'deleted';
@@ -17,80 +16,54 @@ export const onAuthUserChanged = onCall<AuthEvent>(async (request) => {
   if (!user) return;
 
   try {
+    const firestore = getFirestore();
+    const userRef = firestore.collection('users').doc(user.uid);
+
     switch (type) {
       case 'created': {
-        const userData: Prisma.UserCreateInput = {
+        const userData: DatabaseUser = {
+          id: user.uid,
           firebaseUid: user.uid,
           email: user.email || '',
           displayName: user.displayName || null,
+          customDisplayName: null,
           photoURL: user.photoURL || null,
           role: UserRole.USER,
           status: 'active',
-        };
-
-        // Create user in MongoDB
-        await prisma.user.create({ data: userData });
-        console.log(`[Auth Trigger] Created MongoDB user for: ${user.email}`);
-
-        // Create user profile in Firestore
-        const firestore = getFirestore();
-        const userProfileData = {
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          role: UserRole.USER,
-          status: 'active',
+          creditScore: null,
+          monthlyIncome: null,
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          businessVerified: false,
         };
 
-        await firestore.collection('users').doc(user.uid).set(userProfileData);
-        console.log(`[Auth Trigger] Created Firestore profile for: ${user.email}`);
+        await userRef.set(userData);
+        console.log(`[Auth Trigger] Created Firestore user for: ${user.email}`);
         break;
       }
 
       case 'updated': {
-        // Get the current user data from Firestore
-        const firestore = getFirestore();
-        const userDoc = await firestore.collection('users').doc(user.uid).get();
-        const userData = userDoc.data();
+        const userDoc = await userRef.get();
+        const userData = userDoc.data() as DatabaseUser | undefined;
 
         if (!userData) return;
 
-        // Update in MongoDB if email or display name changed
+        // Update if email or display name changed
         if (userData.email !== user.email || userData.displayName !== user.displayName) {
-          await prisma.user.update({
-            where: { firebaseUid: user.uid },
-            data: {
-              email: user.email || '',
-              displayName: user.displayName || null,
-              photoURL: user.photoURL || null,
-            },
-          });
-          console.log(`[Auth Trigger] Updated MongoDB user for: ${user.email}`);
-
-          // Update in Firestore
-          await firestore.collection('users').doc(user.uid).update({
-            email: user.email,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
+          await userRef.update({
+            email: user.email || '',
+            displayName: user.displayName || null,
+            photoURL: user.photoURL || null,
             updatedAt: new Date().toISOString(),
           });
-          console.log(`[Auth Trigger] Updated Firestore profile for: ${user.email}`);
+          console.log(`[Auth Trigger] Updated Firestore user for: ${user.email}`);
         }
         break;
       }
 
       case 'deleted': {
-        // Delete from MongoDB
-        await prisma.user.delete({
-          where: { firebaseUid: user.uid },
-        });
-        console.log(`[Auth Trigger] Deleted MongoDB user for: ${user.email}`);
-
-        // Delete from Firestore
-        const firestore = getFirestore();
-        await firestore.collection('users').doc(user.uid).delete();
-        console.log(`[Auth Trigger] Deleted Firestore profile for: ${user.email}`);
+        await userRef.delete();
+        console.log(`[Auth Trigger] Deleted Firestore user for: ${user.email}`);
         break;
       }
     }
