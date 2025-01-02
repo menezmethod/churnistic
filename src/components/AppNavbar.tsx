@@ -38,7 +38,6 @@ import {
   useTheme,
   Button,
 } from '@mui/material';
-import { type User } from 'firebase/auth';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, type JSX, useEffect } from 'react';

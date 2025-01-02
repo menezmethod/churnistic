@@ -1,9 +1,9 @@
 import Box from '@mui/material/Box';
 import { Inter } from 'next/font/google';
 
-import { ClientProviders } from './client-providers';
-
 import AppNavbar from '@/components/AppNavbar';
+
+import { ClientProviders } from './client-providers';
 
 const inter = Inter({ subsets: ['latin'] });
 

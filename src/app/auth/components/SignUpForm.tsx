@@ -12,10 +12,10 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { GoogleIcon } from '../components/icons';
-
 import { useAuth } from '@/lib/auth/AuthContext';
 import { signInWithGoogle } from '@/lib/firebase/auth';
+
+import { GoogleIcon } from '../components/icons';
 
 export default function SignUpForm() {
   const router = useRouter();

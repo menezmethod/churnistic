@@ -1,8 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
-import { ForgotPassword } from '../ForgotPassword';
-
 import { resetPassword } from '@/lib/firebase/auth';
+
+import { ForgotPassword } from '../ForgotPassword';
 
 // Mock the auth functions
 jest.mock('@/lib/firebase/auth', () => ({

@@ -2,10 +2,11 @@ import { TRPCError } from '@trpc/server';
 import type { Query } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
-import { router, protectedProcedure, adminProcedure } from '../trpc';
-
+import { SessionData } from '@/lib/auth/session';
 import { UserRole } from '@/lib/auth/types';
 import { db } from '@/lib/firebase/admin';
+
+import { adminProcedure, protectedProcedure, router } from '../trpc';
 
 const USERS_COLLECTION = 'users';
 
@@ -18,7 +19,31 @@ export const userRouter = router({
       });
     }
 
-    const userDoc = await db.collection(USERS_COLLECTION).doc(ctx.session.uid).get();
+    const session = ctx.session as SessionData;
+    const userRef = db.collection(USERS_COLLECTION).doc(session.uid);
+    const userDoc = await userRef.get();
+
+    // In emulator mode, create the user if it doesn't exist
+    if (!userDoc.exists && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+      console.log('Creating user document in emulator mode:', session);
+      await userRef.set({
+        email: session.email,
+        displayName: session.name,
+        role: session.role,
+        isSuperAdmin: session.isSuperAdmin,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      return {
+        id: session.uid,
+        email: session.email,
+        displayName: session.name,
+        role: session.role,
+        isSuperAdmin: session.isSuperAdmin,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
 
     if (!userDoc.exists) {
       throw new TRPCError({

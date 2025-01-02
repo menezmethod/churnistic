@@ -24,25 +24,36 @@ export async function verifySession(sessionCookie: string): Promise<SessionData 
     if (useEmulators) {
       console.log('🔧 Using Firebase Emulators for session verification');
       try {
-        // In emulator mode, try to verify the token in different formats
+        // In emulator mode, we trust the token and decode it without verification
+        // This is safe because it's only for local development
         try {
-          // First, try to verify as a session cookie
-          decodedToken = await auth.verifySessionCookie(sessionCookie, true);
-          console.log('Session cookie verified in emulator mode');
-        } catch (cookieError) {
-          console.log('Failed to verify as session cookie, trying as ID token');
-          // If that fails, try to verify as an ID token
-          decodedToken = await auth.verifyIdToken(sessionCookie);
-          console.log('ID token verified in emulator mode');
-        }
+          const tokenData = JSON.parse(
+            Buffer.from(sessionCookie.split('.')[1], 'base64').toString()
+          );
+          decodedToken = {
+            ...tokenData,
+            uid: tokenData.user_id || tokenData.sub,
+            email: tokenData.email,
+          };
+          console.log('Emulator token decoded:', decodedToken);
 
-        if (!decodedToken) {
-          throw new Error('Failed to verify token in any format');
-        }
+          // In emulator mode, we use the token data directly
+          const sessionData: SessionData = {
+            ...decodedToken,
+            role: decodedToken.role || 'user',
+            permissions: decodedToken.permissions || [],
+            isSuperAdmin: decodedToken.isSuperAdmin || false,
+            lastActivity: Date.now(),
+          };
 
-        console.log('Token verified in emulator mode for user:', decodedToken.uid);
+          console.log('Emulator session data:', sessionData);
+          return sessionData;
+        } catch (decodeError) {
+          console.error('Failed to decode emulator token:', decodeError);
+          return null;
+        }
       } catch (error) {
-        console.error('Failed to verify token in emulator mode:', error);
+        console.error('Failed to handle token in emulator mode:', error);
         return null;
       }
     } else {

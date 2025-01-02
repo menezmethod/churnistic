@@ -28,10 +28,10 @@ import {
 import { visuallyHidden } from '@mui/utils';
 import { useState } from 'react';
 
+import { trpc } from '@/lib/trpc/client';
+
 import UserDetailsModal from './components/UserDetailsModal';
 import type { User } from './hooks/useUsers';
-
-import { trpc } from '@/lib/trpc/client';
 
 type Order = 'asc' | 'desc';
 

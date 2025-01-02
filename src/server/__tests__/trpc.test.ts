@@ -2,10 +2,10 @@ import type { PrismaClient } from '@prisma/client';
 import { mockDeep } from 'jest-mock-extended';
 import type { NextRequest } from 'next/server';
 
+import { type Session, UserRole } from '@/lib/auth/types';
+
 import type { Context } from '../context';
 import { appRouter } from '../routers/_app';
-
-import { type Session, UserRole } from '@/lib/auth/types';
 
 describe('tRPC Router', () => {
   const mockPrisma = mockDeep<PrismaClient>();

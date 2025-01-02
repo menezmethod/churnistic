@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+
 import { UserRole } from '../src/lib/auth/types';
 
 // Initialize Firebase Admin

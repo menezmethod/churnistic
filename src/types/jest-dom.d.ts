@@ -8,7 +8,7 @@ declare global {
   namespace jest {
     interface Matchers<R> {
       toBeInTheDocument(): R;
-      toHaveStyle(style: Record<string, any>): R;
+      toHaveStyle(style: Record<string, string | number>): R;
       toBeVisible(): R;
       toBeDisabled(): R;
       toBeEnabled(): R;
@@ -33,8 +33,8 @@ declare global {
       toHaveClass(...classNames: string[]): R;
       toHaveDisplayValue(value: string | RegExp | Array<string | RegExp>): R;
       toHaveErrorMessage(text?: string | RegExp): R;
-      toHaveFormValues(values: { [key: string]: any }): R;
-      toHaveStyle(css: string | Record<string, any>): R;
+      toHaveFormValues(values: Record<string, string | number | boolean>): R;
+      toHaveStyle(css: string | Record<string, string | number>): R;
       toHaveTextContent(
         text: string | RegExp,
         options?: { normalizeWhitespace: boolean }
@@ -44,7 +44,7 @@ declare global {
       toBePartiallyChecked(): R;
       toHaveAttribute(attr: string, value?: string): R;
       toHaveClass(...classNames: string[]): R;
-      toHaveStyle(css: string | Record<string, any>): R;
+      toHaveStyle(css: string | Record<string, string | number>): R;
       toHaveTextContent(
         text: string | RegExp,
         options?: { normalizeWhitespace: boolean }
@@ -67,8 +67,8 @@ declare global {
       toHaveClass(...classNames: string[]): R;
       toHaveDisplayValue(value: string | RegExp | Array<string | RegExp>): R;
       toHaveErrorMessage(text?: string | RegExp): R;
-      toHaveFormValues(values: { [key: string]: any }): R;
-      toHaveStyle(css: string | Record<string, any>): R;
+      toHaveFormValues(values: Record<string, string | number | boolean>): R;
+      toHaveStyle(css: string | Record<string, string | number>): R;
       toHaveTextContent(
         text: string | RegExp,
         options?: { normalizeWhitespace: boolean }

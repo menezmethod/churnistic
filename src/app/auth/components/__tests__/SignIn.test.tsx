@@ -2,10 +2,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { useRouter } from 'next/navigation';
 
-import { SignIn } from '../SignIn';
-
 import { useAuth } from '@/lib/auth/AuthContext';
 import { signInWithEmail, signInWithGoogle } from '@/lib/firebase/auth';
+
+import { SignIn } from '../SignIn';
 
 // Mock next/navigation
 jest.mock('next/navigation', () => ({

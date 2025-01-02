@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 import { ROLE_PERMISSIONS } from '@/lib/auth/permissions';
 import { UserRole } from '@/lib/auth/types';
 import { auth } from '@/lib/firebase/admin';
+
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
