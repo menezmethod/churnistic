@@ -37,3 +37,20 @@ export interface DatabaseUser {
   createdAt: string;
   updatedAt: string;
 }
+
+export type UserProfile = {
+  id: string;
+  role: 'user' | 'admin';
+  email: string;
+  status: 'active' | 'inactive' | 'pending';
+  displayName: string;
+  customDisplayName: string;
+  photoURL: string;
+  firebaseUid: string;
+  creditScore: number | null;
+  monthlyIncome: number | null;
+  businessVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+  householdId: string | null;
+};

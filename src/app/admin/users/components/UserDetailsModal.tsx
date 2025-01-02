@@ -144,7 +144,7 @@ export default function UserDetailsModal({
             <FormControlLabel
               control={
                 <Switch
-                  checked={formData.isSuperAdmin}
+                  checked={formData?.isSuperAdmin ?? false}
                   onChange={(e) => handleChange('isSuperAdmin', e.target.checked)}
                 />
               }

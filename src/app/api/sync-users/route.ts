@@ -25,6 +25,9 @@ export async function POST() {
         const userDoc = await db.collection('users').doc(firebaseUser.uid).get();
 
         if (!userDoc.exists) {
+          // Get user claims to determine role
+          const { customClaims } = await auth.getUser(firebaseUser.uid);
+
           // Create user in Firestore
           const userData: DatabaseUser = {
             id: firebaseUser.uid,
@@ -34,11 +37,15 @@ export async function POST() {
               firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
             customDisplayName: null,
             photoURL: firebaseUser.photoURL || null,
-            role: ((firebaseUser.customClaims?.role as UserRole) ||
-              UserRole.USER) as UserRole,
+            role:
+              customClaims?.role === UserRole.ADMIN
+                ? UserRole.ADMIN
+                : customClaims?.role === UserRole.MANAGER
+                  ? UserRole.MANAGER
+                  : UserRole.USER,
             status: 'active',
-            creditScore: null,
-            monthlyIncome: null,
+            creditScore: undefined,
+            monthlyIncome: undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             businessVerified: false,

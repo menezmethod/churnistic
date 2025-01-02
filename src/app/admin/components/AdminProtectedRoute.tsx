@@ -26,6 +26,17 @@ export default function AdminProtectedRoute({
     }
   );
 
+  // Helper function to check if user has required role
+  const hasRequiredRole = (userRole: string | undefined, required: UserRole): boolean => {
+    if (!userRole) return false;
+
+    // Admin has access to everything
+    if (userRole === UserRole.ADMIN) return true;
+
+    // For other roles, they must match exactly
+    return userRole === required;
+  };
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/auth/signin');
@@ -41,20 +52,6 @@ export default function AdminProtectedRoute({
       return;
     }
   }, [user, authLoading, profileLoading, userProfile, requiredRole, router]);
-
-  // Helper function to check if user has required role
-  const hasRequiredRole = (
-    userRole: UserRole | undefined,
-    required: UserRole
-  ): boolean => {
-    if (!userRole) return false;
-
-    // Admin has access to everything
-    if (userRole === UserRole.ADMIN) return true;
-
-    // For other roles, they must match exactly
-    return userRole === required;
-  };
 
   if (authLoading || profileLoading) {
     return (

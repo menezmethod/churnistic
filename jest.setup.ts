@@ -3,19 +3,230 @@ import '@testing-library/jest-dom';
 import '@testing-library/react';
 import { jest } from '@jest/globals';
 import { TextDecoder, TextEncoder } from 'util';
+import 'whatwg-fetch';
 
 import { mockFirestore } from '@/mocks/firestore';
 
-const {
-  Headers: NodeHeaders,
-  Request: NodeRequest,
-  Response,
-} = await import('node-fetch');
+let NodeHeaders: typeof Headers;
+let NodeRequest: typeof Request;
+let NodeResponse: typeof Response;
+
+// Mock Firebase auth
+jest.mock('firebase/auth', () => {
+  const mockAuth = {
+    currentUser: null,
+    signInWithEmailAndPassword: jest.fn(),
+    signOut: jest.fn(),
+    onAuthStateChanged: jest.fn(),
+    emulatorConfig: null,
+    config: {
+      apiKey: 'mock-api-key',
+      authDomain: 'mock-auth-domain',
+      apiHost: 'identitytoolkit.googleapis.com',
+      apiScheme: 'https',
+      tokenApiHost: 'securetoken.googleapis.com',
+      sdkClientVersion: 'mock-client-version',
+    },
+  };
+  return {
+    getAuth: jest.fn(() => mockAuth),
+    signInWithEmailAndPassword: jest.fn(),
+    signOut: jest.fn(),
+    GoogleAuthProvider: jest.fn(),
+    connectAuthEmulator: jest.fn(),
+    initializeAuth: jest.fn(() => mockAuth),
+    inMemoryPersistence: jest.fn(),
+    browserLocalPersistence: jest.fn(),
+    browserSessionPersistence: jest.fn(),
+  };
+});
+
+// Fix node-fetch import
+let nodeFetch;
+try {
+  nodeFetch = require('node-fetch');
+} catch (e) {
+  nodeFetch = {
+    Headers: class {},
+    Request: class {},
+    Response: class {
+      private _body: string;
+      private _init?: ResponseInit;
+
+      constructor(body: string, init?: ResponseInit) {
+        this._body = body;
+        this._init = init;
+      }
+
+      json() {
+        return Promise.resolve(JSON.parse(this._body));
+      }
+    },
+  };
+}
+
+beforeAll(() => {
+  NodeHeaders = nodeFetch.Headers;
+  NodeRequest = nodeFetch.Request;
+  NodeResponse = nodeFetch.Response;
+
+  // Mock Firebase app initialization
+  const mockApp = {
+    name: '[DEFAULT]',
+    options: {},
+    automaticDataCollectionEnabled: false,
+  };
+
+  // Mock Firebase auth
+  const mockAuth = {
+    currentUser: null,
+    signInWithEmailAndPassword: jest.fn(),
+    signOut: jest.fn(),
+    onAuthStateChanged: jest.fn((callback: (user: null | { uid: string }) => void) => {
+      callback(null);
+      return () => {};
+    }),
+    emulatorConfig: null,
+    config: {
+      apiKey: 'mock-api-key',
+      authDomain: 'mock-auth-domain',
+      apiHost: 'identitytoolkit.googleapis.com',
+      apiScheme: 'https',
+      tokenApiHost: 'securetoken.googleapis.com',
+      sdkClientVersion: 'mock-client-version',
+    },
+  };
+
+  // Mock Firebase Firestore
+  const mockFirestore = {
+    collection: jest.fn(() => ({
+      doc: jest.fn(),
+      where: jest.fn(),
+      orderBy: jest.fn(),
+      limit: jest.fn(),
+      get: jest.fn(),
+    })),
+    doc: jest.fn(),
+  };
+
+  // Mock Firebase app
+  jest.mock('firebase/app', () => ({
+    initializeApp: jest.fn(() => mockApp),
+    getApps: jest.fn(() => [mockApp]),
+    getApp: jest.fn(() => mockApp),
+  }));
+
+  // Mock Firebase auth
+  jest.mock('firebase/auth', () => ({
+    getAuth: jest.fn(() => mockAuth),
+    signInWithEmailAndPassword: jest.fn(),
+    signOut: jest.fn(),
+    GoogleAuthProvider: jest.fn(),
+    connectAuthEmulator: jest.fn(),
+    initializeAuth: jest.fn(() => mockAuth),
+    inMemoryPersistence: jest.fn(),
+    browserLocalPersistence: jest.fn(),
+    browserSessionPersistence: jest.fn(),
+  }));
+
+  // Mock Firebase Firestore
+  jest.mock('firebase/firestore', () => ({
+    getFirestore: jest.fn(() => mockFirestore),
+    connectFirestoreEmulator: jest.fn(),
+    collection: jest.fn(),
+    doc: jest.fn(),
+    query: jest.fn(),
+    where: jest.fn(),
+    orderBy: jest.fn(),
+    limit: jest.fn(),
+    getDocs: jest.fn(),
+    getDoc: jest.fn(),
+  }));
+
+  // Mock Firebase storage
+  jest.mock('firebase/storage', () => ({
+    getStorage: jest.fn(() => ({
+      ref: jest.fn(),
+    })),
+    connectStorageEmulator: jest.fn(),
+    ref: jest.fn(),
+    uploadBytes: jest.fn(),
+    getDownloadURL: jest.fn(),
+  }));
+
+  // Mock Firebase functions
+  jest.mock('firebase/functions', () => ({
+    getFunctions: jest.fn(() => ({
+      httpsCallable: jest.fn(),
+    })),
+    connectFunctionsEmulator: jest.fn(),
+    httpsCallable: jest.fn(),
+  }));
+
+  // Set up fetch mock with proper response structure
+  global.fetch = jest.fn(() =>
+    Promise.resolve(
+      new NodeResponse(
+        JSON.stringify({
+          success: true,
+          data: {
+            opportunities: [
+              {
+                id: 'test-id',
+                name: 'Test Bank Card',
+                type: 'Credit Card',
+                bonus: {
+                  description: 'Test bonus description',
+                  requirements: {
+                    description: 'Spend $3000 in 3 months to get $500 bonus',
+                  },
+                },
+                offer_link: 'https://test.com',
+                metadata: {
+                  created: new Date().toISOString(),
+                  updated: new Date().toISOString(),
+                },
+                details: {
+                  credit_inquiry: 'Hard Pull',
+                  under_5_24: 'Yes',
+                  annual_fees: '$95',
+                  monthly_fees: '$0',
+                  foreign_transaction_fees: '3%',
+                  availability: {
+                    type: 'Nationwide',
+                  },
+                },
+              },
+            ],
+          },
+        })
+      )
+    )
+  );
+  (global.Request as unknown) = NodeRequest;
+  (global.Response as unknown) = NodeResponse;
+
+  // Mock web APIs
+  Object.defineProperty(global, 'Response', {
+    writable: true,
+    value: NodeResponse,
+  });
+
+  Object.defineProperty(global, 'Headers', {
+    writable: true,
+    value: NodeHeaders,
+  });
+
+  Object.defineProperty(global, 'Request', {
+    writable: true,
+    value: NodeRequest,
+  });
+});
 
 declare global {
   interface Window {
     fetch: typeof fetch;
-    Request: typeof NodeRequest;
+    Request: typeof Request;
     Response: typeof Response;
   }
 }
@@ -26,29 +237,6 @@ declare module '@testing-library/jest-dom' {
     toHaveStyle(style: Record<string, unknown>): R;
   }
 }
-
-// Set up global fetch API
-(global.fetch as unknown) = jest
-  .fn()
-  .mockImplementation(() => Promise.resolve(new Response() as unknown));
-(global.Request as unknown) = NodeRequest;
-(global.Response as unknown) = Response;
-
-// Mock web APIs
-Object.defineProperty(global, 'Response', {
-  writable: true,
-  value: Response,
-});
-
-Object.defineProperty(global, 'Headers', {
-  writable: true,
-  value: NodeHeaders,
-});
-
-Object.defineProperty(global, 'Request', {
-  writable: true,
-  value: NodeRequest,
-});
 
 // Mock TextEncoder/TextDecoder
 global.TextEncoder = TextEncoder as unknown as typeof global.TextEncoder;
@@ -81,20 +269,89 @@ jest.mock('@/lib/firebase/admin', () => ({
 }));
 
 // Mock Firebase Client
-jest.mock('firebase/app', () => ({
-  initializeApp: jest.fn(),
-  getApps: jest.fn(() => []),
-  getApp: jest.fn(),
-}));
+jest.mock('firebase/app', () => {
+  const mockApp = {
+    name: '[DEFAULT]',
+    options: {},
+    automaticDataCollectionEnabled: false,
+  };
+  return {
+    initializeApp: jest.fn(() => mockApp),
+    getApps: jest.fn(() => [mockApp]),
+    getApp: jest.fn(() => mockApp),
+  };
+});
 
-jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(() => ({
+jest.mock('firebase/auth', () => {
+  const mockAuth = {
     currentUser: null,
     signInWithEmailAndPassword: jest.fn(),
     signOut: jest.fn(),
+    onAuthStateChanged: jest.fn(),
+    emulatorConfig: null,
+    config: {
+      apiKey: 'mock-api-key',
+      authDomain: 'mock-auth-domain',
+      apiHost: 'identitytoolkit.googleapis.com',
+      apiScheme: 'https',
+      tokenApiHost: 'securetoken.googleapis.com',
+      sdkClientVersion: 'mock-client-version',
+    },
+  };
+  return {
+    getAuth: jest.fn(() => mockAuth),
+    signInWithEmailAndPassword: jest.fn(),
+    signOut: jest.fn(),
+    GoogleAuthProvider: jest.fn(),
+    connectAuthEmulator: jest.fn(),
+    initializeAuth: jest.fn(() => mockAuth),
+    inMemoryPersistence: jest.fn(),
+    browserLocalPersistence: jest.fn(),
+    browserSessionPersistence: jest.fn(),
+  };
+});
+
+jest.mock('firebase/firestore', () => {
+  const mockFirestore = {
+    collection: jest.fn(() => ({
+      doc: jest.fn(),
+      where: jest.fn(),
+      orderBy: jest.fn(),
+      limit: jest.fn(),
+      get: jest.fn(),
+    })),
+    doc: jest.fn(),
+  };
+  return {
+    getFirestore: jest.fn(() => mockFirestore),
+    connectFirestoreEmulator: jest.fn(),
+    collection: jest.fn(),
+    doc: jest.fn(),
+    query: jest.fn(),
+    where: jest.fn(),
+    orderBy: jest.fn(),
+    limit: jest.fn(),
+    getDocs: jest.fn(),
+    getDoc: jest.fn(),
+  };
+});
+
+jest.mock('firebase/storage', () => ({
+  getStorage: jest.fn(() => ({
+    ref: jest.fn(),
   })),
-  signInWithEmailAndPassword: jest.fn(),
-  signOut: jest.fn(),
+  connectStorageEmulator: jest.fn(),
+  ref: jest.fn(),
+  uploadBytes: jest.fn(),
+  getDownloadURL: jest.fn(),
+}));
+
+jest.mock('firebase/functions', () => ({
+  getFunctions: jest.fn(() => ({
+    httpsCallable: jest.fn(),
+  })),
+  connectFunctionsEmulator: jest.fn(),
+  httpsCallable: jest.fn(),
 }));
 
 // Mock next/navigation
@@ -113,22 +370,19 @@ jest.mock('next/navigation', () => ({
 // Reset mocks between tests
 beforeEach(() => {
   jest.clearAllMocks();
+  (global.fetch as jest.Mock).mockClear();
 });
 
 // Mock IntersectionObserver
-class MockIntersectionObserver implements IntersectionObserver {
-  readonly root: Element | null = null;
-  readonly rootMargin: string = '';
-  readonly thresholds: ReadonlyArray<number> = [];
-
+class MockIntersectionObserver {
   observe = jest.fn();
-  unobserve = jest.fn();
   disconnect = jest.fn();
-  takeRecords = (): IntersectionObserverEntry[] => [];
+  unobserve = jest.fn();
 }
 
 Object.defineProperty(window, 'IntersectionObserver', {
   writable: true,
+  configurable: true,
   value: MockIntersectionObserver,
 });
 
@@ -146,21 +400,15 @@ Object.defineProperty(window, 'ResizeObserver', {
 
 // Suppress console errors in tests
 const originalError = console.error;
-beforeAll(() => {
-  console.error = (...args: unknown[]): void => {
-    if (
-      typeof args[0] === 'string' &&
-      args[0].includes('Warning: ReactDOM.render is no longer supported')
-    ) {
-      return;
-    }
-    originalError.call(console, ...args);
-  };
-});
-
-afterAll(() => {
-  console.error = originalError;
-});
+console.error = (...args) => {
+  if (
+    typeof args[0] === 'string' &&
+    args[0].includes('Warning: ReactDOM.render is no longer supported')
+  ) {
+    return;
+  }
+  originalError.call(console, ...args);
+};
 
 // Mock Next.js router
 jest.mock('next/router', () => ({
