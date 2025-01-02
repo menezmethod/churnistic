@@ -27,7 +27,7 @@ const config = {
     ],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(jose|firebase-admin|jwks-rsa|@firebase|firebase|next|@trpc)/)',
+    'node_modules/(?!(jose|firebase-admin|jwks-rsa|@firebase|firebase|next|@trpc|node-fetch|data-uri-to-buffer|fetch-blob|formdata-polyfill)/)',
   ],
   testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
