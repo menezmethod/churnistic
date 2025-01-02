@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
 
       const user: SessionUser = {
         uid: decodedToken.uid,
-        email: decodedToken.email,
-        emailVerified: decodedToken.email_verified,
+        email: decodedToken.email ?? null,
+        emailVerified: decodedToken.email_verified ?? false,
         role: decodedToken.role || 'user',
       };
 
@@ -103,7 +103,8 @@ export async function POST(request: NextRequest) {
       {
         error: {
           message: 'Internal server error',
-          details: error instanceof Error ? error.message : 'An unexpected error occurred',
+          details:
+            error instanceof Error ? error.message : 'An unexpected error occurred',
         },
       },
       { status: 500 }
@@ -142,9 +143,9 @@ export async function GET(request: NextRequest) {
 
     const user: SessionUser = {
       uid: sessionData.uid,
-      email: sessionData.email,
+      email: sessionData.email ?? null,
       role: sessionData.role || 'user',
-      emailVerified: sessionData.email_verified,
+      emailVerified: sessionData.email_verified ?? false,
       displayName: sessionData.name,
       photoURL: sessionData.picture,
     };
@@ -158,7 +159,8 @@ export async function GET(request: NextRequest) {
       {
         error: {
           message: 'Session verification failed',
-          details: error instanceof Error ? error.message : 'An unexpected error occurred',
+          details:
+            error instanceof Error ? error.message : 'An unexpected error occurred',
         },
       },
       { status: 401 }

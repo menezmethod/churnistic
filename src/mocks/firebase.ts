@@ -105,9 +105,11 @@ export const mockCreateUserWithEmailAndPassword = jest
   });
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const mockSendPasswordResetEmail = jest.fn().mockImplementation((_auth, _email) => {
-  return Promise.resolve();
-});
+export const mockSendPasswordResetEmail = jest
+  .fn()
+  .mockImplementation((_auth, _email) => {
+    return Promise.resolve();
+  });
 
 export const mockGoogleAuthProvider = jest.fn().mockImplementation(() => ({
   setCustomParameters: jest.fn(),

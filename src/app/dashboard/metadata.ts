@@ -1,4 +1,4 @@
-import { Metadata } from 'next'
+import { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Dashboard',
@@ -6,4 +6,4 @@ export const metadata: Metadata = {
   robots: {
     index: false, // Typically dashboard should be private
   },
-} 
+};

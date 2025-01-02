@@ -1,11 +1,12 @@
-/// <reference types="@testing-library/jest-dom" />
-
-import { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers';
+import '@testing-library/jest-dom';
 
 declare global {
   namespace jest {
-    interface Matchers<R = void>
-      extends TestingLibraryMatchers<typeof expect.stringContaining, R> {}
+    // @ts-expect-error -- T is used implicitly by Jest
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    interface Matchers<T> {
+      _dummy?: unknown;
+    }
   }
 }
 
