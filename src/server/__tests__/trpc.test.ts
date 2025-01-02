@@ -1,36 +1,41 @@
-import type { PrismaClient } from '@prisma/client';
+import { type Firestore } from 'firebase-admin/firestore';
 import { mockDeep } from 'jest-mock-extended';
-import type { NextRequest } from 'next/server';
+import { type NextRequest } from 'next/server';
 
 import { type Session, UserRole } from '@/lib/auth/types';
+import { type Context } from '@/server/context';
+import { appRouter } from '@/server/routers/_app';
 
-import type { Context } from '../context';
-import { appRouter } from '../routers/_app';
+describe('TRPC Router', () => {
+  const mockFirestore = mockDeep<Firestore>();
+  let caller: ReturnType<typeof appRouter.createCaller>;
+  let ctx: Context;
 
-describe('tRPC Router', () => {
-  const mockPrisma = mockDeep<PrismaClient>();
-  const mockUser: Session = {
-    uid: 'test-uid',
+  const mockSession: Session = {
+    uid: 'test-id',
     email: 'test@example.com',
     role: UserRole.USER,
   };
 
-  const createAuthContext = async (): Promise<Context> => {
-    return {
-      prisma: mockPrisma,
-      session: mockUser,
-      user: mockUser,
+  beforeEach(() => {
+    ctx = {
+      db: mockFirestore,
+      session: mockSession,
+      user: mockSession,
       req: {} as NextRequest,
       res: undefined,
     };
-  };
+    caller = appRouter.createCaller(ctx);
+  });
 
-  beforeEach(() => {
+  afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it('creates a caller with auth context', async () => {
-    const caller = appRouter.createCaller(await createAuthContext());
-    expect(caller).toBeDefined();
+  it('should throw unauthorized error when session is missing', async () => {
+    ctx.session = null;
+    caller = appRouter.createCaller(ctx);
+
+    await expect(caller.user.me()).rejects.toThrow('Not authenticated');
   });
 });

@@ -1,6 +1,6 @@
 'use client';
-
 import { SvgIcon } from '@mui/material';
+import type { JSX } from 'react';
 
 export function GoogleIcon(): JSX.Element {
   return (

@@ -17,5 +17,4 @@ export const compareStrings = (a: string, b: string): boolean => {
     return false;
   }
 };
-
 export { timingSafeEqual };

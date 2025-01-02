@@ -33,6 +33,7 @@ declare module 'firebase/auth' {
       role?: UserRole;
       permissions?: Permission[];
     };
+    role?: UserRole;
   }
 }
 
@@ -75,27 +76,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let unsubscribe: (() => void) | undefined;
 
     const setupAuth = async () => {
-      unsubscribe = onAuthStateChanged(auth, async (user) => {
-        console.log('Auth state changed:', {
-          hasUser: !!user,
-          userDetails: user
-            ? {
-                uid: user.uid,
-                email: user.email,
-                customClaims: user.customClaims,
-              }
-            : null,
-        });
+      // Start with loading state
+      setLoading(true);
 
-        if (mounted) {
-          try {
-            if (user) {
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (!mounted) return;
+
+        try {
+          if (user) {
+            // Force token refresh and get claims
+            const idTokenResult = await user.getIdTokenResult(true);
+
+            // Add claims to the user object without modifying the original
+            Object.defineProperty(user, 'customClaims', {
+              value: {
+                role: idTokenResult.claims.role,
+                permissions: idTokenResult.claims.permissions,
+              },
+              writable: true,
+              configurable: true,
+            });
+
+            // Add role directly for easier access
+            Object.defineProperty(user, 'role', {
+              value: idTokenResult.claims.role,
+              writable: true,
+              configurable: true,
+            });
+
+            if (process.env.NODE_ENV === 'development') {
+              console.log('User authenticated:', {
+                email: user.email,
+                role: user.role,
+                claims: idTokenResult.claims,
+              });
+            }
+
+            // Only try to manage session cookie if not in emulator
+            if (process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATOR !== 'true') {
               await manageSessionCookie(user);
             }
+
             setUser(user);
-          } finally {
-            setLoading(false);
+          } else {
+            setUser(null);
           }
+        } catch (error) {
+          console.error('Error setting up auth:', error);
+          // Don't set user to null on error, only on explicit sign out
+        } finally {
+          setLoading(false);
         }
       });
     };
@@ -108,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         unsubscribe();
       }
     };
-  }, [router]);
+  }, []);
 
   // Online status monitoring
   useEffect(() => {
@@ -126,7 +156,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      // Force token refresh and get claims
+      await result.user.getIdToken(true);
+      const idTokenResult = await result.user.getIdTokenResult(true);
+      console.log('Sign in successful with claims:', {
+        email: result.user.email,
+        claims: idTokenResult.claims,
+      });
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;

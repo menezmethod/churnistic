@@ -4,19 +4,18 @@ import {
   CreditCard,
   Settings,
   People,
-  Security,
   Logout,
   Menu as MenuIcon,
   AccountBalance,
   Analytics,
   Notifications,
-  Business,
   AccountBalanceWallet,
   TrendingUp,
   Assessment,
   Help,
   PersonAdd,
   Login,
+  AdminPanelSettings,
 } from '@mui/icons-material';
 import {
   AppBar,
@@ -40,7 +39,7 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type JSX, useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
@@ -110,22 +109,19 @@ const analyticsMenuItems: MenuItemType[] = [
 
 const managementMenuItems: MenuItemType[] = [
   {
-    text: 'User Management',
+    text: 'Users & Permissions',
     icon: <People />,
     path: '/admin/users',
     roles: [UserRole.ADMIN],
+    description: 'Manage users, roles, and permissions',
   },
   {
-    text: 'Role Management',
-    icon: <Security />,
-    path: '/admin/roles',
+    text: 'Offer Validation',
+    icon: <AdminPanelSettings />,
+    path: '/admin/opportunities',
     roles: [UserRole.ADMIN],
-  },
-  {
-    text: 'Business Settings',
-    icon: <Business />,
-    path: '/admin/business',
-    roles: [UserRole.ADMIN],
+    description: 'Review and validate scraped rewards and offers',
+    badge: 5, // Shows number of pending reviews
   },
 ];
 
@@ -158,6 +154,17 @@ export default function AppNavbar() {
 
   const isAdmin = hasRole(UserRole.ADMIN);
   const isAnalyst = hasRole(UserRole.USER);
+
+  // Only log in development and when user state changes
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('AppNavbar user state:', {
+        email: user?.email,
+        role: user?.customClaims?.role,
+        isAdmin: hasRole(UserRole.ADMIN),
+      });
+    }
+  }, [user, hasRole]);
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);

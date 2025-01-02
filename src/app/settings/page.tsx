@@ -42,7 +42,7 @@ import {
 import type { WithFieldValue, DocumentData } from 'firebase/firestore';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, type JSX } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { db, storage } from '@/lib/firebase/config';
@@ -1523,7 +1523,6 @@ const SettingsPage = (): JSX.Element => {
         >
           Customize your experience with personal preferences
         </Typography>
-
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Box>
             <Typography

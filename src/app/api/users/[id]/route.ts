@@ -1,27 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { prisma } from '@/lib/prisma';
+import { db } from '@/lib/firebase/admin';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  props: { params: Promise<{ id: string }> }
+) {
+  const params = await props.params;
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: params.id },
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        photoURL: true,
-        role: true,
-        status: true,
-        businessVerified: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    const userDoc = await db.collection('users').doc(params.id).get();
 
-    if (!user) {
+    if (!userDoc.exists) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+
+    const userData = userDoc.data();
+    const user = {
+      id: userDoc.id,
+      email: userData?.email,
+      displayName: userData?.displayName,
+      photoURL: userData?.photoURL,
+      role: userData?.role,
+      status: userData?.status,
+      createdAt: userData?.createdAt,
+      updatedAt: userData?.updatedAt,
+    };
 
     return NextResponse.json(user);
   } catch (error) {
@@ -32,26 +35,33 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   try {
     const data = await request.json();
+    const userRef = db.collection('users').doc(params.id);
 
-    const user = await prisma.user.update({
-      where: { id: params.id },
-      data,
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        photoURL: true,
-        role: true,
-        status: true,
-        businessVerified: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    // Update the user document
+    await userRef.update({
+      ...data,
+      updatedAt: new Date().toISOString(),
     });
+
+    // Get the updated user data
+    const userDoc = await userRef.get();
+    const userData = userDoc.data();
+
+    const user = {
+      id: userDoc.id,
+      email: userData?.email,
+      displayName: userData?.displayName,
+      photoURL: userData?.photoURL,
+      role: userData?.role,
+      status: userData?.status,
+      createdAt: userData?.createdAt,
+      updatedAt: userData?.updatedAt,
+    };
 
     return NextResponse.json(user);
   } catch (error) {
@@ -62,13 +72,11 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   try {
-    await prisma.user.delete({
-      where: { id: params.id },
-    });
-
+    await db.collection('users').doc(params.id).delete();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting user:', error);

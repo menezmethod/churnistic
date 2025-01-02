@@ -1,5 +1,4 @@
 'use client';
-
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import MuiCard from '@mui/material/Card';
@@ -16,6 +15,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
+import type { JSX } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { signInWithEmail, signInWithGoogle } from '@/lib/firebase/auth';

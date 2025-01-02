@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
-import { useState } from 'react';
+import React, { useState } from 'react';
 
 import { auth } from '@/lib/firebase/config';
 

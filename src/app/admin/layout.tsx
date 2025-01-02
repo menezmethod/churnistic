@@ -1,6 +1,6 @@
 'use client';
 
-import { Box } from '@mui/material';
+import { CircularProgress, Box } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -9,24 +9,45 @@ import { UserRole } from '@/lib/auth/types';
 import { trpc } from '@/lib/trpc/client';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { data: userProfile, isLoading } = trpc.user.me.useQuery();
+  const { data: userProfile, isLoading: profileLoading } = trpc.user.me.useQuery(
+    undefined,
+    {
+      enabled: !!user, // Only fetch profile when user is authenticated
+    }
+  );
 
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       router.push('/auth/signin');
       return;
     }
 
-    if (!isLoading && userProfile?.role !== UserRole.ADMIN) {
+    if (!profileLoading && userProfile?.role !== UserRole.ADMIN) {
       router.push('/unauthorized');
       return;
     }
-  }, [user, router, userProfile, isLoading]);
+  }, [user, router, userProfile, authLoading, profileLoading]);
 
-  // Show nothing while checking authentication
-  if (isLoading || !user) {
+  // Show loading state while checking authentication and profile
+  if (authLoading || profileLoading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Show nothing if not authenticated
+  if (!user) {
     return null;
   }
 

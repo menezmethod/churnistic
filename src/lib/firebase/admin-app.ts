@@ -1,3 +1,13 @@
+// IMPORTANT: Environment variables must be set before any firebase imports
+process.env.FIREBASE_CONFIG = JSON.stringify({
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic',
+});
+
+if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+  process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+  process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+}
+
 import {
   type App,
   type AppOptions,
@@ -13,7 +23,7 @@ let adminAuth: Auth | undefined;
 let adminDb: Firestore | undefined;
 
 function getAdminConfig(): AppOptions {
-  const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+  const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true';
   const projectId = useEmulators
     ? 'churnistic'
     : process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
@@ -23,15 +33,9 @@ function getAdminConfig(): AppOptions {
   }
 
   if (useEmulators) {
+    console.log('🔧 Initializing Admin App in Emulator mode');
     return {
       projectId,
-      credential: {
-        getAccessToken: () =>
-          Promise.resolve({
-            access_token: 'local-emulator-token',
-            expires_in: 3600,
-          }),
-      },
     };
   }
 
@@ -55,18 +59,35 @@ function getAdminConfig(): AppOptions {
   }
 }
 
+export function initializeAdminDb(): Firestore {
+  try {
+    if (!adminApp) {
+      const config = getAdminConfig();
+      adminApp = getApps().length ? getApps()[0] : initializeApp(config);
+    }
+
+    if (!adminDb) {
+      adminDb = getFirestore(adminApp);
+
+      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+        console.log(
+          '📚 Connecting Admin to Firestore Emulator at:',
+          process.env.FIRESTORE_EMULATOR_HOST
+        );
+      }
+    }
+
+    return adminDb;
+  } catch (error) {
+    console.error('Failed to initialize Admin Firestore:', error);
+    throw error;
+  }
+}
+
 export function initializeAdminAuth(): Auth {
   try {
     if (!adminApp) {
       const config = getAdminConfig();
-      const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-
-      console.log('Initializing Admin App:', {
-        projectId: config.projectId,
-        useEmulators,
-        environment: process.env.NODE_ENV,
-      });
-
       adminApp = getApps().length ? getApps()[0] : initializeApp(config);
     }
 
@@ -77,32 +98,6 @@ export function initializeAdminAuth(): Auth {
     return adminAuth;
   } catch (error) {
     console.error('Failed to initialize Admin Auth:', error);
-    throw error;
-  }
-}
-
-export function initializeAdminDb(): Firestore {
-  const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-
-  if (useEmulators) {
-    throw new Error(
-      'Firestore Admin is not available in emulator mode. Please use the Firestore emulator instead.'
-    );
-  }
-
-  try {
-    if (!adminApp) {
-      const config = getAdminConfig();
-      adminApp = getApps().length ? getApps()[0] : initializeApp(config);
-    }
-
-    if (!adminDb) {
-      adminDb = getFirestore(adminApp);
-    }
-
-    return adminDb;
-  } catch (error) {
-    console.error('Failed to initialize Admin Firestore:', error);
     throw error;
   }
 }

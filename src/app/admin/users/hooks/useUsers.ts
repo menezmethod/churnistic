@@ -13,11 +13,12 @@ export interface User {
   status: string;
   creditScore: number | null;
   monthlyIncome: number | null;
-  businessVerified: boolean;
   createdAt: string;
   updatedAt: string;
-  householdId: string | null;
   firebaseUid: string;
+  customDisplayName: string | null;
+  permissions?: string[];
+  isSuperAdmin?: boolean;
 }
 
 interface UseUsersOptions {

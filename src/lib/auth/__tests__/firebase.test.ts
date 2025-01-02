@@ -16,19 +16,23 @@ jest.mock('firebase/auth', () => ({
   signInWithPopup: jest.fn(),
   signOut: jest.fn(),
   GoogleAuthProvider: jest.fn(),
+  connectAuthEmulator: jest.fn(),
 }));
 
 jest.mock('firebase/firestore', () => ({
   getFirestore: jest.fn(),
   enableIndexedDbPersistence: jest.fn().mockResolvedValue(undefined),
+  connectFirestoreEmulator: jest.fn(),
 }));
 
 jest.mock('firebase/storage', () => ({
   getStorage: jest.fn(),
+  connectStorageEmulator: jest.fn(),
 }));
 
 jest.mock('firebase/functions', () => ({
   getFunctions: jest.fn(),
+  connectFunctionsEmulator: jest.fn(),
 }));
 
 describe('Firebase Auth', () => {

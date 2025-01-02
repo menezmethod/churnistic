@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-import { prisma } from '@/lib/prisma';
+import { db } from '@/lib/firebase/admin';
 
-export async function GET(request: NextRequest, { params }: { params: { uid: string } }) {
+export async function GET(
+  request: NextRequest,
+  props: { params: Promise<{ uid: string }> }
+) {
+  const params = await props.params;
   try {
-    const user = await prisma.user.findUnique({
-      where: { firebaseUid: params.uid },
-      select: { id: true }, // Only select ID for efficiency
-    });
+    const userDoc = await db.collection('users').doc(params.uid).get();
 
-    if (!user) {
+    if (!userDoc.exists) {
       return NextResponse.json({ exists: false }, { status: 404 });
     }
 

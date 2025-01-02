@@ -1,6 +1,24 @@
-import type { Card as PrismaCard } from '@prisma/client';
-
-export type Card = PrismaCard;
+export interface Card {
+  id: string;
+  issuerId: string;
+  name: string;
+  type: string;
+  network: string;
+  rewardType: string;
+  signupBonus: number;
+  minSpend: number;
+  minSpendPeriod: number;
+  annualFee: number;
+  isActive: boolean;
+  creditScoreMin?: number;
+  businessCard: boolean;
+  velocityRules: string[];
+  churningRules: string[];
+  createdAt: Date;
+  updatedAt: Date;
+  referralBonus?: number;
+  referralBonusCash?: number;
+}
 
 export enum CardStatus {
   PENDING = 'PENDING',

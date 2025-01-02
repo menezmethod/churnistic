@@ -1,70 +1,39 @@
-import type { User as PrismaUser } from '@prisma/client';
+import { UserRole } from '@/lib/auth/types';
 
-export type DatabaseUser = PrismaUser & {
-  businessVerified: boolean;
-};
-
-export type UserWithoutPassword = Omit<DatabaseUser, 'password'>;
-
-export interface UserProfile {
-  id: string;
-  role: string;
-  email: string;
-  status: string;
-  displayName: string;
-  customDisplayName: string;
-  photoURL: string;
-  firebaseUid: string;
-  creditScore: number | null;
-  monthlyIncome: number | null;
-  businessVerified: boolean;
-  createdAt: string;
-  updatedAt: string;
-  householdId: string | null;
-  cardApplications?: {
-    id: string;
-    issuer: string;
-    card: string;
-    status: 'approved' | 'pending' | 'denied';
-    appliedDate: string;
-    bonus: number;
-    spendRequired: number;
-    spendProgress: number;
-    deadline: string;
-  }[];
-  bankBonuses?: {
-    id: string;
-    bank: string;
-    bonus: number;
-    requirements: string;
-    deadline: string;
-    status: 'completed' | 'pending' | 'failed';
-  }[];
-}
-
-export type UserSettings = Pick<DatabaseUser, 'creditScore' | 'monthlyIncome'>;
-
-export type UserWithHousehold = DatabaseUser & {
-  household: {
-    id: string;
-    name: string;
-  } | null;
-};
+export type Permission = string;
 
 export interface User {
   uid: string;
-  email: string;
+  email: string | null;
   displayName: string | null;
-  photoURL: string | null;
-  role: string;
-  customDisplayName: string | null;
+  role: UserRole;
+  permissions?: Permission[];
+  isSuperAdmin?: boolean;
+  status?: string;
+  creditScore?: number;
+  monthlyIncome?: number;
+  photoURL?: string | null;
+  customClaims?: {
+    role: UserRole;
+    permissions: Permission[];
+    isSuperAdmin: boolean;
+  };
 }
 
-export interface SessionUser {
-  uid: string;
+export interface DatabaseUser {
+  id: string;
+  firebaseUid: string;
   email: string;
   displayName: string | null;
-  photoURL: string | null;
-  role: string;
   customDisplayName: string | null;
+  photoURL: string | null;
+  role: UserRole;
+  status?: string;
+  creditScore?: number;
+  monthlyIncome?: number;
+  isSuperAdmin?: boolean;
+  permissions?: Permission[];
+  businessVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

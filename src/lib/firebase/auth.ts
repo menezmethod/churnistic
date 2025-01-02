@@ -76,12 +76,15 @@ export const signInWithEmail = async (
       };
     }
 
+    console.log('Attempting to sign in with email:', email);
     const userCredential = await firebaseSignInWithEmail(auth, email, password);
+    console.log('Sign in successful:', userCredential.user.email);
     return {
       user: userCredential.user,
       error: null,
     };
   } catch (error: unknown) {
+    console.error('Sign in error:', error);
     const firebaseError = error as FirebaseAuthError;
     return {
       user: null,
@@ -171,7 +174,7 @@ export const signInWithGoogle = async (): Promise<AuthResponse> => {
 
     return { user: userCredential.user, error: null };
   } catch (error: unknown) {
-    console.error('Google sign in error in auth.ts:', {
+    console.error('Google sign in error:', {
       error,
       code: error instanceof Error ? (error as FirebaseAuthError).code : 'unknown',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -224,8 +227,8 @@ export const getCurrentUser = (): User | null => {
   return auth.currentUser;
 };
 
-export const onAuthStateChange = (callback: AuthStateHandler): Unsubscribe => {
-  return onAuthStateChanged(auth, callback);
+export const subscribeToAuthChanges = (handler: AuthStateHandler): Unsubscribe => {
+  return onAuthStateChanged(auth, handler);
 };
 
 export { auth };

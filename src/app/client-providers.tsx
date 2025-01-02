@@ -1,4 +1,5 @@
 'use client';
+import type { JSX } from 'react';
 
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { ThemeProvider } from '@/lib/theme/ThemeContext';

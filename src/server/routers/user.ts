@@ -1,10 +1,46 @@
-import { Prisma } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
+import type { Query } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
+import { SessionData } from '@/lib/auth/session';
 import { UserRole } from '@/lib/auth/types';
+import { db } from '@/lib/firebase/admin';
 
-import { router, protectedProcedure } from '../trpc';
+import { adminProcedure, protectedProcedure, router } from '../trpc';
+
+const USERS_COLLECTION = 'users';
+
+interface UserDocument {
+  email: string;
+  displayName?: string;
+  role: string;
+  isSuperAdmin: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+interface UserResponse {
+  id: string;
+  email: string;
+  displayName?: string;
+  role: string;
+  isSuperAdmin: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function formatUserData(id: string, data: UserDocument): UserResponse {
+  return {
+    id,
+    email: data.email,
+    displayName: data.displayName,
+    role: data.role,
+    isSuperAdmin: data.isSuperAdmin,
+    createdAt: data.createdAt.toDate().toISOString(),
+    updatedAt: data.updatedAt.toDate().toISOString(),
+  };
+}
 
 export const userRouter = router({
   me: protectedProcedure.query(async ({ ctx }) => {
@@ -15,43 +51,49 @@ export const userRouter = router({
       });
     }
 
-    const user = await ctx.prisma.user.findUnique({
-      where: { id: ctx.session.uid },
-    });
+    const session = ctx.session as SessionData;
+    const userRef = db.collection(USERS_COLLECTION).doc(session.uid);
+    const userDoc = await userRef.get();
 
-    if (!user) {
+    // In emulator mode, create the user if it doesn't exist
+    if (!userDoc.exists && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+      console.log('Creating user document in emulator mode:', session);
+      const now = Timestamp.now();
+      const userData: UserDocument = {
+        email: session.email || '',
+        displayName: session.name,
+        role: session.role || UserRole.USER,
+        isSuperAdmin: session.isSuperAdmin || false,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await userRef.set(userData);
+      return formatUserData(session.uid, userData);
+    }
+
+    if (!userDoc.exists) {
       throw new TRPCError({
         code: 'NOT_FOUND',
         message: 'User not found',
       });
     }
 
-    return user;
+    return formatUserData(userDoc.id, userDoc.data() as UserDocument);
   }),
 
-  getById: protectedProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      if (!ctx.session?.role || ctx.session.role !== UserRole.ADMIN) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Not authorized',
-        });
-      }
+  getById: adminProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
+    const userDoc = await db.collection(USERS_COLLECTION).doc(input.id).get();
 
-      const user = await ctx.prisma.user.findUnique({
-        where: { id: input.id },
+    if (!userDoc.exists) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'User not found',
       });
+    }
 
-      if (!user) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'User not found',
-        });
-      }
-
-      return user;
-    }),
+    return formatUserData(userDoc.id, userDoc.data() as UserDocument);
+  }),
 
   update: protectedProcedure
     .input(
@@ -70,11 +112,10 @@ export const userRouter = router({
       }
 
       // Check if user exists
-      const user = await ctx.prisma.user.findUnique({
-        where: { id: input.id },
-      });
+      const userRef = db.collection(USERS_COLLECTION).doc(input.id);
+      const userDoc = await userRef.get();
 
-      if (!user) {
+      if (!userDoc.exists) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'User not found',
@@ -89,44 +130,37 @@ export const userRouter = router({
         });
       }
 
-      const updatedUser = await ctx.prisma.user.update({
-        where: { id: input.id },
-        data: {
-          displayName: input.displayName,
-          email: input.email,
-        },
-      });
+      const updateData = {
+        ...(input.displayName && { displayName: input.displayName }),
+        ...(input.email && { email: input.email }),
+        updatedAt: Timestamp.now(),
+      };
 
-      return updatedUser;
+      await userRef.update(updateData);
+
+      const updatedDoc = await userRef.get();
+      return formatUserData(updatedDoc.id, updatedDoc.data() as UserDocument);
     }),
 
-  delete: protectedProcedure
+  delete: adminProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      if (!ctx.session?.role || ctx.session.role !== UserRole.ADMIN) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Not authorized',
-        });
-      }
+    .mutation(async ({ input }) => {
+      const userRef = db.collection(USERS_COLLECTION).doc(input.id);
+      const userDoc = await userRef.get();
 
-      const user = await ctx.prisma.user.findUnique({
-        where: { id: input.id },
-      });
-
-      if (!user) {
+      if (!userDoc.exists) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'User not found',
         });
       }
 
-      return ctx.prisma.user.delete({
-        where: { id: input.id },
-      });
+      const userData = formatUserData(userDoc.id, userDoc.data() as UserDocument);
+      await userRef.delete();
+      return userData;
     }),
 
-  list: protectedProcedure
+  list: adminProcedure
     .input(
       z
         .object({
@@ -136,27 +170,28 @@ export const userRouter = router({
         })
         .optional()
     )
-    .query(async ({ ctx, input }) => {
-      if (!ctx.session?.role || ctx.session.role !== UserRole.ADMIN) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Not authorized',
-        });
+    .query(async ({ input }) => {
+      let query: Query = db.collection(USERS_COLLECTION);
+
+      if (input?.search) {
+        // Note: Firestore doesn't support case-insensitive search
+        // We'll need to implement a more sophisticated search solution later
+        query = query
+          .where('displayName', '>=', input.search)
+          .where('displayName', '<=', input.search + '\uf8ff');
       }
 
-      const where: Prisma.UserWhereInput | undefined = input?.search
-        ? {
-            OR: [
-              { displayName: { contains: input.search, mode: 'insensitive' } },
-              { email: { contains: input.search, mode: 'insensitive' } },
-            ],
-          }
-        : undefined;
+      if (input?.limit) {
+        query = query.limit(input.limit);
+      }
 
-      return ctx.prisma.user.findMany({
-        ...(input?.limit && { take: input.limit }),
-        ...(input?.offset && { skip: input.offset }),
-        ...(where && { where }),
-      });
+      if (input?.offset) {
+        query = query.orderBy('createdAt').offset(input.offset);
+      }
+
+      const snapshot = await query.get();
+      return snapshot.docs.map((doc) =>
+        formatUserData(doc.id, doc.data() as UserDocument)
+      );
     }),
 });

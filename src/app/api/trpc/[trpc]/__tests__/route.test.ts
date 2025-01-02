@@ -83,7 +83,8 @@ describe('tRPC Route', () => {
     expect(console.error).toHaveBeenCalledWith(
       'tRPC error:',
       expect.objectContaining({
-        error: mockError,
+        code: undefined,
+        message: 'Test error',
         path: 'test.path',
       })
     );

@@ -96,9 +96,9 @@ describe('tRPC Route', () => {
     expect(console.error).toHaveBeenCalledWith(
       'tRPC error:',
       expect.objectContaining({
-        error: mockError,
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Test error',
         path: 'test.path',
-        type: 'INTERNAL_SERVER_ERROR',
       })
     );
 
@@ -169,9 +169,9 @@ describe('tRPC Route', () => {
     }
 
     expect(console.error).toHaveBeenCalledWith('tRPC error:', {
-      type: mockError.code,
-      path: undefined,
-      error: mockError,
+      code: mockError.code,
+      message: 'Handler error',
+      path: 'unknown',
     });
 
     Object.defineProperty(process.env, 'NODE_ENV', {
