@@ -5,44 +5,45 @@ import { BankRewardsDatabase } from '@/lib/scrapers/bankrewards/database';
 import { BankRewardsTransformer } from '@/lib/scrapers/bankrewards/transformer';
 
 // Validation schema for query parameters
-const getQuerySchema = z.object({
+const querySchema = z.object({
   format: z.enum(['detailed', 'simple']).optional(),
 });
 
-type Context = {
-  params: { id: string | string[] | undefined };
-};
-
 export async function GET(
   request: NextRequest,
-  context: Context
-): Promise<NextResponse> {
+  { params }: { params: { id: string } }
+) {
   try {
+    // Validate query parameters
     const searchParams = request.nextUrl.searchParams;
-    const { format } = getQuerySchema.parse({
+    const { format } = querySchema.parse({
       format: searchParams.get('format') || 'simple',
     });
 
+    // Get the offer ID from the URL parameters
+    const { id } = params;
+
+    // Initialize database and fetch all offers
     const db = new BankRewardsDatabase();
     const offers = await db.getOffers();
-    
-    // Find the specific offer by ID
-    const offerId = typeof context.params.id === 'string' ? context.params.id : Array.isArray(context.params.id) ? context.params.id[0] : '';
-    const offer = offers.find((o) => o.id === offerId);
-    
+
+    // Find the specific offer
+    const offer = offers.find((o) => o.id === id);
+
+    // Return 404 if offer not found
     if (!offer) {
       return NextResponse.json(
         {
           error: {
             message: 'Offer not found',
-            details: `No offer found with ID: ${offerId}`,
+            details: `No offer found with ID: ${id}`,
           },
         },
         { status: 404 }
       );
     }
 
-    // Transform the offer if detailed format is requested
+    // Transform the offer only if detailed format is requested
     const transformedOffer =
       format === 'detailed'
         ? new BankRewardsTransformer().transform(offer)
@@ -64,7 +65,7 @@ export async function GET(
       );
     }
 
-    console.error('Error fetching BankRewards offer:', error);
+    console.error('Error fetching bank rewards offer:', error);
     return NextResponse.json(
       {
         error: {
