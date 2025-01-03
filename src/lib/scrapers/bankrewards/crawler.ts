@@ -1,7 +1,17 @@
-import { Dataset } from '@crawlee/core';
-import { Browser, BrowserContext, chromium } from 'playwright';
+import { doc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  orderBy,
+  limit,
+  getDocs,
+  QueryDocumentSnapshot,
+  writeBatch,
+  Timestamp,
+} from 'firebase/firestore';
+import { Browser, chromium, BrowserContext } from 'playwright';
 
-import { BankRewardsConfig } from '@/types/scraper';
+import { db } from '../../../lib/firebase/firebase';
 
 interface Card {
   title: string;
@@ -16,10 +26,30 @@ interface CardElement extends HTMLElement {
   outerHTML: string;
 }
 
+interface OfferData {
+  id: string;
+  sourceUrl: string;
+  sourceId: string;
+  title: string;
+  type: 'CREDIT_CARD' | 'BANK_ACCOUNT' | 'BROKERAGE';
+  metadata: {
+    bonus: string;
+    rawHtml: string;
+    lastChecked: Date;
+    status: 'active';
+    offerBaseUrl: string;
+  };
+}
+
+interface BankRewardsConfig {
+  userAgent: string;
+  timeoutSecs: number;
+}
+
 export class BankRewardsCrawler {
-  private dataset!: Dataset;
   private offersProcessed = 0;
   private config: BankRewardsConfig;
+  private offers: OfferData[] = [];
 
   constructor(config: BankRewardsConfig) {
     this.config = config;
@@ -41,6 +71,62 @@ export class BankRewardsCrawler {
     return { error: String(error) };
   }
 
+  private async loadExistingOffers(): Promise<OfferData[]> {
+    try {
+      const offersRef = collection(db, 'bankrewards');
+      // Get latest offers first, limited to 1000 to avoid memory issues
+      const q = query(offersRef, orderBy('metadata.lastChecked', 'desc'), limit(1000));
+      const snapshot = await getDocs(q);
+
+      return snapshot.docs.map((doc: QueryDocumentSnapshot) => {
+        const data = doc.data();
+        return {
+          ...data,
+          metadata: {
+            ...data.metadata,
+            lastChecked: data.metadata.lastChecked.toDate(),
+            lastUpdated: data.metadata.lastUpdated.toDate(),
+          },
+        } as OfferData;
+      });
+    } catch (error) {
+      this.log('Error loading existing offers', this.logError(error));
+      return [];
+    }
+  }
+
+  public async getLatestOffers(): Promise<{ items: OfferData[] }> {
+    try {
+      const offers = await this.loadExistingOffers();
+      if (offers.length > 0) {
+        // Check if offers are fresh (less than 1 hour old)
+        const latestOffer = offers[0];
+        const now = new Date();
+        const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+        if (latestOffer.metadata.lastChecked > hourAgo) {
+          this.log(`Using cached offers from Firestore (${offers.length} offers)`);
+          return { items: offers };
+        }
+      }
+
+      this.log('No fresh offers found in Firestore, need to crawl');
+      return { items: [] };
+    } catch (error) {
+      this.log('Error getting latest offers', this.logError(error));
+      return { items: [] };
+    }
+  }
+
+  private async saveOffer(offer: OfferData) {
+    this.offers.push(offer);
+    this.offersProcessed++;
+    this.log(`Processed offer ${this.offersProcessed}`, {
+      title: offer.title,
+      type: offer.type,
+    });
+  }
+
   public async run(startUrls: string[]) {
     let browser: Browser | null = null;
     let context: BrowserContext | null = null;
@@ -48,7 +134,6 @@ export class BankRewardsCrawler {
 
     try {
       this.log('Starting crawler run');
-      this.dataset = await Dataset.open('bankrewards');
 
       browser = await chromium.launch({
         headless: true,
@@ -168,16 +253,15 @@ export class BankRewardsCrawler {
                   const type =
                     card.detailsUrl.includes('/credit-card/') ||
                     card.detailsUrl.includes('/card/')
-                      ? 'CREDIT_CARD'
+                      ? ('CREDIT_CARD' as const)
                       : card.detailsUrl.includes('/bank/')
-                        ? 'BANK_ACCOUNT'
-                        : 'BROKERAGE';
+                        ? ('BANK_ACCOUNT' as const)
+                        : ('BROKERAGE' as const);
 
                   const detailsPage = await ctx.newPage();
                   let rawHtml = '';
 
                   try {
-                    const detailsStartTime = Date.now();
                     await Promise.all([
                       detailsPage.goto(fullUrl, { waitUntil: 'domcontentloaded' }),
                       detailsPage.waitForLoadState('domcontentloaded'),
@@ -208,13 +292,7 @@ export class BankRewardsCrawler {
                       },
                     };
 
-                    await this.dataset?.pushData(fullOffer);
-                    this.offersProcessed++;
-                    this.log(`Processed offer ${this.offersProcessed}`, {
-                      title: card.title,
-                      type,
-                      timeMs: Date.now() - detailsStartTime,
-                    });
+                    await this.saveOffer(fullOffer);
                   } catch (error) {
                     this.log(
                       `Error processing details page: ${fullUrl}`,
@@ -350,10 +428,83 @@ export class BankRewardsCrawler {
 
   public async stop() {
     try {
-      return await this.dataset?.getData();
+      // Save all offers to Firestore in smaller batches
+      const batchSize = 50;
+      const batches = [];
+      let currentBatch = writeBatch(db);
+      let operationCount = 0;
+
+      this.log(`Saving ${this.offers.length} offers to Firestore`);
+
+      for (const offer of this.offers) {
+        const offersRef = collection(db, 'bankrewards');
+        const offerDoc = doc(offersRef, offer.id);
+
+        currentBatch.set(
+          offerDoc,
+          {
+            ...offer,
+            metadata: {
+              ...offer.metadata,
+              lastChecked: Timestamp.fromDate(offer.metadata.lastChecked),
+              lastUpdated: Timestamp.fromDate(new Date()),
+            },
+          },
+          { merge: true }
+        );
+
+        operationCount++;
+
+        if (operationCount === batchSize) {
+          batches.push(currentBatch);
+          currentBatch = writeBatch(db);
+          operationCount = 0;
+          this.log(`Created new batch (${batches.length} total)`);
+        }
+      }
+
+      if (operationCount > 0) {
+        batches.push(currentBatch);
+      }
+
+      // Commit batches with retry logic
+      this.log(`Committing ${batches.length} batches to Firestore`);
+
+      const maxRetries = 3;
+      for (let i = 0; i < batches.length; i++) {
+        let retries = 0;
+        while (retries < maxRetries) {
+          try {
+            await batches[i].commit();
+            this.log(
+              `Successfully committed batch ${i + 1}/${batches.length} to Firestore`
+            );
+            // Add a small delay between batches
+            if (i < batches.length - 1) {
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
+            break;
+          } catch (error) {
+            retries++;
+            this.log(
+              `Error committing batch ${i + 1} (attempt ${retries}/${maxRetries})`,
+              this.logError(error)
+            );
+            if (retries === maxRetries) {
+              throw error;
+            }
+            // Exponential backoff
+            await new Promise((resolve) =>
+              setTimeout(resolve, Math.pow(2, retries) * 1000)
+            );
+          }
+        }
+      }
+
+      return { items: this.offers };
     } catch (error) {
-      this.log('Error getting dataset', this.logError(error));
-      throw error;
+      this.log('Error saving offers to Firestore', this.logError(error));
+      return { items: this.offers };
     }
   }
 }

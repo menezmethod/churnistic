@@ -1656,13 +1656,17 @@ const SettingsPage = (): JSX.Element => {
     void (async (): Promise<void> => {
       try {
         // Get the first and last name from the form
-        const firstName = (document.querySelector('input[placeholder="First name"]') as HTMLInputElement)?.value || '';
-        const lastName = (document.querySelector('input[placeholder="Last name"]') as HTMLInputElement)?.value || '';
+        const firstName =
+          (document.querySelector('input[placeholder="First name"]') as HTMLInputElement)
+            ?.value || '';
+        const lastName =
+          (document.querySelector('input[placeholder="Last name"]') as HTMLInputElement)
+            ?.value || '';
         const fullName = `${firstName} ${lastName}`.trim();
 
         // Update Firebase Auth display name
         await updateProfile(user, {
-          displayName: fullName
+          displayName: fullName,
         });
 
         // Update Firestore
