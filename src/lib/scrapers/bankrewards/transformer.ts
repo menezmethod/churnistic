@@ -1048,6 +1048,8 @@ export class BankRewardsTransformer {
       bonus,
       details,
       metadata,
+      logo: this.getLogo(offer.title),
+      ...(this.type === 'credit_card' && { card_image: this.getCardImage() }),
     };
   }
 
