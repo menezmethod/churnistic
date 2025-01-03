@@ -50,18 +50,27 @@ import {
   Fade,
   Collapse,
 } from '@mui/material';
+import { doc, getDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
 
 import OpportunityCardSkeleton from '@/components/skeletons/OpportunityCardSkeleton';
 import ProgressCardSkeleton from '@/components/skeletons/ProgressCardSkeleton';
 import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { db } from '@/lib/firebase/config';
 import { formatCurrency } from '@/lib/utils/formatters';
+
+interface UserProfile {
+  displayName?: string;
+  customDisplayName?: string;
+  email?: string;
+  photoURL?: string;
+  role?: string;
+  updatedAt?: string;
+}
 
 interface Opportunity {
   id: string;
@@ -700,7 +709,7 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { opportunities, loading: oppsLoading } = useOpportunities();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
   useEffect(() => {
@@ -962,7 +971,15 @@ export default function DashboardPage() {
               },
             }}
           >
-            Welcome {(profile?.displayName || profile?.customDisplayName || user?.email?.split('@')[0] || 'Churner').split(' ')[0]}
+            Welcome{' '}
+            {
+              (
+                profile?.displayName ||
+                profile?.customDisplayName ||
+                user?.email?.split('@')[0] ||
+                'Churner'
+              ).split(' ')[0]
+            }
           </Typography>
           <Typography
             variant="h6"
