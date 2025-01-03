@@ -7,19 +7,21 @@ type Context = {
   params: Promise<{ id: string | string[] | undefined }>;
 };
 
-export async function GET(
-  request: NextRequest,
-  context: Context
-): Promise<NextResponse> {
+export async function GET(request: NextRequest, context: Context): Promise<NextResponse> {
   try {
     const db = new BankRewardsDatabase();
     const offers = await db.getOffers();
-    
+
     // Find the specific offer by ID
     const params = await context.params;
-    const offerId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
+    const offerId =
+      typeof params.id === 'string'
+        ? params.id
+        : Array.isArray(params.id)
+          ? params.id[0]
+          : '';
     const offer = offers.find((o) => o.id === offerId);
-    
+
     if (!offer) {
       return NextResponse.json(
         {
@@ -52,4 +54,4 @@ export async function GET(
   }
 }
 
-export const dynamic = 'force-dynamic'; 
+export const dynamic = 'force-dynamic';
