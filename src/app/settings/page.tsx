@@ -38,6 +38,7 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   deleteUser,
+  updateProfile,
 } from 'firebase/auth';
 import type { WithFieldValue, DocumentData } from 'firebase/firestore';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
@@ -1654,11 +1655,21 @@ const SettingsPage = (): JSX.Element => {
 
     void (async (): Promise<void> => {
       try {
+        // Get the first and last name from the form
+        const firstName = (document.querySelector('input[placeholder="First name"]') as HTMLInputElement)?.value || '';
+        const lastName = (document.querySelector('input[placeholder="Last name"]') as HTMLInputElement)?.value || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+
+        // Update Firebase Auth display name
+        await updateProfile(user, {
+          displayName: fullName
+        });
+
         // Update Firestore
         const docRef = doc(db, 'users', user.uid);
         await updateDoc(docRef, {
-          customDisplayName: profile.customDisplayName,
-          displayName: profile.customDisplayName,
+          customDisplayName: fullName,
+          displayName: fullName,
           updatedAt: new Date().toISOString(),
         });
 
