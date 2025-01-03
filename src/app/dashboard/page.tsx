@@ -54,6 +54,8 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
 
 import OpportunityCardSkeleton from '@/components/skeletons/OpportunityCardSkeleton';
 import ProgressCardSkeleton from '@/components/skeletons/ProgressCardSkeleton';
@@ -698,6 +700,28 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { opportunities, loading: oppsLoading } = useOpportunities();
+  const [profile, setProfile] = useState<any>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchProfile = async () => {
+      try {
+        const docRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setProfile(docSnap.data());
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    void fetchProfile();
+  }, [user]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -805,7 +829,7 @@ export default function DashboardPage() {
     },
   ];
 
-  if (authLoading || oppsLoading) {
+  if (authLoading || oppsLoading || loadingProfile) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
         {/* Stats Section */}
@@ -938,7 +962,7 @@ export default function DashboardPage() {
               },
             }}
           >
-            Welcome back, {user?.displayName?.split(' ')[0] || 'Churner'}
+            Welcome {(profile?.displayName || profile?.customDisplayName || user?.email?.split('@')[0] || 'Churner').split(' ')[0]}
           </Typography>
           <Typography
             variant="h6"
