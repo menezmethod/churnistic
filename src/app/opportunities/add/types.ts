@@ -22,15 +22,9 @@ export interface MonthlyFees {
   amount: string;
 }
 
-export type USState = 'AL' | 'AK' | 'AZ' | 'AR' | 'CA' | 'CO' | 'CT' | 'DE' | 'FL' | 'GA' |
-  'HI' | 'ID' | 'IL' | 'IN' | 'IA' | 'KS' | 'KY' | 'LA' | 'ME' | 'MD' |
-  'MA' | 'MI' | 'MN' | 'MS' | 'MO' | 'MT' | 'NE' | 'NV' | 'NH' | 'NJ' |
-  'NM' | 'NY' | 'NC' | 'ND' | 'OH' | 'OK' | 'OR' | 'PA' | 'RI' | 'SC' |
-  'SD' | 'TN' | 'TX' | 'UT' | 'VT' | 'VA' | 'WA' | 'WV' | 'WI' | 'WY';
-
 export interface StateAvailability {
   type: 'State';
-  states: USState[];
+  states: string[];
 }
 
 export interface NationwideAvailability {
@@ -73,8 +67,8 @@ export interface FormData {
 }
 
 export type NestedKeyOf<ObjectType extends object> = {
-  [Key in keyof ObjectType & (string | number)]: ObjectType[Key] extends object | undefined
-    ? `${Key}` | `${Key}.${NestedKeyOf<NonNullable<ObjectType[Key]>>}`
+  [Key in keyof ObjectType & (string | number)]: ObjectType[Key] extends object
+    ? `${Key}` | `${Key}.${NestedKeyOf<ObjectType[Key]>}`
     : `${Key}`;
 }[keyof ObjectType & (string | number)];
 
@@ -84,4 +78,4 @@ export type PathValue<T, P extends string> = P extends keyof T
   ? K extends keyof T
     ? PathValue<T[K], Rest>
     : never
-  : never;
+  : never; 
