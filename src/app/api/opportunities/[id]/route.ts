@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
-import { db } from '@/lib/firebase/admin';
+import { getAdminDb } from '@/lib/firebase/admin';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
@@ -22,6 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const { id } = params;
     console.log('Fetching opportunity:', id);
 
+    const db = getAdminDb();
     const docRef = db.collection('opportunities').doc(id);
     const docSnap = await docRef.get();
 

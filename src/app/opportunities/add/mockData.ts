@@ -1,205 +1,151 @@
-import { FormData, OfferType } from '@/types/opportunity';
+import { Opportunity, OfferType } from '@/types/opportunity';
 
-const bankOffers: FormData[] = [
-  {
-    name: 'Chase Total Checking',
-    type: 'bank',
-    offer_link: 'https://accounts.chase.com',
-    value: '300',
-    bonus: {
-      title: 'Bonus Details',
-      description: '$300 bonus',
-      requirements: {
-        title: 'Bonus Requirements',
-        description: 'Set up direct deposit within 90 days',
-      },
-    },
-    details: {
-      monthly_fees: { amount: '$12' },
-      account_type: 'Personal Bank Account',
-      availability: { type: 'Nationwide' },
-      expiration: '2025-12-31',
-      credit_inquiry: 'Soft Pull',
-      household_limit: 'One per household',
-      early_closure_fee: '$50 if closed within 6 months',
-    },
-    logo: {
-      type: 'icon',
-      url: 'https://bankrewards.io/_next/image?url=https%3A%2F%2Fpbs.twimg.com%2Fprofile_images%2F748885874516094980%2Fywt_aKRx_400x400.jpg&w=128&q=75',
-    },
-  },
-  {
-    name: 'Citi Priority Account',
-    type: 'bank',
-    offer_link: 'https://banking.citi.com',
-    value: '2000',
-    bonus: {
-      title: 'Bonus Details',
-      description: 'Earn up to $2,000 bonus',
-      requirements: {
-        title: 'Bonus Requirements',
-        description: 'Maintain minimum balance for 60 days',
-      },
-      tiers: [
-        { reward: '$200', deposit: '$10,000' },
-        { reward: '$500', deposit: '$30,000' },
-        { reward: '$1,000', deposit: '$75,000' },
-        { reward: '$2,000', deposit: '$200,000' },
-      ],
-    },
-    details: {
-      monthly_fees: { amount: '$30' },
-      account_type: 'Premium Checking',
-      availability: {
-        type: 'State',
-        states: ['NY', 'CA', 'FL', 'TX'],
-      },
-      expiration: '2024-12-31',
-      credit_inquiry: 'Soft Pull',
-      chex_systems: 'Yes',
-    },
-    logo: {
-      type: 'icon',
-      url: 'https://bankrewards.io/_next/image?url=https%3A%2F%2Ft3.gstatic.com%2FfaviconV2%3Fclient%3DSOCIAL%26type%3DFAVICON%26fallback_opts%3DTYPE%2CSIZE%2CURL%26url%3Dhttp%3A%2F%2Fbanking.citi.com%26size%3D128&w=128&q=75',
-    },
-  },
-];
-
-const creditCardOffers: FormData[] = [
+const mockOffers: Opportunity[] = [
   {
     name: 'Chase Sapphire Preferred',
     type: 'credit_card',
-    offer_link: 'https://www.referyourchasecard.com',
-    value: '900',
+    offer_link: 'https://www.chase.com/sapphire-preferred',
+    value: 800,
     bonus: {
-      title: 'Bonus Details',
-      description: 'Earn 60,000 Chase Ultimate Rewards points (worth ~$900)',
+      description:
+        'Earn 80,000 bonus points after you spend $4,000 on purchases in the first 3 months',
       requirements: {
-        title: 'Bonus Requirements',
-        description: 'Spend $4,000 in 3 months',
+        description: 'Spend $4,000 on purchases in the first 3 months',
+        spending_requirement: {
+          amount: 4000,
+          timeframe: '3 months',
+        },
       },
-      additional_info:
-        'Points are worth 50% more when redeemed for travel through Chase Ultimate Rewards',
     },
     details: {
-      monthly_fees: { amount: '$95' },
-      account_type: 'Premium Travel Card',
+      monthly_fees: {
+        amount: '$95',
+        waiver_details: 'Not waived first year',
+      },
+      account_type: 'Credit Card',
+      account_category: 'personal',
       availability: { type: 'Nationwide' },
-      credit_inquiry: 'Hard Pull',
-      expiration: '2025-12-31',
+      credit_score: {
+        min: 680,
+        recommended: 720,
+      },
+      under_5_24: {
+        required: true,
+        details: 'Must be under 5/24 rule',
+      },
+      annual_fees: {
+        amount: '$95',
+        waived_first_year: false,
+      },
+      foreign_transaction_fees: {
+        percentage: '0%',
+        waived: true,
+      },
+      minimum_credit_limit: '$5,000',
+      rewards_structure: {
+        base_rewards: '1x points on all purchases',
+        welcome_bonus: '80,000 points',
+        bonus_categories: [
+          {
+            category: 'Travel',
+            rate: '2x',
+            limit: 'Unlimited',
+          },
+          {
+            category: 'Dining',
+            rate: '3x',
+            limit: 'Unlimited',
+          },
+        ],
+      },
     },
     logo: {
-      type: 'icon',
-      url: 'https://bankrewards.io/_next/image?url=https%3A%2F%2Ft3.gstatic.com%2FfaviconV2%3Fclient%3DSOCIAL%26type%3DFAVICON%26fallback_opts%3DTYPE%2CSIZE%2CURL%26url%3Dhttp%3A%2F%2Fwww.referyourchasecard.com%26size%3D128&w=128&q=75',
-    },
-    card_image: {
-      url: 'https://creditcards.chase.com/K-Marketplace/images/cardart/sapphire_preferred_card.png',
-      network: 'Visa',
-      color: 'Blue',
-      badge: 'PREMIUM REWARDS',
+      url: 'https://bankrewards.io/_next/image?url=https%3A%2F%2Fplay-lh.googleusercontent.com%2FhGqUSy-kzb0D6FWrBH5Dv44uxmOqhdZyhAZUa3eZqVYsJHGUJkwEQhEXtGZh5SBR3zY&w=128&q=75',
     },
   },
   {
-    name: 'Capital One Venture X',
-    type: 'credit_card',
-    offer_link: 'https://capital.one/venture',
-    value: '1500',
+    name: 'Capital One 360 Checking',
+    type: 'bank',
+    offer_link: 'https://www.capitalone.com/360checking',
+    value: 400,
     bonus: {
-      title: 'Bonus Details',
-      description: 'Earn 150,000 miles (worth $1,500+ in travel)',
+      description: 'Get a $400 bonus when you open a new 360 Checking account',
       requirements: {
-        title: 'Bonus Requirements',
-        description: 'Spend $5,000 in 6 months',
-      },
-      additional_info: 'Includes $300 annual travel credit and Priority Pass membership',
-    },
-    details: {
-      monthly_fees: { amount: '$395' },
-      account_type: 'Premium Travel Card',
-      availability: { type: 'Nationwide' },
-      credit_inquiry: 'Hard Pull',
-      expiration: '2024-12-31',
-    },
-    logo: {
-      type: 'icon',
-      url: 'https://bankrewards.io/_next/image?url=https%3A%2F%2Fplay-lh.googleusercontent.com%2FPxZGVNHgFaLXfcrH9xLz3jvkqJ_9DVRoZ9FQ8DYa-tABxHXKYqS_-jqCJo04v6Pxbw&w=128&q=75',
-    },
-    card_image: {
-      url: 'https://cdn.wallethub.com/common/product/images/creditcards/500/capital-one-venture-x-rewards-credit-card-13011415c.png',
-      network: 'Visa Infinite',
-      color: 'Black',
-      badge: 'PREMIUM METAL CARD',
-    },
-  },
-];
-
-const brokerageOffers: FormData[] = [
-  {
-    name: 'Charles Schwab',
-    type: 'brokerage',
-    offer_link: 'https://www.schwab.com',
-    value: '101',
-    bonus: {
-      title: 'Bonus Details',
-      description: 'Get $101 in stock after funding your account',
-      requirements: {
-        title: 'Bonus Requirements',
-        description: 'Fund account with $50 within 30 days',
+        description: 'Receive 2 direct deposits totaling $1,000 or more within 60 days',
       },
     },
     details: {
-      monthly_fees: { amount: 'None' },
-      account_type: 'Brokerage Account',
+      monthly_fees: {
+        amount: 'None',
+        waiver_details: 'No monthly fees for this account',
+      },
+      account_type: 'Checking Account',
+      account_category: 'personal',
       availability: { type: 'Nationwide' },
-      expiration: '2025-12-31',
+      household_limit: 'One per person',
+      early_closure_fee: '$50 if closed within 90 days',
+      chex_systems: 'Sensitive',
     },
     logo: {
-      type: 'icon',
-      url: 'https://bankrewards.io/_next/image?url=https%3A%2F%2Fupload.wikimedia.org%2Fwikipedia%2Fcommons%2Fthumb%2F4%2F4b%2FCharles_Schwab_Corporation_logo.svg%2F1200px-Charles_Schwab_Corporation_logo.svg.png&w=128&q=75',
+      url: 'https://bankrewards.io/_next/image?url=https%3A%2F%2Fplay-lh.googleusercontent.com%2FhGqUSy-kzb0D6FWrBH5Dv44uxmOqhdZyhAZUa3eZqVYsJHGUJkwEQhEXtGZh5SBR3zY&w=128&q=75',
     },
   },
   {
     name: 'Webull',
     type: 'brokerage',
     offer_link: 'https://www.webull.com',
-    value: '250',
+    value: 250,
     bonus: {
-      title: 'Bonus Details',
       description: 'Get free stocks worth up to $250',
       requirements: {
-        title: 'Bonus Requirements',
         description: 'Open account and make a deposit',
+        minimum_deposit: 1,
+        trading_requirements: 'No trading requirements',
+        holding_period: '30 days',
       },
       tiers: [
-        { reward: '2 stocks ($3-$300)', deposit: '$1' },
-        { reward: '4 stocks ($7-$3,000)', deposit: '$100' },
-        { reward: '6 stocks ($15-$3,000)', deposit: '$2,000' },
+        {
+          level: 'Basic',
+          value: 300,
+          minimum_deposit: 1,
+          requirements: '2 stocks ($3-$300)',
+        },
+        {
+          level: 'Silver',
+          value: 3000,
+          minimum_deposit: 100,
+          requirements: '4 stocks ($7-$3,000)',
+        },
+        {
+          level: 'Gold',
+          value: 3000,
+          minimum_deposit: 2000,
+          requirements: '6 stocks ($15-$3,000)',
+        },
       ],
       additional_info: 'Also receive 1 year of free Level 2 market data',
     },
     details: {
-      monthly_fees: { amount: 'None' },
+      monthly_fees: {
+        amount: 'None',
+        waiver_details: 'No monthly fees for this account',
+      },
       account_type: 'Brokerage Account',
+      account_category: 'personal',
       availability: { type: 'Nationwide' },
-      credit_inquiry: 'Soft Pull',
-      expiration: 'None',
+      household_limit: 'One per person',
+      early_closure_fee: 'None',
     },
     logo: {
-      type: 'icon',
       url: 'https://bankrewards.io/_next/image?url=https%3A%2F%2Fplay-lh.googleusercontent.com%2FhGqUSy-kzb0D6FWrBH5Dv44uxmOqhdZyhAZUa3eZqVYsJHGUJkwEQhEXtGZh5SBR3zY&w=128&q=75',
     },
   },
 ];
 
-const allOffers: Record<OfferType, FormData[]> = {
-  bank: bankOffers,
-  credit_card: creditCardOffers,
-  brokerage: brokerageOffers,
-};
-
-export const getRandomOffer = (type: OfferType): FormData => {
-  const offers = allOffers[type];
-  return offers[Math.floor(Math.random() * offers.length)];
-};
-
-export const getAllOffers = () => allOffers;
+export function getRandomOffer(type: OfferType): Opportunity {
+  const filteredOffers = mockOffers.filter((offer) => offer.type === type);
+  if (filteredOffers.length === 0) {
+    throw new Error(`No mock offers found for type: ${type}`);
+  }
+  return { ...filteredOffers[Math.floor(Math.random() * filteredOffers.length)] };
+}

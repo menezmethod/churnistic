@@ -46,6 +46,16 @@ export async function GET(req: NextRequest) {
         id: doc.id,
         ...data,
         value: data.value || 0, // Ensure value is always a number
+        bonus: {
+          ...data.bonus,
+          requirements: {
+            ...data.bonus?.requirements,
+            minimum_deposit: data.bonus?.requirements?.minimum_deposit || null,
+            trading_requirements: data.bonus?.requirements?.trading_requirements || null,
+            holding_period: data.bonus?.requirements?.holding_period || null,
+          },
+          tiers: data.bonus?.tiers || null,
+        },
         details: {
           ...data.details,
           availability: data.details?.availability || { type: 'Nationwide' },
@@ -115,8 +125,12 @@ export async function POST(req: NextRequest) {
         requirements: {
           title: data.bonus?.requirements?.title || '',
           description: data.bonus?.requirements?.description || '',
+          minimum_deposit: data.bonus?.requirements?.minimum_deposit || null,
+          trading_requirements: data.bonus?.requirements?.trading_requirements || null,
+          holding_period: data.bonus?.requirements?.holding_period || null,
         },
         additional_info: data.bonus?.additional_info || null,
+        tiers: data.bonus?.tiers || null,
       },
       details: {
         monthly_fees: {
