@@ -1,15 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    optimizeCss: true,
-    scrollRestoration: true,
+  reactStrictMode: true,
+  images: {
+    domains: ['firebasestorage.googleapis.com'],
   },
-  webpack: (config) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      "undici": false,
-    };
-    return config;
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '2mb'
+    },
   },
 };
 

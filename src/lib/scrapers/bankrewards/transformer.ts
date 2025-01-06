@@ -24,6 +24,7 @@ export class BankRewardsTransformer {
 
   private extractTableTiers(): BonusTier[] {
     const tiers: BonusTier[] = [];
+    const seenTiers = new Set<string>();
 
     // Find tables that might contain tier information
     const tables = this.$('table');
@@ -65,13 +66,21 @@ export class BankRewardsTransformer {
             const normalizedDeposit = deposit.startsWith('$')
               ? deposit
               : `$${this.normalizeAmount(deposit)}`;
+            const normalizedReward = reward.startsWith('$')
+              ? `$${this.normalizeAmount(reward.slice(1))}`
+              : reward;
 
-            tiers.push({
-              reward: reward.startsWith('$')
-                ? `$${this.normalizeAmount(reward.slice(1))}`
-                : reward,
-              deposit: normalizedDeposit,
-            });
+            // Create a unique key for this tier combination
+            const tierKey = `${normalizedReward}-${normalizedDeposit}`;
+
+            // Only add if we haven't seen this exact combination before
+            if (!seenTiers.has(tierKey)) {
+              seenTiers.add(tierKey);
+              tiers.push({
+                reward: normalizedReward,
+                deposit: normalizedDeposit,
+              });
+            }
           }
         }
       });
@@ -82,6 +91,7 @@ export class BankRewardsTransformer {
 
   private extractTextTiers(text: string): BonusTier[] {
     const tiers: BonusTier[] = [];
+    const seenTiers = new Set<string>();
     const patterns = [
       // Share/Stock rewards with deposit tiers
       {
@@ -135,7 +145,12 @@ export class BankRewardsTransformer {
           for (const { pattern, handler } of patterns) {
             const match = itemText.match(pattern);
             if (match && match[1] && match[2]) {
-              tiers.push(handler(match));
+              const tier = handler(match);
+              const tierKey = `${tier.reward}-${tier.deposit}`;
+              if (!seenTiers.has(tierKey)) {
+                seenTiers.add(tierKey);
+                tiers.push(tier);
+              }
               break;
             }
           }
@@ -148,7 +163,12 @@ export class BankRewardsTransformer {
         const matches = Array.from(text.matchAll(pattern));
         for (const match of matches) {
           if (match[1] && match[2]) {
-            tiers.push(handler(match));
+            const tier = handler(match);
+            const tierKey = `${tier.reward}-${tier.deposit}`;
+            if (!seenTiers.has(tierKey)) {
+              seenTiers.add(tierKey);
+              tiers.push(tier);
+            }
           }
         }
       }
