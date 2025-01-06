@@ -43,4 +43,4 @@ export function DebugTools({ formData, onLoadSample, onReset }: DebugToolsProps)
       </Tooltip>
     </Box>
   );
-} 
+}

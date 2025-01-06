@@ -23,11 +23,14 @@ export async function verifySession(sessionCookie: string): Promise<SessionData 
     if (useEmulators) {
       console.log('🔧 Using Firebase Emulators for session verification');
       try {
+        // In emulator mode, we parse the session cookie directly
+        // This is a simplified version for development only
         const tokenData = JSON.parse(
           Buffer.from(sessionCookie.split('.')[1], 'base64').toString()
         );
+
+        // Construct a minimal decoded token for emulator mode
         decodedToken = {
-          ...tokenData,
           uid: tokenData.user_id || tokenData.sub,
           email: tokenData.email,
           email_verified: tokenData.email_verified || false,
@@ -35,6 +38,9 @@ export async function verifySession(sessionCookie: string): Promise<SessionData 
           iat: tokenData.iat || Math.floor(Date.now() / 1000),
           exp: tokenData.exp || Math.floor(Date.now() / 1000) + 3600,
           firebase: tokenData.firebase || { sign_in_provider: 'custom', identities: {} },
+          role: tokenData.role || 'user',
+          permissions: tokenData.permissions || [],
+          isSuperAdmin: tokenData.isSuperAdmin || false,
         };
         console.log('Emulator token decoded:', decodedToken);
       } catch (error) {
@@ -43,6 +49,7 @@ export async function verifySession(sessionCookie: string): Promise<SessionData 
       }
     } else {
       try {
+        // In production, verify the session cookie properly
         decodedToken = await auth.verifySessionCookie(sessionCookie, true);
         console.log('Session cookie verified for user:', decodedToken.uid);
       } catch (error) {

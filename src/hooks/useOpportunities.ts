@@ -1,59 +1,61 @@
 import { useState, useEffect } from 'react';
 
-import { Opportunity } from '@/types/opportunity';
-import { TransformedOffer } from '@/types/transformed';
+import { FormData, FirestoreOpportunity } from '@/types/opportunity';
 
 export function useOpportunities() {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [opportunities, setOpportunities] = useState<FormData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [isCollecting, setIsCollecting] = useState(false);
+  const [isCollecting] = useState(false);
 
   useEffect(() => {
     async function fetchOpportunities() {
-      console.log('Starting to fetch opportunities...');
       try {
-        const url = 'http://localhost:3000/api/bankrewards?format=detailed';
-        console.log('Making fetch request to:', url);
-        const response = await fetch(url);
-        console.log('Fetch response status:', response.status, response.statusText);
+        console.log('Fetching opportunities...');
+        const response = await fetch('/api/opportunities');
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Response not OK:', response.status, errorText);
           throw new Error(
-            `Failed to fetch opportunities: ${response.status} ${response.statusText}`
+            `Failed to fetch opportunities: ${response.status} - ${errorText}`
           );
         }
 
-        const text = await response.text();
-        console.log('Raw response text:', text);
+        const data = await response.json();
+        console.log('Received data:', data);
 
-        let data;
-        try {
-          data = JSON.parse(text);
-          console.log('Parsed response data:', data);
-        } catch (e) {
-          console.error('Failed to parse JSON:', e);
-          throw new Error('Invalid JSON response from server');
+        // Transform the data to match the UI's expected format
+        if (data.opportunities && Array.isArray(data.opportunities)) {
+          console.log('Data has opportunities array, length:', data.opportunities.length);
+          const transformedOpportunities = data.opportunities.map(
+            (opp: FirestoreOpportunity) => {
+              // Convert the numeric value to string for the UI
+              const formattedOpp: FormData = {
+                ...opp,
+                value: opp.value.toString(),
+                details: {
+                  ...opp.details,
+                  availability: {
+                    type: opp.details.availability?.type || 'Nationwide',
+                    states: opp.details.availability?.states || [],
+                  },
+                },
+              };
+              return formattedOpp;
+            }
+          );
+          console.log('Transformed opportunities:', transformedOpportunities);
+          setOpportunities(transformedOpportunities);
+        } else {
+          console.error('Unexpected data format:', data);
+          throw new Error('Unexpected data format received from API');
         }
 
-        // Check if data is in the expected format
-        if (!data || typeof data !== 'object' || !Array.isArray(data.offers)) {
-          console.error('Invalid response format:', data);
-          throw new Error('Invalid response format from server');
-        }
-
-        // Transform the offers into the expected Opportunity format
-        const transformedOpportunities = data.offers.map((offer: TransformedOffer) => {
-          return transformOffer(offer);
-        });
-
-        console.log('Transformed opportunities:', transformedOpportunities);
-        setOpportunities(transformedOpportunities);
-        setIsCollecting(false);
+        setError(null);
       } catch (err) {
-        console.error('Error in useOpportunities:', err);
-        setError(err instanceof Error ? err : new Error('An error occurred'));
-        setOpportunities([]);
+        console.error('Error fetching opportunities:', err);
+        setError(err as Error);
       } finally {
         setLoading(false);
       }
@@ -64,64 +66,3 @@ export function useOpportunities() {
 
   return { opportunities, loading, error, isCollecting };
 }
-
-const transformOffer = (offer: TransformedOffer): Opportunity => ({
-  _id: offer.id,
-  id: offer.id,
-  title: offer.name,
-  type: offer.type,
-  value: offer.bonus.requirements.description.match(/\$(\d+)/)?.[1]
-    ? parseInt(offer.bonus.requirements.description.match(/\$(\d+)/)?.[1] || '0')
-    : 0,
-  bank: offer.name.split(' ')[0],
-  description: offer.bonus.description,
-  requirements: [offer.bonus.requirements.description],
-  url: offer.offer_link,
-  source: {
-    name: 'BankRewards',
-    url: offer.offer_link,
-  },
-  metadata: {
-    created_at: offer.metadata.created,
-    last_updated: offer.metadata.updated,
-    version: '1.0',
-    credit: offer.details?.credit_inquiry
-      ? {
-          inquiry: offer.details.credit_inquiry,
-          chase_524_rule: offer.details?.under_5_24 === 'Yes',
-        }
-      : undefined,
-    fees: {
-      annual: offer.details?.annual_fees,
-      monthly:
-        typeof offer.details?.monthly_fees === 'string'
-          ? offer.details.monthly_fees
-          : offer.details?.monthly_fees?.amount,
-      foreign_transaction: offer.details?.foreign_transaction_fees,
-    },
-    timing: {
-      approval_time: undefined,
-      bonus_posting_time: undefined,
-    },
-    availability: {
-      type: (offer.details?.availability?.type || 'Nationwide') as 'Nationwide' | 'State',
-      states: offer.details?.availability?.states,
-      details: offer.details?.availability?.details,
-    },
-    features: [],
-  },
-  created_at: offer.metadata.created,
-  last_updated: offer.metadata.updated,
-  bonus: {
-    amount: parseInt(offer.bonus.requirements.description.match(/\$(\d+)/)?.[1] || '0'),
-    currency: 'USD',
-    requirements: [{ description: offer.bonus.requirements.description }],
-  },
-  timing: {
-    posted_date: offer.metadata.created,
-    last_verified: offer.metadata.updated,
-    expiration: offer.details?.expiration || 'None Listed',
-  },
-  offer_link: offer.offer_link,
-  status: 'active',
-});

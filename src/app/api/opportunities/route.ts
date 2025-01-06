@@ -1,248 +1,168 @@
-import { type Query, type DocumentData } from 'firebase-admin/firestore';
-import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server';
 
-import { db } from '@/lib/firebase/admin';
+import { createAuthContext } from '@/lib/auth/authUtils';
+import { getAdminDb } from '@/lib/firebase/admin';
+import { FormData, FirestoreOpportunity } from '@/types/opportunity';
 
-// Validation schemas
-const opportunitySchema = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'PENDING']).default('ACTIVE'),
-  type: z.string(),
-  value: z.number().positive(),
-  probability: z.number().min(0).max(100).optional(),
-  targetDate: z.string().optional(),
-});
+const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
-const updateOpportunitySchema = opportunitySchema.partial().extend({
-  id: z.string(),
-});
-
-interface Opportunity {
-  id: string;
-  name: string;
-  description?: string;
-  status: 'ACTIVE' | 'INACTIVE' | 'PENDING';
-  type: string;
-  value: number;
-  probability?: number;
-  targetDate?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const status = searchParams.get('status');
-    const type = searchParams.get('type');
-    const sortField = searchParams.get('sortField') || 'createdAt';
-    const sortDirection = (searchParams.get('sortDirection') || 'desc') as 'asc' | 'desc';
+    console.log('GET /api/opportunities - Starting request');
 
-    const opportunitiesRef = db.collection('opportunities');
-    let query: Query<DocumentData> = opportunitiesRef;
-
-    if (status) {
-      query = query.where('status', '==', status);
+    // Skip auth check in emulator mode
+    if (!useEmulator) {
+      const { session } = await createAuthContext(req);
+      console.log('Auth session:', session);
+      if (!session?.email) {
+        console.log('No session email found');
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
+
+    const { searchParams } = new URL(req.url);
+    const type = searchParams.get('type');
+    const limit = parseInt(searchParams.get('limit') || '10');
+
+    console.log('Query params:', { type, limit });
+
+    const db = getAdminDb();
+    console.log('Got Firestore instance');
+
+    let query = db
+      .collection('opportunities')
+      .orderBy('metadata.created_at', 'desc')
+      .limit(limit);
 
     if (type) {
       query = query.where('type', '==', type);
     }
 
-    query = query.orderBy(sortField, sortDirection);
-
-    const opportunitiesSnapshot = await query.get();
-    const opportunities = opportunitiesSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Opportunity[];
-
-    return NextResponse.json({
-      data: opportunities,
+    console.log('Executing Firestore query...');
+    const snapshot = await query.get();
+    const opportunities = snapshot.docs.map((doc) => {
+      const data = doc.data() as Omit<FirestoreOpportunity, 'id'>;
+      return {
+        id: doc.id,
+        ...data,
+        value: data.value || 0, // Ensure value is always a number
+        details: {
+          ...data.details,
+          availability: data.details?.availability || { type: 'Nationwide' },
+        },
+      };
     });
+
+    console.log('Found opportunities:', opportunities.length);
+    if (opportunities.length > 0) {
+      console.log('First opportunity:', JSON.stringify(opportunities[0], null, 2));
+    }
+
+    return NextResponse.json(opportunities);
   } catch (error) {
     console.error('Error fetching opportunities:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error details:', errorMessage);
     return NextResponse.json(
-      {
-        error: {
-          message: 'Failed to fetch opportunities',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      },
+      { error: 'Failed to fetch opportunities', details: errorMessage },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const validatedData = opportunitySchema.parse(body);
+    console.log('POST /api/opportunities - Starting request');
 
-    // Check if opportunity with same name exists
-    const existingOpportunitySnapshot = await db
-      .collection('opportunities')
-      .where('name', '==', validatedData.name)
-      .get();
+    let userEmail = 'test@example.com';
 
-    if (!existingOpportunitySnapshot.empty) {
+    // Skip auth check in emulator mode
+    if (!useEmulator) {
+      const { session } = await createAuthContext(req);
+      if (!session?.email) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      userEmail = session.email;
+    }
+
+    const body = await req.json();
+    console.log('Received data:', body);
+
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+
+    const data = body as FormData;
+
+    // Validate required fields
+    if (!data.name || !data.type) {
       return NextResponse.json(
-        {
-          error: {
-            message: 'Opportunity with this name already exists',
-            details: { field: 'name', value: validatedData.name },
-          },
-        },
+        { error: 'Name and type are required fields' },
         { status: 400 }
       );
     }
 
-    const opportunityData: Omit<Opportunity, 'id'> = {
-      ...validatedData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    // Convert the value to a number for storage
+    const opportunity = {
+      name: data.name.trim(),
+      type: data.type,
+      description: data.description || '',
+      offer_link: data.offer_link || '',
+      value: parseInt(data.value) || 0,
+      bonus: {
+        title: data.bonus?.title || '',
+        description: data.bonus?.description || '',
+        requirements: {
+          title: data.bonus?.requirements?.title || '',
+          description: data.bonus?.requirements?.description || '',
+        },
+        additional_info: data.bonus?.additional_info || null,
+      },
+      details: {
+        monthly_fees: {
+          amount: data.details?.monthly_fees?.amount || '0',
+        },
+        account_type: data.details?.account_type || '',
+        availability: data.details?.availability || {
+          type: 'Nationwide',
+          states: [],
+        },
+        credit_inquiry: data.details?.credit_inquiry || null,
+        household_limit: data.details?.household_limit || null,
+        early_closure_fee: data.details?.early_closure_fee || null,
+        chex_systems: data.details?.chex_systems || null,
+        expiration: data.details?.expiration || null,
+      },
+      logo: {
+        type: data.logo?.type || '',
+        url: data.logo?.url || '',
+      },
+      metadata: {
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        created_by: userEmail,
+        status: 'active',
+      },
     };
 
-    const docRef = await db.collection('opportunities').add(opportunityData);
-    const newOpportunitySnapshot = await docRef.get();
-    const newOpportunity = {
-      id: newOpportunitySnapshot.id,
-      ...newOpportunitySnapshot.data(),
-    } as Opportunity;
+    console.log('Prepared opportunity data:', opportunity);
 
-    return NextResponse.json({ data: newOpportunity });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: {
-            message: 'Invalid request data',
-            details: error.errors,
-          },
-        },
-        { status: 400 }
-      );
-    }
+    const db = getAdminDb();
+    console.log('Got Firestore instance');
 
-    console.error('Error creating opportunity:', error);
-    return NextResponse.json(
-      {
-        error: {
-          message: 'Failed to create opportunity',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { id, ...updateData } = updateOpportunitySchema.parse(body);
-
-    const opportunityRef = db.collection('opportunities').doc(id);
-    const opportunityDoc = await opportunityRef.get();
-
-    if (!opportunityDoc.exists) {
-      return NextResponse.json(
-        {
-          error: {
-            message: 'Opportunity not found',
-            details: { id },
-          },
-        },
-        { status: 404 }
-      );
-    }
-
-    await opportunityRef.update({
-      ...updateData,
-      updatedAt: new Date().toISOString(),
-    });
-
-    const updatedOpportunitySnapshot = await opportunityRef.get();
-    const updatedOpportunity = {
-      id: updatedOpportunitySnapshot.id,
-      ...updatedOpportunitySnapshot.data(),
-    } as Opportunity;
-
-    return NextResponse.json({ data: updatedOpportunity });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: {
-            message: 'Invalid request data',
-            details: error.errors,
-          },
-        },
-        { status: 400 }
-      );
-    }
-
-    console.error('Error updating opportunity:', error);
-    return NextResponse.json(
-      {
-        error: {
-          message: 'Failed to update opportunity',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json(
-        {
-          error: {
-            message: 'Invalid request data',
-            details: 'Opportunity ID is required',
-          },
-        },
-        { status: 400 }
-      );
-    }
-
-    const opportunityRef = db.collection('opportunities').doc(id);
-    const opportunityDoc = await opportunityRef.get();
-
-    if (!opportunityDoc.exists) {
-      return NextResponse.json(
-        {
-          error: {
-            message: 'Opportunity not found',
-            details: { id },
-          },
-        },
-        { status: 404 }
-      );
-    }
-
-    await opportunityRef.delete();
+    const docRef = await db.collection('opportunities').add(opportunity);
+    console.log('Opportunity created with ID:', docRef.id);
 
     return NextResponse.json({
-      data: { success: true },
+      id: docRef.id,
+      message: 'Opportunity created successfully',
     });
   } catch (error) {
-    console.error('Error deleting opportunity:', error);
+    console.error('Error creating opportunity:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error details:', errorMessage);
     return NextResponse.json(
-      {
-        error: {
-          message: 'Failed to delete opportunity',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      },
+      { error: 'Failed to create opportunity', details: errorMessage },
       { status: 500 }
     );
   }

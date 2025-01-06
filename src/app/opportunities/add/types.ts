@@ -75,7 +75,7 @@ export type NestedKeyOf<ObjectType extends object> = {
 export type PathValue<T, P extends string> = P extends keyof T
   ? T[P]
   : P extends `${infer K}.${infer Rest}`
-  ? K extends keyof T
-    ? PathValue<T[K], Rest>
-    : never
-  : never; 
+    ? K extends keyof T
+      ? PathValue<T[K], Rest>
+      : never
+    : never;

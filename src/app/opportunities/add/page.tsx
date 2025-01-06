@@ -29,7 +29,14 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { FormData, OfferType, NestedKeyOf, PathValue, BonusTier, USState } from '@/types/opportunity';
+import {
+  FormData,
+  OfferType,
+  NestedKeyOf,
+  PathValue,
+  BonusTier,
+  USState,
+} from '@/types/opportunity';
 
 import { DebugTools } from './components/DebugTools';
 import { getRandomOffer } from './mockData';
@@ -38,11 +45,56 @@ import { getRandomOffer } from './mockData';
 const steps = ['Basic Info', 'Bonus Details', 'Account Details', 'Additional Details'];
 
 const US_STATES = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
 ] as const;
 
 const initialFormData: FormData = {
@@ -56,21 +108,21 @@ const initialFormData: FormData = {
     requirements: {
       title: 'Bonus Requirements',
       description: '',
-    }
+    },
   },
   details: {
     monthly_fees: {
-      amount: 'None'
+      amount: 'None',
     },
     account_type: 'Personal Bank Account',
     availability: {
-      type: 'Nationwide'
-    }
+      type: 'Nationwide',
+    },
   },
   logo: {
     type: 'icon',
-    url: ''
-  }
+    url: '',
+  },
 };
 
 export default function AddOpportunityPage() {
@@ -88,11 +140,11 @@ export default function AddOpportunityPage() {
       const newData = { ...prev };
       const pathArray = path.split('.');
       let current: Record<string, unknown> = newData;
-      
+
       for (let i = 0; i < pathArray.length - 1; i++) {
         current = current[pathArray[i]] as Record<string, unknown>;
       }
-      
+
       current[pathArray[pathArray.length - 1]] = value;
       return newData;
     });
@@ -105,9 +157,9 @@ export default function AddOpportunityPage() {
         ...prev.details,
         availability: {
           type: 'State' as const,
-          states: newValue
-        }
-      }
+          states: newValue,
+        },
+      },
     }));
   };
 
@@ -116,8 +168,8 @@ export default function AddOpportunityPage() {
       ...prev,
       bonus: {
         ...prev.bonus,
-        tiers: [...(prev.bonus.tiers || []), { reward: '', deposit: '' }]
-      }
+        tiers: [...(prev.bonus.tiers || []), { reward: '', deposit: '' }],
+      },
     }));
   };
 
@@ -126,8 +178,8 @@ export default function AddOpportunityPage() {
       ...prev,
       bonus: {
         ...prev.bonus,
-        tiers: prev.bonus.tiers?.filter((_: BonusTier, i: number) => i !== index)
-      }
+        tiers: prev.bonus.tiers?.filter((_: BonusTier, i: number) => i !== index),
+      },
     }));
   };
 
@@ -149,22 +201,25 @@ export default function AddOpportunityPage() {
     setIsSubmitting(true);
 
     try {
-      const submissionData = {
-        id: Math.random().toString(36).substr(2, 9),
-        ...formData,
-        value: parseInt(formData.value),
-        metadata: {
-          created: new Date().toISOString(),
-          updated: new Date().toISOString(),
-        }
-      };
-      
-      console.log('Submitted Form Data:', submissionData);
+      const response = await fetch('/api/opportunities', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create opportunity');
+      }
+
+      const result = await response.json();
       setSuccess(true);
-      
+
+      // Redirect to the individual opportunity page after successful creation
       setTimeout(() => {
-        setSuccess(false);
-      }, 3000);
+        router.push(`/opportunities/${result.id}`);
+      }, 2000);
     } catch (err) {
       console.error('Error:', err);
     } finally {
@@ -260,7 +315,7 @@ export default function AddOpportunityPage() {
                 Describe the bonus and its requirements
               </Typography>
             </Box>
-            
+
             <TextField
               fullWidth
               name="bonus.description"
@@ -277,7 +332,9 @@ export default function AddOpportunityPage() {
               name="bonus.requirements.description"
               label="Bonus Requirements"
               value={formData.bonus.requirements.description}
-              onChange={(e) => handleNestedChange('bonus.requirements.description', e.target.value)}
+              onChange={(e) =>
+                handleNestedChange('bonus.requirements.description', e.target.value)
+              }
               required
               multiline
               rows={3}
@@ -302,11 +359,13 @@ export default function AddOpportunityPage() {
                         label="Reward"
                         value={tier.reward}
                         onChange={(e) => {
-                          const newTiers = [...(formData.bonus.tiers || [])] as BonusTier[];
+                          const newTiers = [
+                            ...(formData.bonus.tiers || []),
+                          ] as BonusTier[];
                           newTiers[index].reward = e.target.value;
                           setFormData((prev: FormData) => ({
                             ...prev,
-                            bonus: { ...prev.bonus, tiers: newTiers }
+                            bonus: { ...prev.bonus, tiers: newTiers },
                           }));
                         }}
                         sx={{ flex: 1 }}
@@ -315,11 +374,13 @@ export default function AddOpportunityPage() {
                         label="Required Deposit"
                         value={tier.deposit}
                         onChange={(e) => {
-                          const newTiers = [...(formData.bonus.tiers || [])] as BonusTier[];
+                          const newTiers = [
+                            ...(formData.bonus.tiers || []),
+                          ] as BonusTier[];
                           newTiers[index].deposit = e.target.value;
                           setFormData((prev: FormData) => ({
                             ...prev,
-                            bonus: { ...prev.bonus, tiers: newTiers }
+                            bonus: { ...prev.bonus, tiers: newTiers },
                           }));
                         }}
                         sx={{ flex: 1 }}
@@ -343,7 +404,9 @@ export default function AddOpportunityPage() {
               name="bonus.additional_info"
               label="Additional Information"
               value={formData.bonus.additional_info || ''}
-              onChange={(e) => handleNestedChange('bonus.additional_info', e.target.value)}
+              onChange={(e) =>
+                handleNestedChange('bonus.additional_info', e.target.value)
+              }
               multiline
               rows={2}
             />
@@ -366,7 +429,9 @@ export default function AddOpportunityPage() {
               name="details.monthly_fees.amount"
               label="Monthly Fees"
               value={formData.details.monthly_fees.amount}
-              onChange={(e) => handleNestedChange('details.monthly_fees.amount', e.target.value)}
+              onChange={(e) =>
+                handleNestedChange('details.monthly_fees.amount', e.target.value)
+              }
               required
               helperText="Enter any monthly fees (e.g., None, $12, etc.)"
             />
@@ -386,7 +451,12 @@ export default function AddOpportunityPage() {
                 name="details.availability.type"
                 value={formData.details.availability.type}
                 label="Availability Type"
-                onChange={(e) => handleNestedChange('details.availability.type', e.target.value as 'Nationwide' | 'State')}
+                onChange={(e) =>
+                  handleNestedChange(
+                    'details.availability.type',
+                    e.target.value as 'Nationwide' | 'State'
+                  )
+                }
                 required
               >
                 <MenuItem value="Nationwide">Nationwide</MenuItem>
@@ -409,11 +479,7 @@ export default function AddOpportunityPage() {
                 )}
                 renderTags={(value, getTagProps) =>
                   value.map((option, index) => (
-                    <Chip
-                      label={option}
-                      {...getTagProps({ index })}
-                      key={option}
-                    />
+                    <Chip label={option} {...getTagProps({ index })} key={option} />
                   ))
                 }
               />
@@ -449,7 +515,9 @@ export default function AddOpportunityPage() {
               name="details.credit_inquiry"
               label="Credit Inquiry Type"
               value={formData.details.credit_inquiry || ''}
-              onChange={(e) => handleNestedChange('details.credit_inquiry', e.target.value)}
+              onChange={(e) =>
+                handleNestedChange('details.credit_inquiry', e.target.value)
+              }
               helperText="Specify if it's a hard or soft pull"
             />
 
@@ -458,7 +526,9 @@ export default function AddOpportunityPage() {
               name="details.household_limit"
               label="Household Limit"
               value={formData.details.household_limit || ''}
-              onChange={(e) => handleNestedChange('details.household_limit', e.target.value)}
+              onChange={(e) =>
+                handleNestedChange('details.household_limit', e.target.value)
+              }
             />
 
             <TextField
@@ -466,7 +536,9 @@ export default function AddOpportunityPage() {
               name="details.early_closure_fee"
               label="Early Closure Fee"
               value={formData.details.early_closure_fee || ''}
-              onChange={(e) => handleNestedChange('details.early_closure_fee', e.target.value)}
+              onChange={(e) =>
+                handleNestedChange('details.early_closure_fee', e.target.value)
+              }
             />
 
             <TextField
@@ -493,7 +565,9 @@ export default function AddOpportunityPage() {
                   name="card_image.network"
                   label="Card Network"
                   value={formData.card_image?.network || ''}
-                  onChange={(e) => handleNestedChange('card_image.network', e.target.value)}
+                  onChange={(e) =>
+                    handleNestedChange('card_image.network', e.target.value)
+                  }
                 />
 
                 <TextField
@@ -516,7 +590,12 @@ export default function AddOpportunityPage() {
   return (
     <Container maxWidth="md" sx={{ py: 8 }}>
       <Paper elevation={0} sx={{ p: 3, mb: 4 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          sx={{ mb: 3 }}
+        >
           <Box>
             <Typography variant="h4" gutterBottom>
               Add New Opportunity
@@ -525,9 +604,9 @@ export default function AddOpportunityPage() {
               Create a new credit card, bank, or brokerage opportunity
             </Typography>
           </Box>
-          <DebugTools 
-            formData={formData} 
-            onLoadSample={loadRandomOffer} 
+          <DebugTools
+            formData={formData}
+            onLoadSample={loadRandomOffer}
             onReset={handleReset}
           />
         </Stack>
@@ -546,19 +625,16 @@ export default function AddOpportunityPage() {
           </Alert>
         )}
 
-        <Box component={activeStep === steps.length - 1 ? 'form' : 'div'} onSubmit={handleSubmit}>
-          <Box sx={{ mb: 4 }}>
-            {renderStepContent(activeStep)}
-          </Box>
+        <Box
+          component={activeStep === steps.length - 1 ? 'form' : 'div'}
+          onSubmit={handleSubmit}
+        >
+          <Box sx={{ mb: 4 }}>{renderStepContent(activeStep)}</Box>
 
           <Divider sx={{ my: 3 }} />
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Button
-              variant="outlined"
-              onClick={handleBack}
-              disabled={activeStep === 0}
-            >
+            <Button variant="outlined" onClick={handleBack} disabled={activeStep === 0}>
               Back
             </Button>
             <Box sx={{ display: 'flex', gap: 2 }}>
@@ -570,18 +646,11 @@ export default function AddOpportunityPage() {
                 Cancel
               </Button>
               {activeStep === steps.length - 1 ? (
-                <Button
-                  type="submit"
-                  variant="contained"
-                  disabled={isSubmitting}
-                >
+                <Button type="submit" variant="contained" disabled={isSubmitting}>
                   {isSubmitting ? 'Creating...' : 'Create Opportunity'}
                 </Button>
               ) : (
-                <Button
-                  variant="contained"
-                  onClick={handleNext}
-                >
+                <Button variant="contained" onClick={handleNext}>
                   Next
                 </Button>
               )}
@@ -591,4 +660,4 @@ export default function AddOpportunityPage() {
       </Paper>
     </Container>
   );
-} 
+}
