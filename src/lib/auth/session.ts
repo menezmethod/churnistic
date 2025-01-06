@@ -41,6 +41,9 @@ export async function verifySession(sessionCookie: string): Promise<SessionData 
           role: tokenData.role || 'user',
           permissions: tokenData.permissions || [],
           isSuperAdmin: tokenData.isSuperAdmin || false,
+          aud: tokenData.aud || 'churnistic',
+          iss: tokenData.iss || 'https://session.firebase.google.com/churnistic',
+          sub: tokenData.sub || tokenData.user_id,
         };
         console.log('Emulator token decoded:', decodedToken);
       } catch (error) {

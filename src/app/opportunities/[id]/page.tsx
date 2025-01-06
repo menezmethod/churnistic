@@ -1,15 +1,7 @@
 'use client';
 
 import { ArrowBack } from '@mui/icons-material';
-import {
-  Alert,
-  AlertTitle,
-  Box,
-  Button,
-  Container,
-  Paper,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Container, Stack, Typography } from '@mui/material';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import React from 'react';
@@ -30,98 +22,150 @@ export default function OpportunityDetailsPage() {
     );
   }
 
-  if (error) {
+  if (error || !opportunity) {
     return (
       <Container maxWidth="lg" sx={{ py: 8 }}>
-        <Alert severity="error">
-          <AlertTitle>Error Loading Opportunity</AlertTitle>
-          {error instanceof Error ? error.message : 'Failed to load opportunity details'}
-        </Alert>
-      </Container>
-    );
-  }
-
-  if (!opportunity) {
-    return (
-      <Container maxWidth="lg" sx={{ py: 8 }}>
-        <Alert severity="warning">
-          <AlertTitle>Opportunity Not Found</AlertTitle>
-          The opportunity you&apos;re looking for doesn&apos;t exist or has been removed.
-        </Alert>
+        <Link href="/opportunities" style={{ textDecoration: 'none' }}>
+          <Button startIcon={<ArrowBack />} variant="outlined" sx={{ mb: 3 }}>
+            Back to Opportunities
+          </Button>
+        </Link>
+        <Typography color="error">
+          {error instanceof Error ? error.message : 'Opportunity not found'}
+        </Typography>
       </Container>
     );
   }
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ mb: 4 }}>
-        <Link href="/opportunities" style={{ textDecoration: 'none' }}>
-          <Button startIcon={<ArrowBack />} variant="outlined" sx={{ mb: 3 }}>
-            Back to Opportunities
-          </Button>
-        </Link>
+      <Link href="/opportunities" style={{ textDecoration: 'none' }}>
+        <Button
+          startIcon={<ArrowBack />}
+          variant="outlined"
+          sx={{
+            mb: 4,
+            color: 'text.secondary',
+            borderColor: 'divider',
+            '&:hover': {
+              borderColor: 'primary.main',
+            },
+          }}
+        >
+          Back to Opportunities
+        </Button>
+      </Link>
 
-        <Paper sx={{ p: 4 }}>
-          <Typography variant="h4" gutterBottom>
-            {opportunity.name}
+      <Box sx={{ px: 3 }}>
+        {/* Title */}
+        <Typography variant="h3" component="h1" gutterBottom sx={{ mb: 4 }}>
+          {opportunity.name}
+        </Typography>
+
+        {/* Type and Value */}
+        <Stack direction="row" spacing={8} sx={{ mb: 4 }}>
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Type
+            </Typography>
+            <Typography>{opportunity.type}</Typography>
+          </Box>
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Value
+            </Typography>
+            <Typography>${opportunity.value.toLocaleString()}</Typography>
+          </Box>
+        </Stack>
+
+        {/* Bonus Details */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Bonus Details
+          </Typography>
+          <Typography sx={{ mb: 2 }}>{opportunity.bonus?.description}</Typography>
+
+          {opportunity.bonus?.requirements && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Requirements
+              </Typography>
+              <Typography>{opportunity.bonus.requirements.description}</Typography>
+            </Box>
+          )}
+
+          {opportunity.bonus?.additional_info && (
+            <Typography sx={{ mt: 2, fontStyle: 'italic', color: 'text.secondary' }}>
+              {opportunity.bonus.additional_info}
+            </Typography>
+          )}
+        </Box>
+
+        {/* Account Details */}
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            Account Details
           </Typography>
 
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle1" color="text.secondary">
-              Type: {opportunity.type}
-            </Typography>
-            <Typography variant="subtitle1" color="text.secondary">
-              Value: ${opportunity.value.toLocaleString()}
-            </Typography>
-          </Box>
-
-          {opportunity.bonus && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Bonus Details
-              </Typography>
-              <Typography>{opportunity.bonus.description}</Typography>
-              {opportunity.bonus.requirements && (
-                <Typography sx={{ mt: 2 }}>
-                  Requirements: {opportunity.bonus.requirements.description}
+          <Stack spacing={2}>
+            {opportunity.details?.account_type && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Account Type
                 </Typography>
-              )}
-            </Box>
-          )}
+                <Typography>{opportunity.details.account_type}</Typography>
+              </Box>
+            )}
 
-          {opportunity.details && (
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                Account Details
-              </Typography>
-              {opportunity.details.account_type && (
-                <Typography>Account Type: {opportunity.details.account_type}</Typography>
-              )}
-              {opportunity.details.monthly_fees?.amount && (
-                <Typography>
-                  Monthly Fee: ${opportunity.details.monthly_fees.amount}
+            {opportunity.details?.monthly_fees && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Monthly Fees
                 </Typography>
-              )}
-              {opportunity.details.credit_inquiry && (
-                <Typography>
-                  Credit Inquiry: {opportunity.details.credit_inquiry}
-                </Typography>
-              )}
-            </Box>
-          )}
+                <Typography>{opportunity.details.monthly_fees.amount}</Typography>
+              </Box>
+            )}
 
-          {opportunity.offer_link && (
-            <Button
-              variant="contained"
-              href={opportunity.offer_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ mt: 4 }}
-            >
-              View Offer
-            </Button>
-          )}
-        </Paper>
+            {opportunity.details?.availability && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Availability
+                </Typography>
+                <Typography>{opportunity.details.availability.type}</Typography>
+              </Box>
+            )}
+
+            {opportunity.details?.expiration && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Expiration
+                </Typography>
+                <Typography>{opportunity.details.expiration}</Typography>
+              </Box>
+            )}
+          </Stack>
+        </Box>
+
+        {/* View Offer Button */}
+        {opportunity.offer_link && (
+          <Button
+            variant="contained"
+            href={opportunity.offer_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            fullWidth
+            sx={{
+              mt: 4,
+              py: 1.5,
+              bgcolor: 'primary.main',
+              '&:hover': {
+                bgcolor: 'primary.dark',
+              },
+            }}
+          >
+            View Offer
+          </Button>
+        )}
       </Box>
     </Container>
   );

@@ -651,14 +651,17 @@ export default function DashboardPage() {
 
   // Transform opportunities data
   const transformedOpportunities = opportunities.map((opp) => ({
-    ...opp,
+    id: opp.id || crypto.randomUUID(),
     value: typeof opp.value === 'number' ? opp.value : parseInt(opp.value),
     title: opp.name,
+    type: opp.type === 'bank' ? ('bank_account' as const) : ('credit_card' as const),
     bank: opp.bank || 'Unknown Bank',
     description: opp.bonus?.description || '',
     requirements: [opp.bonus?.requirements?.description || ''],
     status: opp.metadata?.status || 'active',
     source: opp.metadata?.created_by || 'Unknown',
+    sourceLink: opp.offer_link || '',
+    postedDate: opp.metadata?.created_at || new Date().toISOString(),
     expirationDate: opp.details?.expiration,
     confidence: 0.9, // We can implement real confidence scoring later
   }));
@@ -679,11 +682,11 @@ export default function DashboardPage() {
 
   // Get tracked opportunities (opportunities with progress)
   const trackedOpportunities = transformedOpportunities
-    .filter((opp) => opp.status === 'in_progress')
+    .filter((opp) => opp.status === 'active')
     .map((opp) => ({
       id: opp.id,
       title: opp.title,
-      type: opp.type,
+      type: opp.type as 'credit_card' | 'bank_account',
       progress: opp.value * 0.5, // For now, assume 50% progress
       target: opp.value,
       daysLeft: 30, // Default to 30 days for now

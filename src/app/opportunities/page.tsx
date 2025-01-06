@@ -23,7 +23,6 @@ import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
-import { FirestoreOpportunity } from '@/types/opportunity';
 
 function OpportunitiesSection() {
   const { data: opportunities, isLoading, error } = useOpportunities();

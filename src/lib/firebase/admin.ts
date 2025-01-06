@@ -130,11 +130,11 @@ async function initializeAdmin() {
     console.log('Initializing Firebase Admin...');
 
     // Initialize Auth first
-    const auth = await initializeAdminAuth();
+    await initializeAdminAuth();
     console.log('Firebase Admin Auth initialized');
 
     // Then initialize Firestore
-    const db = await initializeAdminDb();
+    await initializeAdminDb();
     console.log('Firebase Admin Firestore initialized');
 
     isInitialized = true;
@@ -149,4 +149,5 @@ async function initializeAdmin() {
 // Initialize on module load
 initializeAdmin().catch(console.error);
 
+export { adminApp as app, adminAuth as auth, adminDb as db };
 export type { App, Auth, Firestore };
