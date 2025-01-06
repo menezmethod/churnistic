@@ -151,29 +151,6 @@ const getActivityIcon = (type: Activity['type']) => {
   }
 };
 
-const quickActions = [
-  {
-    label: 'Add New Opportunity',
-    icon: <AddIcon />,
-    onClick: () => console.log('Add new opportunity'),
-  },
-  {
-    label: 'Update Progress',
-    icon: <ArrowForwardIcon />,
-    onClick: () => console.log('Update progress'),
-  },
-  {
-    label: 'View Analytics',
-    icon: <InfoOutlinedIcon />,
-    onClick: () => console.log('View analytics'),
-  },
-  {
-    label: 'Settings',
-    icon: <SettingsIcon />,
-    onClick: () => console.log('Open settings'),
-  },
-];
-
 const OpportunityCard = ({ opportunity }: { opportunity: Opportunity }) => {
   const theme = useTheme();
 
@@ -705,12 +682,35 @@ const StatCard = ({
 
 export default function DashboardPage() {
   const theme = useTheme();
+  const router = useRouter();
   const [activityExpanded, setActivityExpanded] = useState(false);
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
   const { opportunities, loading: oppsLoading } = useOpportunities();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+
+  const quickActions = [
+    {
+      label: 'Add New Opportunity',
+      icon: <AddIcon />,
+      onClick: () => router.push('/opportunities/add'),
+    },
+    {
+      label: 'Update Progress',
+      icon: <ArrowForwardIcon />,
+      onClick: () => console.log('Update progress'),
+    },
+    {
+      label: 'View Analytics',
+      icon: <InfoOutlinedIcon />,
+      onClick: () => console.log('View analytics'),
+    },
+    {
+      label: 'Settings',
+      icon: <SettingsIcon />,
+      onClick: () => console.log('Open settings'),
+    },
+  ];
 
   useEffect(() => {
     if (!user) return;

@@ -9,10 +9,7 @@ const querySchema = z.object({
   format: z.enum(['detailed', 'simple']).optional(),
 });
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     // Validate query parameters
     const searchParams = request.nextUrl.searchParams;

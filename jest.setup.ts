@@ -36,7 +36,14 @@ jest.mock('next/navigation', () => ({
 // Mock Next.js image
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: function MockImage(props: any) {
+  default: function MockImage(props: {
+    src: string;
+    alt?: string;
+    width?: number;
+    height?: number;
+    className?: string;
+    priority?: boolean;
+  }) {
     return {
       type: 'img',
       props: {
