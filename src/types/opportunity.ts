@@ -45,7 +45,7 @@ export interface FirestoreOpportunity {
     account_category?: 'personal' | 'business'; // For credit cards and bank accounts
     availability?: {
       type: 'Nationwide' | 'State';
-      states?: string[];
+      states?: USState[];
       details?: string;
     };
     credit_inquiry?: string;
@@ -79,10 +79,18 @@ export interface FirestoreOpportunity {
       }>;
       welcome_bonus?: string;
     };
+    options_trading?: 'Yes' | 'No' | string;
+    ira_accounts?: 'Yes' | 'No' | string;
   };
   logo?: {
     type?: 'icon' | 'url';
     url?: string;
+  };
+  card_image?: {
+    url: string;
+    network?: string;
+    color?: string;
+    badge?: string;
   };
   metadata?: {
     created_at: string;
@@ -165,6 +173,8 @@ export interface Details {
   household_limit?: string;
   early_closure_fee?: string;
   chex_systems?: string;
+  options_trading?: 'Yes' | 'No' | string;
+  ira_accounts?: 'Yes' | 'No' | string;
 }
 
 export interface Bonus {
@@ -175,16 +185,98 @@ export interface Bonus {
 }
 
 export interface Opportunity {
-  type: 'bank' | 'credit_card' | 'brokerage';
+  id?: string;
+  type: 'credit_card' | 'bank' | 'brokerage';
   name: string;
-  offer_link?: string;
+  offer_link: string;
   value: number;
-  logo: {
-    url: string;
+  bonus?: {
+    title?: string;
+    description?: string;
+    requirements?: {
+      title?: string;
+      description?: string;
+      minimum_deposit?: number;
+      trading_requirements?: string;
+      holding_period?: string;
+      spending_requirement?: {
+        amount: number;
+        timeframe: string;
+      };
+    };
+    additional_info?: string;
+    tiers?: Array<{
+      level: string;
+      value: number;
+      minimum_deposit: number;
+      requirements: string;
+    }>;
   };
-  bonus: Bonus;
-  details: Details;
-  // ... other properties if any
+  details?: {
+    monthly_fees?: {
+      amount?: string;
+      waiver_details?: string;
+    };
+    account_type?: string;
+    account_category?: 'personal' | 'business';
+    availability?: {
+      type: 'Nationwide' | 'State';
+      states?: string[];
+      details?: string;
+    };
+    credit_inquiry?: string;
+    credit_score?: {
+      min?: number;
+      recommended?: number;
+    };
+    household_limit?: string;
+    early_closure_fee?: string;
+    chex_systems?: string;
+    expiration?: string;
+    under_5_24?: {
+      required: boolean;
+      details?: string;
+    };
+    annual_fees?: {
+      amount: string;
+      waived_first_year: boolean;
+    };
+    foreign_transaction_fees?: {
+      percentage: string;
+      waived: boolean;
+    };
+    minimum_credit_limit?: string;
+    rewards_structure?: {
+      base_rewards: string;
+      bonus_categories?: Array<{
+        category: string;
+        rate: string;
+        limit?: string;
+      }>;
+      welcome_bonus?: string;
+    };
+    options_trading?: 'Yes' | 'No' | string;
+    ira_accounts?: 'Yes' | 'No' | string;
+  };
+  logo?: {
+    type?: 'icon' | 'url';
+    url?: string;
+  };
+  card_image?: {
+    url: string;
+    network?: string;
+    color?: string;
+    badge?: string;
+  };
+  metadata?: {
+    created_at: string;
+    updated_at: string;
+    created_by: string;
+    status: 'active' | 'inactive';
+  };
+  bank?: string;
+  description?: string;
+  title?: string;
 }
 
 // Utility types for handling nested keys, including array indices

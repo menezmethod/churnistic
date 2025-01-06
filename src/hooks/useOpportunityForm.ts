@@ -57,18 +57,69 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
   const [formData, setFormData] = useState<Opportunity>({
     type: 'bank',
     name: '',
+    offer_link: '',
     value: 0,
-    logo: { url: '' },
+    logo: {
+      type: 'url',
+      url: '',
+    },
     bonus: {
+      title: '',
       description: '',
       requirements: {
+        title: '',
         description: '',
+        minimum_deposit: 0,
+        trading_requirements: '',
+        holding_period: '',
+        spending_requirement: {
+          amount: 0,
+          timeframe: '',
+        },
       },
+      additional_info: '',
+      tiers: [],
     },
     details: {
-      monthly_fees: { amount: '' },
+      monthly_fees: {
+        amount: '',
+        waiver_details: '',
+      },
       account_type: '',
-      availability: { type: 'Nationwide' },
+      account_category: 'personal',
+      availability: {
+        type: 'Nationwide',
+        states: [],
+      },
+      credit_inquiry: '',
+      credit_score: {
+        min: 0,
+        recommended: 0,
+      },
+      household_limit: '',
+      early_closure_fee: '',
+      chex_systems: '',
+      expiration: '',
+      under_5_24: {
+        required: false,
+        details: '',
+      },
+      annual_fees: {
+        amount: '',
+        waived_first_year: false,
+      },
+      foreign_transaction_fees: {
+        percentage: '',
+        waived: false,
+      },
+      minimum_credit_limit: '',
+      rewards_structure: {
+        base_rewards: '',
+        bonus_categories: [],
+        welcome_bonus: '',
+      },
+      options_trading: 'No',
+      ira_accounts: 'No',
     },
     ...initialData,
   });

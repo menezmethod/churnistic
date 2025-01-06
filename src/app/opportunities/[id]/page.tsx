@@ -94,6 +94,52 @@ export default function OpportunityDetailsPage() {
             </Box>
           )}
 
+          {opportunity.bonus?.tiers && opportunity.bonus.tiers.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Bonus Tiers
+              </Typography>
+              <Stack spacing={2}>
+                {opportunity.bonus.tiers.map((tier, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      p: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      bgcolor: 'background.paper',
+                    }}
+                  >
+                    <Typography variant="subtitle1" gutterBottom>
+                      {tier.level}
+                    </Typography>
+                    <Stack spacing={1}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Value
+                        </Typography>
+                        <Typography>${tier.value}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Minimum Deposit
+                        </Typography>
+                        <Typography>${tier.minimum_deposit}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Requirements
+                        </Typography>
+                        <Typography>{tier.requirements}</Typography>
+                      </Box>
+                    </Stack>
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+          )}
+
           {opportunity.bonus?.additional_info && (
             <Typography sx={{ mt: 2, fontStyle: 'italic', color: 'text.secondary' }}>
               {opportunity.bonus.additional_info}
@@ -132,7 +178,70 @@ export default function OpportunityDetailsPage() {
                   Availability
                 </Typography>
                 <Typography>{opportunity.details.availability.type}</Typography>
+                {opportunity.details.availability.type === 'State' && opportunity.details.availability.states && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Available in: {opportunity.details.availability.states.join(', ')}
+                  </Typography>
+                )}
               </Box>
+            )}
+
+            {opportunity.details?.credit_inquiry && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Credit Inquiry Type
+                </Typography>
+                <Typography>{opportunity.details.credit_inquiry}</Typography>
+              </Box>
+            )}
+
+            {opportunity.details?.household_limit && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Household Limit
+                </Typography>
+                <Typography>{opportunity.details.household_limit}</Typography>
+              </Box>
+            )}
+
+            {opportunity.details?.early_closure_fee && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Early Closure Fee
+                </Typography>
+                <Typography>{opportunity.details.early_closure_fee}</Typography>
+              </Box>
+            )}
+
+            {opportunity.type === 'brokerage' && opportunity.bonus?.requirements && (
+              <>
+                {opportunity.bonus.requirements.trading_requirements && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Trading Requirements
+                    </Typography>
+                    <Typography>{opportunity.bonus.requirements.trading_requirements}</Typography>
+                  </Box>
+                )}
+                
+                {opportunity.bonus.requirements.holding_period && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Holding Period
+                    </Typography>
+                    <Typography>{opportunity.bonus.requirements.holding_period}</Typography>
+                  </Box>
+                )}
+
+                {opportunity.bonus.requirements.minimum_deposit && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Minimum Deposit
+                    </Typography>
+                    <Typography>${opportunity.bonus.requirements.minimum_deposit}</Typography>
+                  </Box>
+                )}
+              </>
             )}
 
             {opportunity.details?.expiration && (
