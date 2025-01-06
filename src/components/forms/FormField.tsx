@@ -20,7 +20,7 @@ interface BaseFormFieldProps {
 
 interface TextFormFieldProps extends BaseFormFieldProps {
   type: 'text' | 'number' | 'url' | 'date';
-  value: string;
+  value: string | undefined;
   onChange: (value: string) => void;
   multiline?: boolean;
   rows?: number;
@@ -29,7 +29,7 @@ interface TextFormFieldProps extends BaseFormFieldProps {
 
 interface SelectFormFieldProps extends BaseFormFieldProps {
   type: 'select';
-  value: string;
+  value: string | undefined;
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
   selectProps?: Partial<SelectProps>;
@@ -37,7 +37,7 @@ interface SelectFormFieldProps extends BaseFormFieldProps {
 
 interface ObjectFormFieldProps extends BaseFormFieldProps {
   type: 'object';
-  value: Record<string, unknown>;
+  value: Record<string, unknown> | undefined;
   onChange: (value: Record<string, unknown>) => void;
   fields: Array<{
     name: string;
@@ -98,13 +98,13 @@ export function FormField(props: FormFieldProps) {
               label={field.label}
               value={
                 field.type === 'boolean'
-                  ? value[field.name]
+                  ? value?.[field.name]
                     ? 'Yes'
                     : 'No'
-                  : value[field.name] || ''
+                  : value?.[field.name] ?? ''
               }
               onChange={(e) => {
-                const newValue = { ...value };
+                const newValue = { ...value } || {};
                 if (field.type === 'boolean') {
                   newValue[field.name] = e.target.value === 'Yes';
                 } else if (field.type === 'number') {

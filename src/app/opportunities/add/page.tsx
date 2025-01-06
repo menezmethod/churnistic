@@ -16,6 +16,7 @@ import {
   StepLabel,
   Stepper,
   Typography,
+  TextField,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -106,7 +107,7 @@ export default function AddOpportunityPage() {
     setActiveStep((prevStep) => prevStep - 1);
   };
 
-  const handleStatesChange = (_event: React.SyntheticEvent, newValue: string[]) => {
+  const handleStatesChange = (_event: React.SyntheticEvent, newValue: readonly string[]) => {
     handleChange('details.availability.states', newValue as USState[]);
   };
 
@@ -177,11 +178,53 @@ export default function AddOpportunityPage() {
               type="url"
               name="logo.url"
               label="Logo URL"
-              value={formData.logo.url}
+              value={formData.logo?.url}
               onChange={(value) => handleChange('logo.url', value)}
               error={errors['logo.url']}
               required
             />
+
+            {formData.type === 'credit_card' && (
+              <Box>
+                <Typography variant="subtitle1" gutterBottom>
+                  Card Image
+                </Typography>
+                <Stack spacing={2}>
+                  <FormField
+                    type="url"
+                    name="card_image.url"
+                    label="Card Image URL"
+                    value={formData.card_image?.url}
+                    onChange={(value) => handleChange('card_image.url', value)}
+                    error={errors['card_image.url']}
+                  />
+                  <FormField
+                    type="text"
+                    name="card_image.network"
+                    label="Card Network"
+                    value={formData.card_image?.network || ''}
+                    onChange={(value) => handleChange('card_image.network', value)}
+                    error={errors['card_image.network']}
+                  />
+                  <FormField
+                    type="text"
+                    name="card_image.color"
+                    label="Card Color"
+                    value={formData.card_image?.color || ''}
+                    onChange={(value) => handleChange('card_image.color', value)}
+                    error={errors['card_image.color']}
+                  />
+                  <FormField
+                    type="text"
+                    name="card_image.badge"
+                    label="Card Badge"
+                    value={formData.card_image?.badge || ''}
+                    onChange={(value) => handleChange('card_image.badge', value)}
+                    error={errors['card_image.badge']}
+                  />
+                </Stack>
+              </Box>
+            )}
           </Stack>
         );
 
@@ -201,7 +244,7 @@ export default function AddOpportunityPage() {
               type="text"
               name="bonus.description"
               label="Bonus Description"
-              value={formData.bonus.description}
+              value={formData.bonus?.description}
               onChange={(value) => handleChange('bonus.description', value)}
               error={errors['bonus.description']}
               required
@@ -213,7 +256,7 @@ export default function AddOpportunityPage() {
               type="text"
               name="bonus.requirements.description"
               label="Bonus Requirements"
-              value={formData.bonus.requirements.description}
+              value={formData.bonus?.requirements?.description}
               onChange={(value) => handleChange('bonus.requirements.description', value)}
               error={errors['bonus.requirements.description']}
               required
@@ -227,7 +270,7 @@ export default function AddOpportunityPage() {
                   type="number"
                   name="bonus.requirements.minimum_deposit"
                   label="Minimum Deposit"
-                  value={String(formData.bonus.requirements.minimum_deposit)}
+                  value={String(formData.bonus?.requirements?.minimum_deposit || '')}
                   onChange={(value) =>
                     handleChange('bonus.requirements.minimum_deposit', value)
                   }
@@ -244,7 +287,7 @@ export default function AddOpportunityPage() {
                   type="text"
                   name="bonus.requirements.trading_requirements"
                   label="Trading Requirements"
-                  value={formData.bonus.requirements.trading_requirements || ''}
+                  value={formData.bonus?.requirements?.trading_requirements || ''}
                   onChange={(value) =>
                     handleChange('bonus.requirements.trading_requirements', value)
                   }
@@ -256,7 +299,7 @@ export default function AddOpportunityPage() {
                   type="text"
                   name="bonus.requirements.holding_period"
                   label="Holding Period"
-                  value={formData.bonus.requirements.holding_period || ''}
+                  value={formData.bonus?.requirements?.holding_period || ''}
                   onChange={(value) =>
                     handleChange('bonus.requirements.holding_period', value)
                   }
@@ -268,7 +311,7 @@ export default function AddOpportunityPage() {
                   <Typography variant="subtitle1" gutterBottom>
                     Bonus Tiers
                   </Typography>
-                  {(formData.bonus.tiers || []).map((tier, index) => (
+                  {(formData.bonus?.tiers || []).map((tier, index) => (
                     <Stack
                       key={index}
                       spacing={2}
@@ -286,7 +329,7 @@ export default function AddOpportunityPage() {
                         label="Tier Level"
                         value={tier.level}
                         onChange={(value) => {
-                          const newTiers = [...(formData.bonus.tiers || [])];
+                          const newTiers = [...(formData.bonus?.tiers || [])];
                           newTiers[index] = { ...tier, level: value };
                           handleChange('bonus.tiers', newTiers);
                         }}
@@ -302,7 +345,7 @@ export default function AddOpportunityPage() {
                         label="Tier Value"
                         value={String(tier.value)}
                         onChange={(value) => {
-                          const newTiers = [...(formData.bonus.tiers || [])];
+                          const newTiers = [...(formData.bonus?.tiers || [])];
                           newTiers[index] = { ...tier, value: Number(value) };
                           handleChange('bonus.tiers', newTiers);
                         }}
@@ -323,7 +366,7 @@ export default function AddOpportunityPage() {
                         label="Tier Minimum Deposit"
                         value={String(tier.minimum_deposit)}
                         onChange={(value) => {
-                          const newTiers = [...(formData.bonus.tiers || [])];
+                          const newTiers = [...(formData.bonus?.tiers || [])];
                           newTiers[index] = { ...tier, minimum_deposit: Number(value) };
                           handleChange('bonus.tiers', newTiers);
                         }}
@@ -346,7 +389,7 @@ export default function AddOpportunityPage() {
                         label="Tier Requirements"
                         value={tier.requirements}
                         onChange={(value) => {
-                          const newTiers = [...(formData.bonus.tiers || [])];
+                          const newTiers = [...(formData.bonus?.tiers || [])];
                           newTiers[index] = { ...tier, requirements: value };
                           handleChange('bonus.tiers', newTiers);
                         }}
@@ -362,7 +405,7 @@ export default function AddOpportunityPage() {
                         variant="outlined"
                         color="error"
                         onClick={() => {
-                          const newTiers = [...(formData.bonus.tiers || [])];
+                          const newTiers = [...(formData.bonus?.tiers || [])];
                           newTiers.splice(index, 1);
                           handleChange('bonus.tiers', newTiers);
                         }}
@@ -377,7 +420,7 @@ export default function AddOpportunityPage() {
                     variant="outlined"
                     onClick={() => {
                       const newTiers = [
-                        ...(formData.bonus.tiers || []),
+                        ...(formData.bonus?.tiers || []),
                         {
                           level: '',
                           value: 0,
@@ -403,7 +446,7 @@ export default function AddOpportunityPage() {
                   name="bonus.requirements.spending_requirement.amount"
                   label="Amount"
                   value={String(
-                    formData.bonus.requirements.spending_requirement?.amount || ''
+                    formData.bonus?.requirements?.spending_requirement?.amount || ''
                   )}
                   onChange={(value) =>
                     handleChange(
@@ -424,7 +467,7 @@ export default function AddOpportunityPage() {
                   name="bonus.requirements.spending_requirement.timeframe"
                   label="Timeframe"
                   value={
-                    formData.bonus.requirements.spending_requirement?.timeframe || ''
+                    formData.bonus?.requirements?.spending_requirement?.timeframe || ''
                   }
                   onChange={(value) =>
                     handleChange(
@@ -442,7 +485,7 @@ export default function AddOpportunityPage() {
               type="text"
               name="bonus.additional_info"
               label="Additional Information"
-              value={formData.bonus.additional_info || ''}
+              value={formData.bonus?.additional_info || ''}
               onChange={(value) => handleChange('bonus.additional_info', value)}
               error={errors['bonus.additional_info']}
               multiline
@@ -467,7 +510,7 @@ export default function AddOpportunityPage() {
               type="text"
               name="details.monthly_fees.amount"
               label="Monthly Fees"
-              value={formData.details.monthly_fees.amount}
+              value={formData.details?.monthly_fees?.amount}
               onChange={(value) => handleChange('details.monthly_fees.amount', value)}
               error={errors['details.monthly_fees.amount']}
               required
@@ -477,7 +520,7 @@ export default function AddOpportunityPage() {
               type="text"
               name="details.monthly_fees.waiver_details"
               label="Fee Waiver Details"
-              value={formData.details.monthly_fees.waiver_details || ''}
+              value={formData.details?.monthly_fees?.waiver_details}
               onChange={(value) =>
                 handleChange('details.monthly_fees.waiver_details', value)
               }
@@ -488,7 +531,7 @@ export default function AddOpportunityPage() {
               type="text"
               name="details.account_type"
               label="Account Type"
-              value={formData.details.account_type}
+              value={formData.details?.account_type}
               onChange={(value) => handleChange('details.account_type', value)}
               error={errors['details.account_type']}
               required
@@ -498,7 +541,7 @@ export default function AddOpportunityPage() {
               type="select"
               name="details.account_category"
               label="Account Category"
-              value={formData.details.account_category || 'personal'}
+              value={formData.details?.account_category || 'personal'}
               onChange={(value) => handleChange('details.account_category', value)}
               error={errors['details.account_category']}
               options={[
@@ -511,7 +554,7 @@ export default function AddOpportunityPage() {
               type="select"
               name="details.availability.type"
               label="Availability Type"
-              value={formData.details.availability.type}
+              value={formData.details?.availability?.type || 'Nationwide'}
               onChange={(value) => handleChange('details.availability.type', value)}
               error={errors['details.availability.type']}
               required
@@ -521,21 +564,19 @@ export default function AddOpportunityPage() {
               ]}
             />
 
-            {formData.details.availability.type === 'State' && (
-              <Autocomplete<(typeof US_STATES)[number], true>
+            {formData.details?.availability?.type === 'State' && (
+              <Autocomplete<string, true>
                 multiple
                 options={US_STATES}
-                value={formData.details.availability.states as (typeof US_STATES)[number][]}
+                value={formData.details?.availability?.states || []}
                 onChange={handleStatesChange}
                 renderInput={(params) => (
-                  <FormField
+                  <TextField
                     {...params}
-                    type="text"
-                    name="details.availability.states"
                     label="Available States"
-                    error={errors['details.availability.states']}
-                    value={''}
-                    onChange={() => {}}
+                    error={!!errors['details.availability.states']}
+                    helperText={errors['details.availability.states']}
+                    required
                   />
                 )}
                 renderTags={(value, getTagProps) =>
@@ -550,7 +591,7 @@ export default function AddOpportunityPage() {
               type="date"
               name="details.expiration"
               label="Expiration Date"
-              value={formData.details.expiration || ''}
+              value={formData.details?.expiration || ''}
               onChange={(value) => handleChange('details.expiration', value)}
               error={errors['details.expiration']}
               textFieldProps={{
@@ -582,7 +623,7 @@ export default function AddOpportunityPage() {
                     type="number"
                     name="details.credit_score.min"
                     label="Minimum Score"
-                    value={String(formData.details.credit_score?.min || '')}
+                    value={String(formData.details?.credit_score?.min || '')}
                     onChange={(value) =>
                       handleChange('details.credit_score.min', Number(value))
                     }
@@ -592,7 +633,7 @@ export default function AddOpportunityPage() {
                     type="number"
                     name="details.credit_score.recommended"
                     label="Recommended Score"
-                    value={String(formData.details.credit_score?.recommended || '')}
+                    value={String(formData.details?.credit_score?.recommended || '')}
                     onChange={(value) =>
                       handleChange('details.credit_score.recommended', Number(value))
                     }
@@ -606,7 +647,7 @@ export default function AddOpportunityPage() {
                     type="select"
                     name="details.under_5_24.required"
                     label="Required"
-                    value={formData.details.under_5_24?.required ? 'true' : 'false'}
+                    value={formData.details?.under_5_24?.required ? 'true' : 'false'}
                     onChange={(value) =>
                       handleChange('details.under_5_24.required', value === 'true')
                     }
@@ -620,7 +661,7 @@ export default function AddOpportunityPage() {
                     type="text"
                     name="details.under_5_24.details"
                     label="Details"
-                    value={formData.details.under_5_24?.details || ''}
+                    value={formData.details?.under_5_24?.details || ''}
                     onChange={(value) =>
                       handleChange('details.under_5_24.details', value)
                     }
@@ -634,7 +675,7 @@ export default function AddOpportunityPage() {
                     type="text"
                     name="details.annual_fees.amount"
                     label="Amount"
-                    value={formData.details.annual_fees?.amount || ''}
+                    value={formData.details?.annual_fees?.amount || ''}
                     onChange={(value) =>
                       handleChange('details.annual_fees.amount', value)
                     }
@@ -645,7 +686,7 @@ export default function AddOpportunityPage() {
                     name="details.annual_fees.waived_first_year"
                     label="Waived First Year"
                     value={
-                      formData.details.annual_fees?.waived_first_year ? 'true' : 'false'
+                      formData.details?.annual_fees?.waived_first_year ? 'true' : 'false'
                     }
                     onChange={(value) =>
                       handleChange(
@@ -667,7 +708,7 @@ export default function AddOpportunityPage() {
                     type="text"
                     name="details.foreign_transaction_fees.percentage"
                     label="Percentage"
-                    value={formData.details.foreign_transaction_fees?.percentage || ''}
+                    value={formData.details?.foreign_transaction_fees?.percentage || ''}
                     onChange={(value) =>
                       handleChange('details.foreign_transaction_fees.percentage', value)
                     }
@@ -678,7 +719,7 @@ export default function AddOpportunityPage() {
                     name="details.foreign_transaction_fees.waived"
                     label="Waived"
                     value={
-                      formData.details.foreign_transaction_fees?.waived ? 'true' : 'false'
+                      formData.details?.foreign_transaction_fees?.waived ? 'true' : 'false'
                     }
                     onChange={(value) =>
                       handleChange(
@@ -698,7 +739,7 @@ export default function AddOpportunityPage() {
                   type="text"
                   name="details.minimum_credit_limit"
                   label="Minimum Credit Limit"
-                  value={formData.details.minimum_credit_limit || ''}
+                  value={formData.details?.minimum_credit_limit || ''}
                   onChange={(value) =>
                     handleChange('details.minimum_credit_limit', value)
                   }
@@ -713,7 +754,7 @@ export default function AddOpportunityPage() {
                     type="text"
                     name="details.rewards_structure.base_rewards"
                     label="Base Rewards Rate"
-                    value={formData.details.rewards_structure?.base_rewards || ''}
+                    value={formData.details?.rewards_structure?.base_rewards || ''}
                     onChange={(value) =>
                       handleChange('details.rewards_structure.base_rewards', value)
                     }
@@ -725,7 +766,7 @@ export default function AddOpportunityPage() {
                     type="text"
                     name="details.rewards_structure.welcome_bonus"
                     label="Welcome Bonus"
-                    value={formData.details.rewards_structure?.welcome_bonus || ''}
+                    value={formData.details?.rewards_structure?.welcome_bonus || ''}
                     onChange={(value) =>
                       handleChange('details.rewards_structure.welcome_bonus', value)
                     }
@@ -735,7 +776,7 @@ export default function AddOpportunityPage() {
                   <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
                     Bonus Categories
                   </Typography>
-                  {(formData.details.rewards_structure?.bonus_categories || []).map(
+                  {(formData.details?.rewards_structure?.bonus_categories || []).map(
                     (category, index) => (
                       <Stack
                         key={index}
@@ -755,7 +796,7 @@ export default function AddOpportunityPage() {
                           value={category.category}
                           onChange={(value) => {
                             const newCategories = [
-                              ...(formData.details.rewards_structure?.bonus_categories ||
+                              ...(formData.details?.rewards_structure?.bonus_categories ||
                                 []),
                             ];
                             newCategories[index] = { ...category, category: value };
@@ -779,7 +820,7 @@ export default function AddOpportunityPage() {
                           value={category.rate}
                           onChange={(value) => {
                             const newCategories = [
-                              ...(formData.details.rewards_structure?.bonus_categories ||
+                              ...(formData.details?.rewards_structure?.bonus_categories ||
                                 []),
                             ];
                             newCategories[index] = { ...category, rate: value };
@@ -803,7 +844,7 @@ export default function AddOpportunityPage() {
                           value={category.limit || ''}
                           onChange={(value) => {
                             const newCategories = [
-                              ...(formData.details.rewards_structure?.bonus_categories ||
+                              ...(formData.details?.rewards_structure?.bonus_categories ||
                                 []),
                             ];
                             newCategories[index] = { ...category, limit: value };
@@ -824,7 +865,7 @@ export default function AddOpportunityPage() {
                           color="error"
                           onClick={() => {
                             const newCategories = [
-                              ...(formData.details.rewards_structure?.bonus_categories ||
+                              ...(formData.details?.rewards_structure?.bonus_categories ||
                                 []),
                             ];
                             newCategories.splice(index, 1);
@@ -845,7 +886,7 @@ export default function AddOpportunityPage() {
                     variant="outlined"
                     onClick={() => {
                       const newCategories = [
-                        ...(formData.details.rewards_structure?.bonus_categories || []),
+                        ...(formData.details?.rewards_structure?.bonus_categories || []),
                         {
                           category: '',
                           rate: '',
@@ -869,7 +910,7 @@ export default function AddOpportunityPage() {
               type="text"
               name="details.credit_inquiry"
               label="Credit Inquiry Type"
-              value={formData.details.credit_inquiry || ''}
+              value={formData.details?.credit_inquiry || ''}
               onChange={(value) => handleChange('details.credit_inquiry', value)}
               error={errors['details.credit_inquiry']}
             />
@@ -878,7 +919,7 @@ export default function AddOpportunityPage() {
               type="text"
               name="details.household_limit"
               label="Household Limit"
-              value={formData.details.household_limit || ''}
+              value={formData.details?.household_limit || ''}
               onChange={(value) => handleChange('details.household_limit', value)}
               error={errors['details.household_limit']}
             />
@@ -887,7 +928,7 @@ export default function AddOpportunityPage() {
               type="text"
               name="details.early_closure_fee"
               label="Early Closure Fee"
-              value={formData.details.early_closure_fee || ''}
+              value={formData.details?.early_closure_fee || ''}
               onChange={(value) => handleChange('details.early_closure_fee', value)}
               error={errors['details.early_closure_fee']}
             />
@@ -897,7 +938,7 @@ export default function AddOpportunityPage() {
                 type="text"
                 name="details.chex_systems"
                 label="Chex Systems"
-                value={formData.details.chex_systems || ''}
+                value={formData.details?.chex_systems || ''}
                 onChange={(value) => handleChange('details.chex_systems', value)}
                 error={errors['details.chex_systems']}
               />
