@@ -1,59 +1,83 @@
-# Next.js
-.next/
-out/
-build
+# Dependencies
 node_modules/
-.DS_Store
-*.pem
-.env*.local
-.vercel
-*.tsbuildinfo
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+/.nyc_output
+
+# Next.js
+/.next/
+/out/
+/build
 next-env.d.ts
 
-# Debug logs
-*-debug.log*
-*-error.log*
+# Production
+/build
+/dist
+
+# Debug & Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+logs/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# Local env files
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*.swn
+*.bak
 
-# Logs
-*.log
-logs/
-log/
-
-# Environment and secrets
-.env
-.env.*
-.logfire/
-
-# Coverage reports
-coverage/
-
-# Cache
-.cache/
-.next/
-
-# Debug logs
-firebase-debug*.log
-firestore-debug.log
-ui-debug.log
-
-# System files
+# OS
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
-# IDE files
-.idea/
-.vscode/
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
 
-# BankRewards debug files
+# Firebase
+.firebase/
+*.cache
+firebase-debug.log
+firestore-debug.log
+
+# Project specific
+/data/
+/storage/
 *.png
-data/
-storage/
+*.jpg
+*.jpeg
+*.gif
+*.ico
+!public/*.ico
+!public/*.png
+!public/*.jpg
+!public/*.jpeg
+!public/*.gif
+
+# Temporary files
+*.tmp
+*.temp
+.cache
+.swc/

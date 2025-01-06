@@ -35,8 +35,10 @@
     },
     "hub": {
       "host": "127.0.0.1"
+    },
+    "data": {
+      "persist": true,
+      "path": "./firebase-data"
     }
-  },
-  "emulators.data.persist": true,
-  "emulators.data.path": "./firebase-data"
+  }
 }
