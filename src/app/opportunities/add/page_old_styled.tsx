@@ -216,9 +216,9 @@ export default function AddOpportunityPage() {
       const result = await response.json();
       setSuccess(true);
 
-      // Redirect to the individual opportunity page after successful creation
+      // Redirect after successful creation
       setTimeout(() => {
-        router.push(`/opportunities/${result.id}`);
+        router.push('/opportunities');
       }, 2000);
     } catch (err) {
       console.error('Error:', err);

@@ -1,87 +1,55 @@
-export type OfferType = 'bank' | 'brokerage' | 'credit_card';
+export type OfferType = 'bank' | 'credit_card' | 'brokerage';
 
-export interface BonusRequirements {
-  title: string;
-  description: string;
-}
-
-export interface BonusTier {
-  reward: string;
-  deposit: string;
-}
-
-export interface Bonus {
-  title: string;
-  description: string;
-  requirements: BonusRequirements;
-  tiers?: BonusTier[];
-  additional_info?: string;
-}
-
-export interface MonthlyFees {
-  amount: string;
-}
-
-export type USState = 'AL' | 'AK' | 'AZ' | 'AR' | 'CA' | 'CO' | 'CT' | 'DE' | 'FL' | 'GA' |
-  'HI' | 'ID' | 'IL' | 'IN' | 'IA' | 'KS' | 'KY' | 'LA' | 'ME' | 'MD' |
-  'MA' | 'MI' | 'MN' | 'MS' | 'MO' | 'MT' | 'NE' | 'NV' | 'NH' | 'NJ' |
-  'NM' | 'NY' | 'NC' | 'ND' | 'OH' | 'OK' | 'OR' | 'PA' | 'RI' | 'SC' |
-  'SD' | 'TN' | 'TX' | 'UT' | 'VT' | 'VA' | 'WA' | 'WV' | 'WI' | 'WY';
-
-export interface StateAvailability {
-  type: 'State';
-  states: USState[];
-}
-
-export interface NationwideAvailability {
-  type: 'Nationwide';
-  states?: never;
-}
-
-export interface Logo {
-  type: string;
-  url: string;
-}
-
-export interface CardImage {
-  url: string;
-  network?: string;
-  color?: string;
-  badge?: string;
-}
-
-export interface Details {
-  monthly_fees: MonthlyFees;
-  account_type: string;
-  availability: StateAvailability | NationwideAvailability;
-  credit_inquiry?: string;
-  household_limit?: string;
-  early_closure_fee?: string;
-  chex_systems?: string;
-  expiration?: string;
-}
-
-export interface FormData {
+// This is the exact Firestore structure
+export interface FirestoreOpportunity {
+  id?: string;
   name: string;
-  type: OfferType;
+  type: 'credit_card' | 'bank' | 'brokerage';
   offer_link: string;
-  value: string;
-  bonus: Bonus;
-  details: Details;
-  logo: Logo;
-  card_image?: CardImage;
+  value: number;
+  bonus?: {
+    title?: string;
+    description?: string;
+    requirements?: {
+      title?: string;
+      description?: string;
+    };
+    additional_info?: string;
+  };
+  details?: {
+    monthly_fees?: {
+      amount?: string;
+      waiver_details?: string;
+    };
+    account_type?: string;
+    availability?: {
+      type: 'Nationwide' | 'State';
+      states?: string[];
+      details?: string;
+    };
+    credit_inquiry?: string;
+    household_limit?: string;
+    early_closure_fee?: string;
+    chex_systems?: string;
+    expiration?: string;
+    under_5_24?: string;
+    annual_fees?: string;
+    foreign_transaction_fees?: string;
+  };
+  logo?: {
+    type?: 'icon' | 'url';
+    url?: string;
+  };
+  metadata?: {
+    created_at: string;
+    updated_at: string;
+    created_by: string;
+    status: 'active' | 'inactive';
+  };
+  bank?: string;
+  description?: string;
+  title?: string;
 }
 
-export type NestedKeyOf<ObjectType extends object> = {
-  [Key in keyof ObjectType & (string | number)]: ObjectType[Key] extends object | undefined
-    ? `${Key}` | `${Key}.${NestedKeyOf<NonNullable<ObjectType[Key]>>}`
-    : `${Key}`;
-}[keyof ObjectType & (string | number)];
-
-export type PathValue<T, P extends string> = P extends keyof T
-  ? T[P]
-  : P extends `${infer K}.${infer Rest}`
-  ? K extends keyof T
-    ? PathValue<T[K], Rest>
-    : never
-  : never;
+// This is for the UI components to use - it's the same structure but with value as string
+export type FormData = Omit<FirestoreOpportunity, 'value'> & { value: string };

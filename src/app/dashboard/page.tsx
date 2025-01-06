@@ -61,6 +61,7 @@ import ProgressCardSkeleton from '@/components/skeletons/ProgressCardSkeleton';
 import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { db } from '@/lib/firebase/config';
+import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { formatCurrency } from '@/lib/utils/formatters';
 
 interface UserProfile {
@@ -439,47 +440,6 @@ const ProgressCard = ({ opportunity }: { opportunity: TrackedOpportunity }) => {
   );
 };
 
-const useOpportunities = () => {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchOpportunities = async () => {
-      try {
-        const response = await fetch(
-          'http://localhost:3000/api/opportunities?format=detailed'
-        );
-        if (!response.ok) {
-          throw new Error('Failed to fetch opportunities');
-        }
-        const data = await response.json();
-        // Sort opportunities by value (converting string values if needed)
-        const sortedData = data.offers.sort((a: Opportunity, b: Opportunity) => {
-          const valueA =
-            typeof a.value === 'string'
-              ? parseFloat(a.value.replace(/[^0-9.-]+/g, ''))
-              : a.value;
-          const valueB =
-            typeof b.value === 'string'
-              ? parseFloat(b.value.replace(/[^0-9.-]+/g, ''))
-              : b.value;
-          return valueB - valueA;
-        });
-        setOpportunities(sortedData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch opportunities');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOpportunities();
-  }, []);
-
-  return { opportunities, loading, error };
-};
-
 const recentActivities: Activity[] = [
   {
     id: '1',
@@ -685,9 +645,97 @@ export default function DashboardPage() {
   const router = useRouter();
   const [activityExpanded, setActivityExpanded] = useState(false);
   const { user, loading: authLoading } = useAuth();
-  const { opportunities, loading: oppsLoading } = useOpportunities();
+  const { data: opportunities = [], isLoading: oppsLoading } = useOpportunities();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+
+  // Transform opportunities data
+  const transformedOpportunities = opportunities.map((opp) => ({
+    ...opp,
+    value: typeof opp.value === 'number' ? opp.value : parseInt(opp.value),
+    title: opp.name,
+    bank: opp.bank || 'Unknown Bank',
+    description: opp.bonus?.description || '',
+    requirements: [opp.bonus?.requirements?.description || ''],
+    status: opp.metadata?.status || 'active',
+    source: opp.metadata?.created_by || 'Unknown',
+    expirationDate: opp.details?.expiration,
+    confidence: 0.9, // We can implement real confidence scoring later
+  }));
+
+  // Get active opportunities sorted by value
+  const activeOpportunities = transformedOpportunities
+    .filter((opp) => opp.status === 'active')
+    .sort((a, b) => b.value - a.value);
+
+  // Get quick opportunities (top 3 by value)
+  const quickOpportunities = activeOpportunities.slice(0, 3);
+
+  // Calculate total potential value
+  const totalPotentialValue = activeOpportunities.reduce(
+    (sum, opp) => sum + opp.value,
+    0
+  );
+
+  // Get tracked opportunities (opportunities with progress)
+  const trackedOpportunities = transformedOpportunities
+    .filter((opp) => opp.status === 'in_progress')
+    .map((opp) => ({
+      id: opp.id,
+      title: opp.title,
+      type: opp.type,
+      progress: opp.value * 0.5, // For now, assume 50% progress
+      target: opp.value,
+      daysLeft: 30, // Default to 30 days for now
+    }));
+
+  // Calculate stats
+  const stats = [
+    {
+      icon: MonetizationOnIcon,
+      title: 'TRACKED VALUE',
+      value: formatCurrency(
+        trackedOpportunities.reduce((sum, opp) => sum + opp.progress, 0)
+      ),
+      trend: {
+        value: trackedOpportunities.length,
+        label: 'opportunities in progress',
+      },
+      color: 'primary' as const,
+    },
+    {
+      icon: TrendingUpIcon,
+      title: 'POTENTIAL VALUE',
+      value: formatCurrency(totalPotentialValue),
+      trend: {
+        value: Math.round(totalPotentialValue / Math.max(activeOpportunities.length, 1)),
+        label: 'avg per opportunity',
+      },
+      color: 'warning' as const,
+    },
+    {
+      icon: AccountBalanceWalletIcon,
+      title: 'Active Opportunities',
+      value: activeOpportunities.length.toString(),
+      trend: {
+        value: Math.round((activeOpportunities.length / opportunities.length) * 100),
+        label: 'of total opportunities',
+      },
+      color: 'info' as const,
+    },
+    {
+      icon: CheckCircleIcon,
+      title: 'Average Value',
+      value: formatCurrency(
+        totalPotentialValue / Math.max(activeOpportunities.length, 1)
+      ),
+      trend: {
+        value: quickOpportunities.length,
+        label: 'high-value opportunities',
+      },
+      color: 'success' as const,
+    },
+  ];
 
   const quickActions = [
     {
@@ -772,72 +820,6 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // Helper function to safely convert value to number
-
-  // Calculate stats from real data
-  const trackedOpportunities: TrackedOpportunity[] = [
-    {
-      id: 'chase-sapphire-1',
-      title: 'Chase Sapphire Preferred',
-      type: 'credit_card',
-      progress: 1200,
-      target: 4000,
-      daysLeft: 15,
-    },
-    {
-      id: 'capital-one-1',
-      title: 'Capital One Checking',
-      type: 'bank_account',
-      progress: 800,
-      target: 1500,
-      daysLeft: 45,
-    },
-  ];
-
-  const stats = [
-    {
-      icon: MonetizationOnIcon,
-      title: 'TRACKED VALUE',
-      value: formatCurrency(
-        trackedOpportunities.reduce(
-          (sum: number, opp: TrackedOpportunity) => sum + opp.progress,
-          0
-        )
-      ),
-      trend: { value: 12, label: 'vs last month' },
-      color: 'primary' as const,
-    },
-    {
-      icon: TrendingUpIcon,
-      title: 'POTENTIAL VALUE',
-      value: formatCurrency(
-        opportunities.reduce((sum: number, opp: Opportunity) => {
-          const value =
-            typeof opp.value === 'string'
-              ? parseFloat(opp.value.replace(/[$,]/g, ''))
-              : opp.value;
-          return sum + (isNaN(value) ? 0 : value);
-        }, 0)
-      ),
-      trend: { value: 15, label: 'vs last month' },
-      color: 'warning' as const,
-    },
-    {
-      icon: AccountBalanceWalletIcon,
-      title: 'Active Opportunities',
-      value: opportunities.filter((opp) => opp.status === 'active').length.toString(),
-      trend: { value: 5, label: 'new this week' },
-      color: 'info' as const,
-    },
-    {
-      icon: CheckCircleIcon,
-      title: 'Completed',
-      value: opportunities.filter((opp) => opp.status === 'completed').length.toString(),
-      trend: { value: 18, label: 'success rate' },
-      color: 'success' as const,
-    },
-  ];
-
   if (authLoading || oppsLoading || loadingProfile) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -880,11 +862,6 @@ export default function DashboardPage() {
   if (!user) {
     return null;
   }
-
-  // Get top 3 opportunities by value for quick opportunities section
-  const quickOpportunities = opportunities
-    .filter((opp) => opp.status === 'active')
-    .slice(0, 3);
 
   return (
     <Container
