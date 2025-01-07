@@ -1,8 +1,10 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { OpenApiMeta } from 'trpc-openapi';
 
-import { Context } from '@/api/context';
 import { UserRole } from '@/types/roles';
+import { type Session } from '@/types/session';
+
+import { type Context, type ContextWithSession } from './context';
 
 const t = initTRPC.context<Context>().meta<OpenApiMeta>().create();
 
@@ -20,7 +22,7 @@ const isAuthed = t.middleware(({ ctx, next }) => {
     ctx: {
       ...ctx,
       session: ctx.session,
-    },
+    } as ContextWithSession,
   });
 });
 
@@ -32,7 +34,8 @@ const isAdmin = t.middleware(({ ctx, next }) => {
     });
   }
 
-  if (ctx.session.role !== UserRole.ADMIN) {
+  const session = ctx.session as Session;
+  if (session.role !== UserRole.ADMIN) {
     throw new TRPCError({
       code: 'FORBIDDEN',
       message: 'Not authorized. Admin access required.',
@@ -42,8 +45,8 @@ const isAdmin = t.middleware(({ ctx, next }) => {
   return next({
     ctx: {
       ...ctx,
-      session: ctx.session,
-    },
+      session,
+    } as ContextWithSession,
   });
 });
 
