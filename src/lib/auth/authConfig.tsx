@@ -12,7 +12,6 @@ import {
   logout,
 } from './authService';
 
-
 export const { useUser, useLogin, useRegister, useLogout, AuthLoader } = configureAuth<
   AuthUser | null,
   Error,

@@ -1,10 +1,56 @@
 export type OfferType = 'bank' | 'credit_card' | 'brokerage';
 
 export const US_STATES = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN',
-  'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV',
-  'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN',
-  'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
 ] as const;
 
 // This is the exact Firestore structure
@@ -133,9 +179,9 @@ export interface RewardsCategory {
 }
 
 export interface RewardsStructure {
-  base_rewards: string;
-  welcome_bonus: string;
-  bonus_categories: RewardsCategory[];
+  base_rewards?: string;
+  welcome_bonus?: string;
+  bonus_categories?: RewardsCategory[];
 }
 
 export interface Details {
@@ -281,7 +327,9 @@ export interface Opportunity {
 
 // Utility types for handling nested keys, including array indices
 type NestedKeyOf<ObjectType extends object> = {
-  [Key in keyof ObjectType & string]: ObjectType[Key] extends Array<infer U extends object>
+  [Key in keyof ObjectType & string]: ObjectType[Key] extends Array<
+    infer U extends object
+  >
     ? `${Key}.${number}.${NestedKeyOf<U>}`
     : ObjectType[Key] extends object
       ? `${Key}.${NestedKeyOf<ObjectType[Key]>}`
