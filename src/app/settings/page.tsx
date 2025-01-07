@@ -47,7 +47,7 @@ import { useCallback, useEffect, useState, useRef, type JSX } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { db, storage } from '@/lib/firebase/config';
-import { useTheme } from '@/lib/theme/ThemeContext';
+import { useTheme } from '@/styles/theme/ThemeContext';
 
 // Our custom gray palette
 const gray = {

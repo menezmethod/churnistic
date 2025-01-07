@@ -5,8 +5,8 @@ import type { JSX } from 'react';
 
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { QueryProvider } from '@/lib/providers/QueryProvider';
-import { ThemeProvider } from '@/lib/theme/ThemeContext';
 import { TRPCProvider } from '@/lib/trpc/provider';
+import { ThemeProvider } from '@/styles/theme/ThemeContext';
 
 interface ClientProvidersProps {
   children: React.ReactNode;
