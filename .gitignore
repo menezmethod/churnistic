@@ -77,6 +77,7 @@ firestore-debug.log
 !public/*.gif
 
 # Temporary files
+/tmp/
 *.tmp
 *.temp
 .cache
