@@ -1,8 +1,8 @@
-import { createTRPCReact } from '@trpc/react-query';
+import { createTRPCNext } from '@trpc/next';
 
-import { type AppRouter } from '@/server/routers/_app';
+import { type AppRouter } from '@/api/routers/_app';
 
-export const trpc = createTRPCReact<AppRouter>();
+export const trpc = createTRPCNext<AppRouter>();
 
 export function getBaseUrl(): string {
   if (typeof window !== 'undefined') {
