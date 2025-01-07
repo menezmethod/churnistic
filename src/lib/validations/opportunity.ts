@@ -15,47 +15,57 @@ export const opportunitySchema = z.object({
   name: z.string().min(1, 'Name is required'),
   offer_link: z.string().url().optional(),
   value: z.number().min(0, 'Value must be positive'),
-  logo: z.object({
-    url: z.string().url('Invalid URL').min(1, 'Logo URL is required'),
-  }),
-  bonus: z.object({
-    description: z.string().min(1, 'Bonus description is required'),
-    requirements: z.object({
-      description: z.string().min(1, 'Bonus requirements description is required'),
-      minimum_deposit: z.number().optional(),
-      trading_requirements: z.string().optional(),
-      holding_period: z.string().optional(),
-      spending_requirement: z
+  logo: z
+    .object({
+      url: z.string().url('Invalid URL').min(1, 'Logo URL is required'),
+    })
+    .optional(),
+  bonus: z
+    .object({
+      description: z.string().min(1, 'Bonus description is required'),
+      requirements: z
         .object({
-          amount: z.number().min(0, 'Amount must be positive'),
-          timeframe: z.string().min(1, 'Timeframe is required'),
+          description: z.string().min(1, 'Bonus requirements description is required'),
+          minimum_deposit: z.number().optional(),
+          trading_requirements: z.string().optional(),
+          holding_period: z.string().optional(),
+          spending_requirement: z
+            .object({
+              amount: z.number().min(0, 'Amount must be positive'),
+              timeframe: z.string().min(1, 'Timeframe is required'),
+            })
+            .optional(),
         })
         .optional(),
-    }),
-    tiers: z
-      .array(
-        z.object({
-          level: z.string().min(1, 'Tier level is required'),
-          value: z.number().min(0, 'Tier value must be positive'),
-          minimum_deposit: z.number().optional(),
-          requirements: z.string().optional(),
-        })
-      )
-      .optional(),
-    additional_info: z.string().optional(),
-  }),
+      tiers: z
+        .array(
+          z.object({
+            level: z.string().min(1, 'Tier level is required'),
+            value: z.number().min(0, 'Tier value must be positive'),
+            minimum_deposit: z.number().optional(),
+            requirements: z.string().optional(),
+          })
+        )
+        .optional(),
+      additional_info: z.string().optional(),
+    })
+    .optional(),
   details: z.object({
-    monthly_fees: z.object({
-      amount: z.string().min(1, 'Monthly fees amount is required'),
-      waiver_details: z.string().optional(),
-    }),
-    account_type: z.string().min(1, 'Account type is required'),
+    monthly_fees: z
+      .object({
+        amount: z.string().min(1, 'Monthly fees amount is required'),
+        waiver_details: z.string().optional(),
+      })
+      .optional(),
+    account_type: z.string().min(1, 'Account type is required').optional(),
     account_category: z.enum(['personal', 'business']).optional(),
-    availability: z.object({
-      type: z.enum(['Nationwide', 'State']),
-      states: z.array(z.string()).optional(),
-      details: z.string().optional(),
-    }),
+    availability: z
+      .object({
+        type: z.enum(['Nationwide', 'State']),
+        states: z.array(z.string()).optional(),
+        details: z.string().optional(),
+      })
+      .optional(),
     expiration: z.string().nullable().optional(),
     credit_score: z
       .object({
@@ -84,7 +94,7 @@ export const opportunitySchema = z.object({
     minimum_credit_limit: z.string().optional(),
     rewards_structure: z
       .object({
-        base_rewards: z.string().min(1, 'Base rewards rate is required'),
+        base_rewards: z.string().optional(),
         welcome_bonus: z.string().optional(),
         bonus_categories: z
           .array(

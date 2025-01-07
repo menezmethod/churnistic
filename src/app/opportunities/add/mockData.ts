@@ -147,7 +147,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://start.moomoo.com',
     value: 225,
     bonus: {
-      description: 'Get up to 15 free stocks when you make a qualified deposit + earn 8.1% APY on uninvested cash for 3 months + up to $300 in Cash Rewards if you transfer from another brokerage!',
+      description:
+        'Get up to 15 free stocks when you make a qualified deposit + earn 8.1% APY on uninvested cash for 3 months + up to $300 in Cash Rewards if you transfer from another brokerage!',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -185,7 +186,22 @@ const mockOffers: Opportunity[] = [
       account_type: 'Personal Bank Account',
       availability: {
         type: 'State',
-        states: ['AK', 'CO', 'CT', 'IN', 'MA', 'ME', 'MI', 'NY', 'OH', 'OR', 'PA', 'UT', 'VT', 'WA'],
+        states: [
+          'AK',
+          'CO',
+          'CT',
+          'IN',
+          'MA',
+          'ME',
+          'MI',
+          'NY',
+          'OH',
+          'OR',
+          'PA',
+          'UT',
+          'VT',
+          'WA',
+        ],
       },
       expiration: '5/16/2025',
     },
@@ -483,7 +499,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://info.middlesexfederal.com',
     value: 150,
     bonus: {
-      description: 'Must requrest debit card and make over 15 transactions within 2nd and 4th "statement cycle"',
+      description:
+        'Must requrest debit card and make over 15 transactions within 2nd and 4th "statement cycle"',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -641,7 +658,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://www.langleyfcu.org',
     value: 100,
     bonus: {
-      description: 'Open a new checking account and make any purchase with the debit card for a $100 credit',
+      description:
+        'Open a new checking account and make any purchase with the debit card for a $100 credit',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -681,7 +699,8 @@ const mockOffers: Opportunity[] = [
         states: ['MO', 'KS', 'IL'],
       },
       credit_inquiry: 'Soft Pull',
-      early_closure_fee: 'Account closed within 6 months will be charged the amount of the bonus',
+      early_closure_fee:
+        'Account closed within 6 months will be charged the amount of the bonus',
       expiration: '12/31/2024',
     },
     logo: {
@@ -720,7 +739,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://www.oldsecond.com',
     value: 300,
     bonus: {
-      description: '$300 bonus: $50 on account open, $100 from direct deposits, and $150 from opening a Money Builder Savings account',
+      description:
+        '$300 bonus: $50 on account open, $100 from direct deposits, and $150 from opening a Money Builder Savings account',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -818,7 +838,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://www.simmonsbank.com',
     value: 900,
     bonus: {
-      description: 'Three bonuses of $100 or $300 each depending on how much your direct deposit is',
+      description:
+        'Three bonuses of $100 or $300 each depending on how much your direct deposit is',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -845,7 +866,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://www.sbdanbury.com',
     value: 100,
     bonus: {
-      description: '$100 bonus with the Priority Checking account. Mutually exclusive with the other Savings Bank of Danbury checking accounts',
+      description:
+        '$100 bonus with the Priority Checking account. Mutually exclusive with the other Savings Bank of Danbury checking accounts',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -899,7 +921,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://dollar.bank',
     value: 300,
     bonus: {
-      description: '$300 bonus: $200 as a Mastercard debit card rebate and $100 as a deposit after a year',
+      description:
+        '$300 bonus: $200 as a Mastercard debit card rebate and $100 as a deposit after a year',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -1007,7 +1030,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://www.premieramerica.com',
     value: 100,
     bonus: {
-      description: '$25 bonus and $75 bonus, paid separately. It seems the $75 is for signing up and the $25 is for the direct deposit',
+      description:
+        '$25 bonus and $75 bonus, paid separately. It seems the $75 is for signing up and the $25 is for the direct deposit',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -1198,7 +1222,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://www.ahcu.org',
     value: 250,
     bonus: {
-      description: '$250 bonus. Bonus will be paid by the 10th day of the month following requirements being met',
+      description:
+        '$250 bonus. Bonus will be paid by the 10th day of the month following requirements being met',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -1227,7 +1252,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://www.expeditioncu.com',
     value: 200,
     bonus: {
-      description: '$200 cash bonus, deposited within 30 days of completing requirements. Note that this bank conducts a hard pull, so keep that in mind was calculating risk vs reward',
+      description:
+        '$200 cash bonus, deposited within 30 days of completing requirements. Note that this bank conducts a hard pull, so keep that in mind was calculating risk vs reward',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -1254,7 +1280,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://www.columbiabankonline.com',
     value: 100,
     bonus: {
-      description: 'Get $100 after making 10 point-of-sale debit card purchases within 60 days of account opening. Stacks with the $300 bonus for direct deposit and the up-to-$400 bonus for maintaining a high balance',
+      description:
+        'Get $100 after making 10 point-of-sale debit card purchases within 60 days of account opening. Stacks with the $300 bonus for direct deposit and the up-to-$400 bonus for maintaining a high balance',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -1398,7 +1425,26 @@ const mockOffers: Opportunity[] = [
       account_type: 'Personal Bank Account',
       availability: {
         type: 'State',
-        states: ['AL', 'AR', 'GA', 'FL', 'IN', 'KY', 'MD', 'MS', 'NC', 'NJ', 'OH', 'PA', 'SC', 'TN', 'TX', 'VA', 'WV', 'DC'],
+        states: [
+          'AL',
+          'AR',
+          'GA',
+          'FL',
+          'IN',
+          'KY',
+          'MD',
+          'MS',
+          'NC',
+          'NJ',
+          'OH',
+          'PA',
+          'SC',
+          'TN',
+          'TX',
+          'VA',
+          'WV',
+          'DC',
+        ],
       },
       credit_inquiry: 'Soft Pull',
       household_limit: 'None',
@@ -1498,7 +1544,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://www.firstmarkcu.org',
     value: 300,
     bonus: {
-      description: '$300 bonus - $50 in the first 30 days and $250 between days 31 and 90',
+      description:
+        '$300 bonus - $50 in the first 30 days and $250 between days 31 and 90',
       requirements: {
         description: 'Contact bank for specific requirements',
       },
@@ -1514,7 +1561,8 @@ const mockOffers: Opportunity[] = [
       },
       credit_inquiry: 'Hard Pull',
       household_limit: 'One per customer',
-      early_closure_fee: "If you close your account within six months you'll be charged a $10 closing fee",
+      early_closure_fee:
+        "If you close your account within six months you'll be charged a $10 closing fee",
       expiration: 'None Listed',
     },
     logo: {
@@ -1527,7 +1575,8 @@ const mockOffers: Opportunity[] = [
     offer_link: 'https://www.americafirst.com',
     value: 100,
     bonus: {
-      description: '$100 bonus for opening a savings account and adding Classic or Premium Checking',
+      description:
+        '$100 bonus for opening a savings account and adding Classic or Premium Checking',
       requirements: {
         description: 'Contact bank for specific requirements',
       },

@@ -4,7 +4,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 
 import { type SessionData } from '@/lib/auth/session';
 import { UserRole } from '@/lib/auth/types';
-import { db } from '@/lib/firebase/admin';
+import { getAdminDb } from '@/lib/firebase/admin';
 import { userInputs } from '@/server/router-types';
 
 import { adminProcedure, protectedProcedure, router } from '../trpc';
@@ -52,6 +52,7 @@ export const userRouter = router({
     }
 
     const session = ctx.session as SessionData;
+    const db = getAdminDb();
     const userRef = db.collection(USERS_COLLECTION).doc(session.uid);
     const userDoc = await userRef.get();
 
@@ -83,6 +84,7 @@ export const userRouter = router({
   }),
 
   getById: adminProcedure.input(userInputs.getById).query(async ({ input }) => {
+    const db = getAdminDb();
     const userDoc = await db.collection(USERS_COLLECTION).doc(input.id).get();
 
     if (!userDoc.exists) {
@@ -104,6 +106,7 @@ export const userRouter = router({
     }
 
     // Check if user exists
+    const db = getAdminDb();
     const userRef = db.collection(USERS_COLLECTION).doc(input.id);
     const userDoc = await userRef.get();
 
@@ -135,6 +138,7 @@ export const userRouter = router({
   }),
 
   delete: adminProcedure.input(userInputs.delete).mutation(async ({ input }) => {
+    const db = getAdminDb();
     const userRef = db.collection(USERS_COLLECTION).doc(input.id);
     const userDoc = await userRef.get();
 
@@ -151,6 +155,7 @@ export const userRouter = router({
   }),
 
   list: adminProcedure.input(userInputs.list).query(async ({ input }) => {
+    const db = getAdminDb();
     let query: Query = db.collection(USERS_COLLECTION);
 
     if (input?.search) {

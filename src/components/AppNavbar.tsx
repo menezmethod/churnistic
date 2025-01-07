@@ -69,12 +69,6 @@ const mainMenuItems: MenuItemType[] = [
     requiresAuth: true,
   },
   {
-    text: 'Add Opportunity',
-    icon: <CreditCard />,
-    path: '/opportunities/add',
-    requiresAuth: true,
-  },
-  {
     text: 'Track Progress',
     icon: <TrendingUp />,
     path: '/track',
@@ -133,7 +127,7 @@ const managementMenuItems: MenuItemType[] = [
 
 const accountMenuItems: MenuItemType[] = [
   {
-    text: 'Account Settings',
+    text: 'Settings',
     icon: <Settings />,
     path: '/settings',
     description: 'Profile, preferences, and security',

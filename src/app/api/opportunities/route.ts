@@ -151,6 +151,15 @@ export async function POST(req: NextRequest) {
         type: data.logo?.type || '',
         url: data.logo?.url || '',
       },
+      card_image:
+        data.type === 'credit_card'
+          ? {
+              url: data.card_image?.url || '',
+              network: data.card_image?.network || 'Unknown',
+              color: data.card_image?.color || 'Unknown',
+              badge: data.card_image?.badge,
+            }
+          : undefined,
       metadata: {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
