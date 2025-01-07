@@ -18,7 +18,6 @@ import * as React from 'react';
 import type { JSX } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import { signInWithEmail, signInWithGoogle } from '@/lib/firebase/auth';
 
 import { ForgotPassword } from './ForgotPassword';
 import { GoogleIcon } from './icons';
@@ -63,7 +62,7 @@ interface ExtendedFormHelperTextProps extends FormHelperTextProps {
 
 export function SignIn(): JSX.Element {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, signIn, signInWithGoogle } = useAuth();
   const [emailError, setEmailError] = React.useState(false);
   const [emailErrorMessage, setEmailErrorMessage] = React.useState('');
   const [passwordError, setPasswordError] = React.useState(false);
@@ -115,7 +114,7 @@ export function SignIn(): JSX.Element {
     }
 
     try {
-      await signInWithEmail(email, password);
+      await signIn(email, password);
       router.push('/dashboard');
     } catch (error: unknown) {
       console.error('Sign in error:', error);
@@ -136,30 +135,8 @@ export function SignIn(): JSX.Element {
     setPasswordErrorMessage('');
 
     try {
-      const { error } = await signInWithGoogle();
-      if (error) {
-        console.error('Google sign in error:', {
-          code: error.code,
-          message: error.message,
-          originalError: error.originalError,
-        });
-
-        // Handle specific error cases
-        if (error.code === 'auth/popup-closed-by-user') {
-          setEmailError(true);
-          setEmailErrorMessage('Sign in was cancelled. Please try again.');
-        } else if (error.code === 'auth/popup-blocked') {
-          setEmailError(true);
-          setEmailErrorMessage('Pop-up was blocked. Please allow pop-ups and try again.');
-        } else if (error.code === 'auth/unauthorized-domain') {
-          setEmailError(true);
-          setEmailErrorMessage('This domain is not authorized for Google sign-in.');
-        } else {
-          setEmailError(true);
-          setEmailErrorMessage('Failed to sign in with Google');
-        }
-        throw error;
-      }
+      await signInWithGoogle();
+      router.push('/dashboard');
     } catch (error) {
       console.error('Google sign in error:', {
         error,
@@ -248,41 +225,36 @@ export function SignIn(): JSX.Element {
           <Button type="submit" fullWidth variant="contained" disabled={isLoading}>
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
-          <Link
-            component="button"
-            type="button"
-            onClick={() => setForgotPasswordOpen(true)}
-            variant="body2"
-            sx={{ alignSelf: 'center' }}
-            disabled={isLoading}
-          >
-            Forgot your password?
-          </Link>
-        </Box>
-        <Divider>or</Divider>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Divider>or</Divider>
           <Button
-            fullWidth
-            variant="outlined"
             onClick={(): void => {
               void handleGoogleSignIn();
             }}
+            fullWidth
+            variant="outlined"
             startIcon={<GoogleIcon />}
             disabled={isLoading}
           >
             Sign in with Google
           </Button>
-          <Typography sx={{ textAlign: 'center' }}>
-            Don&apos;t have an account?{' '}
-            <Link href="/auth/signup" variant="body2" sx={{ alignSelf: 'center' }}>
-              Sign up
+          <Stack direction="row" justifyContent="space-between">
+            <Link
+              component="button"
+              variant="body2"
+              onClick={(): void => setForgotPasswordOpen(true)}
+              disabled={isLoading}
+            >
+              Forgot password?
             </Link>
-          </Typography>
+            <Link href="/auth/signup" variant="body2" disabled={isLoading}>
+              {"Don't have an account? Sign up"}
+            </Link>
+          </Stack>
         </Box>
       </Card>
       <ForgotPassword
         open={forgotPasswordOpen}
-        onClose={() => setForgotPasswordOpen(false)}
+        onClose={(): void => setForgotPasswordOpen(false)}
       />
     </SignInContainer>
   );

@@ -1,52 +1,48 @@
 import { type inferAsyncReturnType } from '@trpc/server';
 import { type CreateNextContextOptions } from '@trpc/server/adapters/next';
-import { type NextRequest, type NextResponse } from 'next/server';
+import { type Session } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 
-import { verifySession } from '@/lib/auth/session';
-import { type Session } from '@/lib/auth/types';
-import { db } from '@/lib/firebase/admin';
+import { getAdminDb } from '@/lib/firebase/admin';
 
-export type CreateContextOptions = {
+import { authOptions } from '@/lib/auth/auth';
+
+interface CreateContextOptions {
   session: Session | null;
-  req?: CreateNextContextOptions['req'] | NextRequest;
-  res?: CreateNextContextOptions['res'] | NextResponse;
-  user?: Session;
-};
-
-export async function createContext(opts: CreateContextOptions | NextRequest) {
-  // For App Router
-  if ('cookies' in opts) {
-    // Handle NextRequest
-    const req = opts;
-    const sessionCookie = req.cookies.get('session')?.value;
-    const session = sessionCookie ? await verifySession(sessionCookie) : null;
-
-    // Add debug logging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Context creation:', {
-        hasSessionCookie: !!sessionCookie,
-        sessionVerified: !!session,
-        useEmulators: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true',
-      });
-    }
-
-    return {
-      session,
-      db,
-      req,
-      user: session,
-    };
-  }
-
-  // For Pages Router and API Routes
-  const { session, req, res } = opts as CreateContextOptions;
-  return {
-    session,
-    db,
-    req,
-    res,
-    user: session,
-  };
 }
 
-export type Context = inferAsyncReturnType<typeof createContext>;
+/**
+ * This helper generates the "internals" for a tRPC context. If you need to use
+ * it, you can export it from here.
+ *
+ * Examples of things you may need it for:
+ * - testing, so we don't have to mock Next.js' req/res
+ * - tRPC's `createSSGHelpers`, where we don't have req/res
+ *
+ * @see https://create.t3.gg/en/usage/trpc#-serverapitrpcts
+ */
+export const createInnerTRPCContext = (opts: CreateContextOptions) => {
+  return {
+    session: opts.session,
+    db: getAdminDb(),
+  };
+};
+
+/**
+ * This is the actual context you will use in your router. It will be used to
+ * process every request that goes through your tRPC endpoint.
+ *
+ * @see https://trpc.io/docs/context
+ */
+export const createTRPCContext = async (opts: CreateNextContextOptions) => {
+  const { req, res } = opts;
+
+  // Get the session from the server using the getServerSession wrapper function
+  const session = await getServerSession(req, res, authOptions);
+
+  return createInnerTRPCContext({
+    session,
+  });
+};
+
+export type Context = inferAsyncReturnType<typeof createTRPCContext>;

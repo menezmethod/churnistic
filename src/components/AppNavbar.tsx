@@ -1,12 +1,10 @@
 'use client';
 
 import {
-  CreditCard,
   Settings,
   People,
   Logout,
   Menu as MenuIcon,
-  AccountBalance,
   Analytics,
   Notifications,
   AccountBalanceWallet,
@@ -153,7 +151,6 @@ export default function AppNavbar() {
   );
 
   const isAdmin = hasRole(UserRole.ADMIN);
-  const isAnalyst = hasRole(UserRole.USER);
 
   // Only log in development and when user state changes
   useEffect(() => {
@@ -182,6 +179,10 @@ export default function AppNavbar() {
     setNotificationsAnchorEl(null);
   };
 
+  const handleDrawerToggle = () => {
+    setDrawerOpen(!drawerOpen);
+  };
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -202,12 +203,18 @@ export default function AppNavbar() {
       return null;
     }
 
+    // Check if the item should be hidden when authenticated
+    if (item.hideWhenAuth && user) {
+      return null;
+    }
+
     return (
       <ListItem key={item.text} disablePadding>
         <ListItemButton
           component={Link}
           href={item.path}
           selected={pathname === item.path}
+          onClick={() => setDrawerOpen(false)}
           sx={{
             borderRadius: 1,
             mx: 1,
@@ -234,324 +241,179 @@ export default function AppNavbar() {
     );
   };
 
-  const renderMenuItems = () => (
-    <>
-      <Box sx={{ mb: 2, px: 2 }}>
-        <Typography variant="subtitle2" color="text.secondary">
-          MAIN MENU
-        </Typography>
-      </Box>
-      {mainMenuItems
-        .filter((item) => (!item.hideWhenAuth || !user) && (!item.requiresAuth || user))
-        .map(renderMenuItem)}
-
-      {user && (
-        <>
-          <Divider sx={{ my: 2 }} />
-
-          {(isAdmin || isAnalyst) && (
-            <>
-              <Box sx={{ mb: 2, px: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  ANALYTICS
-                </Typography>
-              </Box>
-              {analyticsMenuItems.map(renderMenuItem)}
-              <Divider sx={{ my: 2 }} />
-            </>
-          )}
-
-          {isAdmin && (
-            <>
-              <Box sx={{ mb: 2, px: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  ADMINISTRATION
-                </Typography>
-              </Box>
-              {managementMenuItems.map(renderMenuItem)}
-              <Divider sx={{ my: 2 }} />
-            </>
-          )}
-        </>
-      )}
-
-      <Box sx={{ mb: 2, px: 2 }}>
-        <Typography variant="subtitle2" color="text.secondary">
-          ACCOUNT
-        </Typography>
-      </Box>
-      {accountMenuItems.filter((item) => !item.requiresAuth || user).map(renderMenuItem)}
-    </>
-  );
-
   return (
     <>
-      <AppBar
-        position="fixed"
-        sx={{
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          backgroundColor: theme.palette.background.paper,
-          color: theme.palette.text.primary,
-          boxShadow: theme.shadows[1],
-        }}
-      >
+      <AppBar position="fixed" color="default" elevation={1}>
         <Toolbar>
           <IconButton
-            color="inherit"
-            aria-label="open drawer"
             edge="start"
-            onClick={() => setDrawerOpen(true)}
+            color="inherit"
+            aria-label="menu"
+            onClick={handleDrawerToggle}
             sx={{ mr: 2 }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography
-            variant="h6"
-            noWrap
-            component={Link}
-            href={user ? '/dashboard' : '/'}
-            sx={{
-              flexGrow: 1,
-              textDecoration: 'none',
-              color: 'inherit',
-              fontWeight: 600,
-            }}
-          >
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Churnistic
           </Typography>
-
-          {/* Notifications */}
-          {user && (
-            <IconButton
-              size="large"
-              aria-label="show notifications"
-              aria-controls="notifications-menu"
-              aria-haspopup="true"
-              onClick={handleNotificationsMenu}
-              color="inherit"
-              sx={{ mr: 1 }}
-            >
-              <Badge badgeContent={3} color="error">
-                <Notifications />
-              </Badge>
-            </IconButton>
-          )}
-
-          {/* User Menu */}
           {user ? (
-            <IconButton
-              size="large"
-              aria-label="account menu"
-              aria-controls="menu-appbar"
-              aria-haspopup="true"
-              onClick={handleMenu}
-              color="inherit"
-            >
-              <Avatar
-                alt={user?.email || ''}
-                src={user?.photoURL || ''}
-                sx={{
-                  width: 32,
-                  height: 32,
-                  border: `2px solid ${theme.palette.primary.main}`,
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <IconButton
+                size="large"
+                aria-label="show notifications"
+                color="inherit"
+                onClick={handleNotificationsMenu}
+              >
+                <Badge badgeContent={4} color="error">
+                  <Notifications />
+                </Badge>
+              </IconButton>
+              <IconButton
+                size="large"
+                aria-label="account"
+                aria-controls="menu-appbar"
+                aria-haspopup="true"
+                onClick={handleMenu}
+                color="inherit"
+              >
+                <Avatar
+                  alt={user.email || undefined}
+                  src={user.photoURL || undefined}
+                  sx={{ width: 32, height: 32 }}
+                />
+              </IconButton>
+              <Menu
+                id="menu-appbar"
+                anchorEl={anchorEl}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
                 }}
-              />
-            </IconButton>
+                keepMounted
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                open={Boolean(anchorEl)}
+                onClose={handleClose}
+              >
+                <MenuItem onClick={handleClose} component={Link} href="/settings">
+                  <ListItemIcon>
+                    <Settings fontSize="small" />
+                  </ListItemIcon>
+                  Settings
+                </MenuItem>
+                <MenuItem onClick={handleLogout}>
+                  <ListItemIcon>
+                    <Logout fontSize="small" />
+                  </ListItemIcon>
+                  Sign Out
+                </MenuItem>
+              </Menu>
+              <Menu
+                id="notifications-menu"
+                anchorEl={notificationsAnchorEl}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                keepMounted
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                open={Boolean(notificationsAnchorEl)}
+                onClose={handleNotificationsClose}
+              >
+                <MenuItem onClick={handleNotificationsClose}>
+                  New opportunity available
+                </MenuItem>
+                <MenuItem onClick={handleNotificationsClose}>
+                  Offer expiring soon
+                </MenuItem>
+              </Menu>
+            </Box>
           ) : (
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
                 component={Link}
                 href="/auth/signin"
-                color="inherit"
+                variant="outlined"
                 startIcon={<Login />}
-                sx={{
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  '&:hover': {
-                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                  },
-                }}
               >
                 Sign In
               </Button>
               <Button
                 component={Link}
                 href="/auth/signup"
-                color="primary"
                 variant="contained"
                 startIcon={<PersonAdd />}
-                sx={{
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  boxShadow: 'none',
-                  '&:hover': {
-                    boxShadow: 'none',
-                  },
-                }}
               >
                 Sign Up
               </Button>
             </Box>
           )}
-
-          {/* Notifications Menu */}
-          {user && (
-            <Menu
-              id="notifications-menu"
-              anchorEl={notificationsAnchorEl}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
-              }}
-              keepMounted
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              open={Boolean(notificationsAnchorEl)}
-              onClose={handleNotificationsClose}
-            >
-              <MenuItem onClick={handleNotificationsClose}>
-                <ListItemIcon>
-                  <CreditCard fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="New Card Offer Available"
-                  secondary="Chase Sapphire Preferred - 80,000 points"
-                />
-              </MenuItem>
-              <MenuItem onClick={handleNotificationsClose}>
-                <ListItemIcon>
-                  <AccountBalance fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Bank Bonus Alert"
-                  secondary="Citi - $700 checking bonus"
-                />
-              </MenuItem>
-              <MenuItem onClick={handleNotificationsClose}>
-                <ListItemIcon>
-                  <AccountBalanceWallet fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Spend Reminder"
-                  secondary="$2,000 remaining for Chase bonus"
-                />
-              </MenuItem>
-            </Menu>
-          )}
-
-          {/* User Menu */}
-          {user && (
-            <Menu
-              id="menu-appbar"
-              anchorEl={anchorEl}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
-              }}
-              keepMounted
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              open={Boolean(anchorEl)}
-              onClose={handleClose}
-              PaperProps={{
-                sx: {
-                  width: 320,
-                  maxWidth: '100%',
-                },
-              }}
-            >
-              <Box sx={{ p: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Avatar
-                    alt={user?.email || ''}
-                    src={user?.photoURL || ''}
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      mr: 2,
-                      border: `2px solid ${theme.palette.primary.main}`,
-                    }}
-                  />
-                  <Box>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                      {user?.displayName || user?.email}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {isAdmin ? 'Administrator' : 'User'}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-              <Divider />
-              {accountMenuItems
-                .filter((item) => !item.requiresAuth || user)
-                .map((item) => (
-                  <MenuItem
-                    key={item.text}
-                    onClick={() => {
-                      handleClose();
-                      router.push(item.path);
-                    }}
-                    sx={{ py: 1.5 }}
-                  >
-                    <ListItemIcon sx={{ color: 'text.primary' }}>
-                      {item.icon}
-                    </ListItemIcon>
-                    <Box>
-                      <Typography variant="body1">{item.text}</Typography>
-                      {item.description && (
-                        <Typography variant="body2" color="text.secondary">
-                          {item.description}
-                        </Typography>
-                      )}
-                    </Box>
-                  </MenuItem>
-                ))}
-              <Divider />
-              <MenuItem onClick={handleLogout} sx={{ py: 1.5 }}>
-                <ListItemIcon sx={{ color: 'error.main' }}>
-                  <Logout fontSize="small" />
-                </ListItemIcon>
-                <Box>
-                  <Typography variant="body1" color="error">
-                    Sign Out
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    End your current session
-                  </Typography>
-                </Box>
-              </MenuItem>
-            </Menu>
-          )}
         </Toolbar>
       </AppBar>
-
       <Drawer
         variant="temporary"
         anchor="left"
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={handleDrawerToggle}
+        ModalProps={{
+          keepMounted: true, // Better open performance on mobile
+        }}
         sx={{
-          width: 280,
-          flexShrink: 0,
           '& .MuiDrawer-paper': {
             width: 280,
             boxSizing: 'border-box',
-            borderRight: 'none',
-            boxShadow: theme.shadows[8],
+            top: '64px',
+            height: 'calc(100% - 64px)',
           },
         }}
       >
-        <Toolbar />
-        <Box sx={{ overflow: 'auto', py: 2 }}>
-          <List>{renderMenuItems()}</List>
-        </Box>
+        <List component="nav" sx={{ pt: 0 }}>
+          <Box sx={{ mb: 2, px: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              MAIN MENU
+            </Typography>
+          </Box>
+          {mainMenuItems.map(renderMenuItem)}
+
+          {user && (
+            <>
+              {isAdmin && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Box sx={{ mb: 2, px: 2 }}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      ANALYTICS
+                    </Typography>
+                  </Box>
+                  {analyticsMenuItems.map(renderMenuItem)}
+
+                  <Divider sx={{ my: 2 }} />
+                  <Box sx={{ mb: 2, px: 2 }}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      MANAGEMENT
+                    </Typography>
+                  </Box>
+                  {managementMenuItems.map(renderMenuItem)}
+                </>
+              )}
+
+              <Divider sx={{ my: 2 }} />
+              <Box sx={{ mb: 2, px: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  ACCOUNT
+                </Typography>
+              </Box>
+              {accountMenuItems.map(renderMenuItem)}
+            </>
+          )}
+        </List>
       </Drawer>
-      <Toolbar />
     </>
   );
 }
