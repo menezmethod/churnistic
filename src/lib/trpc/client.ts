@@ -1,10 +1,18 @@
-import { createTRPCNext } from '@trpc/next';
-
+import { createTRPCReact } from '@trpc/react-query';
 import { type AppRouter } from '@/api/routers/_app';
 
-export const trpc = createTRPCNext<AppRouter>();
+export const trpc = createTRPCReact<AppRouter>({
+  unstable_overrides: {
+    useMutation: {
+      async onSuccess(opts) {
+        await opts.originalFn();
+        await opts.queryClient.invalidateQueries();
+      },
+    },
+  },
+});
 
-export function getBaseUrl(): string {
+export function getBaseUrl() {
   if (typeof window !== 'undefined') {
     return '';
   }
@@ -12,8 +20,4 @@ export function getBaseUrl(): string {
     return `https://${process.env.VERCEL_URL}`;
   }
   return `http://localhost:${process.env.PORT ?? 3000}`;
-}
-
-export function getUrl(): string {
-  return `${getBaseUrl()}/api/trpc`;
 }
