@@ -1,12 +1,8 @@
 import { getAuth } from 'firebase-admin/auth';
 import type { NextRequest } from 'next/server';
 
-export interface Session {
-  uid: string;
-  email: string | null;
-  role?: string;
-  permissions?: string[];
-}
+import { UserRole } from '@/types/roles';
+import { type Session } from '@/types/session';
 
 export interface AuthContext {
   session: Session | null;
@@ -52,10 +48,10 @@ export async function createAuthContext(req: NextRequest): Promise<AuthContext> 
       return {
         session: {
           uid: decodedToken.uid,
-          email: decodedToken.email,
-          role: decodedToken.role || 'user',
-          permissions: decodedToken.permissions || [],
-        },
+          email: decodedToken.email ?? null,
+          role: (decodedToken.role as UserRole) ?? UserRole.USER,
+          permissions: decodedToken.permissions ?? [],
+        } as Session,
       };
     } catch (error) {
       console.error('Failed to verify session cookie:', error);

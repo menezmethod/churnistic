@@ -3,9 +3,9 @@ import type { Query } from 'firebase-admin/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 
 import { userInputs } from '@/api/router-types';
-import { type SessionData } from '@/lib/auth/session';
-import { UserRole } from '@/lib/auth/types';
 import { getAdminDb } from '@/lib/firebase/admin';
+import { UserRole } from '@/types/roles';
+import { type Session } from '@/types/session';
 
 import { adminProcedure, protectedProcedure, router } from '../trpc';
 
@@ -13,8 +13,8 @@ const USERS_COLLECTION = 'users';
 
 interface UserDocument {
   email: string;
-  displayName?: string;
-  role: string;
+  displayName: string | null;
+  role: UserRole;
   isSuperAdmin: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -23,8 +23,8 @@ interface UserDocument {
 interface UserResponse {
   id: string;
   email: string;
-  displayName?: string;
-  role: string;
+  displayName: string | null;
+  role: UserRole;
   isSuperAdmin: boolean;
   createdAt: string;
   updatedAt: string;
@@ -44,14 +44,7 @@ function formatUserData(id: string, data: UserDocument): UserResponse {
 
 export const userRouter = router({
   me: protectedProcedure.query(async ({ ctx }) => {
-    if (!ctx.session) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: 'Not authenticated',
-      });
-    }
-
-    const session = ctx.session as unknown as SessionData;
+    const session = ctx.session as Session;
     const db = getAdminDb();
     const userRef = db.collection(USERS_COLLECTION).doc(session.uid);
     const userDoc = await userRef.get();
@@ -61,10 +54,10 @@ export const userRouter = router({
       console.log('Creating user document in emulator mode:', session);
       const now = Timestamp.now();
       const userData: UserDocument = {
-        email: session.email || '',
-        displayName: session.name,
-        role: session.role || UserRole.USER,
-        isSuperAdmin: session.isSuperAdmin || false,
+        email: session.email ?? '',
+        displayName: session.name ?? null,
+        role: session.role,
+        isSuperAdmin: session.isSuperAdmin ?? false,
         createdAt: now,
         updatedAt: now,
       };
