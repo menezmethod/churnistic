@@ -26,6 +26,12 @@ function getAdminConfig(): AppOptions {
     console.log('🔧 Initializing Admin App in Emulator mode');
     return {
       projectId,
+      credential: {
+        getAccessToken: () => Promise.resolve({ 
+          access_token: 'owner', 
+          expires_in: 3600 
+        }),
+      },
     };
   }
 
@@ -130,11 +136,11 @@ async function initializeAdmin() {
     console.log('Initializing Firebase Admin...');
 
     // Initialize Auth first
-    await initializeAdminAuth();
+    initializeAdminAuth();
     console.log('Firebase Admin Auth initialized');
 
     // Then initialize Firestore
-    await initializeAdminDb();
+    initializeAdminDb();
     console.log('Firebase Admin Firestore initialized');
 
     isInitialized = true;
@@ -147,7 +153,7 @@ async function initializeAdmin() {
 }
 
 // Initialize on module load
-initializeAdmin().catch(console.error);
+void initializeAdmin();
 
 export { adminApp as app, adminAuth as auth, adminDb as db };
 export type { App, Auth, Firestore };

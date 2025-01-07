@@ -1,13 +1,29 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-import { auth } from '@/lib/firebase/admin';
+import { getAdminAuth } from '@/lib/firebase/admin';
+
+const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
 export async function POST(request: Request) {
   try {
     const { idToken } = await request.json();
 
+    // In emulator mode, skip token verification
+    if (useEmulator) {
+      const cookieStore = cookies();
+      await cookieStore.set('session', 'test-session', {
+        maxAge: 60 * 60 * 24 * 5, // 5 days
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+      return NextResponse.json({ status: 'success' });
+    }
+
     // Verify the ID token
+    const auth = getAdminAuth();
     const decodedToken = await auth.verifyIdToken(idToken);
 
     // Create session cookie
@@ -36,16 +52,14 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   try {
-    cookies().delete('session');
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const cookieStore = cookies();
+    await cookieStore.delete('session');
+    return NextResponse.json({ status: 'success' });
   } catch (error) {
     console.error('Error deleting session:', error);
-    return new Response(JSON.stringify({ error: 'Failed to delete session' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json(
+      { error: 'Failed to delete session' },
+      { status: 500 }
+    );
   }
 }
