@@ -6,31 +6,22 @@ import { FirestoreOpportunity } from '@/types/opportunity';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const db = getAdminDb();
-    const id = params.id;
+    const { id } = params;
 
     // Get the document using admin SDK
     const doc = await db.collection('opportunities').doc(id).get();
 
     if (!doc.exists) {
-      return NextResponse.json(
-        { error: 'Opportunity not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
     }
 
     return NextResponse.json(doc.data());
   } catch (error) {
     console.error('Error fetching opportunity:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 

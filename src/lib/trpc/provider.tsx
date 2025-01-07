@@ -5,6 +5,7 @@ import { httpBatchLink } from '@trpc/client';
 import { useState } from 'react';
 
 import { auth } from '@/lib/firebase/config';
+
 import { trpc } from './client';
 import { getBaseUrl } from './client';
 

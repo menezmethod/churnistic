@@ -9,4 +9,4 @@ export interface Session {
   permissions?: string[];
 }
 
-export type SessionData = Session; 
+export type SessionData = Session;

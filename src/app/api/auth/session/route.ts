@@ -24,7 +24,6 @@ export async function POST(request: Request) {
 
     // Verify the ID token
     const auth = getAdminAuth();
-    const decodedToken = await auth.verifyIdToken(idToken);
 
     // Create session cookie
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
@@ -43,10 +42,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: 'success' });
   } catch (error) {
     console.error('Error creating session:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -57,9 +53,6 @@ export async function DELETE() {
     return NextResponse.json({ status: 'success' });
   } catch (error) {
     console.error('Error deleting session:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete session' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete session' }, { status: 500 });
   }
 }
