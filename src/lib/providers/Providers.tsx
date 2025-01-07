@@ -4,7 +4,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { type ReactNode } from 'react';
 
 import { ClientAuthProvider } from '@/lib/auth/ClientAuthProvider';
-import { ThemeProvider } from '@/lib/theme/ThemeContext';
+import { ThemeProvider } from '@/styles/theme/ThemeContext';
 
 import { QueryProvider } from './QueryProvider';
 
