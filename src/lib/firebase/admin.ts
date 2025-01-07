@@ -25,9 +25,17 @@ function getAdminConfig(): AppOptions {
   // In emulator mode, we don't need credentials
   if (useEmulators) {
     console.log('🔧 Initializing Admin App in Emulator mode');
-    process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
-    process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-    return { projectId };
+    // Don't set these here - they should be set before the server starts
+    return {
+      projectId,
+      // Explicitly set credential to null for emulator
+      credential: {
+        getAccessToken: () => Promise.resolve({
+          access_token: 'owner',
+          expires_in: 3600
+        })
+      }
+    };
   }
 
   const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -62,16 +70,9 @@ export function initializeAdminDb(): Firestore {
       adminDb = getFirestore(adminApp);
 
       if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-        console.log('📚 Connecting Admin to Firestore Emulator at: 127.0.0.1:8080');
-        adminDb.settings({
-          host: '127.0.0.1:8080',
-          ssl: false,
-          ignoreUndefinedProperties: true,
-        });
-      } else {
-        adminDb.settings({
-          ignoreUndefinedProperties: true,
-        });
+        console.log('📚 Connecting Admin to Firestore Emulator at: localhost:8080');
+        // Set environment variable for Firestore emulator
+        process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
       }
     }
 
@@ -92,7 +93,9 @@ export function initializeAdminAuth(): Auth {
     if (!adminAuth) {
       adminAuth = getAuth(adminApp);
       if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-        console.log('🔐 Connecting Admin to Auth Emulator at: 127.0.0.1:9099');
+        console.log('🔐 Connecting Admin to Auth Emulator at: localhost:9099');
+        // Set environment variable for Auth emulator
+        process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
       }
     }
 
