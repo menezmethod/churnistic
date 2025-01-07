@@ -6,43 +6,31 @@ import { FirestoreOpportunity } from '@/types/opportunity';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const db = getAdminDb();
-    const { id } = params;
+    const id = params.id;
 
     // Get the document using admin SDK
     const doc = await db.collection('opportunities').doc(id).get();
 
     if (!doc.exists) {
-      return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Opportunity not found' },
+        { status: 404 }
+      );
     }
 
-    const data = doc.data() as Omit<FirestoreOpportunity, 'id'>;
-    const opportunity = {
-      id: doc.id,
-      ...data,
-      value: data.value || 0,
-      bonus: {
-        ...data.bonus,
-        requirements: {
-          ...data.bonus?.requirements,
-          minimum_deposit: data.bonus?.requirements?.minimum_deposit || null,
-          trading_requirements: data.bonus?.requirements?.trading_requirements || null,
-          holding_period: data.bonus?.requirements?.holding_period || null,
-        },
-        tiers: data.bonus?.tiers || null,
-      },
-      details: {
-        ...data.details,
-        availability: data.details?.availability || { type: 'Nationwide' },
-      },
-    };
-
-    return NextResponse.json(opportunity);
+    return NextResponse.json(doc.data());
   } catch (error) {
     console.error('Error fetching opportunity:', error);
-    return NextResponse.json({ error: 'Failed to fetch opportunity' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 

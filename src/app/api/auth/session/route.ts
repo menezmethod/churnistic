@@ -1,43 +1,36 @@
 import { cookies } from 'next/headers';
-import { type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
-import { getAdminAuth } from '@/lib/firebase/admin';
+import { auth } from '@/lib/firebase/admin';
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { idToken } = await request.json();
 
-    if (!idToken) {
-      return new Response(JSON.stringify({ error: 'No ID token provided' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
+    // Verify the ID token
+    const decodedToken = await auth.verifyIdToken(idToken);
 
     // Create session cookie
-    const auth = getAdminAuth();
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
     const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
 
     // Set cookie
-    cookies().set('session', sessionCookie, {
+    const cookieStore = cookies();
+    await cookieStore.set('session', sessionCookie, {
       maxAge: expiresIn,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      path: '/',
       sameSite: 'lax',
+      path: '/',
     });
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json({ status: 'success' });
   } catch (error) {
     console.error('Error creating session:', error);
-    return new Response(JSON.stringify({ error: 'Failed to create session' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
