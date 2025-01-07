@@ -41,24 +41,51 @@ export async function GET(req: NextRequest) {
     console.log('Executing Firestore query...');
     const snapshot = await query.get();
     const opportunities = snapshot.docs.map((doc) => {
-      const data = doc.data() as Omit<FirestoreOpportunity, 'id'>;
+      const data = doc.data();
       return {
         id: doc.id,
         ...data,
-        value: data.value || 0, // Ensure value is always a number
+        value: data.value || 0,
         bonus: {
-          ...data.bonus,
+          title: data.bonus?.title || '',
+          description: data.bonus?.description || '',
           requirements: {
-            ...data.bonus?.requirements,
+            title: data.bonus?.requirements?.title || '',
+            description: data.bonus?.requirements?.description || '',
             minimum_deposit: data.bonus?.requirements?.minimum_deposit || null,
             trading_requirements: data.bonus?.requirements?.trading_requirements || null,
             holding_period: data.bonus?.requirements?.holding_period || null,
           },
+          additional_info: data.bonus?.additional_info || null,
           tiers: data.bonus?.tiers || null,
         },
         details: {
-          ...data.details,
+          monthly_fees: {
+            amount: data.details?.monthly_fees?.amount || '0',
+          },
+          account_type: data.details?.account_type || '',
           availability: data.details?.availability || { type: 'Nationwide' },
+          credit_inquiry: data.details?.credit_inquiry || null,
+          household_limit: data.details?.household_limit || null,
+          early_closure_fee: data.details?.early_closure_fee || null,
+          chex_systems: data.details?.chex_systems || null,
+          expiration: data.details?.expiration || null,
+        },
+        logo: {
+          type: data.logo?.type || '',
+          url: data.logo?.url || '',
+        },
+        card_image: data.type === 'credit_card' ? {
+          url: data.card_image?.url || '',
+          network: data.card_image?.network || 'Unknown',
+          color: data.card_image?.color || 'Unknown',
+          badge: data.card_image?.badge,
+        } : undefined,
+        metadata: {
+          created_at: data.metadata?.created_at || new Date().toISOString(),
+          updated_at: data.metadata?.updated_at || new Date().toISOString(),
+          created_by: data.metadata?.created_by || 'system',
+          status: data.metadata?.status || 'active',
         },
       };
     });
