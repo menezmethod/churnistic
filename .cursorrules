@@ -1,0 +1,48 @@
+{
+    "folderStructure": {
+      "components": "Reusable UI components organized by feature or global usage",
+      "pages": "Next.js page components corresponding to routes",
+      "styles": "Global styles and CSS modules",
+      "lib": "Core business logic and utilities",
+      "hooks": "Custom React hooks",
+      "api": "API routes and server-side logic",
+      "types": "TypeScript type definitions",
+      "public": "Static assets"
+    },
+    "componentRules": {
+      "maxLines": 300,
+      "structure": [
+        "imports",
+        "types",
+        "constants",
+        "component"
+      ]
+    },
+    "namingConventions": {
+      "components": "PascalCase",
+      "hooks": "camelCase starting with 'use'",
+      "utils": "camelCase",
+      "types": "PascalCase with descriptive suffixes (Type, Props, etc.)"
+    },
+    "importRules": {
+      "order": [
+        "react",
+        "next",
+        "external libraries",
+        "components",
+        "hooks",
+        "utils",
+        "types",
+        "styles"
+      ]
+    },
+    "styleRules": {
+      "preferred": "Tailwind CSS with component-specific styles",
+      "cssModules": "For complex component-specific styles"
+    },
+    "commitMessageFormat": {
+      "prefix": ["feat", "refactor", "fix", "chore", "style", "perf"],
+      "format": "<prefix>(<scope>): <description>",
+      "example": "refactor(components): break down OpportunityDetails into smaller components"
+    }
+  }
