@@ -8,9 +8,6 @@ import { SessionData } from '@/lib/auth/session';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { UserRole } from '@/types/roles';
 
-
-
-
 const USERS_COLLECTION = 'users';
 
 interface UserDocument {

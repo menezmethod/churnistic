@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { getAdminDb } from '@/lib/firebase/admin';
-import { FormData, FirestoreOpportunity } from '@/types/opportunity';
+import { FormData } from '@/types/opportunity';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
@@ -75,12 +75,15 @@ export async function GET(req: NextRequest) {
           type: data.logo?.type || '',
           url: data.logo?.url || '',
         },
-        card_image: data.type === 'credit_card' ? {
-          url: data.card_image?.url || '',
-          network: data.card_image?.network || 'Unknown',
-          color: data.card_image?.color || 'Unknown',
-          badge: data.card_image?.badge,
-        } : undefined,
+        card_image:
+          data.type === 'credit_card'
+            ? {
+                url: data.card_image?.url || '',
+                network: data.card_image?.network || 'Unknown',
+                color: data.card_image?.color || 'Unknown',
+                badge: data.card_image?.badge,
+              }
+            : undefined,
         metadata: {
           created_at: data.metadata?.created_at || new Date().toISOString(),
           updated_at: data.metadata?.updated_at || new Date().toISOString(),

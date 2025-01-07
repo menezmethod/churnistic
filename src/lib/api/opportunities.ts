@@ -36,7 +36,9 @@ export async function getOpportunityById(id: string) {
   return opportunity;
 }
 
-export async function createOpportunity(data: Omit<FirestoreOpportunity, 'id'>) {
+export async function createOpportunity(
+  data: Omit<FirestoreOpportunity, 'id'>
+): Promise<FirestoreOpportunity> {
   const response = await fetch('/api/opportunities', {
     method: 'POST',
     headers: {
@@ -51,7 +53,11 @@ export async function createOpportunity(data: Omit<FirestoreOpportunity, 'id'>) 
     throw new Error(`Failed to create opportunity: ${response.status} - ${errorText}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  return {
+    id: result.id,
+    ...data,
+  };
 }
 
 export async function updateOpportunity(id: string, data: Partial<FirestoreOpportunity>) {

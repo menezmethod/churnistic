@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  createOpportunity,
   deleteOpportunity,
   getOpportunities,
   updateOpportunity,
@@ -13,13 +14,31 @@ export function useOpportunities() {
   const query = useQuery<FirestoreOpportunity[]>({
     queryKey: ['opportunities'],
     queryFn: () => getOpportunities(),
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 0, // Always fetch fresh data
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createOpportunity,
+    onSuccess: (newOpportunity) => {
+      // Optimistically update the cache
+      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities'], (old) => {
+        return old ? [newOpportunity, ...old] : [newOpportunity];
+      });
+      // Then invalidate to ensure we have the latest data
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteOpportunity,
-    onSuccess: () => {
-      // Invalidate and refetch opportunities after deletion
+    onSuccess: (_, deletedId) => {
+      // Optimistically update the cache
+      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities'], (old) => {
+        return old ? old.filter((opp) => opp.id !== deletedId) : [];
+      });
+      // Then invalidate to ensure we have the latest data
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
     },
   });
@@ -27,15 +46,27 @@ export function useOpportunities() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<FirestoreOpportunity> }) =>
       updateOpportunity(id, data),
-    onSuccess: () => {
-      // Invalidate and refetch opportunities after update
+    onSuccess: (updatedOpportunity) => {
+      // Optimistically update the cache
+      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities'], (old) => {
+        return old
+          ? old.map((opp) =>
+              opp.id === updatedOpportunity.id ? updatedOpportunity : opp
+            )
+          : [];
+      });
+      // Then invalidate to ensure we have the latest data
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
     },
   });
 
   return {
     ...query,
+    createOpportunity: createMutation.mutateAsync,
     deleteOpportunity: deleteMutation.mutateAsync,
     updateOpportunity: updateMutation.mutateAsync,
+    isCreating: createMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    isUpdating: updateMutation.isPending,
   };
 }
