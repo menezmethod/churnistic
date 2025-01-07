@@ -79,9 +79,7 @@ export const loadUser = async (): Promise<AuthUser | null> => {
             authUser.role = idTokenResult.claims.role;
 
             // Manage session cookie
-            if (process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATOR !== 'true') {
-              await manageSessionCookie(user);
-            }
+            await manageSessionCookie(user);
 
             resolve(authUser);
           } catch (error) {
@@ -100,42 +98,66 @@ export const loadUser = async (): Promise<AuthUser | null> => {
 export const loginWithEmail = async (
   credentials: LoginCredentials
 ): Promise<AuthUser> => {
-  const { user } = await signInWithEmailAndPassword(
-    auth,
-    credentials.email,
-    credentials.password
-  );
-  await user.getIdToken(true);
-  return user as AuthUser;
+  try {
+    const { user } = await signInWithEmailAndPassword(
+      auth,
+      credentials.email,
+      credentials.password
+    );
+    await user.getIdToken(true);
+    await manageSessionCookie(user);
+    return user as AuthUser;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
 };
 
 // Register with email/password
 export const registerWithEmail = async (
   credentials: RegisterCredentials
 ): Promise<AuthUser> => {
-  const { user } = await createUserWithEmailAndPassword(
-    auth,
-    credentials.email,
-    credentials.password
-  );
-  await handleUserProfile(user);
-  return user as AuthUser;
+  try {
+    const { user } = await createUserWithEmailAndPassword(
+      auth,
+      credentials.email,
+      credentials.password
+    );
+    await handleUserProfile(user);
+    await manageSessionCookie(user);
+    return user as AuthUser;
+  } catch (error) {
+    console.error('Registration error:', error);
+    throw error;
+  }
 };
 
 // Login with Google
 export const loginWithGoogle = async (): Promise<AuthUser> => {
-  const provider = new GoogleAuthProvider();
-  const { user } = await signInWithPopup(auth, provider);
-  await handleUserProfile(user);
-  return user as AuthUser;
+  try {
+    const provider = new GoogleAuthProvider();
+    const { user } = await signInWithPopup(auth, provider);
+    await handleUserProfile(user);
+    await manageSessionCookie(user);
+    return user as AuthUser;
+  } catch (error) {
+    console.error('Google login error:', error);
+    throw error;
+  }
 };
 
 // Login with GitHub
 export const loginWithGithub = async (): Promise<AuthUser> => {
-  const provider = new GithubAuthProvider();
-  const { user } = await signInWithPopup(auth, provider);
-  await handleUserProfile(user);
-  return user as AuthUser;
+  try {
+    const provider = new GithubAuthProvider();
+    const { user } = await signInWithPopup(auth, provider);
+    await handleUserProfile(user);
+    await manageSessionCookie(user);
+    return user as AuthUser;
+  } catch (error) {
+    console.error('GitHub login error:', error);
+    throw error;
+  }
 };
 
 // Reset password
@@ -145,5 +167,12 @@ export const resetPassword = async (email: string): Promise<void> => {
 
 // Logout
 export const logout = async (): Promise<void> => {
-  await firebaseSignOut(auth);
+  try {
+    await firebaseSignOut(auth);
+    // Clear session cookie
+    await fetch('/api/auth/session', { method: 'DELETE' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    throw error;
+  }
 };

@@ -7,6 +7,7 @@ const protectedPaths = ['/dashboard', '/admin', '/api/users'];
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
+
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   console.log('Middleware - Processing request for path:', path);
@@ -23,7 +24,7 @@ export async function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('session')?.value;
   if (!sessionCookie) {
     console.log('No session cookie found');
-    return NextResponse.redirect(new URL('/auth/login', request.url));
+    return NextResponse.redirect(new URL('/auth/signin', request.url));
   }
 
   return NextResponse.next();

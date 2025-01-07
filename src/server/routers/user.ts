@@ -51,7 +51,7 @@ export const userRouter = router({
       });
     }
 
-    const session = ctx.session as SessionData;
+    const session = ctx.session as unknown as SessionData;
     const db = getAdminDb();
     const userRef = db.collection(USERS_COLLECTION).doc(session.uid);
     const userDoc = await userRef.get();

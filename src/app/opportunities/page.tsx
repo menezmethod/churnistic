@@ -202,7 +202,7 @@ function OpportunitiesSection() {
     if (!opportunities) return [];
 
     return opportunities
-      .filter((opp: FirestoreOpportunity): opp is FirestoreOpportunity => {
+      .filter((opp): opp is FirestoreOpportunity => {
         // Ensure ID exists
         if (!opp.id) return false;
 
@@ -224,8 +224,8 @@ function OpportunitiesSection() {
         let comparison = 0;
         switch (sortBy) {
           case 'value':
-            const aTotal = a.value || 0;
-            const bTotal = b.value || 0;
+            const aTotal = (a.bonus?.tiers?.[0]?.value || 0) + a.value;
+            const bTotal = (b.bonus?.tiers?.[0]?.value || 0) + b.value;
             comparison = bTotal - aTotal;
             break;
           case 'name':

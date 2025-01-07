@@ -1,23 +1,31 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { Timestamp } from 'firebase-admin/firestore';
+import { type NextRequest } from 'next/server';
 
-import { db } from '@/lib/firebase/admin';
+import { getAdminDb } from '@/lib/firebase/admin';
 
-export async function GET(
+export async function POST(
   request: NextRequest,
-  props: { params: Promise<{ uid: string }> }
+  { params }: { params: { uid: string } }
 ) {
-  const params = await props.params;
   try {
-    const userDoc = await db.collection('users').doc(params.uid).get();
+    const db = getAdminDb();
+    const userRef = db.collection('users').doc(params.uid);
+    const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
-      return NextResponse.json({ exists: false }, { status: 404 });
+      return new Response('User not found', { status: 404 });
     }
 
-    return NextResponse.json({ exists: true });
+    await userRef.update({
+      businessVerified: true,
+      updatedAt: Timestamp.now(),
+    });
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Error verifying user:', error);
-    return NextResponse.json({ error: 'Failed to verify user' }, { status: 500 });
+    return new Response('Internal Server Error', { status: 500 });
   }
 }

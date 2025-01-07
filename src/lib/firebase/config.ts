@@ -35,11 +35,6 @@ if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
 
 // Session management
 export async function manageSessionCookie(user: User) {
-  if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
-    console.log('Using emulator - skipping session cookie management');
-    return;
-  }
-
   try {
     // Get the ID token with force refresh
     const idToken = await user.getIdToken(true);
@@ -67,7 +62,13 @@ export async function manageSessionCookie(user: User) {
     if (!response.ok) {
       throw new Error('Failed to set session cookie');
     }
+
+    // Set a local cookie for the emulator environment
+    if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+      document.cookie = `session=${idToken}; path=/; max-age=3600; SameSite=Strict`;
+    }
   } catch (error) {
     console.error('Error managing session:', error);
+    throw error; // Re-throw to handle in the calling code
   }
 }

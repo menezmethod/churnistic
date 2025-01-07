@@ -1,85 +1,83 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { Timestamp } from 'firebase-admin/firestore';
+import { type NextRequest } from 'next/server';
 
-import { db } from '@/lib/firebase/admin';
+import { getAdminDb } from '@/lib/firebase/admin';
 
-export async function GET(
-  request: NextRequest,
-  props: { params: Promise<{ id: string }> }
-) {
-  const params = await props.params;
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const db = getAdminDb();
     const userDoc = await db.collection('users').doc(params.id).get();
 
     if (!userDoc.exists) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return new Response(JSON.stringify({ error: 'User not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    const userData = userDoc.data();
-    const user = {
-      id: userDoc.id,
-      email: userData?.email,
-      displayName: userData?.displayName,
-      photoURL: userData?.photoURL,
-      role: userData?.role,
-      status: userData?.status,
-      createdAt: userData?.createdAt,
-      updatedAt: userData?.updatedAt,
-    };
-
-    return NextResponse.json(user);
+    return new Response(
+      JSON.stringify({
+        id: userDoc.id,
+        ...userDoc.data(),
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
     console.error('Error fetching user:', error);
-    return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  props: { params: Promise<{ id: string }> }
-) {
-  const params = await props.params;
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const data = await request.json();
+    const updates = await request.json();
+    const db = getAdminDb();
     const userRef = db.collection('users').doc(params.id);
 
-    // Update the user document
-    await userRef.update({
-      ...data,
-      updatedAt: new Date().toISOString(),
-    });
-
-    // Get the updated user data
-    const userDoc = await userRef.get();
-    const userData = userDoc.data();
-
-    const user = {
-      id: userDoc.id,
-      email: userData?.email,
-      displayName: userData?.displayName,
-      photoURL: userData?.photoURL,
-      role: userData?.role,
-      status: userData?.status,
-      createdAt: userData?.createdAt,
-      updatedAt: userData?.updatedAt,
+    // Add updated timestamp
+    const updatedData = {
+      ...updates,
+      updatedAt: Timestamp.now(),
     };
 
-    return NextResponse.json(user);
+    await userRef.update(updatedData);
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Error updating user:', error);
-    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const params = await props.params;
   try {
+    const db = getAdminDb();
     await db.collection('users').doc(params.id).delete();
-    return NextResponse.json({ success: true });
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Error deleting user:', error);
-    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }

@@ -1,61 +1,18 @@
-import { type Query, type DocumentData } from 'firebase-admin/firestore';
-import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { Timestamp } from 'firebase-admin/firestore';
+import { type NextRequest } from 'next/server';
 
 import { UserRole } from '@/lib/auth/types';
-import { db } from '@/lib/firebase/admin';
-
-// Validation schemas
-const userSchema = z.object({
-  email: z.string().email(),
-  displayName: z.string().min(1),
-  role: z.nativeEnum(UserRole),
-});
-
-const updateSchema = z.object({
-  userIds: z.array(z.string()),
-  update: z.object({
-    role: z.nativeEnum(UserRole).optional(),
-    status: z.string().optional(),
-    displayName: z.string().optional(),
-  }),
-});
-
-interface DatabaseUser {
-  id: string;
-  email: string;
-  displayName: string | null;
-  photoURL: string | null;
-  role: UserRole;
-  status?: string;
-  creditScore?: number;
-  monthlyIncome?: number;
-  isSuperAdmin?: boolean;
-  permissions?: string[];
-  createdAt: string;
-  updatedAt: string;
-}
+import { getAdminDb } from '@/lib/firebase/admin';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const role = searchParams.get('role');
-    const status = searchParams.get('status');
     const search = searchParams.get('search');
-    const sortField = searchParams.get('sortField') || 'createdAt';
-    const sortDirection = (searchParams.get('sortDirection') || 'desc') as 'asc' | 'desc';
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '10');
+    const limit = searchParams.get('limit');
+    const offset = searchParams.get('offset');
 
-    let query: Query<DocumentData> = db.collection('users');
-
-    if (role) {
-      query = query.where('role', '==', role);
-    }
-
-    if (status) {
-      query = query.where('status', '==', status);
-    }
+    const db = getAdminDb();
+    let query = db.collection('users');
 
     if (search) {
       query = query
@@ -63,12 +20,15 @@ export async function GET(request: NextRequest) {
         .where('displayName', '<=', search + '\uf8ff');
     }
 
-    query = query.orderBy(sortField, sortDirection);
+    if (limit) {
+      query = query.limit(parseInt(limit, 10));
+    }
 
-    const startAt = (page - 1) * pageSize;
-    query = query.limit(pageSize).offset(startAt);
+    if (offset) {
+      query = query.offset(parseInt(offset, 10));
+    }
 
-    const [snapshot, totalCount] = await Promise.all([
+    const [snapshot, countSnapshot] = await Promise.all([
       query.get(),
       db.collection('users').count().get(),
     ]);
@@ -76,149 +36,108 @@ export async function GET(request: NextRequest) {
     const users = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    })) as DatabaseUser[];
+    }));
 
-    return NextResponse.json({
-      data: {
+    return new Response(
+      JSON.stringify({
         users,
-        totalCount: totalCount.data().count,
-        page,
-        pageSize,
-      },
-    });
+        total: countSnapshot.data().count,
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
     console.error('Error fetching users:', error);
-    return NextResponse.json(
-      {
-        error: {
-          message: 'Failed to fetch users',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const validatedData = userSchema.parse(body);
+    const userData = await request.json();
+    const db = getAdminDb();
 
-    const userData: DatabaseUser = {
-      id: crypto.randomUUID(),
-      ...validatedData,
-      photoURL: null,
-      status: 'ACTIVE',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    // Add timestamps
+    const now = Timestamp.now();
+    const userDataWithTimestamps = {
+      ...userData,
+      role: userData.role || UserRole.USER,
+      isSuperAdmin: false,
+      createdAt: now,
+      updatedAt: now,
     };
 
-    await db.collection('users').doc(userData.id).set(userData);
+    await db.collection('users').doc(userData.id).set(userDataWithTimestamps);
 
-    return NextResponse.json({ data: userData });
+    return new Response(JSON.stringify(userDataWithTimestamps), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: {
-            message: 'Invalid request data',
-            details: error.errors,
-          },
-        },
-        { status: 400 }
-      );
-    }
-
     console.error('Error creating user:', error);
-    return NextResponse.json(
-      {
-        error: {
-          message: 'Failed to create user',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userIds, update } = updateSchema.parse(body);
-
+    const { ids, updates } = await request.json();
+    const db = getAdminDb();
     const batch = db.batch();
-    for (const userId of userIds) {
+
+    ids.forEach((userId: string) => {
       const userRef = db.collection('users').doc(userId);
       batch.update(userRef, {
-        ...update,
-        updatedAt: new Date().toISOString(),
+        ...updates,
+        updatedAt: Timestamp.now(),
       });
-    }
+    });
+
     await batch.commit();
 
-    return NextResponse.json({ data: { success: true } });
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: {
-            message: 'Invalid request data',
-            details: error.errors,
-          },
-        },
-        { status: 400 }
-      );
-    }
-
     console.error('Error updating users:', error);
-    return NextResponse.json(
-      {
-        error: {
-          message: 'Failed to update users',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { userIds } = await request.json();
-
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-      return NextResponse.json(
-        {
-          error: {
-            message: 'Invalid request data',
-            details: 'userIds must be a non-empty array',
-          },
-        },
-        { status: 400 }
-      );
-    }
-
+    const { ids } = await request.json();
+    const db = getAdminDb();
     const batch = db.batch();
-    for (const userId of userIds) {
+
+    ids.forEach((userId: string) => {
       const userRef = db.collection('users').doc(userId);
       batch.delete(userRef);
-    }
+    });
+
     await batch.commit();
 
-    return NextResponse.json({ data: { success: true } });
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Error deleting users:', error);
-    return NextResponse.json(
-      {
-        error: {
-          message: 'Failed to delete users',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-      },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }

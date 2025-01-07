@@ -1,23 +1,13 @@
-import type { DecodedIdToken } from 'firebase-admin/auth';
-import { NextRequest } from 'next/server';
+import { type DecodedIdToken } from 'firebase-admin/auth';
 
-import { auth } from '@/lib/firebase/admin';
+import { getAdminAuth } from '@/lib/firebase/admin';
 
-export async function verifyAuthToken(req: NextRequest): Promise<DecodedIdToken | null> {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader) {
-    return null;
-  }
-
+export async function verifyToken(token: string): Promise<DecodedIdToken> {
   try {
-    const token = authHeader.replace('Bearer ', '');
-    const decodedToken = await auth.verifyIdToken(token);
-    return decodedToken;
-  } catch (error: unknown) {
-    console.error(
-      'Error verifying auth token:',
-      error instanceof Error ? error.message : error
-    );
-    return null;
+    const auth = getAdminAuth();
+    return await auth.verifyIdToken(token);
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    throw error;
   }
 }
