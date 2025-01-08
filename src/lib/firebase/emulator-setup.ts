@@ -5,4 +5,8 @@ export function setupEmulators() {
     process.env.FIREBASE_STORAGE_EMULATOR_HOST = 'localhost:9199';
     process.env.FIREBASE_FUNCTIONS_EMULATOR_HOST = 'localhost:5001';
   }
-} 
+}
+
+// Call setupEmulators immediately to ensure environment variables are set
+// before any Firebase initialization
+setupEmulators(); 

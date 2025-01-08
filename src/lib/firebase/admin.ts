@@ -7,6 +7,7 @@ import {
 } from 'firebase-admin/app';
 import { type Auth, getAuth } from 'firebase-admin/auth';
 import { type Firestore, getFirestore } from 'firebase-admin/firestore';
+import './emulator-setup';  // Import emulator setup
 
 let adminApp: App | undefined;
 let adminAuth: Auth | undefined;
@@ -22,19 +23,11 @@ function getAdminConfig(): AppOptions {
     throw new Error('Firebase Project ID is not set in environment variables');
   }
 
-  // In emulator mode, we don't need credentials
+  // In emulator mode, we don't need real credentials
   if (useEmulators) {
     console.log('🔧 Initializing Admin App in Emulator mode');
-    // Don't set these here - they should be set before the server starts
     return {
-      projectId,
-      // Explicitly set credential to null for emulator
-      credential: {
-        getAccessToken: () => Promise.resolve({
-          access_token: 'owner',
-          expires_in: 3600
-        })
-      }
+      projectId
     };
   }
 
@@ -68,11 +61,8 @@ export function initializeAdminDb(): Firestore {
 
     if (!adminDb) {
       adminDb = getFirestore(adminApp);
-
       if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
         console.log('📚 Connecting Admin to Firestore Emulator at: localhost:8080');
-        // Set environment variable for Firestore emulator
-        process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
       }
     }
 
@@ -94,8 +84,6 @@ export function initializeAdminAuth(): Auth {
       adminAuth = getAuth(adminApp);
       if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
         console.log('🔐 Connecting Admin to Auth Emulator at: localhost:9099');
-        // Set environment variable for Auth emulator
-        process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
       }
     }
 
