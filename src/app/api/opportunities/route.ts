@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
               color: data.card_image?.color || 'Unknown',
               badge: data.card_image?.badge,
             }
-          : undefined,
+          : null,
       metadata: {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
