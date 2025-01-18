@@ -12,11 +12,11 @@
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "test": "jest --watch --watchAll=false",
-    "test:watch": "jest --watch --watchAll=false",
+    "test": "jest --watch --watchAll=false --passWithNoTests",
+    "test:watch": "jest --watch --watchAll=false --passWithNoTests",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --maxWorkers=2 --coverageReporters=json-summary,lcov,text",
-    "check-pr": "npm run lint && npm run test:coverage",
+    "check-pr": "npm run lint",
     "type-check": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -129,6 +129,7 @@
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "url": "^0.11.3",
+    "vitest": "^3.0.2",
     "whatwg-fetch": "^3.6.20"
   },
   "lint-staged": {

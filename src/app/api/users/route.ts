@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
     const offset = searchParams.get('offset');
 
     const db = getAdminDb();
-    let query = db.collection('users');
+    const usersRef = db.collection('users');
+    let query: FirebaseFirestore.Query = usersRef;
 
     if (search) {
       query = query
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     const [snapshot, countSnapshot] = await Promise.all([
       query.get(),
-      db.collection('users').count().get(),
+      usersRef.count().get(),
     ]);
 
     const users = snapshot.docs.map((doc) => ({

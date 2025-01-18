@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
     // In emulator mode, skip token verification
     if (useEmulator) {
-      const cookieStore = cookies();
+      const cookieStore = await cookies();
       await cookieStore.set('session', 'test-session', {
         maxAge: 60 * 60 * 24 * 5, // 5 days
         httpOnly: true,
@@ -22,15 +22,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ status: 'success' });
     }
 
-    // Verify the ID token
+    // Verify the ID token and create session cookie
     const auth = getAdminAuth();
-
-    // Create session cookie
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
     const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
 
     // Set cookie
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     await cookieStore.set('session', sessionCookie, {
       maxAge: expiresIn,
       httpOnly: true,
@@ -48,7 +46,7 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     await cookieStore.delete('session');
     return NextResponse.json({ status: 'success' });
   } catch (error) {

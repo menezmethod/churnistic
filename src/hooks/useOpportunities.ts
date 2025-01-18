@@ -37,8 +37,8 @@ export function useOpportunities() {
                 details: {
                   ...opp.details,
                   availability: {
-                    type: opp.details.availability?.type || 'Nationwide',
-                    states: opp.details.availability?.states || [],
+                    type: opp.details?.availability?.type || 'Nationwide',
+                    states: opp.details?.availability?.states || [],
                   },
                 },
               };

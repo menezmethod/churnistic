@@ -15,6 +15,6 @@ export async function createTRPCContext() {
 export type Context = inferAsyncReturnType<typeof createTRPCContext>;
 
 // Export reusable router types
-export interface ContextWithSession extends Context {
-  session: Session | null;
+export interface ContextWithSession extends Omit<Context, 'session'> {
+  session: Session;
 }
