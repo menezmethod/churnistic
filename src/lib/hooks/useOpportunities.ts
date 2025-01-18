@@ -1,12 +1,58 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import {
-  createOpportunity,
-  deleteOpportunity,
-  getOpportunities,
-  updateOpportunity,
-} from '@/lib/api/opportunities';
 import { FirestoreOpportunity } from '@/types/opportunity';
+
+const API_BASE = '/api/opportunities';
+
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Request failed');
+  }
+  return response.json();
+}
+
+const getOpportunities = async (): Promise<FirestoreOpportunity[]> => {
+  const response = await fetch(API_BASE);
+  return handleResponse<FirestoreOpportunity[]>(response);
+};
+
+const createOpportunity = async (
+  data: Omit<FirestoreOpportunity, 'id'>
+): Promise<FirestoreOpportunity> => {
+  const response = await fetch(API_BASE, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  return handleResponse<FirestoreOpportunity>(response);
+};
+
+const updateOpportunity = async (
+  id: string,
+  data: Partial<FirestoreOpportunity>
+): Promise<FirestoreOpportunity> => {
+  const response = await fetch(`${API_BASE}/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  return handleResponse<FirestoreOpportunity>(response);
+};
+
+const deleteOpportunity = async (id: string): Promise<void> => {
+  const response = await fetch(`${API_BASE}/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to delete opportunity');
+  }
+};
 
 export function useOpportunities() {
   const queryClient = useQueryClient();
