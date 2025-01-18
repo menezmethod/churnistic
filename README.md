@@ -5,6 +5,7 @@ A modern credit card churning tracker built with Next.js, TypeScript, and Materi
 ## Features
 
 ### Modern Dashboard
+
 - Real-time opportunity tracking
 - Activity timeline with filters
 - Progress tracking with visualizations
@@ -12,6 +13,7 @@ A modern credit card churning tracker built with Next.js, TypeScript, and Materi
 - Responsive design for all devices
 
 ### AI-Powered Opportunity Detection
+
 - Reddit and Twitter integration for opportunity discovery
 - Advanced analysis using Groq LLM
 - Automated confidence scoring with explanations
@@ -19,6 +21,7 @@ A modern credit card churning tracker built with Next.js, TypeScript, and Materi
 - Historical performance tracking
 
 ### Enhanced Security
+
 - Multi-factor authentication
 - Role-based access control
 - Data encryption at rest and in transit
@@ -26,6 +29,7 @@ A modern credit card churning tracker built with Next.js, TypeScript, and Materi
 - Automated vulnerability scanning
 
 ### Developer Experience
+
 - Type-safe API contracts with tRPC
 - React Query for state management
 - Comprehensive test coverage
@@ -35,12 +39,14 @@ A modern credit card churning tracker built with Next.js, TypeScript, and Materi
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 20+
 - npm 10+
 - Firebase project
 - Groq API key
 
 ### Installation
+
 ```bash
 # Clone the repository
 git clone https://github.com/menezmethod/churnistic.git
@@ -53,6 +59,7 @@ cp .env.example .env.local
 ```
 
 ### Development
+
 ```bash
 # Start development server
 npm run dev
@@ -67,6 +74,7 @@ npm run lint
 ## Architecture
 
 ### Tech Stack
+
 - **Frontend**: Next.js, React, Material-UI
 - **State Management**: React Query, tRPC
 - **Backend**: Firebase (Firestore, Authentication)
@@ -74,12 +82,15 @@ npm run lint
 - **Testing**: Jest, Cypress, React Testing Library
 
 ### Key Components
+
 1. **Opportunity Manager**
+
    - CRUD operations
    - Real-time updates
    - AI-powered analysis
 
 2. **User Management**
+
    - Authentication
    - Role-based permissions
    - Security features
@@ -92,18 +103,21 @@ npm run lint
 ## Development Workflow
 
 ### Code Quality
+
 - TypeScript strict mode
 - ESLint with custom rules
 - Prettier for formatting
 - Husky pre-commit hooks
 
 ### Testing
+
 - Unit tests: 90%+ coverage
 - Integration tests: 85%+ coverage
 - E2E tests: 80%+ coverage
 - Security tests: 100% coverage
 
 ### CI/CD
+
 - Automated testing on pull requests
 - Code quality checks
 - Security scanning
@@ -112,12 +126,14 @@ npm run lint
 ## Security Best Practices
 
 ### Authentication
+
 - JWT-based authentication
 - Refresh token rotation
 - Session management
 - Rate limiting
 
 ### Data Protection
+
 - Field-level encryption
 - Secure API endpoints
 - Input validation

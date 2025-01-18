@@ -3,10 +3,14 @@ import { type NextRequest } from 'next/server';
 
 import { getAdminDb } from '@/lib/firebase/admin';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const db = getAdminDb();
-    const userDoc = await db.collection('users').doc(params.id).get();
+    const { id } = await params;
+    const userDoc = await db.collection('users').doc(id).get();
 
     if (!userDoc.exists) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
@@ -34,11 +38,15 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const updates = await request.json();
     const db = getAdminDb();
-    const userRef = db.collection('users').doc(params.id);
+    const { id } = await params;
+    const userRef = db.collection('users').doc(id);
 
     // Add updated timestamp
     const updatedData = {
@@ -63,11 +71,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const db = getAdminDb();
-    await db.collection('users').doc(params.id).delete();
+    const { id } = await params;
+    await db.collection('users').doc(id).delete();
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

@@ -31,6 +31,7 @@ export default function OpportunityDetailsPage() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [editDialog, setEditDialog] = useState(false);
   const [editData, setEditData] = useState<Partial<FirestoreOpportunity>>({});
+  const [originalData, setOriginalData] = useState<FirestoreOpportunity | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
   // Check if user can edit/delete this opportunity
@@ -40,24 +41,55 @@ export default function OpportunityDetailsPage() {
         user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL)
   );
 
+  console.log('User:', user);
+  console.log('Opportunity creator:', opportunity?.metadata?.created_by);
+  console.log('Admin email:', process.env.NEXT_PUBLIC_ADMIN_EMAIL);
+  console.log('Can modify:', canModify);
+
   const handleDeleteClick = () => {
+    console.log('Delete button clicked');
     setDeleteDialog(true);
+    console.log('Delete dialog state:', deleteDialog);
   };
 
   const handleDeleteCancel = () => {
     setDeleteDialog(false);
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleOptimisticDelete = (id: string) => {
+    // Optimistically remove the opportunity from the list
+    queryClient.setQueryData(
+      ['opportunities'],
+      (old: FirestoreOpportunity[] | undefined) => old?.filter((o) => o.id !== id) || []
+    );
+  };
+
+  const handleRollbackDelete = () => {
+    // Restore the opportunity if deletion fails
+    queryClient.setQueryData(
+      ['opportunities'],
+      (old: FirestoreOpportunity[] | undefined) => {
+        if (!opportunity) return old || [];
+        return [...(old || []), opportunity];
+      }
+    );
+  };
+
+  const handleDeleteConfirm = async (id: string) => {
     if (!opportunity?.id) return;
 
     setIsDeleting(true);
     try {
-      await deleteOpportunity(opportunity.id);
+      // Apply optimistic update
+      handleOptimisticDelete(id);
+
+      await deleteOpportunity(id);
       setDeleteDialog(false);
       router.push('/opportunities');
     } catch (error) {
       console.error('Failed to delete opportunity:', error);
+      // Rollback on error
+      handleRollbackDelete();
     } finally {
       setIsDeleting(false);
     }
@@ -65,6 +97,7 @@ export default function OpportunityDetailsPage() {
 
   const handleEditClick = () => {
     if (!opportunity) return;
+    setOriginalData(opportunity);
     setEditData({
       name: opportunity.name,
       description: opportunity.description,
@@ -193,17 +226,21 @@ export default function OpportunityDetailsPage() {
       </Grid>
 
       {/* Dialogs */}
-      <DeleteDialog
-        open={deleteDialog}
-        opportunityName={opportunity.name}
-        isDeleting={isDeleting}
-        onCancel={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-      />
+      {opportunity.id && (
+        <DeleteDialog
+          open={deleteDialog}
+          opportunityId={opportunity.id}
+          opportunityName={opportunity.name}
+          isDeleting={isDeleting}
+          onCancel={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+        />
+      )}
 
       <EditDialog
         open={editDialog}
         editData={editData}
+        originalData={originalData!}
         isEditing={isEditing}
         onCancel={handleEditCancel}
         onConfirm={handleEditConfirm}

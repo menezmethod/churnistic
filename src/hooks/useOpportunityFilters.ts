@@ -38,7 +38,8 @@ export function useOpportunityFilters(opportunities: FormData[]) {
         (opp) =>
           opp.name.toLowerCase().includes(term) ||
           opp.type.toLowerCase().includes(term) ||
-          opp.bonus?.description?.toLowerCase().includes(term) || ''
+          opp.bonus?.description?.toLowerCase().includes(term) ||
+          ''
       );
     }
 
