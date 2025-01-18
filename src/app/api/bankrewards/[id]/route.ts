@@ -11,7 +11,7 @@ const querySchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params:  Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
     // Validate query parameters
