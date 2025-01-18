@@ -73,10 +73,10 @@ export const loadUser = async (): Promise<AuthUser | null> => {
 
             // Add claims to the user object
             authUser.customClaims = {
-              role: idTokenResult.claims.role,
-              permissions: idTokenResult.claims.permissions,
+              role: idTokenResult.claims.role as string | undefined,
+              permissions: idTokenResult.claims.permissions as string[] | undefined,
             };
-            authUser.role = idTokenResult.claims.role;
+            authUser.role = idTokenResult.claims.role as string | undefined;
 
             // Manage session cookie
             await manageSessionCookie(user);

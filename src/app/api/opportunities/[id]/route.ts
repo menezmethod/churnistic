@@ -6,11 +6,16 @@ import { FirestoreOpportunity } from '@/types/opportunity';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params;
+  if (!id) {
+    return NextResponse.json({ error: 'Missing opportunity ID' }, { status: 400 });
+  }
   try {
     const db = getAdminDb();
-    const { id } = params;
-
     // Get the document using admin SDK
     const doc = await db.collection('opportunities').doc(id).get();
 
@@ -25,7 +30,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params;
+  if (!id) {
+    return NextResponse.json({ error: 'Missing opportunity ID' }, { status: 400 });
+  }
   try {
     // Skip auth check in emulator mode
     if (!useEmulator) {
@@ -36,7 +48,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
       // Get the opportunity to check permissions
       const db = getAdminDb();
-      const doc = await db.collection('opportunities').doc(params.id).get();
+      const doc = await db.collection('opportunities').doc(id).get();
 
       if (!doc.exists) {
         return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
@@ -55,7 +67,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const body = await request.json();
-    const { id } = params;
 
     if (!body || typeof body !== 'object') {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
@@ -95,9 +106,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params;
     // Skip auth check in emulator mode
     if (!useEmulator) {
       const { session } = await createAuthContext(request);
@@ -107,7 +119,7 @@ export async function DELETE(
 
       // Get the opportunity to check permissions
       const db = getAdminDb();
-      const doc = await db.collection('opportunities').doc(params.id).get();
+      const doc = await db.collection('opportunities').doc(id).get();
 
       if (!doc.exists) {
         return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
@@ -126,7 +138,6 @@ export async function DELETE(
     }
 
     const db = getAdminDb();
-    const { id } = params;
 
     // Delete the document using admin SDK
     await db.collection('opportunities').doc(id).delete();

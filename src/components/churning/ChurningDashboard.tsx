@@ -25,7 +25,7 @@ export default function ChurningDashboard() {
 
   const transformedOpportunities: ChurningOpportunity[] =
     opportunities?.map((opp) => ({
-      id: opp.id,
+      id: opp.id || crypto.randomUUID(),
       type: opp.type,
       title: opp.name,
       description: opp.bonus?.description || '',

@@ -104,7 +104,7 @@ export function FormField(props: FormFieldProps) {
                   : (value?.[field.name] ?? '')
               }
               onChange={(e) => {
-                const newValue = { ...value } || {};
+                const newValue = value ? { ...value } : {};
                 if (field.type === 'boolean') {
                   newValue[field.name] = e.target.value === 'Yes';
                 } else if (field.type === 'number') {

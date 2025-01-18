@@ -38,7 +38,7 @@ export function useOpportunityFilters(opportunities: FormData[]) {
         (opp) =>
           opp.name.toLowerCase().includes(term) ||
           opp.type.toLowerCase().includes(term) ||
-          opp.bonus.description.toLowerCase().includes(term)
+          opp.bonus?.description?.toLowerCase().includes(term) || ''
       );
     }
 
@@ -97,8 +97,8 @@ export function useOpportunityFilters(opportunities: FormData[]) {
       case 'date':
         filtered.sort(
           (a, b) =>
-            new Date(b.metadata.created_at).getTime() -
-            new Date(a.metadata.created_at).getTime()
+            new Date(b.metadata?.created_at || 0).getTime() -
+            new Date(a.metadata?.created_at || 0).getTime()
         );
         break;
     }

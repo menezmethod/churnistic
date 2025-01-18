@@ -65,8 +65,8 @@ export function useOpportunities() {
     createOpportunity: createMutation.mutateAsync,
     deleteOpportunity: deleteMutation.mutateAsync,
     updateOpportunity: updateMutation.mutateAsync,
-    isCreating: createMutation.isPending,
-    isDeleting: deleteMutation.isPending,
-    isUpdating: updateMutation.isPending,
+    isCreating: createMutation.isLoading,
+    isDeleting: deleteMutation.isLoading,
+    isUpdating: updateMutation.isLoading,
   };
 }
