@@ -40,6 +40,17 @@ export async function GET(req: NextRequest) {
 
     console.log('Executing Firestore query...');
     const snapshot = await query.get();
+    console.log('Query snapshot:', {
+      size: snapshot.size,
+      empty: snapshot.empty,
+      docs: snapshot.docs.length
+    });
+    
+    if (snapshot.empty) {
+      console.log('No opportunities found in Firestore');
+      return NextResponse.json([]);
+    }
+
     const opportunities = snapshot.docs.map((doc) => {
       const data = doc.data();
       return {

@@ -8,7 +8,7 @@ export async function getOpportunities(): Promise<FirestoreOpportunity[]> {
     throw new Error('Failed to fetch opportunities');
   }
   const data = await response.json();
-  return data.opportunities || [];
+  return data || [];
 }
 
 export async function createOpportunity(
