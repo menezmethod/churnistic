@@ -954,8 +954,8 @@ export default function DashboardPage() {
             Welcome{' '}
             {
               (
-                profile?.displayName ||
                 profile?.customDisplayName ||
+                profile?.displayName ||
                 user?.email?.split('@')[0] ||
                 'Churner'
               ).split(' ')[0]
