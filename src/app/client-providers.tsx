@@ -3,10 +3,10 @@ import { QueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { JSX } from 'react';
 
+import { ThemeProvider } from '@/app/styles/theme/ThemeContext';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { QueryProvider } from '@/lib/providers/QueryProvider';
 import { TRPCProvider } from '@/lib/trpc/provider';
-import { ThemeProvider } from '@/styles/theme/ThemeContext';
 
 interface ClientProvidersProps {
   children: React.ReactNode;
