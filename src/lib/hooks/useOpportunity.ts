@@ -1,7 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { getOpportunityById } from '@/lib/api/opportunities';
 import { FirestoreOpportunity } from '@/types/opportunity';
+
+const API_BASE = '/api/opportunities';
+
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Request failed');
+  }
+  return response.json();
+}
+
+const getOpportunityById = async (id: string): Promise<FirestoreOpportunity> => {
+  const response = await fetch(`${API_BASE}/${id}`);
+  return handleResponse<FirestoreOpportunity>(response);
+};
 
 export function useOpportunity(id: string) {
   return useQuery<FirestoreOpportunity>({
