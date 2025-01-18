@@ -35,10 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 display: 'flex',
                 flexDirection: 'column',
                 backgroundColor: 'inherit',
-                px: { xs: 2, sm: 3, md: 4 },
-                py: { xs: 2, sm: 3 },
-                maxWidth: 'lg',
-                mx: 'auto',
+                mt: { xs: '56px', sm: '64px' },
               }}
             >
               {children}

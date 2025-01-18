@@ -7,7 +7,7 @@ import {
 } from 'firebase-admin/app';
 import { type Auth, getAuth } from 'firebase-admin/auth';
 import { type Firestore, getFirestore } from 'firebase-admin/firestore';
-import './emulator-setup';  // Import emulator setup
+import './emulator-setup'; // Import emulator setup
 
 let adminApp: App | undefined;
 let adminAuth: Auth | undefined;
@@ -27,7 +27,7 @@ function getAdminConfig(): AppOptions {
   if (useEmulators) {
     console.log('🔧 Initializing Admin App in Emulator mode');
     return {
-      projectId
+      projectId,
     };
   }
 

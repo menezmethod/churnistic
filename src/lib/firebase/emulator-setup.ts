@@ -9,4 +9,4 @@ export function setupEmulators() {
 
 // Call setupEmulators immediately to ensure environment variables are set
 // before any Firebase initialization
-setupEmulators(); 
+setupEmulators();
