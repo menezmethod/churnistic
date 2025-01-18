@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { z } from 'zod';
 
 import { BankRewardsDatabase } from '@/lib/scrapers/bankrewards/database';
@@ -9,16 +9,19 @@ const querySchema = z.object({
   format: z.enum(['detailed', 'simple']).optional(),
 });
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params:  Promise<{ id: string }> }
+): Promise<NextResponse> {
   try {
     // Validate query parameters
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const { format } = querySchema.parse({
       format: searchParams.get('format') || 'simple',
     });
 
     // Get the offer ID from the URL parameters
-    const { id } = params;
+    const { id } = await params;
 
     // Initialize database and fetch all offers
     const db = new BankRewardsDatabase();

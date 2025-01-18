@@ -246,7 +246,12 @@ export function SignIn(): JSX.Element {
             >
               Forgot password?
             </Link>
-            <Link component="a" href="/auth/signup" variant="body2" sx={{ pointerEvents: isLoading ? 'none' : 'auto' }}>
+            <Link
+              component="a"
+              href="/auth/signup"
+              variant="body2"
+              sx={{ pointerEvents: isLoading ? 'none' : 'auto' }}
+            >
               {"Don't have an account? Sign up"}
             </Link>
           </Stack>

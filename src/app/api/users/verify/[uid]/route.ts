@@ -5,11 +5,12 @@ import { getAdminDb } from '@/lib/firebase/admin';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { uid: string } }
+  { params }: { params: Promise<{ uid: string }> }
 ) {
   try {
     const db = getAdminDb();
-    const userRef = db.collection('users').doc(params.uid);
+    const { uid } = await params;
+    const userRef = db.collection('users').doc(uid);
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {

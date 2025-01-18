@@ -13,14 +13,16 @@ import {
 
 interface DeleteDialogProps {
   open: boolean;
+  opportunityId: string;
   opportunityName: string;
   isDeleting: boolean;
   onCancel: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: (id: string) => Promise<void>;
 }
 
 export const DeleteDialog = ({
   open,
+  opportunityId,
   opportunityName,
   isDeleting,
   onCancel,
@@ -76,7 +78,7 @@ export const DeleteDialog = ({
           Cancel
         </Button>
         <Button
-          onClick={onConfirm}
+          onClick={() => onConfirm(opportunityId)}
           variant="contained"
           color="error"
           disabled={isDeleting}

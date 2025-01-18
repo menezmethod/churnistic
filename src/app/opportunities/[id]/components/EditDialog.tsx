@@ -14,26 +14,51 @@ import {
   useTheme,
 } from '@mui/material';
 
+import { createOptimisticUpdate } from '@/lib/server-actions';
 import { FirestoreOpportunity, US_STATES } from '@/types/opportunity';
 
 interface EditDialogProps {
   open: boolean;
   editData: Partial<FirestoreOpportunity>;
+  originalData: FirestoreOpportunity;
   isEditing: boolean;
   onCancel: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: (data: Partial<FirestoreOpportunity>) => Promise<void>;
   onChange: (data: Partial<FirestoreOpportunity>) => void;
 }
 
 export const EditDialog = ({
   open,
   editData,
+  originalData,
   isEditing,
   onCancel,
   onConfirm,
   onChange,
 }: EditDialogProps) => {
   const theme = useTheme();
+
+  const handleConfirm = async () => {
+    if (!originalData) return;
+
+    const optimisticUpdate = createOptimisticUpdate<Partial<FirestoreOpportunity>, void>(
+      (data) => {
+        // Apply optimistic update
+        onChange(data);
+      },
+      () => {
+        // Rollback on error
+        onChange(originalData);
+      }
+    );
+
+    try {
+      await optimisticUpdate(editData, onConfirm);
+      onCancel();
+    } catch (error) {
+      console.error('Failed to update opportunity:', error);
+    }
+  };
 
   return (
     <Dialog
@@ -500,7 +525,7 @@ export const EditDialog = ({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 3 }}>
         <Button
-          onClick={onCancel}
+          onClick={handleConfirm}
           variant="outlined"
           sx={{
             borderColor: alpha(theme.palette.text.primary, 0.23),
@@ -514,7 +539,7 @@ export const EditDialog = ({
           Cancel
         </Button>
         <Button
-          onClick={onConfirm}
+          onClick={() => onConfirm(editData)}
           variant="contained"
           color="primary"
           disabled={isEditing}
