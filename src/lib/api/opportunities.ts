@@ -1,79 +1,62 @@
 import { FirestoreOpportunity } from '@/types/opportunity';
 
+const API_BASE_URL = '/api/opportunities';
+
 export async function getOpportunities(): Promise<FirestoreOpportunity[]> {
-  const response = await fetch('/api/opportunities');
+  const response = await fetch(API_BASE_URL);
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Failed to fetch opportunities:', response.status, errorText);
-    throw new Error(`Failed to fetch opportunities: ${response.status} - ${errorText}`);
+    throw new Error('Failed to fetch opportunities');
   }
-
-  const opportunities = (await response.json()) as FirestoreOpportunity[];
-  return opportunities;
-}
-
-export async function deleteOpportunity(id: string): Promise<void> {
-  const response = await fetch(`/api/opportunities/${id}`, {
-    method: 'DELETE',
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Failed to delete opportunity:', response.status, errorText);
-    throw new Error(`Failed to delete opportunity: ${response.status} - ${errorText}`);
-  }
-}
-
-export async function getOpportunityById(id: string) {
-  const response = await fetch(`/api/opportunities/${id}`);
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Failed to fetch opportunity:', response.status, errorText);
-    throw new Error(`Failed to fetch opportunity: ${response.status} - ${errorText}`);
-  }
-
-  const opportunity = (await response.json()) as FirestoreOpportunity;
-  return opportunity;
+  const data = await response.json();
+  return data.opportunities || [];
 }
 
 export async function createOpportunity(
-  data: Omit<FirestoreOpportunity, 'id'>
+  opportunity: Omit<FirestoreOpportunity, 'id'>
 ): Promise<FirestoreOpportunity> {
-  const response = await fetch('/api/opportunities', {
+  const response = await fetch(API_BASE_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify(opportunity),
   });
-
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Failed to create opportunity:', response.status, errorText);
-    throw new Error(`Failed to create opportunity: ${response.status} - ${errorText}`);
+    throw new Error('Failed to create opportunity');
   }
-
-  const result = await response.json();
-  return {
-    id: result.id,
-    ...data,
-  };
+  return response.json();
 }
 
-export async function updateOpportunity(id: string, data: Partial<FirestoreOpportunity>) {
-  const response = await fetch(`/api/opportunities/${id}`, {
-    method: 'PUT',
+export async function updateOpportunity(
+  id: string,
+  data: Partial<FirestoreOpportunity>
+): Promise<FirestoreOpportunity> {
+  const response = await fetch(`${API_BASE_URL}/${id}`, {
+    method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(data),
   });
-
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Failed to update opportunity:', response.status, errorText);
-    throw new Error(`Failed to update opportunity: ${response.status} - ${errorText}`);
+    throw new Error('Failed to update opportunity');
   }
+  return response.json();
+}
 
+export async function deleteOpportunity(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to delete opportunity');
+  }
+}
+
+export async function getOpportunityById(id: string): Promise<FirestoreOpportunity> {
+  const response = await fetch(`${API_BASE_URL}/${id}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch opportunity');
+  }
   return response.json();
 }
