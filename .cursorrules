@@ -1,48 +1,66 @@
 {
-    "folderStructure": {
-      "components": "Reusable UI components organized by feature or global usage",
-      "pages": "Next.js page components corresponding to routes",
-      "styles": "Global styles and CSS modules",
-      "lib": "Core business logic and utilities",
-      "hooks": "Custom React hooks",
-      "api": "API routes and server-side logic",
-      "types": "TypeScript type definitions",
-      "public": "Static assets"
+  "rules": {
+    "scopeManagement": {
+      "enabled": true,
+      "maxFeaturesPerSprint": 3,
+      "requireApprovalForLargeChanges": true
     },
-    "componentRules": {
-      "maxLines": 300,
-      "structure": [
-        "imports",
-        "types",
-        "constants",
-        "component"
-      ]
+    "testing": {
+      "enabled": true,
+      "minimumCoverage": {
+        "unit": 90,
+        "integration": 85,
+        "e2e": 80
+      },
+      "requireTestsForNewFeatures": true
     },
-    "namingConventions": {
-      "components": "PascalCase",
-      "hooks": "camelCase starting with 'use'",
-      "utils": "camelCase",
-      "types": "PascalCase with descriptive suffixes (Type, Props, etc.)"
+    "deployment": {
+      "enabled": true,
+      "stagingEnvironmentRequired": true,
+      "productionApprovalRequired": true
     },
-    "importRules": {
-      "order": [
-        "react",
-        "next",
-        "external libraries",
-        "components",
-        "hooks",
-        "utils",
-        "types",
-        "styles"
-      ]
+    "security": {
+      "enabled": true,
+      "requireSecurityReview": true,
+      "minimumStandards": ["OWASP", "GDPR"]
     },
-    "styleRules": {
-      "preferred": "Tailwind CSS with component-specific styles",
-      "cssModules": "For complex component-specific styles"
-    },
-    "commitMessageFormat": {
-      "prefix": ["feat", "refactor", "fix", "chore", "style", "perf"],
-      "format": "<prefix>(<scope>): <description>",
-      "example": "refactor(components): break down OpportunityDetails into smaller components"
+    "aiUsage": {
+      "enabled": true,
+      "codeReviewRequired": true,
+      "maxContextWindow": 8000,
+      "requireExplanationForChanges": true
     }
+  },
+  "workflow": {
+    "featureDevelopment": {
+      "steps": [
+        "defineRequirements",
+        "writeTests",
+        "implementFeature",
+        "codeReview",
+        "deployToStaging",
+        "userTesting",
+        "deployToProduction"
+      ]
+    },
+    "bugFixes": {
+      "steps": [
+        "reproduceIssue",
+        "writeTest",
+        "implementFix",
+        "verifyFix",
+        "deployPatch"
+      ]
+    }
+  },
+  "documentation": {
+    "requiredSections": [
+      "overview",
+      "architecture",
+      "security",
+      "deployment",
+      "testing",
+      "contributing"
+    ]
   }
+}

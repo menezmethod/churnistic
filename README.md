@@ -4,254 +4,137 @@ A modern credit card churning tracker built with Next.js, TypeScript, and Materi
 
 ## Features
 
-- **Modern Dashboard**
+### Modern Dashboard
+- Real-time opportunity tracking
+- Activity timeline with filters
+- Progress tracking with visualizations
+- Quick access to high-value opportunities
+- Responsive design for all devices
 
-  - Real-time opportunity tracking
-  - Activity timeline
-  - Progress tracking
-  - Quick access to high-value opportunities
-  - Responsive design for all devices
+### AI-Powered Opportunity Detection
+- Reddit and Twitter integration for opportunity discovery
+- Advanced analysis using Groq LLM
+- Automated confidence scoring with explanations
+- Smart filtering and categorization
+- Historical performance tracking
 
-- **AI-Powered Opportunity Detection**
+### Enhanced Security
+- Multi-factor authentication
+- Role-based access control
+- Data encryption at rest and in transit
+- Regular security audits
+- Automated vulnerability scanning
 
-  - Reddit integration for real-time opportunity discovery
-  - Advanced analysis using Groq LLM
-  - Automated confidence scoring
-  - Smart filtering and categorization
+### Developer Experience
+- Type-safe API contracts with tRPC
+- React Query for state management
+- Comprehensive test coverage
+- CI/CD pipeline with GitHub Actions
+- Automated code quality checks
 
-- **User Experience**
-  - Clean, intuitive interface
-  - Dark mode support
-  - Smooth animations and transitions
-  - Loading states and skeletons
-  - Error boundaries for graceful error handling
+## Getting Started
 
-## Changelog
+### Prerequisites
+- Node.js 20+
+- npm 10+
+- Firebase project
+- Groq API key
 
-### Latest Changes (as of March 2024)
-
-- **2693a19**: Cleanup and remove duplicate files
-- **1b77b04**: Update dashboard tests to match new implementation
-- **81d0dd5**: Enhance dashboard with modern UI components and improved UX
-- **469cc0c**: Add dev startup script and fix frontend tests
-- **a8ba56d**: Implement opportunities frontend integration
-- **5df97cf**: Separate data collection from analysis in RedditCollector
-- **6cfc8bc**: Integrate Reddit API with comments and threads
-- **b6c8e88**: Improve code organization and add caching
-- **849b8b5**: Implement working churning agent with proper models
-- **70cd960**: Integrate Reddit API with Groq analysis
-
-## Development Workflow
-
-### Quick Start
-
+### Installation
 ```bash
+# Clone the repository
+git clone https://github.com/menezmethod/churnistic.git
+
 # Install dependencies
 npm install
 
+# Set up environment variables
+cp .env.example .env.local
+```
+
+### Development
+```bash
 # Start development server
 npm run dev
 
-# Run code quality checks
-./scripts/fix-code.sh
+# Run tests
+npm test
+
+# Check code quality
+npm run lint
 ```
 
-### Code Quality Automation
+## Architecture
 
-We maintain high code quality standards through automated tools and checks. Our `fix-code.sh` script handles:
+### Tech Stack
+- **Frontend**: Next.js, React, Material-UI
+- **State Management**: React Query, tRPC
+- **Backend**: Firebase (Firestore, Authentication)
+- **AI Integration**: Groq SDK
+- **Testing**: Jest, Cypress, React Testing Library
 
-1. **Code Formatting**
+### Key Components
+1. **Opportunity Manager**
+   - CRUD operations
+   - Real-time updates
+   - AI-powered analysis
 
-   - Prettier for consistent code style
-   - Automatic import sorting
-   - Configurable through `.prettierrc`
+2. **User Management**
+   - Authentication
+   - Role-based permissions
+   - Security features
 
-2. **Linting**
+3. **Dashboard**
+   - Data visualization
+   - Performance tracking
+   - Customizable views
 
-   - ESLint with TypeScript support
-   - Automatic fixable error correction
-   - Custom rules for Next.js and React
+## Development Workflow
 
-3. **Type Checking**
+### Code Quality
+- TypeScript strict mode
+- ESLint with custom rules
+- Prettier for formatting
+- Husky pre-commit hooks
 
-   - TypeScript strict mode enabled
-   - Path aliases for clean imports
-   - Comprehensive type definitions
+### Testing
+- Unit tests: 90%+ coverage
+- Integration tests: 85%+ coverage
+- E2E tests: 80%+ coverage
+- Security tests: 100% coverage
 
-4. **Test Coverage Requirements**
-   - Business Logic: 90%+ coverage
-   - API Routes: 85%+ coverage
-   - UI Components: 80%+ coverage
-   - Utility Functions: 75%+ coverage
+### CI/CD
+- Automated testing on pull requests
+- Code quality checks
+- Security scanning
+- Deployment to staging/production
 
-### LLM-Assisted Development
+## Security Best Practices
 
-This project is developed with the assistance of Language Learning Models (LLMs). To maintain code quality and consistency:
+### Authentication
+- JWT-based authentication
+- Refresh token rotation
+- Session management
+- Rate limiting
 
-1. **Code Organization**
+### Data Protection
+- Field-level encryption
+- Secure API endpoints
+- Input validation
+- Regular security audits
 
-   - Clear directory structure
-   - Consistent file naming
-   - Modular component architecture
+## Contributing
 
-2. **Documentation**
-
-   - Inline comments for complex logic
-   - JSDoc for public APIs
-   - Comprehensive test cover
-   - Up-to-date README files
-
-3. **Best Practices**
-
-   - Component-driven development
-   - Atomic design principles
-   - Clean code principles
-   - SOLID principles
-
-4. **Quality Gates**
-   - Pre-commit hooks for formatting
-   - GitHub Actions for CI/CD
-   - Automated test coverage checks
-   - Pull request templates
-
-### LLM-Friendly Error Output
-
-The `fix-code.sh` script provides structured output optimized for LLM parsing:
-
-1. **Section Markers**
-
-   ```
-   <<<<<<<<<< SECTION START: [SECTION_NAME]
-   [section content]
-   >>>>>>>>>> SECTION END: [SECTION_NAME]
-   ```
-
-2. **Error Format**
-
-   ```
-   <<<<<<<<<< ERROR START
-   FILE: [file_path]
-   TYPE: [error_type]
-   LINE: [line_number]
-   COLUMN: [column_number]
-   MESSAGE: [error_message]
-   CODE_CONTEXT:
-   ```
-
-   [code snippet]
-
-   ```
-   >>>>>>>>>>>> ERROR END
-   ```
-
-3. **Coverage Report**
-
-   ```
-   <<<<<<<<<< FILE: coverage/coverage-summary.json
-   [coverage data in JSON format]
-   >>>>>>>>>>>> END FILE
-   ```
-
-4. **Summary Format**
-   ```
-   <<<<<<<<<< SECTION START: SUMMARY
-   EXECUTION_TIME: [duration] seconds
-   TIMESTAMP: [ISO timestamp]
-   >>>>>>>>>> SECTION END: SUMMARY
-   ```
-
-This structured output helps LLMs to:
-
-- Precisely locate issues in the codebase
-- Understand the context of each error
-- Generate accurate fixes
-- Track test coverage requirements
-- Maintain code quality standards
-
-### Development Commands
-
-```bash
-# Development
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-
-# Code Quality
-npm run format       # Format code with Prettier
-npm run lint         # Run ESLint
-npm run lint:fix     # Fix ESLint issues
-npm run type-check   # Run TypeScript checks
-
-# Testing
-npm run test         # Run tests
-npm run test:watch   # Run tests in watch mode
-npm run test:coverage # Run tests with coverage
-
-# All-in-one Quality Check
-./scripts/fix-code.sh # Run all quality checks
-```
-
-### Directory Structure
-
-```
-src/
-├── app/             # Next.js app router pages
-├── components/      # Reusable UI components
-├── lib/            # Core business logic
-├── server/         # API routes and server code
-├── theme/          # MUI theme customization
-├── types/          # TypeScript type definitions
-└── utils/          # Utility functions
-```
-
-### Contributing
-
-1. Create a feature branch from `main`
+1. Create a feature branch
 2. Make your changes
-3. Run `./scripts/fix-code.sh` to ensure code quality
-4. Create a pull request
-5. Wait for review and CI checks
+3. Write tests for new features
+4. Run code quality checks
+5. Create a pull request
 
 ## License
 
 MIT
 
-# Environment Setup
+## Support
 
-## Environment Files
-
-The project uses several environment files for different purposes:
-
-1. `.env.local` - Local development environment variables
-2. `.env.test` - Test environment variables
-3. `cypress.env.json` - Cypress test environment variables
-
-For security reasons, these files are not committed to the repository. Example files are provided:
-
-- `.env.example` - Example local environment variables
-- `.env.test.example` - Example test environment variables
-- `cypress.env.example.json` - Example Cypress environment variables
-
-To set up your environment:
-
-1. Copy the example files:
-
-   ```bash
-   cp .env.example .env.local
-   cp .env.test.example .env.test
-   cp cypress.env.example.json cypress.env.json
-   ```
-
-2. Fill in the actual values in each file:
-   - Firebase credentials
-   - Database URLs
-   - Test account credentials
-   - Other API keys and secrets
-
-## Security Notes
-
-- Never commit sensitive data or credentials to the repository
-- Keep all environment files (`.env.*`, `cypress.env.json`) in `.gitignore`
-- Regularly rotate API keys and credentials
-- Use separate credentials for development, testing, and production
-- When setting up CI/CD, use secure environment variables
+For support, please open an issue on GitHub or contact the maintainers.
