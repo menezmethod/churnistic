@@ -653,7 +653,7 @@ export default function DashboardPage() {
   const transformedOpportunities = opportunities.map((opp) => ({
     id: opp.id || crypto.randomUUID(),
     value: typeof opp.value === 'number' ? opp.value : parseInt(opp.value),
-    title: opp.name,
+    title: opp.name || opp.title || 'Untitled Opportunity',
     type: opp.type === 'bank' ? ('bank_account' as const) : ('credit_card' as const),
     bank: opp.bank || 'Unknown Bank',
     description: opp.bonus?.description || '',
