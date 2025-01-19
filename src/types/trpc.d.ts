@@ -1,6 +1,6 @@
 import { TRPCClient } from '@trpc/client';
 
-import type { AppRouter } from '@/api/routers/_app';
+import type { AppRouter } from '@/app/api/routers/_app';
 
 declare module '@/lib/trpc' {
   interface TRPCClientWithRouters extends TRPCClient<AppRouter> {

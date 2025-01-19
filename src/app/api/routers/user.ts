@@ -2,7 +2,7 @@ import { TRPCError } from '@trpc/server';
 import type { Query } from 'firebase-admin/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 
-import { userInputs } from '@/api/router-types';
+import { userInputs } from '@/app/api/router-types';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { UserRole } from '@/types/roles';
 import { type Session } from '@/types/session';
