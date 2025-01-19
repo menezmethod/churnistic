@@ -50,6 +50,39 @@ jobs:
           # Get commit count
           echo "commit_count=$(git rev-list --count origin/master..HEAD)" >> $GITHUB_OUTPUT
       
+      - name: Read existing statistics
+        id: read-stats
+        run: |
+          # Check if stats file exists
+          if [ -f "stats.json" ]; then
+            echo "stats=$(cat stats.json)" >> $GITHUB_OUTPUT
+          else
+            echo 'stats={"total_files":0,"total_additions":0,"total_deletions":0,"total_commits":0,"contributors":[]}' >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update statistics
+        id: update-stats
+        run: |
+          # Parse existing stats
+          stats=$(echo '${{ steps.read-stats.outputs.stats }}' | jq -c '.')
+          
+          # Update stats with current PR data
+          updated_stats=$(echo "$stats" | jq -c \
+            --argjson changes ${{ steps.git-info.outputs.changes }} \
+            --argjson additions ${{ steps.git-info.outputs.additions }} \
+            --argjson deletions ${{ steps.git-info.outputs.deletions }} \
+            --argjson commits ${{ steps.git-info.outputs.commit_count }} \
+            --arg contributors "${{ steps.git-info.outputs.contributors }}" \
+            '.total_files += $changes |
+             .total_additions += $additions |
+             .total_deletions += $deletions |
+             .total_commits += $commits |
+             .contributors = (.contributors + ($contributors | split(","))) | unique')
+
+          # Save updated stats
+          echo "$updated_stats" > stats.json
+          echo "updated_stats=$updated_stats" >> $GITHUB_OUTPUT
+
       - name: Create master PR
         uses: repo-sync/pull-request@v2
         if: github.event.pull_request.merged == true
@@ -61,12 +94,19 @@ jobs:
           pr_body: |
             :robot: Automated PR from **develop** to **master**
             
-            ### 📊 Statistics
+            ### 📊 Current PR Statistics
             - Files changed: ${{ steps.git-info.outputs.changes }}
             - Lines added: ${{ steps.git-info.outputs.additions }}
             - Lines removed: ${{ steps.git-info.outputs.deletions }}
             - Commits: ${{ steps.git-info.outputs.commit_count }}
             - Contributors: ${{ steps.git-info.outputs.contributors }}
+            
+            ### 📊 Cumulative Statistics
+            - Total files changed: $(echo '${{ steps.update-stats.outputs.updated_stats }}' | jq '.total_files')
+            - Total lines added: $(echo '${{ steps.update-stats.outputs.updated_stats }}' | jq '.total_additions')
+            - Total lines removed: $(echo '${{ steps.update-stats.outputs.updated_stats }}' | jq '.total_deletions')
+            - Total commits: $(echo '${{ steps.update-stats.outputs.updated_stats }}' | jq '.total_commits')
+            - All contributors: $(echo '${{ steps.update-stats.outputs.updated_stats }}' | jq '.contributors | join(", ")')
             
             ### 📝 Key Changes
             ${{ steps.git-info.outputs.change_summary }}
