@@ -18,38 +18,37 @@ jobs:
       - name: Get Git Info
         id: git-info
         run: |
-          # Configure git to ensure we have access to all refs
+          # Configure git
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           
-          # Fetch all history and tags
-          git fetch --prune --unshallow || git fetch --prune
-          git fetch origin master:master develop:develop --force
+          # Fetch all branches
+          git fetch origin master develop
           
           # Get number of changed files
-          echo "changes=$(git diff --name-only master...develop | grep -v '^$' | wc -l | xargs)" >> $GITHUB_OUTPUT
+          echo "changes=$(git diff --name-only origin/master...HEAD | grep -v '^$' | wc -l | xargs)" >> $GITHUB_OUTPUT
           
           # Get additions and deletions
-          STATS=$(git diff --shortstat master...develop)
+          STATS=$(git diff --shortstat origin/master...HEAD)
           ADDITIONS=$(echo "$STATS" | grep -o '[0-9]* insertion' | grep -o '[0-9]*' || echo "0")
           DELETIONS=$(echo "$STATS" | grep -o '[0-9]* deletion' | grep -o '[0-9]*' || echo "0")
           echo "additions=$ADDITIONS" >> $GITHUB_OUTPUT
           echo "deletions=$DELETIONS" >> $GITHUB_OUTPUT
           
           # Get contributors
-          echo "contributors=$(git log master..develop --format='%aN' | sort -u | paste -sd ',' -)" >> $GITHUB_OUTPUT
+          echo "contributors=$(git log origin/master..HEAD --format='%aN' | sort -u | paste -sd ',' -)" >> $GITHUB_OUTPUT
           
           # Get recent changes
           echo "change_summary<<EOF" >> $GITHUB_OUTPUT
-          git log --pretty=format:'- %s (%h)' master..develop | head -n 5 >> $GITHUB_OUTPUT
+          git log --pretty=format:'- %s (%h)' origin/master..HEAD | head -n 5 >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           
           # Get milestones
           echo "milestones<<EOF" >> $GITHUB_OUTPUT
-          git log --grep='milestone' --pretty=format:'- %s (%h)' master..develop >> $GITHUB_OUTPUT
+          git log --grep='milestone' --pretty=format:'- %s (%h)' origin/master..HEAD >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           
           # Get commit count
-          echo "commit_count=$(git rev-list --count master..develop)" >> $GITHUB_OUTPUT
+          echo "commit_count=$(git rev-list --count origin/master..HEAD)" >> $GITHUB_OUTPUT
       
       - name: Create master PR
         uses: repo-sync/pull-request@v2
