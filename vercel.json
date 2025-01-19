@@ -28,7 +28,7 @@
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
         },
-         {
+        {
           "key": "Referrer-Policy",
           "value": "no-referrer"
         },
@@ -72,7 +72,7 @@
     "api/**/*.ts": {
       "memory": 256,
       "maxDuration": 5,
-       "includeFiles": ["api/**/*.js", "api/**/*.json"]
+      "includeFiles": "api/**/*.{js,json}"
     }
   }
 }
