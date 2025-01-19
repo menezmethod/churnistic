@@ -110,13 +110,6 @@ jobs:
             - Commits: ${{ steps.git-info.outputs.commit_count }}
             - Contributors: ${{ steps.git-info.outputs.contributors }}
             
-            ### 📊 Cumulative Statistics
-            - Total files changed: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_files }}
-            - Total lines added: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_additions }}
-            - Total lines removed: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_deletions }}
-            - Total commits: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_commits }}
-            - All contributors: ${{ fromJson(steps.update-stats.outputs.updated_stats).contributors }}
-            
             ### 📝 Key Changes
             ${{ steps.git-info.outputs.change_summary }}
             
@@ -144,13 +137,6 @@ jobs:
             - Lines removed: ${{ steps.git-info.outputs.deletions }}
             - Commits: ${{ steps.git-info.outputs.commit_count }}
             - Contributors: ${{ steps.git-info.outputs.contributors }}
-            
-            ### 📊 Cumulative Statistics
-            - Total files changed: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_files }}
-            - Total lines added: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_additions }}
-            - Total lines removed: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_deletions }}
-            - Total commits: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_commits }}
-            - All contributors: ${{ fromJson(steps.update-stats.outputs.updated_stats).contributors }}
             
             ### 📝 Key Changes
             ${{ steps.git-info.outputs.change_summary }}
