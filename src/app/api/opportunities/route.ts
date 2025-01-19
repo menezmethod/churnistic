@@ -136,11 +136,28 @@ export async function POST(req: NextRequest) {
       userEmail = session.email;
     }
 
-    const body = await req.json();
-    console.log('Received data:', body);
+    // Check if request has body
+    if (!req.body) {
+      return NextResponse.json({ error: 'Request body is required' }, { status: 400 });
+    }
 
-    if (!body || typeof body !== 'object') {
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    let body;
+    try {
+      body = await req.json();
+      console.log('Received data:', body);
+    } catch (error) {
+      console.error('Error parsing request body:', error);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json(
+        { error: 'Request body must be a valid JSON object' },
+        { status: 400 }
+      );
     }
 
     const data = body as FormData;

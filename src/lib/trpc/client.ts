@@ -1,6 +1,6 @@
 import { createTRPCReact } from '@trpc/react-query';
 
-import { type AppRouter } from '@/api/routers/_app';
+import { type AppRouter } from '@/app/api/routers/_app';
 
 export const trpc = createTRPCReact<AppRouter>({
   unstable_overrides: {
