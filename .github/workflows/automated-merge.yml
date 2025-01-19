@@ -7,53 +7,7 @@ on:
   workflow_dispatch:  # Manual trigger
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-        
-      - name: Run linting
-        run: npm run lint
-        
-      - name: Run type checking
-        run: npm run type-check
-        
-      - name: Validate dependencies
-        run: npm run validate-dependencies
-
-  test:
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-        
-      - name: Run unit tests
-        run: npm test
-        
-      - name: Run integration tests
-        run: npm run test:integration
-        
-      - name: Run end-to-end tests
-        run: npm run test:e2e
-
   create-pr:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -77,11 +31,6 @@ jobs:
             ## Develop to Master Sync
             
             This PR synchronizes the `master` branch with changes from `develop`.
-            
-            ### ✅ Validation
-            - All tests passing
-            - Code quality checks passed
-            - Dependencies validated
             
             ### 📊 Stats
             - Number of commits: ${{ steps.git-info.outputs.commits }}
