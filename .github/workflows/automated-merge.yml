@@ -1,56 +1,24 @@
-name: Automated Develop to Master PR
+name: Create PR from develop to master
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - develop
-  workflow_dispatch:  # Manual trigger
 
 jobs:
-  create-pr:
+  pull-request:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      
+      - name: Create master PR
+        uses: repo-sync/pull-request@v2
+        if: github.event.pull_request.merged == true
         with:
-          fetch-depth: 0
-      
-      - name: Create temporary branch
-        id: temp-branch
-        run: |
-          timestamp=$(date +%s)
-          branch_name="sync-pr-$timestamp"
-          echo "branch_name=$branch_name" >> $GITHUB_OUTPUT
-          git checkout -b $branch_name
-      
-      - name: Get commit details
-        id: git-info
-        run: |
-          echo "commits=$(git rev-list --count origin/master..origin/develop)" >> $GITHUB_OUTPUT
-          echo "changes=$(git diff --name-only origin/master origin/develop | wc -l)" >> $GITHUB_OUTPUT
-          echo "commit_messages=$(git log --pretty=format:'- %s (%h)' origin/master..origin/develop)" >> $GITHUB_OUTPUT
-      
-      - name: Create or update PR
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.PR_AUTH_TOKEN }}
-          branch: ${{ steps.temp-branch.outputs.branch_name }}
-          base: master
-          title: "🔄 Sync: develop → master"
-          body: |
-            ## Develop to Master Sync
-            
-            This PR synchronizes the `master` branch with changes from `develop`.
-            
-            ### 📊 Stats
-            - Number of commits: ${{ steps.git-info.outputs.commits }}
-            - Files changed: ${{ steps.git-info.outputs.changes }}
-            
-            ### 📝 Commit List
-            ${{ steps.git-info.outputs.commit_messages }}
-            
-            ### ⚠️ Important
-            - This PR requires manual review and approval
-            - Please verify all changes before merging
-            - Merge only when all tests pass and code reviews are complete
-          labels: "sync-pr"
-          delete-branch: true
+          github_token: ${{ secrets.PR_AUTH_TOKEN }}
+          source_branch: "develop"
+          destination_branch: "master"
+          pr_title: "develop to master auto PR"
+          pr_body: ":robot: Automated PR from **develop** to **master**"
+          pr_label: "auto-pr"
