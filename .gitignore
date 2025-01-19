@@ -82,3 +82,7 @@ firestore-debug.log
 *.temp
 .cache
 .swc/
+
+# Vercel
+.vercel
+.now
