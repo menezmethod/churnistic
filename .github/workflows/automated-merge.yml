@@ -70,17 +70,20 @@ jobs:
           # Convert contributors string to array
           contributors_array=$(echo "${{ steps.git-info.outputs.contributors }}" | jq -R 'split(",")')
           
+          # Convert contributors array to comma-separated string
+          contributors_string=$(echo "$contributors_array" | jq -r '. | join(", ")')
+          
           updated_stats=$(echo "$stats" | jq -c \
             --argjson changes "${{ steps.git-info.outputs.changes }}" \
             --argjson additions "${{ steps.git-info.outputs.additions }}" \
             --argjson deletions "${{ steps.git-info.outputs.deletions }}" \
             --argjson commits "${{ steps.git-info.outputs.commit_count }}" \
-            --argjson contributors "$contributors_array" \
+            --arg contributors "$contributors_string" \
             '.total_files += ($changes | tonumber) |
              .total_additions += ($additions | tonumber) |
              .total_deletions += ($deletions | tonumber) |
-             .total_commits += ($commits | tonumber) 
-             # .contributors = (.contributors + $contributors | map(if type == "array" then .[] else . end)) | unique')
+             .total_commits += ($commits | tonumber) |
+             .contributors = ($contributors + $contributors) | unique')
 
           # Save updated stats
           echo "$updated_stats" > stats.json
@@ -110,7 +113,7 @@ jobs:
             - Total lines added: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_additions }}
             - Total lines removed: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_deletions }}
             - Total commits: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_commits }}
-            #- All contributors: ${{ fromJson(steps.update-stats.outputs.updated_stats).contributors }}
+            - All contributors: ${{ fromJson(steps.update-stats.outputs.updated_stats).contributors }}
             
             ### 📝 Key Changes
             ${{ steps.git-info.outputs.change_summary }}
@@ -145,7 +148,7 @@ jobs:
             - Total lines added: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_additions }}
             - Total lines removed: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_deletions }}
             - Total commits: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_commits }}
-            #- All contributors: ${{ fromJson(steps.update-stats.outputs.updated_stats).contributors }}
+            - All contributors: ${{ fromJson(steps.update-stats.outputs.updated_stats).contributors }}
             
             ### 📝 Key Changes
             ${{ steps.git-info.outputs.change_summary }}
