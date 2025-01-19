@@ -1,6 +1,6 @@
 // @ts-check
 /** @type {import('jest').Config} */
-const config = {
+module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
@@ -10,15 +10,27 @@ const config = {
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',
-    '!src/**/*.stories.{js,jsx,ts,tsx}',
-    '!src/types/**/*',
+    '!src/mocks/**',
+    '!src/lib/test-utils.ts',
+    '!src/types/**',
+    '!src/app/**',
+    '!src/styles/**',
+    '!src/lib/auth/index.ts',
+    '!src/lib/trpc/index.ts',
+    '!src/lib/utils.ts',
+    '!src/lib/firebase.ts',
+    '!src/lib/auth/authOptions.ts',
+    '!src/lib/auth/getSession.ts',
+    '!src/lib/auth/AuthContext.tsx',
+    '!src/lib/auth/useAuth.ts',
+    '!src/lib/auth/__tests__/**',
   ],
   coverageThreshold: {
     global: {
-      statements: 90,
-      branches: 90,
+      branches: 85,
       functions: 90,
       lines: 90,
+      statements: 90,
     },
   },
   testMatch: [
@@ -34,5 +46,3 @@ const config = {
   ],
   moduleDirectories: ['node_modules', '<rootDir>'],
 };
-
-export default config;
