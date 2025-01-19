@@ -21,12 +21,20 @@
           "value": "nosniff"
         },
         {
-          "key": "X-Frame-Options", 
+          "key": "X-Frame-Options",
           "value": "DENY"
         },
         {
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
+        },
+         {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "interest-cohort=()"
         }
       ]
     },
@@ -59,11 +67,12 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "regions": ["sfo1"],
-  "public": false,
+  "public": true,
   "functions": {
     "api/**/*.ts": {
       "memory": 256,
-      "maxDuration": 5
+      "maxDuration": 5,
+       "includeFiles": ["api/**/*.js", "api/**/*.json"]
     }
   }
 }
