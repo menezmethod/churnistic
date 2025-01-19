@@ -14,17 +14,26 @@ jobs:
         with:
           fetch-depth: 0
       
+      - name: Create temporary branch
+        id: temp-branch
+        run: |
+          timestamp=$(date +%s)
+          branch_name="sync-pr-$timestamp"
+          echo "branch_name=$branch_name" >> $GITHUB_OUTPUT
+          git checkout -b $branch_name
+      
       - name: Get commit details
         id: git-info
         run: |
           echo "commits=$(git rev-list --count origin/master..origin/develop)" >> $GITHUB_OUTPUT
           echo "changes=$(git diff --name-only origin/master origin/develop | wc -l)" >> $GITHUB_OUTPUT
+          echo "commit_messages=$(git log --pretty=format:'- %s (%h)' origin/master..origin/develop)" >> $GITHUB_OUTPUT
       
       - name: Create or update PR
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.PR_AUTH_TOKEN }}
-          branch: develop
+          branch: ${{ steps.temp-branch.outputs.branch_name }}
           base: master
           title: "🔄 Sync: develop → master"
           body: |
@@ -36,7 +45,12 @@ jobs:
             - Number of commits: ${{ steps.git-info.outputs.commits }}
             - Files changed: ${{ steps.git-info.outputs.changes }}
             
-            ### 🔍 Review
-            Please review the changes and merge when ready.
+            ### 📝 Commit List
+            ${{ steps.git-info.outputs.commit_messages }}
+            
+            ### ⚠️ Important
+            - This PR requires manual review and approval
+            - Please verify all changes before merging
+            - Merge only when all tests pass and code reviews are complete
           labels: "sync-pr"
-          delete-branch: false
+          delete-branch: true
