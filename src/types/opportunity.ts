@@ -1,4 +1,4 @@
-export type OfferType = 'bank' | 'credit_card' | 'brokerage';
+export type OfferType = 'credit_card' | 'bank' | 'brokerage';
 
 export const US_STATES = [
   'AL',
@@ -155,21 +155,13 @@ export type FormData = Omit<FirestoreOpportunity, 'value'> & { value: string };
 export type USState = (typeof US_STATES)[number];
 
 export interface BonusRequirements {
-  description: string;
-  minimum_deposit?: number;
-  trading_requirements?: string;
-  holding_period?: string;
-  spending_requirement?: {
-    amount: number;
-    timeframe: string;
-  };
+  tiers: BonusTier[];
+  description?: string;
 }
 
 export interface BonusTier {
-  level: string;
-  value: number;
-  minimum_deposit: number;
-  requirements: string;
+  min: number;
+  bonus: Bonus;
 }
 
 export interface RewardsCategory {
@@ -185,42 +177,8 @@ export interface RewardsStructure {
 }
 
 export interface Details {
-  monthly_fees: {
-    amount: string;
-    waiver_details?: string;
-  };
-  account_type: string;
-  account_category?: 'personal' | 'business';
-  availability: {
-    type: 'Nationwide' | 'State';
-    states?: string[];
-    details?: string;
-  };
-  expiration?: string | null;
-  credit_score?: {
-    min: number;
-    recommended: number;
-  };
-  under_5_24?: {
-    required: boolean;
-    details: string;
-  };
-  annual_fees?: {
-    amount: string;
-    waived_first_year: boolean;
-  };
-  foreign_transaction_fees?: {
-    percentage: string;
-    waived: boolean;
-  };
-  minimum_credit_limit?: string;
-  rewards_structure?: RewardsStructure;
-  credit_inquiry?: string;
-  household_limit?: string;
-  early_closure_fee?: string;
-  chex_systems?: string;
-  options_trading?: 'Yes' | 'No' | string;
-  ira_accounts?: 'Yes' | 'No' | string;
+  description: string;
+  requirements?: string;
 }
 
 export interface Bonus {
