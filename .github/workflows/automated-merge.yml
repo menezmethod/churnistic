@@ -66,24 +66,26 @@ jobs:
           # Parse existing stats
           stats=$(echo '${{ steps.read-stats.outputs.stats }}' | jq -c '.')
           
-          # Update stats with current PR data
-          # Convert contributors string to array
-          contributors_array=$(echo "${{ steps.git-info.outputs.contributors }}" | jq -R 'split(",")')
+          # Get existing contributors
+          existing_contributors=$(echo "$stats" | jq -r '.contributors')
           
-          # Convert contributors array to comma-separated string
-          contributors_string=$(echo "$contributors_array" | jq -r '. | join(", ")')
+          # Get new contributors
+          new_contributors=$(echo "${{ steps.git-info.outputs.contributors }}")
+          
+          # Combine contributors and remove duplicates
+          combined_contributors=$(echo "$existing_contributors,$new_contributors" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
           
           updated_stats=$(echo "$stats" | jq -c \
             --argjson changes "${{ steps.git-info.outputs.changes }}" \
             --argjson additions "${{ steps.git-info.outputs.additions }}" \
             --argjson deletions "${{ steps.git-info.outputs.deletions }}" \
             --argjson commits "${{ steps.git-info.outputs.commit_count }}" \
-            --arg contributors "$contributors_string" \
+            --arg contributors "$combined_contributors" \
             '.total_files += ($changes | tonumber) |
              .total_additions += ($additions | tonumber) |
              .total_deletions += ($deletions | tonumber) |
              .total_commits += ($commits | tonumber) |
-             .contributors = ($contributors + $contributors) | unique')
+             .contributors = $contributors')
 
           # Save updated stats
           echo "$updated_stats" > stats.json
