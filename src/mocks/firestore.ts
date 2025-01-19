@@ -1,21 +1,19 @@
-import { vi } from 'vitest';
-
 export const mockFirestore = {
-  collection: vi.fn().mockReturnThis(),
-  doc: vi.fn().mockReturnThis(),
-  get: vi.fn(),
-  set: vi.fn(),
-  update: vi.fn(),
-  delete: vi.fn(),
-  where: vi.fn().mockReturnThis(),
-  orderBy: vi.fn().mockReturnThis(),
-  limit: vi.fn().mockReturnThis(),
-  offset: vi.fn().mockReturnThis(),
-  count: vi.fn().mockReturnThis(),
-  batch: vi.fn(() => ({
-    set: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    commit: vi.fn(),
+  collection: jest.fn().mockReturnThis(),
+  doc: jest.fn().mockReturnThis(),
+  get: jest.fn(),
+  set: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  where: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  offset: jest.fn().mockReturnThis(),
+  count: jest.fn().mockReturnThis(),
+  batch: jest.fn(() => ({
+    set: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    commit: jest.fn(),
   })),
 };
