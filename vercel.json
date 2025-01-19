@@ -11,12 +11,6 @@
     "silent": true,
     "autoAlias": true
   },
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
   "ignoreCommand": "git diff HEAD^ HEAD --quiet ./",
   "headers": [
     {
@@ -27,7 +21,7 @@
           "value": "nosniff"
         },
         {
-          "key": "X-Frame-Options",
+          "key": "X-Frame-Options", 
           "value": "DENY"
         },
         {
@@ -72,4 +66,4 @@
       "maxDuration": 5
     }
   }
-} 
+}
