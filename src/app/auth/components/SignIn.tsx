@@ -259,7 +259,7 @@ export function SignIn(): JSX.Element {
       </Card>
       <ForgotPassword
         open={forgotPasswordOpen}
-        onClose={(): void => setForgotPasswordOpen(false)}
+        onCloseAction={(): void => setForgotPasswordOpen(false)}
       />
     </SignInContainer>
   );

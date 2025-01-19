@@ -81,8 +81,8 @@ export default function OpportunitiesPage() {
       opportunities={opportunities}
       loading={loading}
       error={error}
-      onDelete={handleDelete}
-      onAddOpportunity={handleAddOpportunity}
+      onDeleteAction={handleDelete}
+      onAddOpportunityAction={handleAddOpportunity}
     />
   );
 }

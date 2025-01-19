@@ -43,16 +43,16 @@ interface OpportunitiesSectionProps {
   opportunities: FirestoreOpportunity[];
   loading: boolean;
   error: Error | null;
-  onDelete: (id: string) => Promise<void>;
-  onAddOpportunity: () => void;
+  onDeleteAction: (id: string) => Promise<void>;
+  onAddOpportunityAction: () => void;
 }
 
 export default function OpportunitiesSection({
   opportunities: initialOpportunities,
   loading,
   error,
-  onDelete,
-  onAddOpportunity,
+  onDeleteAction,
+  onAddOpportunityAction,
 }: OpportunitiesSectionProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -91,7 +91,7 @@ export default function OpportunitiesSection({
 
     setIsDeleting(id);
     try {
-      await onDelete(id);
+      await onDeleteAction(id);
       setOpportunities(opportunities.filter((opp) => opp.id !== id));
       setDeleteDialog({ open: false });
     } catch (error) {
@@ -265,7 +265,7 @@ export default function OpportunitiesSection({
         }}
       >
         <Box sx={{ position: 'relative', zIndex: 1 }}>
-          <OpportunitiesHeader onAddOpportunity={onAddOpportunity} />
+          <OpportunitiesHeader onAddOpportunity={onAddOpportunityAction} />
 
           {/* Category Boxes */}
           <Box sx={{ mb: { xs: 2, md: 4 } }}>
@@ -679,8 +679,8 @@ export default function OpportunitiesSection({
           <OpportunityDeleteDialog
             open={deleteDialog.open}
             opportunity={deleteDialog.opportunity}
-            onCancel={handleDeleteCancel}
-            onConfirm={handleDeleteConfirm}
+            onCancelAction={handleDeleteCancel}
+            onConfirmAction={handleDeleteConfirm}
           />
 
           {/* Floating Add Button for Mobile */}

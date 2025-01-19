@@ -13,27 +13,9 @@ interface ClientProvidersProps {
 }
 
 export function ClientProviders({ children }: ClientProvidersProps): JSX.Element {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 1000 * 60 * 5, // 5 minutes
-            cacheTime: 1000 * 60 * 30, // 30 minutes
-            refetchOnWindowFocus: true,
-            retry: 1,
-            networkMode: 'always',
-          },
-          mutations: {
-            networkMode: 'always',
-          },
-        },
-      })
-  );
-
   return (
-    <QueryProvider queryClient={queryClient}>
-      <TRPCProvider queryClient={queryClient}>
+    <QueryProvider>
+      <TRPCProvider>
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>

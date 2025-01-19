@@ -21,26 +21,22 @@ import { getTypeColors } from '../utils/colorUtils';
 
 interface OpportunityCardProps {
   opportunity: FirestoreOpportunity;
-  onDeleteClick: (opportunity: { id?: string; name?: string }) => void;
-  isDeleting?: string | null;
+  isDeleting: boolean;
+  onDeleteOpportunityAction: (opportunity: { id?: string; name?: string }) => void;
   viewMode?: 'grid' | 'list';
   index?: number;
 }
 
 export default function OpportunityCard({
   opportunity,
-  onDeleteClick,
   isDeleting,
+  onDeleteOpportunityAction,
   viewMode = 'grid',
   index = 0,
 }: OpportunityCardProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const colors = getTypeColors(opportunity.type, theme);
-
-  const handleDelete = () => {
-    onDeleteClick(opportunity);
-  };
 
   if (viewMode === 'list') {
     return (
@@ -160,18 +156,16 @@ export default function OpportunityCard({
             <Tooltip title="Delete opportunity">
               <IconButton
                 className="delete-button"
-                onClick={handleDelete}
-                disabled={isDeleting === opportunity.id}
+                onClick={() => onDeleteOpportunityAction(opportunity)}
+                disabled={isDeleting}
                 sx={{
-                  opacity: 0,
-                  transition: 'opacity 0.2s ease-in-out',
-                  color: theme.palette.error.main,
+                  color: 'text.secondary',
                   '&:hover': {
-                    backgroundColor: alpha(theme.palette.error.main, 0.1),
+                    color: 'error.main',
                   },
                 }}
               >
-                {isDeleting === opportunity.id ? (
+                {isDeleting ? (
                   <CircularProgress size={20} color="error" />
                 ) : (
                   <DeleteIcon />
@@ -389,8 +383,8 @@ export default function OpportunityCard({
         <Tooltip title="Delete opportunity">
           <IconButton
             className="delete-button"
-            onClick={handleDelete}
-            disabled={isDeleting === opportunity.id}
+            onClick={() => onDeleteOpportunityAction(opportunity)}
+            disabled={isDeleting}
             sx={{
               position: 'absolute',
               top: 0,
@@ -403,11 +397,7 @@ export default function OpportunityCard({
               },
             }}
           >
-            {isDeleting === opportunity.id ? (
-              <CircularProgress size={20} color="error" />
-            ) : (
-              <DeleteIcon />
-            )}
+            {isDeleting ? <CircularProgress size={20} color="error" /> : <DeleteIcon />}
           </IconButton>
         </Tooltip>
       </Box>

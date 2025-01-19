@@ -6,12 +6,12 @@ import { useState } from 'react';
 
 interface OpportunityFiltersProps {
   viewMode: 'grid' | 'list';
-  onViewModeChange: (mode: 'grid' | 'list') => void;
+  onViewModeChangeAction: (mode: 'grid' | 'list') => void;
 }
 
 export default function OpportunityFilters({
   viewMode,
-  onViewModeChange,
+  onViewModeChangeAction,
 }: OpportunityFiltersProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -26,7 +26,7 @@ export default function OpportunityFilters({
       <ToggleButtonGroup
         value={viewMode}
         exclusive
-        onChange={(_, mode) => mode && onViewModeChange(mode)}
+        onChange={(_, mode) => mode && onViewModeChangeAction(mode)}
       >
         <ToggleButton value="grid">
           <GridViewIcon />

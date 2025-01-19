@@ -8,13 +8,12 @@ import OpportunityCard from './OpportunityCard';
 
 interface OpportunityGridProps {
   opportunities: FirestoreOpportunity[];
+  isDeleting: string | null;
   onDeleteClick: (opportunity: { id?: string; name?: string }) => void;
-  isDeleting?: string | null;
 }
 
 export default function OpportunityGrid({
   opportunities,
-  onDeleteClick,
   isDeleting,
 }: OpportunityGridProps) {
   return (
@@ -23,10 +22,10 @@ export default function OpportunityGrid({
         <Grid item xs={12} sm={6} md={4} key={opportunity.id}>
           <OpportunityCard
             opportunity={opportunity}
-            onDeleteClick={onDeleteClick}
-            isDeleting={isDeleting}
+            isDeleting={isDeleting === opportunity.id}
             viewMode="grid"
             index={index}
+            onDeleteOpportunityAction={() => {}}
           />
         </Grid>
       ))}

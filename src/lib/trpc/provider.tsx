@@ -11,10 +11,8 @@ import { getBaseUrl } from './client';
 
 export function TRPCProvider({
   children,
-  queryClient,
 }: {
   children: React.ReactNode;
-  queryClient: QueryClient;
 }) {
   const [trpcClient] = useState(() =>
     trpc.createClient({
@@ -31,6 +29,7 @@ export function TRPCProvider({
       ],
     })
   );
+  const [queryClient] = useState(() => new QueryClient());
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
