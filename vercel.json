@@ -35,6 +35,41 @@
           "value": "1; mode=block"
         }
       ]
+    },
+    {
+      "source": "/_next/static/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
-  ]
+  ],
+  "redirects": [
+    {
+      "source": "/home",
+      "destination": "/"
+    },
+    {
+      "source": "/app",
+      "destination": "/opportunities"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/health",
+      "destination": "/api/health"
+    }
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "regions": ["sfo1"],
+  "public": false,
+  "functions": {
+    "api/**/*.ts": {
+      "memory": 256,
+      "maxDuration": 5
+    }
+  }
 } 
