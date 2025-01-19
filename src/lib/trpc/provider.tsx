@@ -9,11 +9,7 @@ import { auth } from '@/lib/firebase/config';
 import { trpc } from './client';
 import { getBaseUrl } from './client';
 
-export function TRPCProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
