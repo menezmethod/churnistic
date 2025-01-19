@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth } from '@/lib/auth';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { useOpportunity } from '@/lib/hooks/useOpportunity';
 import { FirestoreOpportunity } from '@/types/opportunity';
@@ -90,10 +90,7 @@ export const useOpportunityDetails = (id: string) => {
     setState((prev) => ({ ...prev, isEditing: true }));
 
     try {
-      const valueToSave =
-        typeof state.editData.value === 'string'
-          ? parseFloat(state.editData.value)
-          : state.editData.value;
+      const valueToSave = state.editData.value;
 
       await updateOpportunity({
         id: opportunity.id,

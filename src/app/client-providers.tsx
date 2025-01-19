@@ -2,7 +2,7 @@
 import type { JSX } from 'react';
 
 import { ThemeProvider } from '@/app/styles/theme/ThemeContext';
-import { AuthProvider } from '@/lib/auth/AuthContext';
+import { AuthProvider } from '@/lib/auth';
 import { QueryProvider } from '@/lib/providers/QueryProvider';
 import { TRPCProvider } from '@/lib/trpc/provider';
 

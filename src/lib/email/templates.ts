@@ -1,4 +1,4 @@
-import { UserRole } from '@/lib/auth/types';
+import { UserRole } from '@/lib/auth';
 
 interface User {
   name: string;

@@ -3,33 +3,19 @@
 import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 
-import type { Permission, UserRole } from '@/lib/auth/types';
-import { ROLE_PERMISSIONS } from '@/lib/auth/types';
+import { AuthContextType, Permission, UserRole } from '@/lib/auth';
+import { hasPermission, hasRole } from '@/lib/auth';
 
-import { useUser, useLogin, useRegister, useLogout } from './authConfig';
+import { useUser, useLogin, useRegister, useLogout } from '../core/authConfig';
 import {
   loginWithGoogle,
   loginWithGithub,
   resetPassword as resetPasswordService,
-} from './authService';
-import type { AuthUser } from './authService';
-
-interface AuthContextType {
-  user: AuthUser | null;
-  loading: boolean;
-  hasRole: (role: UserRole) => boolean;
-  hasPermission: (permission: Permission) => boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  signInWithGithub: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  isOnline: boolean;
-}
+} from '../core/service';
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  session: null,
   loading: true,
   hasRole: () => false,
   hasPermission: () => false,
@@ -80,20 +66,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await resetPasswordService(email);
   }, []);
 
-  const hasRole = useCallback(
+  const checkHasRole = useCallback(
     (role: UserRole) => {
       if (!user) return false;
-      return user.customClaims?.role === role;
+      return hasRole(user.role, role);
     },
     [user]
   );
 
-  const hasPermission = useCallback(
+  const checkHasPermission = useCallback(
     (permission: Permission) => {
-      if (!user) return false;
-      const userRole = user.customClaims?.role as UserRole;
-      if (!userRole) return false;
-      return ROLE_PERMISSIONS[userRole].includes(permission);
+      if (!user?.role) return false;
+      return hasPermission(user.role, permission);
     },
     [user]
   );
@@ -101,9 +85,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       user: user ?? null,
+      session: null,
       loading: isLoading,
-      hasRole,
-      hasPermission,
+      hasRole: checkHasRole,
+      hasPermission: checkHasPermission,
       signIn,
       signUp,
       signOut,
@@ -115,8 +100,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [
       user,
       isLoading,
-      hasRole,
-      hasPermission,
+      checkHasRole,
+      checkHasPermission,
       signIn,
       signUp,
       signOut,

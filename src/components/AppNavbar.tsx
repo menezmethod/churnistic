@@ -39,8 +39,8 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, type JSX, useEffect } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-import { UserRole } from '@/lib/auth/types';
+import { useAuth } from '@/lib/auth';
+import { UserRole } from '@/lib/auth/core/types';
 
 interface MenuItemType {
   text: string;

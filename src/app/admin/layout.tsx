@@ -4,8 +4,7 @@ import { CircularProgress, Box } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-import { UserRole } from '@/lib/auth/types';
+import { useAuth, UserRole } from '@/lib/auth';
 import { trpc } from '@/lib/trpc/client';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

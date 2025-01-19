@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth } from '@/lib/auth';
 import { signInWithGoogle } from '@/lib/firebase/auth';
 
 import { GoogleIcon } from '../components/icons';

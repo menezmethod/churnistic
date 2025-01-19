@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 
-import { UserRole } from '@/lib/auth/types';
+import { UserRole } from '@/lib/auth';
 
 export interface UserTableToolbarProps {
   numSelected: number;

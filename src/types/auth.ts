@@ -1,25 +1,4 @@
-import { User as FirebaseUser } from 'firebase/auth';
+// This file is now deprecated. All auth types have been moved to src/lib/auth/core/types.ts
+// Please import types from '@/lib/auth' instead.
 
-import { UserRole } from './roles';
-
-export { UserRole } from './roles';
-
-export interface User extends Omit<FirebaseUser, 'customClaims'> {
-  role: UserRole;
-  customClaims?: {
-    role?: UserRole;
-    [key: string]: unknown;
-  };
-}
-
-export enum Permission {
-  READ_USERS = 'read:users',
-  WRITE_USERS = 'write:users',
-  READ_OPPORTUNITIES = 'read:opportunities',
-  WRITE_OPPORTUNITIES = 'write:opportunities',
-}
-
-export interface CustomClaims {
-  role?: UserRole;
-  permissions?: Permission[];
-}
+export * from '@/lib/auth';

@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-import { UserRole } from '@/lib/auth/types';
+import { UserRole } from '@/lib/auth';
 
 export interface User {
   id: string;
   email: string;
   displayName: string | null;
   photoURL: string | null;
-  role: 'user' | 'admin' | 'manager' | 'analyst' | 'agent' | 'free_user';
+  role: UserRole;
   status: string;
   creditScore: number | null;
   monthlyIncome: number | null;

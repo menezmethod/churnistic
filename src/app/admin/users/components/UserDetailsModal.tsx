@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 
-import { UserRole } from '@/lib/auth/types';
+import { UserRole } from '@/lib/auth';
 
 import type { User } from '../hooks/useUsers';
 
@@ -136,8 +136,10 @@ export default function UserDetailsModal({
                   setFormData({ ...formData, role: e.target.value as UserRole })
                 }
               >
-                <MenuItem value={UserRole.USER}>User</MenuItem>
-                <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
+                <MenuItem value={UserRole.USER.toString()}>User</MenuItem>
+                <MenuItem value={UserRole.ADMIN.toString()}>Admin</MenuItem>
+                <MenuItem value={UserRole.CONTRIBUTOR.toString()}>Contributor</MenuItem>
+                <MenuItem value={UserRole.SUPER_ADMIN.toString()}>Super Admin</MenuItem>
               </Select>
             </FormControl>
 

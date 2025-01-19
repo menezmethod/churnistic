@@ -1,5 +1,4 @@
-export type { UserRole } from './auth';
-export type { Permission, User, CustomClaims } from './auth';
+export type { UserRole, Permission, AuthUser } from '@/lib/auth';
 export * from './card';
 export * from './churning';
 export * from './firebase';
@@ -18,5 +17,3 @@ export type {
   BonusTier as OpportunityBonusTier,
   Details as OpportunityDetails,
 } from './opportunity';
-
-export type { Permission as AuthPermission, User as AuthUser } from './auth';

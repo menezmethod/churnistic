@@ -34,7 +34,7 @@ import {
 import { visuallyHidden } from '@mui/utils';
 import { useState } from 'react';
 
-import { UserRole } from '@/lib/auth/types';
+import { UserRole } from '@/lib/auth';
 import { trpc } from '@/lib/trpc/client';
 
 import UserDetailsModal from './components/UserDetailsModal';

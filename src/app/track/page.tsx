@@ -25,7 +25,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth } from '@/lib/auth';
 
 // Mock data for an active opportunity that needs progress update
 const activeOpportunity = {

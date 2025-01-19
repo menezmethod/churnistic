@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { UserRole } from '@/lib/auth/core/types';
 import { auth, db } from '@/lib/firebase/client-app';
 import { manageSessionCookie } from '@/lib/firebase/config';
 import { UserProfile } from '@/types/user';
@@ -31,7 +32,7 @@ export function FirebaseAuth() {
       if (!userSnap.exists()) {
         const newProfile: UserProfile = {
           id: user.uid,
-          role: 'user',
+          role: UserRole.USER,
           email: user.email || '',
           status: 'active',
           displayName: user.displayName || user.email?.split('@')[0] || '',

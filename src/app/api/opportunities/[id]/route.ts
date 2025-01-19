@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { createAuthContext } from '@/lib/auth/authUtils';
+import { getSession } from '@/lib/auth/services/session';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { FirestoreOpportunity } from '@/types/opportunity';
-
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
 export async function GET(
@@ -41,7 +40,7 @@ export async function PUT(
   try {
     // Skip auth check in emulator mode
     if (!useEmulator) {
-      const { session } = await createAuthContext(request);
+      const session = await getSession(request);
       if (!session?.email) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
@@ -112,7 +111,7 @@ export async function DELETE(
     const { id } = await context.params;
     // Skip auth check in emulator mode
     if (!useEmulator) {
-      const { session } = await createAuthContext(request);
+      const session = await getSession(request);
       if (!session?.email) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }

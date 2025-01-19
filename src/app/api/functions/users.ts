@@ -2,8 +2,6 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { CallableRequest } from 'firebase-functions/v2/https';
 
-import { UserRole } from '@/lib/auth/types';
-
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -50,7 +48,7 @@ async function isAdmin(uid: string): Promise<boolean> {
 
   try {
     const user = await admin.auth().getUser(uid);
-    const isAdminUser = user.customClaims?.role === UserRole.ADMIN;
+    const isAdminUser = user.customClaims?.role === 'ADMIN';
     adminCache.set(uid, { isAdmin: isAdminUser, timestamp: now });
     return isAdminUser;
   } catch {
@@ -91,7 +89,7 @@ async function validateSession(context: RequestContext): Promise<void> {
 
 interface SetUserRoleData {
   uid: string;
-  role: UserRole;
+  role: string;
 }
 
 export const listUsers = functions.https.onCall(async (request: CallableRequest) => {
@@ -128,18 +126,17 @@ export const listUsers = functions.https.onCall(async (request: CallableRequest)
 
   try {
     const listUsersResult = await admin.auth().listUsers();
-    const users = await Promise.all(
+    return await Promise.all(
       listUsersResult.users.map(async (user) => {
         const customClaims = (await admin.auth().getUser(user.uid)).customClaims;
         return {
           uid: user.uid,
           email: user.email,
-          role: customClaims?.role || UserRole.USER,
+          role: customClaims?.role || 'USER',
           lastSignIn: user.metadata.lastSignInTime,
         };
       })
     );
-    return users;
   } catch (error) {
     console.error('Error listing users:', error);
     throw new functions.https.HttpsError('internal', 'Error listing users');
@@ -180,7 +177,8 @@ export const setUserRole = functions.https.onCall(
     }
 
     const { uid, role } = request.data;
-    if (!uid || !role || !Object.values(UserRole).includes(role)) {
+    const validRoles = ['USER', 'ADMIN'];
+    if (!uid || !role || !validRoles.includes(role)) {
       throw new functions.https.HttpsError('invalid-argument', 'Invalid user ID or role');
     }
 
@@ -198,7 +196,7 @@ export const setUserRole = functions.https.onCall(
 
       // Prevent elevation to admin role by non-super admins
       const callerUser = await admin.auth().getUser(context.auth.uid);
-      if (role === UserRole.ADMIN && !callerUser.customClaims?.isSuperAdmin) {
+      if (role === 'ADMIN' && !callerUser.customClaims?.isSuperAdmin) {
         throw new functions.https.HttpsError(
           'permission-denied',
           'Only super admins can create new admins'
@@ -261,7 +259,7 @@ export const setupInitialAdmin = functions.https.onRequest(async (req, res) => {
 
     const user = await admin.auth().getUserByEmail(adminEmail);
     await admin.auth().setCustomUserClaims(user.uid, {
-      role: UserRole.ADMIN,
+      role: 'ADMIN',
       isSuperAdmin: true,
     });
 

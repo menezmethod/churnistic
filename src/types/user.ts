@@ -1,6 +1,4 @@
-import { UserRole } from '@/lib/auth/types';
-
-export type Permission = string;
+import { UserRole, Permission } from '@/lib/auth/core/types';
 
 export interface User {
   uid: string;
@@ -18,6 +16,16 @@ export interface User {
     permissions: Permission[];
     isSuperAdmin: boolean;
   };
+  isContributor?: boolean;
+  contributorProfile?: {
+    bio?: string;
+    website?: string;
+    socialLinks?: {
+      twitter?: string;
+      linkedin?: string;
+      github?: string;
+    };
+  };
 }
 
 export interface DatabaseUser {
@@ -34,13 +42,23 @@ export interface DatabaseUser {
   isSuperAdmin?: boolean;
   permissions?: Permission[];
   businessVerified: boolean;
+  isContributor?: boolean;
+  contributorProfile?: {
+    bio?: string;
+    website?: string;
+    socialLinks?: {
+      twitter?: string;
+      linkedin?: string;
+      github?: string;
+    };
+  };
   createdAt: string;
   updatedAt: string;
 }
 
-export type UserProfile = {
+export interface UserProfile {
   id: string;
-  role: 'user' | 'admin';
+  role: UserRole;
   email: string;
   status: 'active' | 'inactive' | 'pending';
   displayName: string;
@@ -50,7 +68,17 @@ export type UserProfile = {
   creditScore: number | null;
   monthlyIncome: number | null;
   businessVerified: boolean;
+  isContributor?: boolean;
+  contributorProfile?: {
+    bio?: string;
+    website?: string;
+    socialLinks?: {
+      twitter?: string;
+      linkedin?: string;
+      github?: string;
+    };
+  };
   createdAt: string;
   updatedAt: string;
   householdId: string | null;
-};
+}

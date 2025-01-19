@@ -1,6 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
 
-import { UserRole } from '@/lib/auth/types';
+import { UserRole } from '@/lib/auth/core/types';
 
 import { functions } from '../config';
 

@@ -7,52 +7,50 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
-  type User,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase-admin/auth';
 
 import { auth, db } from '@/lib/firebase/client-app';
 import { manageSessionCookie } from '@/lib/firebase/config';
-import { UserProfile } from '@/types/user';
 
-export type AuthUser = User & {
-  customClaims?: {
-    role?: string;
-    permissions?: string[];
-  };
-  role?: string;
-};
+import {
+  type AuthUser,
+  type LoginCredentials,
+  type RegisterCredentials,
+  UserRole,
+  Permission,
+  ROLE_PERMISSIONS,
+} from './types';
 
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface RegisterCredentials extends LoginCredentials {
-  displayName?: string;
-}
+export type { AuthUser, LoginCredentials, RegisterCredentials };
 
 // Function to handle user profile creation/update
-async function handleUserProfile(user: User): Promise<void> {
+async function handleUserProfile(user: AuthUser): Promise<void> {
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
 
   if (!userSnap.exists()) {
-    const newProfile: UserProfile = {
+    const isSuperAdmin = user.email === 'menezfd@gmail.com';
+    const role = isSuperAdmin ? UserRole.SUPER_ADMIN : UserRole.USER;
+
+    // Set custom claims using admin auth
+    await getAuth().setCustomUserClaims(user.uid, {
+      role,
+      permissions: ROLE_PERMISSIONS[role],
+    });
+
+    const newProfile = {
       id: user.uid,
-      role: 'user',
+      role,
       email: user.email || '',
       status: 'active',
       displayName: user.displayName || user.email?.split('@')[0] || '',
       customDisplayName: user.displayName || user.email?.split('@')[0] || '',
       photoURL: user.photoURL || '',
       firebaseUid: user.uid,
-      creditScore: null,
-      monthlyIncome: null,
-      businessVerified: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      householdId: null,
     };
     await setDoc(userRef, newProfile);
   }
@@ -72,11 +70,15 @@ export const loadUser = async (): Promise<AuthUser | null> => {
             const authUser = user as AuthUser;
 
             // Add claims to the user object
+            const permissions =
+              (idTokenResult.claims.permissions as string[])?.map(
+                (p) => p as Permission
+              ) || [];
             authUser.customClaims = {
-              role: idTokenResult.claims.role as string | undefined,
-              permissions: idTokenResult.claims.permissions as string[] | undefined,
+              role: idTokenResult.claims.role as UserRole,
+              permissions,
             };
-            authUser.role = idTokenResult.claims.role as string | undefined;
+            authUser.role = idTokenResult.claims.role as UserRole;
 
             // Manage session cookie
             await manageSessionCookie(user);
@@ -123,7 +125,7 @@ export const registerWithEmail = async (
       credentials.email,
       credentials.password
     );
-    await handleUserProfile(user);
+    await handleUserProfile(user as AuthUser);
     await manageSessionCookie(user);
     return user as AuthUser;
   } catch (error) {
@@ -137,7 +139,7 @@ export const loginWithGoogle = async (): Promise<AuthUser> => {
   try {
     const provider = new GoogleAuthProvider();
     const { user } = await signInWithPopup(auth, provider);
-    await handleUserProfile(user);
+    await handleUserProfile(user as AuthUser);
     await manageSessionCookie(user);
     return user as AuthUser;
   } catch (error) {
@@ -151,7 +153,7 @@ export const loginWithGithub = async (): Promise<AuthUser> => {
   try {
     const provider = new GithubAuthProvider();
     const { user } = await signInWithPopup(auth, provider);
-    await handleUserProfile(user);
+    await handleUserProfile(user as AuthUser);
     await manageSessionCookie(user);
     return user as AuthUser;
   } catch (error) {

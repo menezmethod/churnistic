@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth } from '@/lib/auth';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { useOpportunity } from '@/lib/hooks/useOpportunity';
 import { FirestoreOpportunity } from '@/types/opportunity';
@@ -120,8 +120,7 @@ export default function OpportunityDetailsPage() {
     setIsEditing(true);
     try {
       // Convert value to number if it's a string
-      const valueToSave =
-        typeof editData.value === 'string' ? parseFloat(editData.value) : editData.value;
+      const valueToSave = editData.value;
 
       await updateOpportunity({
         id: opportunity.id,

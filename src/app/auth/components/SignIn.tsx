@@ -17,7 +17,7 @@ import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import type { JSX } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth } from '@/lib/auth';
 
 import { ForgotPassword } from './ForgotPassword';
 import { GoogleIcon } from './icons';

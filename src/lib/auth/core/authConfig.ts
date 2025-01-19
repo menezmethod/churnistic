@@ -10,7 +10,7 @@ import {
   loginWithEmail,
   registerWithEmail,
   logout,
-} from './authService';
+} from './service';
 
 export const { useUser, useLogin, useRegister, useLogout, AuthLoader } = configureAuth<
   AuthUser | null,

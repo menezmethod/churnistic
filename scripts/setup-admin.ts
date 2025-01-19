@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin';
 
-import { UserRole } from '../src/lib/auth/types';
+import { UserRole } from '@/lib/auth/core/types';
 
 // Initialize Firebase Admin
 if (!process.env.NEXT_PUBLIC_ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
@@ -38,7 +38,7 @@ async function setupAdmin() {
     try {
       adminUser = await auth.getUserByEmail(adminEmail);
       console.log('Admin user already exists');
-    } catch (error) {
+    } catch {
       console.log('Creating new admin user...');
       // Create the admin user if doesn't exist
       adminUser = await auth.createUser({

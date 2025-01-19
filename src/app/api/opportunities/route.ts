@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { createAuthContext } from '@/lib/auth/authUtils';
+import { verifySession } from '@/lib/auth/services/session';
+import { getSession } from '@/lib/auth/services/session';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { FormData } from '@/types/opportunity';
 
@@ -12,7 +13,11 @@ export async function GET(req: NextRequest) {
 
     // Skip auth check in emulator mode
     if (!useEmulator) {
-      const { session } = await createAuthContext(req);
+      const sessionCookie = req.cookies.get('session')?.value;
+      if (!sessionCookie) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const session = await verifySession(sessionCookie);
       console.log('Auth session:', session);
       if (!session?.email) {
         console.log('No session email found');
@@ -129,7 +134,7 @@ export async function POST(req: NextRequest) {
 
     // Skip auth check in emulator mode
     if (!useEmulator) {
-      const { session } = await createAuthContext(req);
+      const session = await getSession(req);
       if (!session?.email) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }

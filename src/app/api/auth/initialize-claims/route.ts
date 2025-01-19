@@ -1,6 +1,6 @@
 import { type NextRequest } from 'next/server';
 
-import { UserRole } from '@/lib/auth/types';
+import { UserRole } from '@/lib/auth';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase/admin';
 
 export async function POST(request: NextRequest) {

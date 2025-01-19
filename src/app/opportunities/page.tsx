@@ -4,7 +4,7 @@ import { Container, Box, CircularProgress } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth } from '@/lib/auth';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 import OpportunitiesSection from './components/OpportunitiesSection';

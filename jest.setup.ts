@@ -1,6 +1,13 @@
 /// <reference types="node" />
 import '@testing-library/jest-dom';
+import 'node-fetch';
 import fetch from 'node-fetch';
+import { TextEncoder, TextDecoder } from 'node:util';
+
+Object.assign(global, {
+  TextEncoder,
+  TextDecoder,
+});
 
 import { mockFirestore } from '@/mocks/firestore';
 
@@ -31,6 +38,21 @@ jest.mock('next/navigation', () => ({
   }),
   usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
+}));
+
+// Mock session service
+jest.mock('@/lib/auth/services/session', () => ({
+  verifySession: jest.fn(() =>
+    Promise.resolve({
+      uid: '123',
+      email: 'test@example.com',
+      role: 'admin',
+      permissions: ['manage:system'],
+      isSuperAdmin: false,
+    })
+  ),
+  createSession: jest.fn(() => Promise.resolve('mock-session-cookie')),
+  revokeSession: jest.fn(() => Promise.resolve()),
 }));
 
 // Mock Next.js image

@@ -22,7 +22,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { JSX, useCallback, useEffect, useState } from 'react';
 
 import { useTheme } from '@/app/styles/theme/ThemeContext';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth } from '@/lib/auth';
 import { db, storage } from '@/lib/firebase/config';
 
 import { AccountSection } from './components/AccountSection';

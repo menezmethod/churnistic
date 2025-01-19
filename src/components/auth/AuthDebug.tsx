@@ -2,22 +2,17 @@
 
 import { Box, Typography, Button, CircularProgress } from '@mui/material';
 
-import { useUser, useLogout } from '@/lib/auth/authConfig';
+import { useSession } from '@/lib/auth';
 
 export function AuthDebug() {
-  const { data: user, isLoading, error } = useUser();
-  const { mutate: logout, isLoading: isLoggingOut } = useLogout();
+  const { session, loading, error, refresh, isAuthenticated } = useSession();
 
-  if (isLoading) {
+  if (loading) {
     return <CircularProgress />;
   }
 
   if (error) {
-    return (
-      <Typography color="error">
-        Error: {error instanceof Error ? error.message : 'Unknown error'}
-      </Typography>
-    );
+    return <Typography color="error">Error: {error}</Typography>;
   }
 
   return (
@@ -26,14 +21,16 @@ export function AuthDebug() {
         Auth Debug
       </Typography>
 
-      <Typography>Status: {user ? 'Authenticated' : 'Not authenticated'}</Typography>
+      <Typography>
+        Status: {isAuthenticated ? 'Authenticated' : 'Not authenticated'}
+      </Typography>
 
-      {user && (
+      {session && (
         <>
-          <Typography>Email: {user.email}</Typography>
-          <Typography>Role: {user.customClaims?.role || 'No role'}</Typography>
-          <Button variant="contained" onClick={() => logout({})} disabled={isLoggingOut}>
-            {isLoggingOut ? 'Logging out...' : 'Logout'}
+          <Typography>Email: {session.email}</Typography>
+          <Typography>Role: {session.role}</Typography>
+          <Button variant="contained" onClick={refresh} disabled={loading}>
+            {loading ? 'Refreshing...' : 'Refresh Session'}
           </Button>
         </>
       )}

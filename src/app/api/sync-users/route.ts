@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase-admin/firestore';
 
-import { UserRole } from '@/lib/auth/types';
+import { UserRole } from '@/lib/auth/core/types';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase/admin';
 
 export async function POST() {

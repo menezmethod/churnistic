@@ -26,12 +26,20 @@ const config = {
     '<rootDir>/src/**/*.{spec,test}.{js,jsx,ts,tsx}',
   ],
   transform: {
-    '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
+    '^.+\\.(js|jsx|ts|tsx)$': [
+      'ts-jest',
+      {
+        tsconfig: 'tsconfig.test.json',
+        useESM: true,
+        isolatedModules: true,
+      },
+    ],
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!(node-fetch|data-uri-to-buffer|fetch-blob|formdata-polyfill)/)',
+    '/node_modules/(?!(jose|node-fetch|data-uri-to-buffer|fetch-blob|formdata-polyfill)/)',
     '^.+\\.module\\.(css|sass|scss)$',
   ],
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
   moduleDirectories: ['node_modules', '<rootDir>'],
 };
 
