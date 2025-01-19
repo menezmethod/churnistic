@@ -75,13 +75,12 @@ jobs:
             --argjson additions "${{ steps.git-info.outputs.additions }}" \
             --argjson deletions "${{ steps.git-info.outputs.deletions }}" \
             --argjson commits "${{ steps.git-info.outputs.commit_count }}" \
-            --arg contributors "$contributors_array" \
+            --argjson contributors $contributors_array \
             '.total_files += $changes |
              .total_additions += $additions |
              .total_deletions += $deletions |
              .total_commits += $commits |
-             .contributors = (.contributors + $contributors | unique) |
-             .contributors = ($contributors | map(select(. != "")) + .contributors | unique)')
+             .contributors += $contributors | unique')
 
           # Save updated stats
           echo "$updated_stats" > stats.json
