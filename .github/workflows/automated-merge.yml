@@ -17,8 +17,8 @@ jobs:
       - name: Get commit details
         id: git-info
         run: |
-          echo "commits=$(git log --format='%H' origin/master..origin/develop | wc -l)" >> $GITHUB_OUTPUT
-          echo "changes=$(git diff --name-only origin/master...origin/develop | wc -l)" >> $GITHUB_OUTPUT
+          echo "commits=$(git rev-list --count origin/master..origin/develop)" >> $GITHUB_OUTPUT
+          echo "changes=$(git diff --name-only origin/master origin/develop | wc -l)" >> $GITHUB_OUTPUT
       
       - name: Create or update PR
         uses: peter-evans/create-pull-request@v5
