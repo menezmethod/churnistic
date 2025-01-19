@@ -80,7 +80,8 @@ jobs:
              .total_additions += $additions |
              .total_deletions += $deletions |
              .total_commits += $commits |
-             .contributors = (.contributors + $contributors | unique)')
+             .contributors = (.contributors + $contributors | unique) |
+             .contributors = ($contributors | map(select(. != "")) + .contributors | unique)')
 
           # Save updated stats
           echo "$updated_stats" > stats.json
