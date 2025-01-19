@@ -12,6 +12,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
+      - name: Get Git Info
+        id: git-info
+        run: |
+          echo "changes=$(git diff --name-only origin/master origin/develop | wc -l)" >> $GITHUB_OUTPUT
+          echo "additions=$(git diff --shortstat origin/master..origin/develop | awk '{print $4}')" >> $GITHUB_OUTPUT
+          echo "deletions=$(git diff --shortstat origin/master..origin/develop | awk '{print $6}')" >> $GITHUB_OUTPUT
+          echo "contributors=$(git shortlog -sn origin/master..origin/develop | awk '{print $2}' | tr '\n' ', ' | sed 's/, $//')" >> $GITHUB_OUTPUT
+          echo "change_summary=$(git log --pretty=format:'- %s (%h)' origin/master..origin/develop | head -n 5)" >> $GITHUB_OUTPUT
+          echo "milestones=$(git log --grep='milestone' --pretty=format:'- %s (%h)' origin/master..origin/develop)" >> $GITHUB_OUTPUT
+          echo "commit_count=$(git rev-list --count origin/master..origin/develop)" >> $GITHUB_OUTPUT
+          echo "commit_messages=$(git log --pretty=format:'%s (%h)' origin/master..origin/develop | tr '\n' '|')" >> $GITHUB_OUTPUT
+      
       - name: Create master PR
         uses: repo-sync/pull-request@v2
         if: github.event.pull_request.merged == true
@@ -20,5 +32,24 @@ jobs:
           source_branch: "develop"
           destination_branch: "master"
           pr_title: "develop -> master"
-          pr_body: ":robot: Automated PR from **develop** to **master**"
+          pr_body: |
+            :robot: Automated PR from **develop** to **master**
+            
+            ### 📊 Statistics
+            - Files changed: ${{ steps.git-info.outputs.changes }}
+            - Lines added: ${{ steps.git-info.outputs.additions }}
+            - Lines removed: ${{ steps.git-info.outputs.deletions }}
+            - Commits: ${{ steps.git-info.outputs.commit_count }}
+            - Contributors: ${{ steps.git-info.outputs.contributors }}
+            
+            ### 📝 Key Changes
+            ${{ steps.git-info.outputs.change_summary }}
+            
+            ### 🎯 Milestones
+            ${{ steps.git-info.outputs.milestones }}
+            
+            ### ⚠️ Important
+            - This PR requires manual review and approval
+            - Please verify all changes before merging
+            - Merge only when all tests pass and code reviews are complete
           pr_label: "auto-pr"
