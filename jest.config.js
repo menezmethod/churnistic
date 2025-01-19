@@ -1,6 +1,6 @@
 // @ts-check
 /** @type {import('jest').Config} */
-export default {
+const config = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
@@ -15,10 +15,24 @@ export default {
   ],
   coverageThreshold: {
     global: {
-      statements: 70,
-      branches: 70,
-      functions: 70,
-      lines: 70,
+      statements: 90,
+      branches: 90,
+      functions: 90,
+      lines: 90,
     },
   },
+  testMatch: [
+    '<rootDir>/src/**/__tests__/**/*.{js,jsx,ts,tsx}',
+    '<rootDir>/src/**/*.{spec,test}.{js,jsx,ts,tsx}',
+  ],
+  transform: {
+    '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
+  },
+  transformIgnorePatterns: [
+    '/node_modules/(?!(node-fetch|data-uri-to-buffer|fetch-blob|formdata-polyfill)/)',
+    '^.+\\.module\\.(css|sass|scss)$',
+  ],
+  moduleDirectories: ['node_modules', '<rootDir>'],
 };
+
+export default config;
