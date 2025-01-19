@@ -25,39 +25,39 @@ jobs:
           git fetch origin master develop
           
           # Get number of changed files
-          echo "changes=$(git diff --name-only origin/master...HEAD | grep -v '^$' | wc -l | xargs)" >> $GITHUB_OUTPUT
+          echo "changes=$(git diff --name-only origin/master...HEAD | grep -v '^$' | wc -l | xargs)" >> "$GITHUB_OUTPUT"
           
           # Get additions and deletions
           STATS=$(git diff --shortstat origin/master...HEAD)
           ADDITIONS=$(echo "$STATS" | grep -o '[0-9]* insertion' | grep -o '[0-9]*' || echo "0")
           DELETIONS=$(echo "$STATS" | grep -o '[0-9]* deletion' | grep -o '[0-9]*' || echo "0")
-          echo "additions=$ADDITIONS" >> $GITHUB_OUTPUT
-          echo "deletions=$DELETIONS" >> $GITHUB_OUTPUT
+          echo "additions=$ADDITIONS" >> "$GITHUB_OUTPUT"
+          echo "deletions=$DELETIONS" >> "$GITHUB_OUTPUT"
           
           # Get contributors
-          echo "contributors=$(git log origin/master..HEAD --format='%aN' | sort -u | paste -sd ',' -)" >> $GITHUB_OUTPUT
+          echo "contributors=$(git log origin/master..HEAD --format='%aN' | sort -u | paste -sd ',' -)" >> "$GITHUB_OUTPUT"
           
           # Get recent changes
-          echo "change_summary<<EOF" >> $GITHUB_OUTPUT
-          git log --pretty=format:'- %s (%h)' origin/master..HEAD | head -n 5 >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "change_summary<<EOF" >> "$GITHUB_OUTPUT"
+          git log --pretty=format:'- %s (%h)' origin/master..HEAD | head -n 5 >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
           
           # Get milestones
-          echo "milestones<<EOF" >> $GITHUB_OUTPUT
-          git log --grep='milestone' --pretty=format:'- %s (%h)' origin/master..HEAD >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "milestones<<EOF" >> "$GITHUB_OUTPUT"
+          git log --grep='milestone' --pretty=format:'- %s (%h)' origin/master..HEAD >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
           
           # Get commit count
-          echo "commit_count=$(git rev-list --count origin/master..HEAD)" >> $GITHUB_OUTPUT
+          echo "commit_count=$(git rev-list --count origin/master..HEAD)" >> "$GITHUB_OUTPUT"
       
       - name: Read existing statistics
         id: read-stats
         run: |
           # Check if stats file exists
           if [ -f "stats.json" ]; then
-            echo "stats=$(cat stats.json)" >> $GITHUB_OUTPUT
+            echo "stats=$(cat stats.json)" >> "$GITHUB_OUTPUT"
           else
-            echo 'stats={"total_files":0,"total_additions":0,"total_deletions":0,"total_commits":0,"contributors":[]}' >> $GITHUB_OUTPUT
+            echo 'stats={"total_files":0,"total_additions":0,"total_deletions":0,"total_commits":0,"contributors":[]}' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Update statistics
@@ -71,20 +71,20 @@ jobs:
           contributors_array=$(echo "${{ steps.git-info.outputs.contributors }}" | jq -R 'split(",")')
           
           updated_stats=$(echo "$stats" | jq -c \
-            --argjson changes ${{ steps.git-info.outputs.changes }} \
-            --argjson additions ${{ steps.git-info.outputs.additions }} \
-            --argjson deletions ${{ steps.git-info.outputs.deletions }} \
-            --argjson commits ${{ steps.git-info.outputs.commit_count }} \
-            --argjson contributors "$contributors_array" \
+            --argjson changes "${{ steps.git-info.outputs.changes }}" \
+            --argjson additions "${{ steps.git-info.outputs.additions }}" \
+            --argjson deletions "${{ steps.git-info.outputs.deletions }}" \
+            --argjson commits "${{ steps.git-info.outputs.commit_count }}" \
+            --arg contributors "$contributors_array" \
             '.total_files += $changes |
              .total_additions += $additions |
              .total_deletions += $deletions |
              .total_commits += $commits |
-             .contributors = (.contributors + $contributors) | unique | sort')
+             .contributors = (.contributors + $contributors | unique)')
 
           # Save updated stats
           echo "$updated_stats" > stats.json
-          echo "updated_stats=$updated_stats" >> $GITHUB_OUTPUT
+          echo "updated_stats=$updated_stats" >> "$GITHUB_OUTPUT"
 
       - name: Create master PR
         uses: repo-sync/pull-request@v2
