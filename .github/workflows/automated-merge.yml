@@ -15,7 +15,7 @@ jobs:
       - name: Get Git Info
         id: git-info
         run: |
-          echo "changes=$(git diff --name-only origin/master origin/develop | wc -l)" >> $GITHUB_OUTPUT
+          echo "changes=$(git diff --name-only origin/master origin/develop | sed 's/[^[:print:]]//g' | grep -v '^$' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
           echo "additions=$(git diff --shortstat origin/master..origin/develop | awk '{print $4}')" >> $GITHUB_OUTPUT
           echo "deletions=$(git diff --shortstat origin/master..origin/develop | awk '{print $6}')" >> $GITHUB_OUTPUT
           echo "contributors=$(git shortlog -sn origin/master..origin/develop | awk '{print $2}' | tr '\n' ', ' | sed 's/, $//')" >> $GITHUB_OUTPUT
