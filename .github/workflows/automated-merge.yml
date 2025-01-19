@@ -23,7 +23,7 @@ jobs:
       - name: Create or update PR
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PR_AUTH_TOKEN }}
           branch: develop
           base: master
           title: "🔄 Sync: develop → master"
