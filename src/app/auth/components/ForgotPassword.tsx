@@ -14,10 +14,13 @@ import { resetPassword } from '@/lib/firebase/auth';
 
 interface ForgotPasswordProps {
   open: boolean;
-  onClose: () => void;
+  onCloseAction: () => void;
 }
 
-export function ForgotPassword({ open, onClose }: ForgotPasswordProps): JSX.Element {
+export function ForgotPassword({
+  open,
+  onCloseAction,
+}: ForgotPasswordProps): JSX.Element {
   const [email, setEmail] = React.useState('');
   const [error, setError] = React.useState('');
   const [success, setSuccess] = React.useState(false);
@@ -40,7 +43,7 @@ export function ForgotPassword({ open, onClose }: ForgotPasswordProps): JSX.Elem
       } else {
         setSuccess(true);
         setTimeout(() => {
-          onClose();
+          onCloseAction();
           setEmail('');
           setSuccess(false);
         }, 3000);
@@ -56,7 +59,7 @@ export function ForgotPassword({ open, onClose }: ForgotPasswordProps): JSX.Elem
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={onCloseAction}
       PaperProps={{
         component: 'form',
         onSubmit: handleSubmit,
@@ -94,7 +97,7 @@ export function ForgotPassword({ open, onClose }: ForgotPasswordProps): JSX.Elem
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={isLoading}>
+        <Button onClick={onCloseAction} disabled={isLoading}>
           Cancel
         </Button>
         <Button type="submit" variant="contained" disabled={isLoading}>

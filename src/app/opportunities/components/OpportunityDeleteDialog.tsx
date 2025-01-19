@@ -15,29 +15,29 @@ import { useState } from 'react';
 interface OpportunityDeleteDialogProps {
   open: boolean;
   opportunity?: { id?: string; name?: string };
-  onCancel: () => void;
-  onConfirm: () => void;
+  onCancelAction: () => void;
+  onConfirmAction: () => void;
 }
 
 export default function OpportunityDeleteDialog({
   open,
   opportunity,
-  onCancel,
-  onConfirm,
+  onCancelAction,
+  onConfirmAction,
 }: OpportunityDeleteDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleConfirm = async () => {
     setIsDeleting(true);
     try {
-      await onConfirm();
+      await onConfirmAction();
     } finally {
       setIsDeleting(false);
     }
   };
 
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onCancelAction} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <WarningIcon color="error" />
         Confirm Deletion
@@ -49,7 +49,7 @@ export default function OpportunityDeleteDialog({
         </DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel} variant="outlined">
+        <Button onClick={onCancelAction} variant="outlined">
           Cancel
         </Button>
         <Button
