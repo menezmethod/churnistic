@@ -69,7 +69,7 @@
   "regions": ["sfo1"],
   "public": true,
   "functions": {
-    "pages/api/**/*.ts": {
+    "api/**/*.ts": {
       "memory": 256,
       "maxDuration": 5
     }
