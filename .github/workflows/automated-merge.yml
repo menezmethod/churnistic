@@ -11,18 +11,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       
       - name: Get Git Info
         id: git-info
         run: |
-          echo "changes=$(git diff --name-only origin/master origin/develop | sed 's/[^[:print:]]//g' | grep -v '^$' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
-          echo "additions=$(git diff --shortstat origin/master..origin/develop | awk '{print $4}')" >> $GITHUB_OUTPUT
-          echo "deletions=$(git diff --shortstat origin/master..origin/develop | awk '{print $6}')" >> $GITHUB_OUTPUT
-          echo "contributors=$(git shortlog -sn origin/master..origin/develop | awk '{print $2}' | tr '\n' ', ' | sed 's/, $//')" >> $GITHUB_OUTPUT
-          echo "change_summary=$(git log --pretty=format:'- %s (%h)' origin/master..origin/develop | head -n 5)" >> $GITHUB_OUTPUT
-          echo "milestones=$(git log --grep='milestone' --pretty=format:'- %s (%h)' origin/master..origin/develop)" >> $GITHUB_OUTPUT
+          # Ensure we have both branches
+          git fetch origin develop master
+          
+          # Get number of changed files
+          echo "changes=$(git diff --name-only origin/master...origin/develop | grep -v '^$' | wc -l | xargs)" >> $GITHUB_OUTPUT
+          
+          # Get additions and deletions
+          STATS=$(git diff --shortstat origin/master...origin/develop)
+          ADDITIONS=$(echo "$STATS" | grep -o '[0-9]* insertion' | grep -o '[0-9]*' || echo "0")
+          DELETIONS=$(echo "$STATS" | grep -o '[0-9]* deletion' | grep -o '[0-9]*' || echo "0")
+          echo "additions=$ADDITIONS" >> $GITHUB_OUTPUT
+          echo "deletions=$DELETIONS" >> $GITHUB_OUTPUT
+          
+          # Get contributors
+          echo "contributors=$(git log origin/master..origin/develop --format='%aN' | sort -u | paste -sd ',' -)" >> $GITHUB_OUTPUT
+          
+          # Get recent changes
+          echo "change_summary<<EOF" >> $GITHUB_OUTPUT
+          git log --pretty=format:'- %s (%h)' origin/master..origin/develop | head -n 5 >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Get milestones
+          echo "milestones<<EOF" >> $GITHUB_OUTPUT
+          git log --grep='milestone' --pretty=format:'- %s (%h)' origin/master..origin/develop >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Get commit count
           echo "commit_count=$(git rev-list --count origin/master..origin/develop)" >> $GITHUB_OUTPUT
-          echo "commit_messages=$(git log --pretty=format:'%s (%h)' origin/master..origin/develop | tr '\n' '|')" >> $GITHUB_OUTPUT
       
       - name: Create master PR
         uses: repo-sync/pull-request@v2
