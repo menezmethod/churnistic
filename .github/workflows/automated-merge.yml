@@ -85,11 +85,6 @@ jobs:
           # Save updated stats
           echo "$updated_stats" > stats.json
           echo "updated_stats=$updated_stats" >> "$GITHUB_OUTPUT"
-          echo "updated_stats_total_files=$(echo "$updated_stats" | jq '.total_files')" >> "$GITHUB_OUTPUT"
-          echo "updated_stats_total_additions=$(echo "$updated_stats" | jq '.total_additions')" >> "$GITHUB_OUTPUT"
-          echo "updated_stats_total_deletions=$(echo "$updated_stats" | jq '.total_deletions')" >> "$GITHUB_OUTPUT"
-          echo "updated_stats_total_commits=$(echo "$updated_stats" | jq '.total_commits')" >> "$GITHUB_OUTPUT"
-          echo "updated_stats_contributors=$(echo "$updated_stats" | jq '.contributors | join(\", \")')" >> "$GITHUB_OUTPUT"
 
       - name: Create or Update master PR
         uses: repo-sync/pull-request@v2
@@ -111,11 +106,11 @@ jobs:
             - Contributors: ${{ steps.git-info.outputs.contributors }}
             
             ### 📊 Cumulative Statistics
-            - Total files changed: ${{ steps.update-stats.outputs.updated_stats_total_files }}
-            - Total lines added: ${{ steps.update-stats.outputs.updated_stats_total_additions }}
-            - Total lines removed: ${{ steps.update-stats.outputs.updated_stats_total_deletions }}
-            - Total commits: ${{ steps.update-stats.outputs.updated_stats_total_commits }}
-            - All contributors: ${{ steps.update-stats.outputs.updated_stats_contributors }}
+            - Total files changed: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_files }}
+            - Total lines added: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_additions }}
+            - Total lines removed: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_deletions }}
+            - Total commits: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_commits }}
+            - All contributors: ${{ fromJson(steps.update-stats.outputs.updated_stats).contributors }}
             
             ### 📝 Key Changes
             ${{ steps.git-info.outputs.change_summary }}
@@ -135,7 +130,6 @@ jobs:
           github-token: ${{ secrets.PR_AUTH_TOKEN }}
           script: |
             const prNumber = ${{ steps.master-pr.outputs.pr_number }};
-            const updatedStats = JSON.parse('${{ steps.update-stats.outputs.updated_stats }}');
             const prBody = `
             :robot: Automated PR from **develop** to **master**
             
@@ -147,11 +141,11 @@ jobs:
             - Contributors: ${{ steps.git-info.outputs.contributors }}
             
             ### 📊 Cumulative Statistics
-            - Total files changed: ${updatedStats.total_files}
-            - Total lines added: ${updatedStats.total_additions}
-            - Total lines removed: ${updatedStats.total_deletions}
-            - Total commits: ${updatedStats.total_commits}
-            - All contributors: ${updatedStats.contributors.join(", ")}
+            - Total files changed: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_files }}
+            - Total lines added: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_additions }}
+            - Total lines removed: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_deletions }}
+            - Total commits: ${{ fromJson(steps.update-stats.outputs.updated_stats).total_commits }}
+            - All contributors: ${{ fromJson(steps.update-stats.outputs.updated_stats).contributors }}
             
             ### 📝 Key Changes
             ${{ steps.git-info.outputs.change_summary }}
