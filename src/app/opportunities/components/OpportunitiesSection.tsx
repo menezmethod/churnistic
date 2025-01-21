@@ -27,8 +27,10 @@ import {
   useTheme,
 } from '@mui/material';
 import { motion } from 'framer-motion';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
+import { useAuth } from '@/lib/auth/AuthContext';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 import FloatingAddButton from './FloatingAddButton';
@@ -45,7 +47,20 @@ interface OpportunitiesSectionProps {
   error: Error | null;
   onDeleteAction: (id: string) => Promise<void>;
   onAddOpportunityAction: () => void;
+  initialCategory?: string | null;
 }
+
+const CATEGORY_MAP = {
+  'credit-cards': 'credit_card',
+  'banks': 'bank',
+  'brokerages': 'brokerage'
+} as const;
+
+const REVERSE_CATEGORY_MAP = {
+  credit_card: 'credit-cards',
+  bank: 'banks',
+  brokerage: 'brokerages'
+} as const;
 
 export default function OpportunitiesSection({
   opportunities: initialOpportunities,
@@ -53,33 +68,79 @@ export default function OpportunitiesSection({
   error,
   onDeleteAction,
   onAddOpportunityAction,
+  initialCategory,
 }: OpportunitiesSectionProps) {
   const theme = useTheme();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const isDark = theme.palette.mode === 'dark';
-  const [opportunities, setOpportunities] = useState(initialOpportunities);
+  const [opportunities] = useState<FirestoreOpportunity[]>(initialOpportunities);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  
+  // Initialize selected type from URL parameter
+  const [selectedType, setSelectedType] = useState<string | null>(() => {
+    const category = searchParams.get('category');
+    if (!category) return null;
+    return CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null;
+  });
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [sortBy, setSortBy] = useState<'value' | 'name' | 'type' | 'date' | null>(null);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<string>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
-    opportunity?: { id?: string; name?: string };
-  }>({ open: false });
+    opportunity: FirestoreOpportunity | null;
+  }>({
+    open: false,
+    opportunity: null,
+  });
+  const { user } = useAuth();
 
-  // Update local state when initialOpportunities changes
+  // Update URL when filter changes
+  const updateUrl = (newType: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    
+    if (newType) {
+      const urlCategory = REVERSE_CATEGORY_MAP[newType as keyof typeof REVERSE_CATEGORY_MAP];
+      if (urlCategory) {
+        params.set('category', urlCategory);
+      }
+    } else {
+      params.delete('category');
+    }
+
+    // Preserve other query parameters
+    const newUrl = `/opportunities${params.toString() ? `?${params.toString()}` : ''}`;
+    router.push(newUrl, { scroll: false });
+  };
+
+  // Handle type selection
+  const handleTypeClick = (type: string | null) => {
+    setSelectedType(type);
+    updateUrl(type);
+  };
+
+  // Sync state with URL when URL changes
   useEffect(() => {
-    setOpportunities(initialOpportunities);
-  }, [initialOpportunities]);
+    const category = searchParams.get('category');
+    const newType = category ? CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null : null;
+    
+    if (newType !== selectedType) {
+      setSelectedType(newType);
+    }
+  }, [searchParams, selectedType]);
 
-  const handleDeleteClick = (opportunity: { id?: string; name?: string }) => {
+  const handleDeleteClick = (opportunity: FirestoreOpportunity) => {
+    if (!user) {
+      router.push('/auth/signin?redirect=/opportunities');
+      return;
+    }
     setDeleteDialog({ open: true, opportunity });
   };
 
   const handleDeleteCancel = () => {
-    setDeleteDialog({ open: false });
+    setDeleteDialog({ open: false, opportunity: null });
   };
 
   const handleDeleteConfirm = async () => {
@@ -89,15 +150,19 @@ export default function OpportunitiesSection({
       return;
     }
 
-    setIsDeleting(id);
+    setIsDeleting(true);
     try {
       await onDeleteAction(id);
-      setOpportunities(opportunities.filter((opp) => opp.id !== id));
-      setDeleteDialog({ open: false });
+      // Assuming you want to remove the deleted opportunity from the state
+      // You might want to filter out the opportunity from the state
+      // This is a placeholder and should be adjusted based on your actual implementation
+      // For example:
+      // setOpportunities(opportunities.filter((opp) => opp.id !== id));
+      setDeleteDialog({ open: false, opportunity: null });
     } catch (error) {
       console.error('Failed to delete opportunity:', error);
     } finally {
-      setIsDeleting(null);
+      setIsDeleting(false);
     }
   };
 
@@ -118,13 +183,8 @@ export default function OpportunitiesSection({
     setAnchorEl(null);
   };
 
-  const handleSortSelect = (type: 'value' | 'name' | 'type' | 'date') => {
-    if (sortBy === type) {
-      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-    } else {
-      setSortBy(type);
-      setSortOrder('desc');
-    }
+  const handleSortSelect = (type: string) => {
+    setSortBy(type);
     handleSortClose();
   };
 
@@ -133,7 +193,7 @@ export default function OpportunitiesSection({
     searchTerm,
     selectedType,
     sortBy,
-    sortOrder
+    sortDirection
   );
 
   if (loading) {
@@ -273,55 +333,23 @@ export default function OpportunitiesSection({
               <Grid item xs={12} sm={6} md={3}>
                 <Paper
                   component={motion.div}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  elevation={0}
-                  onClick={() => setSelectedType(null)}
+                  whileHover={{ y: -4 }}
+                  onClick={() => handleTypeClick(null)}
                   sx={{
                     p: 3,
-                    borderRadius: 3,
+                    height: '100%',
                     cursor: 'pointer',
-                    bgcolor:
-                      selectedType === null
-                        ? alpha(theme.palette.primary.main, 0.1)
-                        : isDark
-                          ? alpha(theme.palette.background.paper, 0.6)
-                          : 'background.paper',
                     border: '1px solid',
-                    borderColor:
-                      selectedType === null
-                        ? theme.palette.primary.main
-                        : isDark
-                          ? alpha(theme.palette.divider, 0.1)
-                          : 'divider',
-                    transition: 'all 0.3s',
-                    overflow: 'hidden',
+                    borderColor: selectedType === null ? 'primary.main' : 'divider',
+                    borderRadius: 2,
+                    bgcolor: 'background.paper',
                     position: 'relative',
-                    backdropFilter: 'blur(8px)',
+                    overflow: 'hidden',
+                    transition: 'all 0.3s',
+                    boxShadow: selectedType === null ? 4 : 0,
                     '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: theme.shadows[4],
-                      borderColor: theme.palette.primary.main,
-                      '&::after': {
-                        opacity: 1,
-                      },
-                    },
-                    '&::after': {
-                      content: '""',
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      background: `radial-gradient(circle at top right, ${alpha(
-                        theme.palette.primary.main,
-                        0.12
-                      )}, transparent 70%)`,
-                      opacity: selectedType === null ? 1 : 0,
-                      transition: 'opacity 0.3s',
-                      pointerEvents: 'none',
-                      zIndex: 0,
+                      borderColor: 'primary.main',
+                      boxShadow: 4,
                     },
                   }}
                 >
@@ -353,59 +381,30 @@ export default function OpportunitiesSection({
 
               {['credit_card', 'bank', 'brokerage'].map((type) => {
                 const colors = getTypeColors(type, theme);
+                const displayName = type === 'credit_card' ? 'Credit Card' : 
+                                   type === 'bank' ? 'Bank Account' : 
+                                   'Brokerage Account';
                 return (
-                  <Grid item xs={12} sm={6} md={3} key={type}>
+                  <Grid key={type} item xs={12} sm={6} md={3}>
                     <Paper
                       component={motion.div}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5 }}
-                      elevation={0}
-                      onClick={() => setSelectedType(type)}
+                      whileHover={{ y: -4 }}
+                      onClick={() => handleTypeClick(type)}
                       sx={{
                         p: 3,
-                        borderRadius: 3,
+                        height: '100%',
                         cursor: 'pointer',
-                        bgcolor:
-                          selectedType === type
-                            ? colors.alpha
-                            : isDark
-                              ? alpha(theme.palette.background.paper, 0.6)
-                              : 'background.paper',
                         border: '1px solid',
-                        borderColor:
-                          selectedType === type
-                            ? colors.primary
-                            : isDark
-                              ? alpha(theme.palette.divider, 0.1)
-                              : 'divider',
-                        transition: 'all 0.3s',
-                        overflow: 'hidden',
+                        borderColor: selectedType === type ? colors.primary : 'divider',
+                        borderRadius: 2,
+                        bgcolor: 'background.paper',
                         position: 'relative',
-                        backdropFilter: 'blur(8px)',
+                        overflow: 'hidden',
+                        transition: 'all 0.3s',
+                        boxShadow: selectedType === type ? 4 : 0,
                         '&:hover': {
-                          transform: 'translateY(-4px)',
-                          boxShadow: theme.shadows[4],
                           borderColor: colors.primary,
-                          '&::after': {
-                            opacity: 1,
-                          },
-                        },
-                        '&::after': {
-                          content: '""',
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          background: `radial-gradient(circle at top right, ${alpha(
-                            colors.primary,
-                            0.12
-                          )}, transparent 70%)`,
-                          opacity: selectedType === type ? 1 : 0,
-                          transition: 'opacity 0.3s',
-                          pointerEvents: 'none',
-                          zIndex: 0,
+                          boxShadow: 4,
                         },
                       }}
                     >
@@ -426,19 +425,10 @@ export default function OpportunitiesSection({
                           {colors.icon}
                         </Box>
                         <Typography variant="h6" gutterBottom>
-                          {type
-                            .split('_')
-                            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ')}
-                          s
+                          {displayName}s
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          View{' '}
-                          {type
-                            .split('_')
-                            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ')}{' '}
-                          offers
+                          View {displayName.toLowerCase()} offers
                         </Typography>
                       </Box>
                     </Paper>
@@ -583,28 +573,11 @@ export default function OpportunitiesSection({
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
               >
                 <MenuItem
-                  onClick={() => handleSortSelect('value')}
-                  selected={sortBy === 'value'}
-                >
-                  <MonetizationOn />
-                  Value
-                  {sortBy === 'value' && (
-                    <Box sx={{ ml: 'auto', opacity: 0.5 }}>
-                      {sortOrder === 'asc' ? '↑' : '↓'}
-                    </Box>
-                  )}
-                </MenuItem>
-                <MenuItem
                   onClick={() => handleSortSelect('name')}
                   selected={sortBy === 'name'}
                 >
                   <SortByAlpha />
                   Name
-                  {sortBy === 'name' && (
-                    <Box sx={{ ml: 'auto', opacity: 0.5 }}>
-                      {sortOrder === 'asc' ? '↑' : '↓'}
-                    </Box>
-                  )}
                 </MenuItem>
                 <MenuItem
                   onClick={() => handleSortSelect('type')}
@@ -612,11 +585,6 @@ export default function OpportunitiesSection({
                 >
                   <Category />
                   Type
-                  {sortBy === 'type' && (
-                    <Box sx={{ ml: 'auto', opacity: 0.5 }}>
-                      {sortOrder === 'asc' ? '↑' : '↓'}
-                    </Box>
-                  )}
                 </MenuItem>
                 <MenuItem
                   onClick={() => handleSortSelect('date')}
@@ -624,11 +592,6 @@ export default function OpportunitiesSection({
                 >
                   <CalendarToday />
                   Date Added
-                  {sortBy === 'date' && (
-                    <Box sx={{ ml: 'auto', opacity: 0.5 }}>
-                      {sortOrder === 'asc' ? '↑' : '↓'}
-                    </Box>
-                  )}
                 </MenuItem>
               </Menu>
 
