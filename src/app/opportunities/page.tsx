@@ -1,8 +1,8 @@
 'use client';
 
-import { Container, Box, CircularProgress } from '@mui/material';
-import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { Box, CircularProgress, Container } from '@mui/material';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { FirestoreOpportunity } from '@/types/opportunity';
@@ -15,19 +15,19 @@ export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<FirestoreOpportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
+  const searchParams = useSearchParams();
   const router = useRouter();
 
   const handleAddOpportunity = () => {
+    if (!user) {
+      router.push('/auth/signin?redirect=/opportunities/add');
+      return;
+    }
     router.push('/opportunities/add');
   };
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth/signin');
-      return;
-    }
-
     const fetchData = async () => {
       try {
         const response = await fetch(API_BASE_URL);
@@ -43,12 +43,15 @@ export default function OpportunitiesPage() {
       }
     };
 
-    if (user) {
-      fetchData();
-    }
-  }, [user, authLoading, router]);
+    fetchData();
+  }, []);
 
   const handleDelete = async (id: string) => {
+    if (!user) {
+      router.push('/auth/signin?redirect=/opportunities');
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/${id}`, {
         method: 'DELETE',
@@ -62,7 +65,7 @@ export default function OpportunitiesPage() {
     }
   };
 
-  if (authLoading) {
+  if (loading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -72,10 +75,6 @@ export default function OpportunitiesPage() {
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
     <OpportunitiesSection
       opportunities={opportunities}
@@ -83,6 +82,7 @@ export default function OpportunitiesPage() {
       error={error}
       onDeleteAction={handleDelete}
       onAddOpportunityAction={handleAddOpportunity}
+      initialCategory={searchParams.get('category')}
     />
   );
 }
