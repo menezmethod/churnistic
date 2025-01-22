@@ -106,15 +106,20 @@ function OpportunitiesPageContent({
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/${id}`, {
+      const response = await fetch(`/api/opportunities/${id}`, {
         method: 'DELETE',
       });
+
       if (!response.ok) {
-        throw new Error('Failed to delete opportunity');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete opportunity');
       }
+
+      // Update local state after successful deletion
       const updated = opportunities.filter((opp) => opp.id !== id);
       setOpportunities(updated);
     } catch (err) {
+      console.error('Error deleting opportunity:', err);
       setError(err instanceof Error ? err : new Error('Failed to delete opportunity'));
     }
   };

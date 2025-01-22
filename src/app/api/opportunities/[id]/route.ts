@@ -23,7 +23,17 @@ export async function GET(
       return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
     }
 
-    return NextResponse.json(doc.data());
+    const data = doc.data();
+    return NextResponse.json({
+      id: doc.id,
+      ...data,
+      metadata: {
+        created_at: data?.metadata?.created_at || new Date().toISOString(),
+        updated_at: data?.metadata?.updated_at || new Date().toISOString(),
+        created_by: data?.metadata?.created_by || '',
+        status: data?.metadata?.status || 'active',
+      },
+    });
   } catch (error) {
     console.error('Error fetching opportunity:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -137,14 +147,22 @@ export async function DELETE(
       }
     }
 
+    // Delete the opportunity
     const db = getAdminDb();
-
-    // Delete the document using admin SDK
     await db.collection('opportunities').doc(id).delete();
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      message: 'Opportunity deleted successfully',
+    });
   } catch (error) {
     console.error('Error deleting opportunity:', error);
-    return NextResponse.json({ error: 'Failed to delete opportunity' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to delete opportunity',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
   }
 }
