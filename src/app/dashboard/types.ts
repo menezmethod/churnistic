@@ -21,6 +21,11 @@ export interface Opportunity {
     riskFactors?: string[];
   };
   timeframe?: string;
+  logo?: {
+    type?: string;
+    url?: string;
+  };
+  name?: string;
 }
 
 export interface TrackedOpportunity {

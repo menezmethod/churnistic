@@ -52,14 +52,14 @@ interface OpportunitiesSectionProps {
 
 const CATEGORY_MAP = {
   'credit-cards': 'credit_card',
-  'banks': 'bank',
-  'brokerages': 'brokerage'
+  banks: 'bank',
+  brokerages: 'brokerage',
 } as const;
 
 const REVERSE_CATEGORY_MAP = {
   credit_card: 'credit-cards',
   bank: 'banks',
-  brokerage: 'brokerages'
+  brokerage: 'brokerages',
 } as const;
 
 export default function OpportunitiesSection({
@@ -68,7 +68,6 @@ export default function OpportunitiesSection({
   error,
   onDeleteAction,
   onAddOpportunityAction,
-  initialCategory,
 }: OpportunitiesSectionProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -76,7 +75,7 @@ export default function OpportunitiesSection({
   const isDark = theme.palette.mode === 'dark';
   const [opportunities] = useState<FirestoreOpportunity[]>(initialOpportunities);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Initialize selected type from URL parameter
   const [selectedType, setSelectedType] = useState<string | null>(() => {
     const category = searchParams.get('category');
@@ -100,9 +99,10 @@ export default function OpportunitiesSection({
   // Update URL when filter changes
   const updateUrl = (newType: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
-    
+
     if (newType) {
-      const urlCategory = REVERSE_CATEGORY_MAP[newType as keyof typeof REVERSE_CATEGORY_MAP];
+      const urlCategory =
+        REVERSE_CATEGORY_MAP[newType as keyof typeof REVERSE_CATEGORY_MAP];
       if (urlCategory) {
         params.set('category', urlCategory);
       }
@@ -124,8 +124,10 @@ export default function OpportunitiesSection({
   // Sync state with URL when URL changes
   useEffect(() => {
     const category = searchParams.get('category');
-    const newType = category ? CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null : null;
-    
+    const newType = category
+      ? CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null
+      : null;
+
     if (newType !== selectedType) {
       setSelectedType(newType);
     }
@@ -184,7 +186,14 @@ export default function OpportunitiesSection({
   };
 
   const handleSortSelect = (type: string) => {
-    setSortBy(type);
+    // If clicking the same sort type, toggle direction
+    if (type === sortBy) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // If selecting a new sort type, default to ascending
+      setSortBy(type);
+      setSortDirection('asc');
+    }
     handleSortClose();
   };
 
@@ -192,7 +201,7 @@ export default function OpportunitiesSection({
     opportunities || [],
     searchTerm,
     selectedType,
-    sortBy,
+    sortBy as 'name' | 'value' | 'type' | 'date' | null,
     sortDirection
   );
 
@@ -381,9 +390,12 @@ export default function OpportunitiesSection({
 
               {['credit_card', 'bank', 'brokerage'].map((type) => {
                 const colors = getTypeColors(type, theme);
-                const displayName = type === 'credit_card' ? 'Credit Card' : 
-                                   type === 'bank' ? 'Bank Account' : 
-                                   'Brokerage Account';
+                const displayName =
+                  type === 'credit_card'
+                    ? 'Credit Card'
+                    : type === 'bank'
+                      ? 'Bank Account'
+                      : 'Brokerage Account';
                 return (
                   <Grid key={type} item xs={12} sm={6} md={3}>
                     <Paper
@@ -628,13 +640,13 @@ export default function OpportunitiesSection({
             <OpportunityGrid
               opportunities={filteredAndSortedOpportunities}
               onDeleteClick={handleDeleteClick}
-              isDeleting={isDeleting}
+              isDeleting={isDeleting ? deleteDialog.opportunity?.id || null : null}
             />
           ) : (
             <OpportunityList
               opportunities={filteredAndSortedOpportunities}
               onDeleteClick={handleDeleteClick}
-              isDeleting={isDeleting}
+              isDeleting={isDeleting ? deleteDialog.opportunity?.id || null : null}
             />
           )}
 

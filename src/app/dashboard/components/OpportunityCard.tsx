@@ -1,17 +1,16 @@
 'use client';
 
 import {
-  CreditCard as CreditCardIcon,
-  AccountBalance as AccountBalanceIcon,
-  ArrowForward as ArrowForwardIcon,
   Timer as TimerIcon,
   Star as StarIcon,
+  ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import { Box, Paper, Typography, Chip, IconButton, Fade } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
+import OpportunityIcon from '@/components/common/OpportunityIcon';
 import OpportunityCardSkeleton from '@/components/skeletons/OpportunityCardSkeleton';
 
 import { Opportunity } from '../types';
@@ -73,20 +72,13 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
         }}
       >
         <Box display="flex" alignItems="center" gap={2}>
-          <Box
-            className="opportunity-icon"
-            sx={{
-              p: 1.5,
-              borderRadius: 2,
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-              transition: 'all 0.3s',
-            }}
-          >
-            {opportunity.type === 'credit_card' ? (
-              <CreditCardIcon color="primary" sx={{ fontSize: '2rem' }} />
-            ) : (
-              <AccountBalanceIcon color="primary" sx={{ fontSize: '2rem' }} />
-            )}
+          <Box className="opportunity-icon" sx={{ transition: 'all 0.3s' }}>
+            <OpportunityIcon
+              type={opportunity.type}
+              logo={opportunity.logo}
+              name={opportunity.name}
+              size={56}
+            />
           </Box>
           <Box flex={1}>
             <Box display="flex" alignItems="center" gap={1} mb={0.5}>
