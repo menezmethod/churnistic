@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 
 import { useDashboardData } from '@/app/dashboard/hooks/useDashboardData';
 import OpportunityCard from '@/app/opportunities/components/OpportunityCard';
+import { useAuth } from '@/lib/auth/AuthContext';
 import type { FirestoreOpportunity } from '@/types/opportunity';
 
 const formatCurrency = (value: number | string | undefined): string => {
@@ -29,6 +30,7 @@ const formatCurrency = (value: number | string | undefined): string => {
 
 export default function HomePage() {
   const theme = useTheme();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const { stats, quickOpportunities, loading: dashboardLoading } = useDashboardData();
 
@@ -48,7 +50,7 @@ export default function HomePage() {
   const realStats = [
     {
       label: 'POTENTIAL BONUS EARNINGS',
-      value: formatCurrency(stats?.potentialValue),
+      value: formatCurrency(stats?.potentialValue || 0),
     },
     {
       label: 'BONUSES AVAILABLE',
@@ -56,7 +58,7 @@ export default function HomePage() {
     },
     {
       label: 'AVERAGE BONUS VALUE',
-      value: formatCurrency(stats?.averageValue),
+      value: formatCurrency(stats?.averageValue || 0),
     },
   ];
 
@@ -158,64 +160,66 @@ export default function HomePage() {
             Banks offer hundreds of sign-up bonuses. We help you find and track the best
             ones.
           </Typography>
-          <Stack
-            component={motion.div}
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={2}
-            justifyContent="center"
-            sx={{ mb: 8 }}
-          >
-            <Button
-              variant="contained"
-              size="large"
-              component={Link}
-              href="/auth/signup"
-              endIcon={<KeyboardArrowRight />}
-              sx={{
-                px: 4,
-                py: 1.5,
-                borderRadius: 2,
-                textTransform: 'none',
-                fontSize: '1.1rem',
-                fontWeight: 500,
-                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.25)}`,
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: `0 6px 12px ${alpha(theme.palette.primary.main, 0.35)}`,
-                  background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
-                },
-              }}
+          {!user && (
+            <Stack
+              component={motion.div}
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              justifyContent="center"
+              sx={{ mb: 8 }}
             >
-              Get Started
-            </Button>
-            <Button
-              variant="outlined"
-              size="large"
-              component={Link}
-              href="/auth/signin"
-              sx={{
-                px: 4,
-                py: 1.5,
-                borderRadius: 2,
-                textTransform: 'none',
-                fontSize: '1.1rem',
-                fontWeight: 500,
-                borderWidth: 2,
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.15)}`,
-                },
-              }}
-            >
-              Sign In
-            </Button>
-          </Stack>
+              <Button
+                variant="contained"
+                size="large"
+                component={Link}
+                href="/auth/signup"
+                endIcon={<KeyboardArrowRight />}
+                sx={{
+                  px: 4,
+                  py: 1.5,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '1.1rem',
+                  fontWeight: 500,
+                  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                  boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.25)}`,
+                  transition: 'all 0.3s',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 6px 12px ${alpha(theme.palette.primary.main, 0.35)}`,
+                    background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                  },
+                }}
+              >
+                Get Started
+              </Button>
+              <Button
+                variant="outlined"
+                size="large"
+                component={Link}
+                href="/auth/signin"
+                sx={{
+                  px: 4,
+                  py: 1.5,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '1.1rem',
+                  fontWeight: 500,
+                  borderWidth: 2,
+                  transition: 'all 0.3s',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.15)}`,
+                  },
+                }}
+              >
+                Sign In
+              </Button>
+            </Stack>
+          )}
 
           {/* Stats Section */}
           <Grid container spacing={4} justifyContent="center" sx={{ mb: 8 }}>
@@ -278,102 +282,125 @@ export default function HomePage() {
           >
             Featured Offers
           </Typography>
-          <Grid container spacing={4} sx={{ mb: 8 }}>
-            {featuredOffers.map((offer, index) => (
-              <Grid
-                item
-                xs={12}
-                md={4}
-                key={offer.id}
-                component={motion.div}
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.6 + index * 0.1 }}
-              >
-                <OpportunityCard
-                  opportunity={offer}
-                  isDeleting={false}
-                  onDeleteOpportunityAction={() => {}}
-                  viewMode="grid"
-                  index={index}
-                  sx={{
-                    height: '100%',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: theme.shadows[4],
-                    },
-                  }}
-                />
-              </Grid>
-            ))}
-          </Grid>
-
-          {/* CTA Section */}
-          <Box
-            component={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            sx={{
-              p: 4,
-              borderRadius: 4,
-              bgcolor: 'background.paper',
-              border: '1px solid',
-              borderColor: 'divider',
-              boxShadow: theme.shadows[1],
-              position: 'relative',
-              overflow: 'hidden',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: `radial-gradient(circle at top right, ${alpha(
-                  theme.palette.primary.main,
-                  0.1
-                )}, transparent 70%)`,
-                opacity: 0,
-                transition: 'opacity 0.3s',
-              },
-              '&:hover::after': {
-                opacity: 1,
-              },
-            }}
-          >
-            <Typography variant="h4" sx={{ mb: 2, fontWeight: 700 }}>
-              Ready to get started?
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              Join thousands of users maximizing their rewards
-            </Typography>
-            <Button
-              variant="contained"
-              size="large"
-              component={Link}
-              href="/auth/signup"
-              endIcon={<KeyboardArrowRight />}
+          {featuredOffers.length > 0 ? (
+            <Grid container spacing={4} sx={{ mb: 8 }}>
+              {featuredOffers.map((offer, index) => (
+                <Grid
+                  item
+                  xs={12}
+                  md={4}
+                  key={offer.id}
+                  component={motion.div}
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.6 + index * 0.1 }}
+                >
+                  <OpportunityCard
+                    opportunity={offer}
+                    isDeleting={false}
+                    onDeleteOpportunityAction={() => {}}
+                    viewMode="grid"
+                    index={index}
+                    sx={{
+                      height: '100%',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: theme.shadows[4],
+                      },
+                    }}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            <Box
               sx={{
-                px: 4,
-                py: 1.5,
+                p: 4,
+                mb: 8,
                 borderRadius: 2,
-                textTransform: 'none',
-                fontSize: '1.1rem',
-                fontWeight: 500,
-                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.25)}`,
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: `0 6px 12px ${alpha(theme.palette.primary.main, 0.35)}`,
-                  background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                bgcolor: alpha(theme.palette.primary.main, 0.05),
+                border: '1px solid',
+                borderColor: alpha(theme.palette.primary.main, 0.1),
+                textAlign: 'center',
+              }}
+            >
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No Featured Offers Available
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Check back soon for exciting new opportunities!
+              </Typography>
+            </Box>
+          )}
+
+          {/* CTA Section - Only show for non-authenticated users */}
+          {!user && (
+            <Box
+              component={motion.div}
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.8 }}
+              sx={{
+                p: 4,
+                borderRadius: 4,
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                boxShadow: theme.shadows[1],
+                position: 'relative',
+                overflow: 'hidden',
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: `radial-gradient(circle at top right, ${alpha(
+                    theme.palette.primary.main,
+                    0.1
+                  )}, transparent 70%)`,
+                  opacity: 0,
+                  transition: 'opacity 0.3s',
+                },
+                '&:hover::after': {
+                  opacity: 1,
                 },
               }}
             >
-              Get Started Now
-            </Button>
-          </Box>
+              <Typography variant="h4" sx={{ mb: 2, fontWeight: 700 }}>
+                Ready to get started?
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                Join thousands of users maximizing their rewards
+              </Typography>
+              <Button
+                variant="contained"
+                size="large"
+                component={Link}
+                href="/auth/signup"
+                endIcon={<KeyboardArrowRight />}
+                sx={{
+                  px: 4,
+                  py: 1.5,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '1.1rem',
+                  fontWeight: 500,
+                  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                  boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.25)}`,
+                  transition: 'all 0.3s',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 6px 12px ${alpha(theme.palette.primary.main, 0.35)}`,
+                    background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                  },
+                }}
+              >
+                Get Started Now
+              </Button>
+            </Box>
+          )}
         </Box>
       </Container>
     </Box>

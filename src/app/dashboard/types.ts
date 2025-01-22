@@ -35,6 +35,10 @@ export interface TrackedOpportunity {
   progress: number;
   target: number;
   daysLeft: number;
+  logo?: {
+    type?: string;
+    url?: string;
+  };
 }
 
 export interface Activity {
