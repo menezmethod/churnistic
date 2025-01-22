@@ -1,26 +1,25 @@
 'use client';
 
 import {
-  CreditCard as CreditCardIcon,
-  AccountBalance as AccountBalanceIcon,
   Timer as TimerIcon,
+  ArrowForward as ArrowForwardIcon,
   Refresh as RefreshIcon,
-  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import {
   Box,
   Paper,
   Typography,
-  Chip,
-  IconButton,
-  Fade,
   LinearProgress,
+  IconButton,
+  Chip,
   Tooltip,
+  Fade,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { motion } from 'framer-motion';
 import Link from 'next/link';
 
+import { LogoImage } from '@/app/opportunities/components/LogoImage';
+import { getTypeColors } from '@/app/opportunities/utils/colorUtils';
 import ProgressCardSkeleton from '@/components/skeletons/ProgressCardSkeleton';
 
 import { TrackedOpportunity } from '../types';
@@ -31,6 +30,7 @@ interface ProgressCardProps {
 
 export function ProgressCard({ opportunity }: ProgressCardProps) {
   const theme = useTheme();
+  const colors = getTypeColors(opportunity.type, theme);
   const progress = (opportunity.progress / opportunity.target) * 100;
   const isUrgent = opportunity.daysLeft <= 15;
 
@@ -50,13 +50,14 @@ export function ProgressCard({ opportunity }: ProgressCardProps) {
           background: 'transparent',
           textDecoration: 'none',
           '&:hover': {
-            transform: 'translateX(4px)',
-            boxShadow: theme.shadows[8],
+            transform: 'translateY(-4px)',
+            boxShadow: theme.shadows[4],
             '& .progress-icon': {
-              transform: 'scale(1.1)',
+              transform: 'scale(1.1) rotate(5deg)',
             },
-            '& .progress-bar': {
-              transform: 'scaleX(1.02)',
+            '& .progress-arrow': {
+              transform: 'translateX(4px)',
+              opacity: 1,
             },
             '&::before': {
               opacity: 0.15,
@@ -67,12 +68,10 @@ export function ProgressCard({ opportunity }: ProgressCardProps) {
             position: 'absolute',
             top: 0,
             left: 0,
+            right: 0,
             bottom: 0,
-            width: 4,
-            background: isUrgent
-              ? theme.palette.warning.main
-              : theme.palette.success.main,
-            opacity: 0.5,
+            background: 'linear-gradient(135deg, primary.main, primary.light)',
+            opacity: 0.08,
             transition: 'opacity 0.3s',
           },
         }}
@@ -81,17 +80,12 @@ export function ProgressCard({ opportunity }: ProgressCardProps) {
           <Box
             className="progress-icon"
             sx={{
-              p: 1.5,
-              borderRadius: 2,
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              width: 56,
+              height: 56,
               transition: 'all 0.3s',
             }}
           >
-            {opportunity.type === 'credit_card' ? (
-              <CreditCardIcon color="primary" />
-            ) : (
-              <AccountBalanceIcon color="primary" />
-            )}
+            <LogoImage logo={opportunity.logo} name={opportunity.title} colors={colors} />
           </Box>
           <Box flex={1}>
             <Typography variant="subtitle2" gutterBottom fontWeight={600}>
@@ -111,45 +105,19 @@ export function ProgressCard({ opportunity }: ProgressCardProps) {
                   {Math.round(progress)}%
                 </Typography>
               </Box>
-              <Box position="relative">
-                <LinearProgress
-                  variant="determinate"
-                  value={Math.min(progress, 100)}
-                  className="progress-bar"
-                  sx={{
-                    height: 8,
-                    borderRadius: 1,
-                    bgcolor: alpha(theme.palette.primary.main, 0.1),
-                    '& .MuiLinearProgress-bar': {
-                      borderRadius: 1,
-                      bgcolor: progress >= 100 ? 'success.main' : 'primary.main',
-                      transition: 'all 0.3s',
-                    },
-                  }}
-                />
-                {progress >= 100 && (
-                  <Box
-                    component={motion.div}
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      opacity: [0.7, 1, 0.7],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                    }}
-                    sx={{
-                      position: 'absolute',
-                      right: -10,
-                      top: -10,
-                      color: 'success.main',
-                    }}
-                  >
-                    <CheckCircleIcon />
-                  </Box>
-                )}
-              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={Math.min(progress, 100)}
+                sx={{
+                  height: 6,
+                  borderRadius: 3,
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 3,
+                    background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                  },
+                }}
+              />
             </Box>
             <Box display="flex" alignItems="center" gap={1}>
               <Chip
@@ -175,6 +143,21 @@ export function ProgressCard({ opportunity }: ProgressCardProps) {
                 </IconButton>
               </Tooltip>
             </Box>
+          </Box>
+          <Box>
+            <IconButton
+              component={Link}
+              href={`/opportunities/${opportunity.id}`}
+              size="small"
+              color="primary"
+              className="progress-arrow"
+              sx={{
+                opacity: 0.7,
+                transition: 'all 0.3s',
+              }}
+            >
+              <ArrowForwardIcon />
+            </IconButton>
           </Box>
         </Box>
       </Paper>

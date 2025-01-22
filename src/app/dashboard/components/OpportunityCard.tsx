@@ -1,17 +1,17 @@
 'use client';
 
 import {
-  CreditCard as CreditCardIcon,
-  AccountBalance as AccountBalanceIcon,
-  ArrowForward as ArrowForwardIcon,
   Timer as TimerIcon,
   Star as StarIcon,
+  ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import { Box, Paper, Typography, Chip, IconButton, Fade } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
+import { LogoImage } from '@/app/opportunities/components/LogoImage';
+import { getTypeColors } from '@/app/opportunities/utils/colorUtils';
 import OpportunityCardSkeleton from '@/components/skeletons/OpportunityCardSkeleton';
 
 import { Opportunity } from '../types';
@@ -20,14 +20,15 @@ interface OpportunityCardProps {
   opportunity: Opportunity;
 }
 
+const formatCurrency = (value: string | number) => {
+  if (typeof value === 'number') return `$${value.toLocaleString()}`;
+  const numericValue = parseFloat(value.replace(/[$,]/g, ''));
+  return isNaN(numericValue) ? '$0' : `$${numericValue.toLocaleString()}`;
+};
+
 export function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const theme = useTheme();
-
-  const displayValue = (value: string | number) => {
-    if (typeof value === 'number') return formatCurrency(value);
-    const numericValue = parseFloat(value.replace(/[$,]/g, ''));
-    return isNaN(numericValue) ? '$0' : formatCurrency(numericValue);
-  };
+  const colors = getTypeColors(opportunity.type, theme);
 
   return (
     <Fade in={true}>
@@ -72,21 +73,52 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
           },
         }}
       >
-        <Box display="flex" alignItems="center" gap={2}>
-          <Box
-            className="opportunity-icon"
-            sx={{
-              p: 1.5,
-              borderRadius: 2,
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-              transition: 'all 0.3s',
-            }}
-          >
-            {opportunity.type === 'credit_card' ? (
-              <CreditCardIcon color="primary" sx={{ fontSize: '2rem' }} />
-            ) : (
-              <AccountBalanceIcon color="primary" sx={{ fontSize: '2rem' }} />
-            )}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <Box className="opportunity-icon" sx={{ transition: 'all 0.3s' }}>
+            <Box
+              sx={{
+                width: 56,
+                height: 56,
+                p: 1,
+                borderRadius: 2,
+                bgcolor: colors.alpha,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'transform 0.3s',
+                overflow: 'hidden',
+                position: 'relative',
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: `radial-gradient(circle at top right, ${alpha(
+                    colors.primary,
+                    0.12
+                  )}, transparent 70%)`,
+                  opacity: 0,
+                  transition: 'opacity 0.3s',
+                },
+                '&:hover::after': {
+                  opacity: 1,
+                },
+              }}
+            >
+              <LogoImage
+                logo={opportunity.logo}
+                name={opportunity.title}
+                colors={colors}
+              />
+            </Box>
           </Box>
           <Box flex={1}>
             <Box display="flex" alignItems="center" gap={1} mb={0.5}>
@@ -126,14 +158,13 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
                   size="small"
                   color="warning"
                   variant="outlined"
-                  sx={{ fontWeight: 500 }}
                 />
               )}
             </Box>
           </Box>
           <Box textAlign="right">
             <Typography variant="h6" color="primary" fontWeight="bold" sx={{ mb: 1 }}>
-              {displayValue(opportunity.value)}
+              {formatCurrency(opportunity.value)}
             </Typography>
             <IconButton
               size="small"
@@ -151,14 +182,6 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
       </Paper>
     </Fade>
   );
-}
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 export { OpportunityCardSkeleton };

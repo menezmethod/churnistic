@@ -22,10 +22,12 @@ jest.mock('../authService', () => ({
   ...jest.requireActual('../authService'),
   loginWithGoogle: jest.fn(() => Promise.resolve({})),
   loginWithGithub: jest.fn(() => Promise.resolve({})),
-  resetPassword: jest.fn(() => Promise.resolve({
-    success: true,
-    message: 'Password reset email sent'
-  })),
+  resetPassword: jest.fn(() =>
+    Promise.resolve({
+      success: true,
+      message: 'Password reset email sent',
+    })
+  ),
 }));
 
 describe('AuthContext', () => {
@@ -132,9 +134,9 @@ describe('AuthContext', () => {
     it('should handle password reset', async () => {
       const mockResetPassword = jest.fn().mockResolvedValue({
         success: true,
-        message: 'Password reset email sent'
+        message: 'Password reset email sent',
       });
-      
+
       (resetPasswordService as jest.Mock).mockImplementation(mockResetPassword);
 
       const { result } = renderHook(() => useAuth(), { wrapper });
@@ -171,9 +173,11 @@ describe('AuthContext', () => {
       // ADMIN role has all permissions
       expect(result.current.hasPermission(Permission.MANAGE_SETTINGS)).toBe(true);
       expect(result.current.hasPermission(Permission.EDIT_OTHER_PROFILES)).toBe(true);
-      
+
       // Test non-existent permission
-      expect(result.current.hasPermission('INVALID_PERMISSION' as Permission)).toBe(false);
+      expect(result.current.hasPermission('INVALID_PERMISSION' as Permission)).toBe(
+        false
+      );
     });
   });
 

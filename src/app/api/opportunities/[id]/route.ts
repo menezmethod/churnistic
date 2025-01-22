@@ -23,7 +23,17 @@ export async function GET(
       return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
     }
 
-    return NextResponse.json(doc.data());
+    const data = doc.data();
+    return NextResponse.json({
+      id: doc.id,
+      ...data,
+      metadata: {
+        created_at: data?.metadata?.created_at || new Date().toISOString(),
+        updated_at: data?.metadata?.updated_at || new Date().toISOString(),
+        created_by: data?.metadata?.created_by || '',
+        status: data?.metadata?.status || 'active',
+      },
+    });
   } catch (error) {
     console.error('Error fetching opportunity:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -66,14 +76,30 @@ export async function PUT(
       }
     }
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
 
     if (!body || typeof body !== 'object') {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
+    // For updates, only require that body is an object
+    if (typeof body !== 'object' || Array.isArray(body))
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+
+    // Ensure body contains at least one valid field to update
+    if (Object.keys(body).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    }
+
     // Update the opportunity
-    const db = getAdminDb();
     const updateData = {
       ...body,
       // Ensure card_image is properly handled for credit cards
@@ -86,21 +112,83 @@ export async function PUT(
               badge: body.card_image?.badge,
             }
           : undefined,
-      metadata: {
-        ...body.metadata,
-        updated_at: new Date().toISOString(),
-      },
+      metadata: body.metadata
+        ? {
+            ...body.metadata,
+            updated_at: new Date().toISOString(),
+          }
+        : { updated_at: new Date().toISOString() },
     };
 
-    await db.collection('opportunities').doc(id).update(updateData);
+    // Validate updateData is a non-empty object
+    if (
+      !updateData ||
+      typeof updateData !== 'object' ||
+      Array.isArray(updateData) ||
+      Object.keys(updateData).length === 0
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid update data - must be a non-empty object' },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Opportunity updated successfully',
-    });
+    try {
+      const db = getAdminDb();
+
+      // Convert undefined values to null for Firestore
+      const firestoreUpdateData = Object.fromEntries(
+        Object.entries(updateData).map(([key, value]) => [
+          key,
+          value === undefined ? null : value,
+        ])
+      );
+
+      await db.collection('opportunities').doc(id).update(firestoreUpdateData);
+      const updatedDoc = await db.collection('opportunities').doc(id).get();
+
+      if (!updatedDoc.exists) {
+        return NextResponse.json(
+          { error: 'Failed to retrieve updated opportunity' },
+          { status: 500 }
+        );
+      }
+
+      const updatedData = updatedDoc.data();
+      if (!updatedData) {
+        return NextResponse.json(
+          { error: 'Updated opportunity data is empty' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        id: updatedDoc.id,
+        ...updatedData,
+        metadata: {
+          ...updatedData.metadata,
+          updated_at: new Date().toISOString(),
+        },
+      });
+    } catch (dbError) {
+      console.error('Database error:', dbError);
+      return NextResponse.json(
+        {
+          error: 'Database operation failed',
+          details: dbError instanceof Error ? dbError.message : String(dbError),
+        },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Error updating opportunity:', error);
-    return NextResponse.json({ error: 'Failed to update opportunity' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to update opportunity',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -137,14 +225,22 @@ export async function DELETE(
       }
     }
 
+    // Delete the opportunity
     const db = getAdminDb();
-
-    // Delete the document using admin SDK
     await db.collection('opportunities').doc(id).delete();
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      message: 'Opportunity deleted successfully',
+    });
   } catch (error) {
     console.error('Error deleting opportunity:', error);
-    return NextResponse.json({ error: 'Failed to delete opportunity' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to delete opportunity',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
   }
 }

@@ -18,6 +18,8 @@ import { motion } from 'framer-motion';
 
 import { FirestoreOpportunity } from '@/types/opportunity';
 
+import { LogoImage } from '../../components/LogoImage';
+
 interface HeaderSectionProps {
   opportunity: FirestoreOpportunity;
 }
@@ -68,31 +70,26 @@ export const HeaderSection = ({ opportunity }: HeaderSectionProps) => {
       <Grid container spacing={3} alignItems="center">
         <Grid item xs={12} md={8}>
           <Box display="flex" alignItems="center" gap={2}>
-            <Box
-              sx={{
-                p: 2,
-                borderRadius: 2,
-                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'rotate(5deg) scale(1.1)',
-                  bgcolor: alpha(theme.palette.primary.main, 0.15),
-                },
+            <LogoImage
+              logo={opportunity.logo}
+              name={opportunity.name}
+              colors={{
+                primary: theme.palette.primary.main,
+                light: theme.palette.primary.light,
+                dark: theme.palette.primary.dark,
+                alpha: alpha(theme.palette.primary.main, 0.1),
+                icon:
+                  opportunity.type === 'credit_card' ? (
+                    <CreditCard sx={{ fontSize: '2.5rem', color: 'primary.main' }} />
+                  ) : opportunity.type === 'brokerage' ? (
+                    <AccountBalanceWallet
+                      sx={{ fontSize: '2.5rem', color: 'primary.main' }}
+                    />
+                  ) : (
+                    <AccountBalance sx={{ fontSize: '2.5rem', color: 'primary.main' }} />
+                  ),
               }}
-            >
-              {opportunity.type === 'credit_card' ? (
-                <CreditCard sx={{ fontSize: '2.5rem', color: 'primary.main' }} />
-              ) : opportunity.type === 'brokerage' ? (
-                <AccountBalanceWallet
-                  sx={{ fontSize: '2.5rem', color: 'primary.main' }}
-                />
-              ) : (
-                <AccountBalance sx={{ fontSize: '2.5rem', color: 'primary.main' }} />
-              )}
-            </Box>
+            />
             <Box>
               <Typography
                 variant="h4"

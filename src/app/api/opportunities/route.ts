@@ -1,122 +1,74 @@
+import { collection, getDocs, query, where, limit, addDoc } from 'firebase/firestore';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
-import { getAdminDb } from '@/lib/firebase/admin';
-import { FormData } from '@/types/opportunity';
+import { getFirestore } from '@/lib/firebase/firestore';
+import { FormData, FirestoreOpportunity } from '@/types/opportunity';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
-export async function GET(req: NextRequest) {
+export async function GET(request: Request) {
   try {
     console.log('GET /api/opportunities - Starting request');
-
-    // Skip auth check in emulator mode
-    if (!useEmulator) {
-      const { session } = await createAuthContext(req);
-      console.log('Auth session:', session);
-      if (!session?.email) {
-        console.log('No session email found');
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-    }
-
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const limitNum = Number(searchParams.get('limit')) || 10;
 
-    console.log('Query params:', { type, limit });
+    console.log('Query params:', { type, limitNum });
 
-    const db = getAdminDb();
+    const db = getFirestore();
     console.log('Got Firestore instance');
 
-    let query = db
-      .collection('opportunities')
-      .orderBy('metadata.created_at', 'desc')
-      .limit(limit);
+    console.log('Building Firestore query...');
+    const opportunitiesRef = collection(db, 'opportunities');
+    let q = query(opportunitiesRef, limit(limitNum));
 
     if (type) {
-      query = query.where('type', '==', type);
+      q = query(q, where('type', '==', type));
     }
 
-    console.log('Executing Firestore query...');
-    const snapshot = await query.get();
-    console.log('Query snapshot:', {
-      size: snapshot.size,
-      empty: snapshot.empty,
-      docs: snapshot.docs.length,
+    // Add a timeout to the query
+    const queryPromise = getDocs(q);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Query timeout')), 5000);
     });
 
-    if (snapshot.empty) {
-      console.log('No opportunities found in Firestore');
-      return NextResponse.json([]);
+    try {
+      const snapshot = await Promise.race([queryPromise, timeoutPromise]);
+      console.log('Query snapshot:', {
+        size: snapshot.size,
+        empty: snapshot.empty,
+        docs: snapshot.docs.length,
+      });
+
+      if (snapshot.empty) {
+        console.log('No opportunities found in Firestore');
+        return NextResponse.json([]);
+      }
+
+      const opportunities = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+        } as FirestoreOpportunity;
+      });
+
+      return NextResponse.json(opportunities);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Query timeout') {
+        console.error('Firestore query timed out');
+        return NextResponse.json({ error: 'Request timeout' }, { status: 504 });
+      }
+      throw error;
     }
-
-    const opportunities = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        value: data.value || 0,
-        bonus: {
-          title: data.bonus?.title || '',
-          description: data.bonus?.description || '',
-          requirements: {
-            title: data.bonus?.requirements?.title || '',
-            description: data.bonus?.requirements?.description || '',
-            minimum_deposit: data.bonus?.requirements?.minimum_deposit || null,
-            trading_requirements: data.bonus?.requirements?.trading_requirements || null,
-            holding_period: data.bonus?.requirements?.holding_period || null,
-          },
-          additional_info: data.bonus?.additional_info || null,
-          tiers: data.bonus?.tiers || null,
-        },
-        details: {
-          monthly_fees: {
-            amount: data.details?.monthly_fees?.amount || '0',
-          },
-          account_type: data.details?.account_type || '',
-          availability: data.details?.availability || { type: 'Nationwide' },
-          credit_inquiry: data.details?.credit_inquiry || null,
-          household_limit: data.details?.household_limit || null,
-          early_closure_fee: data.details?.early_closure_fee || null,
-          chex_systems: data.details?.chex_systems || null,
-          expiration: data.details?.expiration || null,
-        },
-        logo: {
-          type: data.logo?.type || '',
-          url: data.logo?.url || '',
-        },
-        card_image:
-          data.type === 'credit_card'
-            ? {
-                url: data.card_image?.url || '',
-                network: data.card_image?.network || 'Unknown',
-                color: data.card_image?.color || 'Unknown',
-                badge: data.card_image?.badge,
-              }
-            : undefined,
-        metadata: {
-          created_at: data.metadata?.created_at || new Date().toISOString(),
-          updated_at: data.metadata?.updated_at || new Date().toISOString(),
-          created_by: data.metadata?.created_by || 'system',
-          status: data.metadata?.status || 'active',
-        },
-      };
-    });
-
-    console.log('Found opportunities:', opportunities.length);
-    if (opportunities.length > 0) {
-      console.log('First opportunity:', JSON.stringify(opportunities[0], null, 2));
-    }
-
-    return NextResponse.json(opportunities);
   } catch (error) {
     console.error('Error fetching opportunities:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error details:', errorMessage);
     return NextResponse.json(
-      { error: 'Failed to fetch opportunities', details: errorMessage },
-      { status: 500 }
+      { error: errorMessage },
+      { status: error instanceof Error && error.message === 'Query timeout' ? 504 : 500 }
     );
   }
 }
@@ -228,10 +180,11 @@ export async function POST(req: NextRequest) {
 
     console.log('Prepared opportunity data:', opportunity);
 
-    const db = getAdminDb();
+    const db = getFirestore();
     console.log('Got Firestore instance');
 
-    const docRef = await db.collection('opportunities').add(opportunity);
+    const opportunitiesRef = collection(db, 'opportunities');
+    const docRef = await addDoc(opportunitiesRef, opportunity);
     console.log('Opportunity created with ID:', docRef.id);
 
     return NextResponse.json({
