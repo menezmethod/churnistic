@@ -13,12 +13,12 @@ import { FirestoreOpportunity } from '@/types/opportunity';
 
 import { BonusDetailsSection } from './components/BonusDetailsSection';
 import { BonusTiersSection } from './components/BonusTiersSection';
-import { DeleteDialog } from './components/DeleteDialog';
 import { EditDialog } from './components/EditDialog';
 import { ErrorState } from './components/ErrorState';
 import { HeaderSection } from './components/HeaderSection';
 import { LoadingState } from './components/LoadingState';
 import { QuickActionsSection } from './components/QuickActionsSection';
+import OpportunityDeleteDialog from '../components/OpportunityDeleteDialog';
 
 export default function OpportunityDetailsPage() {
   const params = useParams<{ id: string }>();
@@ -36,62 +36,43 @@ export default function OpportunityDetailsPage() {
 
   // Check if user can edit/delete this opportunity
   const canModify = Boolean(
-    user &&
-      (user.email === opportunity?.metadata?.created_by ||
+    user?.email &&
+      opportunity?.metadata?.created_by &&
+      (user.email === opportunity.metadata.created_by ||
         user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL)
   );
 
-  console.log('User:', user);
-  console.log('Opportunity creator:', opportunity?.metadata?.created_by);
-  console.log('Admin email:', process.env.NEXT_PUBLIC_ADMIN_EMAIL);
-  console.log('Can modify:', canModify);
+  // Debug logging
+  console.log('Auth Debug:', {
+    userEmail: user?.email,
+    creatorEmail: opportunity?.metadata?.created_by,
+    adminEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL,
+    canModify,
+  });
 
   const handleDeleteClick = () => {
-    console.log('Delete button clicked');
     setDeleteDialog(true);
-    console.log('Delete dialog state:', deleteDialog);
   };
 
   const handleDeleteCancel = () => {
     setDeleteDialog(false);
   };
 
-  const handleOptimisticDelete = (id: string) => {
-    // Optimistically remove the opportunity from the list
-    queryClient.setQueryData(
-      ['opportunities'],
-      (old: FirestoreOpportunity[] | undefined) => old?.filter((o) => o.id !== id) || []
-    );
-  };
-
-  const handleRollbackDelete = () => {
-    // Restore the opportunity if deletion fails
-    queryClient.setQueryData(
-      ['opportunities'],
-      (old: FirestoreOpportunity[] | undefined) => {
-        if (!opportunity) return old || [];
-        return [...(old || []), opportunity];
-      }
-    );
-  };
-
-  const handleDeleteConfirm = async (id: string) => {
+  const handleDeleteConfirm = async () => {
     if (!opportunity?.id) return;
 
     setIsDeleting(true);
     try {
-      // Apply optimistic update
-      handleOptimisticDelete(id);
-
-      await deleteOpportunity(id);
-      setDeleteDialog(false);
+      // Navigate away first for better UX
       router.push('/opportunities');
+      // Then perform the deletion
+      await deleteOpportunity(opportunity.id);
     } catch (error) {
       console.error('Failed to delete opportunity:', error);
-      // Rollback on error
-      handleRollbackDelete();
+      // Even if deletion fails, we stay on the opportunities list
     } finally {
       setIsDeleting(false);
+      setDeleteDialog(false);
     }
   };
 
@@ -227,13 +208,12 @@ export default function OpportunityDetailsPage() {
 
       {/* Dialogs */}
       {opportunity.id && (
-        <DeleteDialog
+        <OpportunityDeleteDialog
           open={deleteDialog}
-          opportunityId={opportunity.id}
-          opportunityName={opportunity.name}
-          isDeleting={isDeleting}
-          onCancel={handleDeleteCancel}
+          opportunity={opportunity}
+          onCancelAction={handleDeleteCancel}
           onConfirm={handleDeleteConfirm}
+          loading={isDeleting}
         />
       )}
 

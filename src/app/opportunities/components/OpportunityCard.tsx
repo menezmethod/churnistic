@@ -9,11 +9,15 @@ import {
   Tooltip,
   CircularProgress,
   Paper,
+  SxProps,
+  Theme,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
+import { useAuth } from '@/lib/auth/AuthContext';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 import { LogoImage } from './LogoImage';
@@ -22,9 +26,10 @@ import { getTypeColors } from '../utils/colorUtils';
 interface OpportunityCardProps {
   opportunity: FirestoreOpportunity;
   isDeleting: boolean;
-  onDeleteOpportunityAction: (opportunity: { id?: string; name?: string }) => void;
+  onDeleteOpportunityAction: (opportunity: FirestoreOpportunity) => void;
   viewMode?: 'grid' | 'list';
   index?: number;
+  sx?: SxProps<Theme>;
 }
 
 export default function OpportunityCard({
@@ -33,10 +38,27 @@ export default function OpportunityCard({
   onDeleteOpportunityAction,
   viewMode = 'grid',
   index = 0,
+  sx,
 }: OpportunityCardProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const colors = getTypeColors(opportunity.type, theme);
+  const router = useRouter();
+  const { user } = useAuth();
+
+  const handleDeleteClick = () => {
+    if (!user) {
+      router.push('/auth/signin?redirect=/opportunities');
+      return;
+    }
+    onDeleteOpportunityAction(opportunity);
+  };
+
+  const displayValue = (value: string | number) => {
+    if (typeof value === 'number') return formatCurrency(value);
+    const numericValue = parseFloat(value.replace(/[$,]/g, ''));
+    return isNaN(numericValue) ? '$0' : formatCurrency(numericValue);
+  };
 
   if (viewMode === 'list') {
     return (
@@ -84,6 +106,7 @@ export default function OpportunityCard({
             pointerEvents: 'none',
             zIndex: 0,
           },
+          ...sx,
         }}
       >
         <Box
@@ -147,7 +170,7 @@ export default function OpportunityCard({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{ textAlign: 'right' }}>
               <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 600 }}>
-                ${opportunity.value.toLocaleString()}
+                {displayValue(opportunity.value)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Bonus Value
@@ -156,7 +179,7 @@ export default function OpportunityCard({
             <Tooltip title="Delete opportunity">
               <IconButton
                 className="delete-button"
-                onClick={() => onDeleteOpportunityAction(opportunity)}
+                onClick={handleDeleteClick}
                 disabled={isDeleting}
                 sx={{
                   color: 'text.secondary',
@@ -341,6 +364,7 @@ export default function OpportunityCard({
           pointerEvents: 'none',
           zIndex: 0,
         },
+        ...sx,
       }}
     >
       <Box sx={{ position: 'relative', mb: 2, zIndex: 1 }}>
@@ -383,7 +407,7 @@ export default function OpportunityCard({
         <Tooltip title="Delete opportunity">
           <IconButton
             className="delete-button"
-            onClick={() => onDeleteOpportunityAction(opportunity)}
+            onClick={handleDeleteClick}
             disabled={isDeleting}
             sx={{
               position: 'absolute',
@@ -411,7 +435,7 @@ export default function OpportunityCard({
       </Typography>
 
       <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 600, mb: 2 }}>
-        ${opportunity.value.toLocaleString()}
+        {displayValue(opportunity.value)}
       </Typography>
 
       {opportunity.description && (
@@ -514,4 +538,12 @@ export default function OpportunityCard({
       </Box>
     </Paper>
   );
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value);
 }

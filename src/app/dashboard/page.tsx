@@ -208,11 +208,47 @@ export default function DashboardPage() {
                   View All
                 </Button>
               </Box>
-              <Stack spacing={2}>
-                {quickOpportunities.map((opp) => (
-                  <OpportunityCard key={opp.id} opportunity={opp} />
-                ))}
-              </Stack>
+              {quickOpportunities.length > 0 ? (
+                <Stack spacing={2}>
+                  {quickOpportunities.map((opp) => {
+                    const transformedOpp = {
+                      ...opp,
+                      type:
+                        opp.type === 'bank'
+                          ? 'bank_account'
+                          : (opp.type as 'credit_card' | 'bank_account'),
+                    };
+                    return <OpportunityCard key={opp.id} opportunity={transformedOpp} />;
+                  })}
+                </Stack>
+              ) : (
+                <Box
+                  sx={{
+                    p: 4,
+                    borderRadius: 2,
+                    bgcolor: alpha(theme.palette.primary.main, 0.05),
+                    border: '1px solid',
+                    borderColor: alpha(theme.palette.primary.main, 0.1),
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No Quick Opportunities Available
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" gutterBottom>
+                    Start exploring new opportunities to maximize your rewards!
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    component={Link}
+                    href="/opportunities"
+                    sx={{ mt: 2 }}
+                    endIcon={<ArrowForwardIcon />}
+                  >
+                    Explore Opportunities
+                  </Button>
+                </Box>
+              )}
             </Box>
 
             {/* Currently Tracking */}
@@ -262,11 +298,41 @@ export default function DashboardPage() {
                   <RefreshIcon />
                 </IconButton>
               </Box>
-              <Stack spacing={2}>
-                {trackedOpportunities.map((opp) => (
-                  <ProgressCard key={opp.id} opportunity={opp} />
-                ))}
-              </Stack>
+              {trackedOpportunities.length > 0 ? (
+                <Stack spacing={2}>
+                  {trackedOpportunities.map((opp) => (
+                    <ProgressCard key={opp.id} opportunity={opp} />
+                  ))}
+                </Stack>
+              ) : (
+                <Box
+                  sx={{
+                    p: 4,
+                    borderRadius: 2,
+                    bgcolor: alpha(theme.palette.success.main, 0.05),
+                    border: '1px solid',
+                    borderColor: alpha(theme.palette.success.main, 0.1),
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No Tracked Opportunities
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" gutterBottom>
+                    Start tracking opportunities to monitor your progress!
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    component={Link}
+                    href="/track"
+                    sx={{ mt: 2 }}
+                    endIcon={<ArrowForwardIcon />}
+                  >
+                    Start Tracking
+                  </Button>
+                </Box>
+              )}
             </Box>
           </Box>
         </Grid>

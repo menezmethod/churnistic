@@ -23,31 +23,37 @@ export function LogoImage({ logo, name, colors }: LogoImageProps) {
       .slice(0, 2);
   };
 
+  const commonStyles = {
+    height: '100%',
+    width: 'auto',
+    maxWidth: '100%',
+    display: 'flex',
+    alignItems: 'center',
+  };
+
   if (!logo?.url || imageError) {
     return (
       <Box
         sx={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 0.5,
+          ...commonStyles,
+          justifyContent: 'flex-start',
         }}
       >
-        {colors.icon}
-        <Typography
-          variant="caption"
-          sx={{
-            color: colors.primary,
-            fontWeight: 600,
-            textAlign: 'center',
-            lineHeight: 1,
-          }}
-        >
-          {getInitials(name)}
-        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {colors.icon}
+          <Typography
+            variant="caption"
+            sx={{
+              color: colors.primary,
+              fontWeight: 600,
+              textAlign: 'center',
+              lineHeight: 1,
+              mt: 0.5,
+            }}
+          >
+            {getInitials(name)}
+          </Typography>
+        </Box>
       </Box>
     );
   }
@@ -59,12 +65,9 @@ export function LogoImage({ logo, name, colors }: LogoImageProps) {
       alt={name}
       onError={() => setImageError(true)}
       sx={{
-        height: '100%',
-        width: 'auto',
-        maxWidth: '100%',
+        ...commonStyles,
         objectFit: 'contain',
         filter: 'brightness(0.9)',
-        transition: 'all 0.3s',
       }}
     />
   );

@@ -19,7 +19,8 @@ export const sortAndFilterOpportunities = (
           text?.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
-      const matchesType = !selectedType || opp.type === selectedType;
+      const matchesType =
+        !selectedType || opp.type.toLowerCase() === selectedType.toLowerCase();
 
       return matchesSearch && matchesType;
     })
@@ -29,8 +30,8 @@ export const sortAndFilterOpportunities = (
       let comparison = 0;
       switch (sortBy) {
         case 'value':
-          const aTotal = (a.bonus?.tiers?.[0]?.value || 0) + a.value;
-          const bTotal = (b.bonus?.tiers?.[0]?.value || 0) + b.value;
+          const aTotal = (a.bonus?.tiers?.[0]?.value || 0) + (a.value || 0);
+          const bTotal = (b.bonus?.tiers?.[0]?.value || 0) + (b.value || 0);
           comparison = bTotal - aTotal;
           break;
         case 'name':

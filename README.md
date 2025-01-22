@@ -80,16 +80,19 @@ npm run lint
 The project is configured for seamless deployment with Vercel:
 
 1. **Preview Deployments**
+
    - Automatic deployments for every PR
    - Unique URL for testing changes
    - Free tier optimized configuration
 
 2. **Environment Setup**
+
    - Connect your GitHub repository to Vercel
    - Environment variables are automatically synced
    - No additional configuration needed
 
 3. **Deployment Process**
+
    - Push to `develop` branch for staging
    - Merge to `main` for production
    - Preview deployments for all PRs
@@ -124,11 +127,13 @@ vercel --prod
 ### Key Components
 
 1. **Opportunity Manager**
+
    - CRUD operations
    - Real-time updates
    - AI-powered analysis
 
 2. **User Management**
+
    - Authentication
    - Role-based permissions
    - Security features
@@ -140,6 +145,7 @@ vercel --prod
 ### Infrastructure
 
 1. **Vercel Configuration**
+
    - Preview deployments enabled
    - Optimized for free tier
    - Security headers configured
@@ -207,7 +213,9 @@ MIT
 For support, please open an issue on GitHub or contact the maintainers.
 
 # Test Update
+
 - Testing statistics tracking workflow
 
 # Test Update v2
+
 - Testing statistics tracking workflow with fixes

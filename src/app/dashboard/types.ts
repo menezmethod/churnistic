@@ -21,6 +21,11 @@ export interface Opportunity {
     riskFactors?: string[];
   };
   timeframe?: string;
+  logo?: {
+    type?: string;
+    url?: string;
+  };
+  name?: string;
 }
 
 export interface TrackedOpportunity {
@@ -30,6 +35,10 @@ export interface TrackedOpportunity {
   progress: number;
   target: number;
   daysLeft: number;
+  logo?: {
+    type?: string;
+    url?: string;
+  };
 }
 
 export interface Activity {

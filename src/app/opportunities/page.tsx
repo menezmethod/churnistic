@@ -1,10 +1,12 @@
 'use client';
 
-import { Container, Box, CircularProgress } from '@mui/material';
-import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { Box, CircularProgress, Container } from '@mui/material';
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { AuthUser } from '@/lib/auth/authService';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 import OpportunitiesSection from './components/OpportunitiesSection';
@@ -12,22 +14,73 @@ import OpportunitiesSection from './components/OpportunitiesSection';
 const API_BASE_URL = '/api/opportunities';
 
 export default function OpportunitiesPage() {
-  const [opportunities, setOpportunities] = useState<FirestoreOpportunity[]>([]);
+  const [opportunities, setOpportunities] = useState<FirestoreOpportunity[]>(
+    [] as FirestoreOpportunity[]
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
 
+  return (
+    <Suspense
+      fallback={
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+          <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            minHeight="60vh"
+          >
+            <CircularProgress />
+          </Box>
+        </Container>
+      }
+    >
+      <OpportunitiesPageContent
+        opportunities={opportunities}
+        loading={loading}
+        error={error}
+        user={user}
+        router={router}
+        setOpportunities={setOpportunities}
+        setLoading={setLoading}
+        setError={setError}
+      />
+    </Suspense>
+  );
+}
+
+function OpportunitiesPageContent({
+  opportunities,
+  loading,
+  error,
+  user,
+  router,
+  setOpportunities,
+  setLoading,
+  setError,
+}: {
+  opportunities: FirestoreOpportunity[];
+  loading: boolean;
+  error: Error | null;
+  user: AuthUser | null;
+  router: AppRouterInstance;
+  setOpportunities: (value: FirestoreOpportunity[]) => void;
+  setLoading: (value: boolean) => void;
+  setError: (value: Error | null) => void;
+}) {
+  const searchParams = useSearchParams();
+
   const handleAddOpportunity = () => {
+    if (!user) {
+      router.push('/auth/signin?redirect=/opportunities/add');
+      return;
+    }
     router.push('/opportunities/add');
   };
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth/signin');
-      return;
-    }
-
     const fetchData = async () => {
       try {
         const response = await fetch(API_BASE_URL);
@@ -43,26 +96,35 @@ export default function OpportunitiesPage() {
       }
     };
 
-    if (user) {
-      fetchData();
-    }
-  }, [user, authLoading, router]);
+    fetchData();
+  }, [setError, setLoading, setOpportunities]);
 
   const handleDelete = async (id: string) => {
+    if (!user) {
+      router.push('/auth/signin?redirect=/opportunities');
+      return;
+    }
+
     try {
-      const response = await fetch(`${API_BASE_URL}/${id}`, {
+      const response = await fetch(`/api/opportunities/${id}`, {
         method: 'DELETE',
       });
+
       if (!response.ok) {
-        throw new Error('Failed to delete opportunity');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete opportunity');
       }
-      setOpportunities((prev) => prev.filter((opp) => opp.id !== id));
+
+      // Update local state after successful deletion
+      const updated = opportunities.filter((opp) => opp.id !== id);
+      setOpportunities(updated);
     } catch (err) {
+      console.error('Error deleting opportunity:', err);
       setError(err instanceof Error ? err : new Error('Failed to delete opportunity'));
     }
   };
 
-  if (authLoading) {
+  if (loading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -72,10 +134,6 @@ export default function OpportunitiesPage() {
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
     <OpportunitiesSection
       opportunities={opportunities}
@@ -83,6 +141,7 @@ export default function OpportunitiesPage() {
       error={error}
       onDeleteAction={handleDelete}
       onAddOpportunityAction={handleAddOpportunity}
+      initialCategory={searchParams.get('category')}
     />
   );
 }
