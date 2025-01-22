@@ -1,10 +1,12 @@
 'use client';
 
 import { Box, CircularProgress, Container } from '@mui/material';
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { AuthUser } from '@/lib/auth/authService';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 import OpportunitiesSection from './components/OpportunitiesSection';
@@ -12,12 +14,63 @@ import OpportunitiesSection from './components/OpportunitiesSection';
 const API_BASE_URL = '/api/opportunities';
 
 export default function OpportunitiesPage() {
-  const [opportunities, setOpportunities] = useState<FirestoreOpportunity[]>([]);
+  const [opportunities, setOpportunities] = useState<FirestoreOpportunity[]>(
+    [] as FirestoreOpportunity[]
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const { user } = useAuth();
-  const searchParams = useSearchParams();
   const router = useRouter();
+
+  return (
+    <Suspense
+      fallback={
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+          <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            minHeight="60vh"
+          >
+            <CircularProgress />
+          </Box>
+        </Container>
+      }
+    >
+      <OpportunitiesPageContent
+        opportunities={opportunities}
+        loading={loading}
+        error={error}
+        user={user}
+        router={router}
+        setOpportunities={setOpportunities}
+        setLoading={setLoading}
+        setError={setError}
+      />
+    </Suspense>
+  );
+}
+
+function OpportunitiesPageContent({
+  opportunities,
+  loading,
+  error,
+  user,
+  router,
+  setOpportunities,
+  setLoading,
+  setError,
+}: {
+  opportunities: FirestoreOpportunity[];
+  loading: boolean;
+  error: Error | null;
+  user: AuthUser | null;
+  router: AppRouterInstance;
+  setOpportunities: (value: FirestoreOpportunity[]) => void;
+  setLoading: (value: boolean) => void;
+  setError: (value: Error | null) => void;
+}) {
+  const searchParams = useSearchParams();
 
   const handleAddOpportunity = () => {
     if (!user) {
@@ -44,7 +97,7 @@ export default function OpportunitiesPage() {
     };
 
     fetchData();
-  }, []);
+  }, [setError, setLoading, setOpportunities]);
 
   const handleDelete = async (id: string) => {
     if (!user) {
@@ -59,7 +112,8 @@ export default function OpportunitiesPage() {
       if (!response.ok) {
         throw new Error('Failed to delete opportunity');
       }
-      setOpportunities((prev) => prev.filter((opp) => opp.id !== id));
+      const updated = opportunities.filter((opp) => opp.id !== id);
+      setOpportunities(updated);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to delete opportunity'));
     }
