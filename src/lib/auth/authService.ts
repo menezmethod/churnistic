@@ -19,8 +19,10 @@ export type AuthUser = User & {
   customClaims?: {
     role?: string;
     permissions?: string[];
+    isSuperAdmin?: boolean;
   };
   role?: string;
+  isSuperAdmin?: boolean;
 };
 
 export interface LoginCredentials {
@@ -58,6 +60,13 @@ async function handleUserProfile(user: User): Promise<void> {
   }
 }
 
+// Function to check if a user is a super admin
+export const isSuperAdmin = (user: AuthUser | null): boolean => {
+  if (!user || !user.email) return false;
+  const superAdminEmail = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL;
+  return superAdminEmail ? user.email.toLowerCase() === superAdminEmail.toLowerCase() : false;
+};
+
 // Get the currently logged-in user
 export const loadUser = async (): Promise<AuthUser | null> => {
   return new Promise((resolve, reject) => {
@@ -75,8 +84,10 @@ export const loadUser = async (): Promise<AuthUser | null> => {
             authUser.customClaims = {
               role: idTokenResult.claims.role as string | undefined,
               permissions: idTokenResult.claims.permissions as string[] | undefined,
+              isSuperAdmin: isSuperAdmin(authUser),
             };
             authUser.role = idTokenResult.claims.role as string | undefined;
+            authUser.isSuperAdmin = isSuperAdmin(authUser);
 
             // Manage session cookie
             await manageSessionCookie(user);

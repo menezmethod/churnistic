@@ -11,6 +11,7 @@ import {
   loginWithGoogle,
   loginWithGithub,
   resetPassword as resetPasswordService,
+  isSuperAdmin as checkIsSuperAdmin,
 } from './authService';
 import type { AuthUser } from './authService';
 
@@ -19,6 +20,7 @@ interface AuthContextType {
   loading: boolean;
   hasRole: (role: UserRole) => boolean;
   hasPermission: (permission: Permission) => boolean;
+  isSuperAdmin: () => boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -33,6 +35,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   hasRole: () => false,
   hasPermission: () => false,
+  isSuperAdmin: () => false,
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
@@ -91,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasPermission = useCallback(
     (permission: Permission) => {
       if (!user) return false;
+      if (checkIsSuperAdmin(user)) return true;
       const userRole = user.customClaims?.role as UserRole;
       if (!userRole) return false;
       return ROLE_PERMISSIONS[userRole].includes(permission);
@@ -98,12 +102,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [user]
   );
 
+  const isSuperAdmin = useCallback(() => {
+    return checkIsSuperAdmin(user ?? null);
+  }, [user]);
+
   const value = useMemo(
     () => ({
       user: user ?? null,
       loading: isLoading,
       hasRole,
       hasPermission,
+      isSuperAdmin,
       signIn,
       signUp,
       signOut,
@@ -117,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       hasRole,
       hasPermission,
+      isSuperAdmin,
       signIn,
       signUp,
       signOut,
