@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { LogoImage } from '@/app/opportunities/components/LogoImage';
 import { getTypeColors } from '@/app/opportunities/utils/colorUtils';
@@ -32,6 +33,7 @@ export function ProgressCard({ opportunity }: ProgressCardProps) {
   const theme = useTheme();
   const colors = getTypeColors(opportunity.type, theme);
   const progress = (opportunity.progress / opportunity.target) * 100;
+  const router = useRouter();
   const isUrgent = opportunity.daysLeft <= 15;
 
   return (
@@ -146,10 +148,10 @@ export function ProgressCard({ opportunity }: ProgressCardProps) {
           </Box>
           <Box>
             <IconButton
-              component={Link}
-              href={`/opportunities/${opportunity.id}`}
+              onClick={() => router.push(`/opportunities/${opportunity.id}`)}
               size="small"
               color="primary"
+              aria-label="View opportunity details"
               className="progress-arrow"
               sx={{
                 opacity: 0.7,
