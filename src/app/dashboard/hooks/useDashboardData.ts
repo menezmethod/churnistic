@@ -18,7 +18,7 @@ export interface UserProfile {
 export interface Opportunity {
   id: string;
   title: string;
-  type: 'credit_card' | 'bank_account';
+  type: 'credit_card' | 'bank_account' | 'brokerage';
   value: string | number;
   bank: string;
   description: string;
@@ -36,6 +36,11 @@ export interface Opportunity {
     riskFactors?: string[];
   };
   timeframe?: string;
+  logo?: {
+    type?: string;
+    url?: string;
+  };
+  name?: string;
 }
 
 export interface TrackedOpportunity {
@@ -71,7 +76,7 @@ export const useDashboardData = () => {
     id: opp.id || crypto.randomUUID(),
     value: typeof opp.value === 'number' ? opp.value : parseInt(opp.value),
     title: opp.name || opp.title || 'Untitled Opportunity',
-    type: opp.type === 'bank' ? ('bank_account' as const) : ('credit_card' as const),
+    type: opp.type === 'bank' ? 'bank_account' : opp.type,
     bank: opp.bank || 'Unknown Bank',
     description: opp.bonus?.description || '',
     requirements: [opp.bonus?.requirements?.description || ''],

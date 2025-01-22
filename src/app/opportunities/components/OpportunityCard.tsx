@@ -9,6 +9,8 @@ import {
   Tooltip,
   CircularProgress,
   Paper,
+  SxProps,
+  Theme,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { motion } from 'framer-motion';
@@ -27,6 +29,7 @@ interface OpportunityCardProps {
   onDeleteOpportunityAction: (opportunity: FirestoreOpportunity) => void;
   viewMode?: 'grid' | 'list';
   index?: number;
+  sx?: SxProps<Theme>;
 }
 
 export default function OpportunityCard({
@@ -35,6 +38,7 @@ export default function OpportunityCard({
   onDeleteOpportunityAction,
   viewMode = 'grid',
   index = 0,
+  sx,
 }: OpportunityCardProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -102,6 +106,7 @@ export default function OpportunityCard({
             pointerEvents: 'none',
             zIndex: 0,
           },
+          ...sx,
         }}
       >
         <Box
@@ -359,6 +364,7 @@ export default function OpportunityCard({
           pointerEvents: 'none',
           zIndex: 0,
         },
+        ...sx,
       }}
     >
       <Box sx={{ position: 'relative', mb: 2, zIndex: 1 }}>
