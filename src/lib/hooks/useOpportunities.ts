@@ -6,10 +6,25 @@ const API_BASE = '/api/opportunities';
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Request failed');
+    try {
+      const error = await response.json();
+      throw new Error(error.message || error.error || 'Request failed');
+    } catch (e) {
+      // If parsing the error response fails, throw a generic error
+      if (e instanceof SyntaxError) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+      throw e;
+    }
   }
-  return response.json();
+  try {
+    return await response.json();
+  } catch (e) {
+    if (e instanceof SyntaxError) {
+      throw new Error('Invalid JSON response from server');
+    }
+    throw e;
+  }
 }
 
 const getOpportunities = async (): Promise<FirestoreOpportunity[]> => {
@@ -30,22 +45,38 @@ const createOpportunity = async (
   return handleResponse<FirestoreOpportunity>(response);
 };
 
-const updateOpportunity = async ({
-  id,
-  data,
-}: {
-  id: string;
-  data: Partial<FirestoreOpportunity>;
-}): Promise<FirestoreOpportunity> => {
+const updateOpportunity = async (
+  params: {
+    id: string;
+    data: Partial<FirestoreOpportunity>;
+  }
+): Promise<FirestoreOpportunity> => {
+  const { id, data } = params;
+  
+  // Prepare payload with proper metadata handling
+  const payload = data.metadata
+    ? { ...data, metadata: { ...data.metadata, updated_at: new Date().toISOString() } }
+    : { ...data, metadata: { updated_at: new Date().toISOString() } };
+
   const response = await fetch(`${API_BASE}/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
-  return handleResponse<FirestoreOpportunity>(response);
-};
+  return handleResponse<FirestoreOpportunity>(response); 
+}; 
+
+// Type guard for FirestoreOpportunity
+function isFirestoreOpportunity(
+  response: unknown
+): response is FirestoreOpportunity {
+  return typeof response === 'object' &&
+    response !== null &&
+    'id' in response &&
+    'metadata' in response;
+}
 
 const deleteOpportunity = async (id: string): Promise<void> => {
   const response = await fetch(`${API_BASE}/${id}`, {
@@ -83,8 +114,8 @@ export function useOpportunities() {
   const updateMutation = useMutation({
     mutationFn: updateOpportunity,
     onSuccess: (updatedOpportunity) => {
-      // Optimistically update the cache
-      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities'], (old) => {
+      if (!isFirestoreOpportunity(updatedOpportunity)) return;
+      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities'], (old) => { 
         return old
           ? old.map((opp) =>
               opp.id === updatedOpportunity.id ? updatedOpportunity : opp
@@ -142,9 +173,9 @@ export function useOpportunities() {
     createOpportunity: createMutation.mutate,
     updateOpportunity: updateMutation.mutate,
     deleteOpportunity: deleteMutation.mutate,
-    isCreating: createMutation.isPending,
-    isUpdating: updateMutation.isPending,
-    isDeleting: deleteMutation.isPending,
+    isCreating: createMutation.isLoading,
+    isUpdating: updateMutation.isLoading,
+    isDeleting: deleteMutation.isLoading,
     createError: createMutation.error,
     updateError: updateMutation.error,
     deleteError: deleteMutation.error,
