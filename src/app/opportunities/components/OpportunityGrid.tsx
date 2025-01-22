@@ -15,6 +15,7 @@ interface OpportunityGridProps {
 export default function OpportunityGrid({
   opportunities,
   isDeleting,
+  onDeleteClick,
 }: OpportunityGridProps) {
   return (
     <Grid container spacing={2}>
@@ -25,7 +26,7 @@ export default function OpportunityGrid({
             isDeleting={isDeleting === opportunity.id}
             viewMode="grid"
             index={index}
-            onDeleteOpportunityAction={() => {}}
+            onDeleteOpportunityAction={onDeleteClick}
           />
         </Grid>
       ))}

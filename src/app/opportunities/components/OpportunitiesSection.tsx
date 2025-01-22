@@ -73,7 +73,8 @@ export default function OpportunitiesSection({
   const router = useRouter();
   const searchParams = useSearchParams();
   const isDark = theme.palette.mode === 'dark';
-  const [opportunities] = useState<FirestoreOpportunity[]>(initialOpportunities);
+  const [opportunities, setOpportunities] =
+    useState<FirestoreOpportunity[]>(initialOpportunities);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Initialize selected type from URL parameter
@@ -143,6 +144,7 @@ export default function OpportunitiesSection({
 
   const handleDeleteCancel = () => {
     setDeleteDialog({ open: false, opportunity: null });
+    setIsDeleting(false);
   };
 
   const handleDeleteConfirm = async () => {
@@ -155,11 +157,9 @@ export default function OpportunitiesSection({
     setIsDeleting(true);
     try {
       await onDeleteAction(id);
-      // Assuming you want to remove the deleted opportunity from the state
-      // You might want to filter out the opportunity from the state
-      // This is a placeholder and should be adjusted based on your actual implementation
-      // For example:
-      // setOpportunities(opportunities.filter((opp) => opp.id !== id));
+      // Remove the opportunity from the local state
+      const updatedOpportunities = opportunities.filter((opp) => opp.id !== id);
+      setOpportunities(updatedOpportunities);
       setDeleteDialog({ open: false, opportunity: null });
     } catch (error) {
       console.error('Failed to delete opportunity:', error);
@@ -655,7 +655,8 @@ export default function OpportunitiesSection({
             open={deleteDialog.open}
             opportunity={deleteDialog.opportunity}
             onCancelAction={handleDeleteCancel}
-            onConfirmAction={handleDeleteConfirm}
+            onConfirm={handleDeleteConfirm}
+            loading={isDeleting}
           />
 
           {/* Floating Add Button for Mobile */}
