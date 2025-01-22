@@ -1,5 +1,5 @@
 import { AccountBalance, CreditCard, AccountBalanceWallet } from '@mui/icons-material';
-import { Box, Chip, Typography, Skeleton, useTheme, alpha } from '@mui/material';
+import { Box, Chip, Typography, useTheme, alpha } from '@mui/material';
 import Image from 'next/image';
 import { useState } from 'react';
 
