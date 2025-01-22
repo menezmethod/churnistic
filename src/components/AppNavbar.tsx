@@ -14,6 +14,15 @@ import {
   PersonAdd,
   Login,
   AdminPanelSettings,
+  CreditCard,
+  AccountBalance,
+  ShowChart,
+  ArrowDropDown,
+  Star,
+  NewReleases,
+  ViewList,
+  Bolt,
+  MonetizationOn,
 } from '@mui/icons-material';
 import {
   AppBar,
@@ -34,24 +43,34 @@ import {
   Badge,
   useTheme,
   Button,
+  alpha,
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useState, type JSX, useEffect } from 'react';
+import { useState, type JSX, useEffect, ReactElement, Fragment } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
 
-interface MenuItemType {
+interface BaseMenuItemType {
   text: string;
   icon: JSX.Element;
   path: string;
   badge?: number;
   roles?: UserRole[];
   description?: string;
-  requiresAuth?: boolean;
-  hideWhenAuth?: boolean;
+  requiresAuth: boolean;
+  hideWhenAuth: boolean;
 }
+
+type RegularMenuItem = BaseMenuItemType;
+
+interface SectionMenuItem {
+  section: string;
+  items: RegularMenuItem[];
+}
+
+type MenuItemType = RegularMenuItem | SectionMenuItem;
 
 const mainMenuItems: MenuItemType[] = [
   {
@@ -59,18 +78,21 @@ const mainMenuItems: MenuItemType[] = [
     icon: <Analytics />,
     path: '/dashboard',
     requiresAuth: true,
+    hideWhenAuth: false,
   },
   {
     text: 'Opportunities',
     icon: <AccountBalanceWallet />,
     path: '/opportunities',
-    requiresAuth: true,
+    requiresAuth: false,
+    hideWhenAuth: false,
   },
   {
     text: 'Track Progress',
     icon: <TrendingUp />,
     path: '/track',
     requiresAuth: true,
+    hideWhenAuth: false,
   },
   {
     text: 'Sign Up',
@@ -90,18 +112,100 @@ const mainMenuItems: MenuItemType[] = [
   },
 ];
 
+const offersMenuItems: MenuItemType[] = [
+  {
+    text: 'Featured Offers',
+    icon: <Star />,
+    path: '/opportunities?view=featured',
+    requiresAuth: false,
+    hideWhenAuth: false,
+    description: 'Curated selection of top rewards',
+  },
+  {
+    text: 'New Offers',
+    icon: <NewReleases />,
+    path: '/opportunities?view=new',
+    requiresAuth: false,
+    hideWhenAuth: false,
+    description: 'Recently added opportunities',
+    badge: 3,
+  },
+  {
+    section: 'Financial Products',
+    items: [
+      {
+        text: 'Credit Cards',
+        icon: <CreditCard />,
+        path: '/opportunities?category=credit-cards',
+        requiresAuth: false,
+        hideWhenAuth: false,
+        description: 'Credit card signup bonuses and rewards',
+      },
+      {
+        text: 'Bank Accounts',
+        icon: <AccountBalance />,
+        path: '/opportunities?category=banks',
+        requiresAuth: false,
+        hideWhenAuth: false,
+        description: 'Checking and savings account bonuses',
+      },
+      {
+        text: 'Investment Accounts',
+        icon: <ShowChart />,
+        path: '/opportunities?category=brokerages',
+        requiresAuth: false,
+        hideWhenAuth: false,
+        description: 'Brokerage and investment bonuses',
+      },
+    ],
+  },
+  {
+    section: 'Browse By',
+    items: [
+      {
+        text: 'All Offers',
+        icon: <ViewList />,
+        path: '/opportunities',
+        requiresAuth: false,
+        hideWhenAuth: false,
+        description: 'View complete list of opportunities',
+      },
+      {
+        text: 'Quick Wins',
+        icon: <Bolt />,
+        path: '/opportunities?filter=quick-wins',
+        requiresAuth: false,
+        hideWhenAuth: false,
+        description: 'Easy to complete offers under 30 days',
+      },
+      {
+        text: 'High Value',
+        icon: <MonetizationOn />,
+        path: '/opportunities?filter=high-value',
+        requiresAuth: false,
+        hideWhenAuth: false,
+        description: 'Offers worth $500 or more',
+      },
+    ],
+  },
+];
+
 const analyticsMenuItems: MenuItemType[] = [
   {
     text: 'Analytics',
     icon: <Analytics />,
     path: '/analytics',
     roles: [UserRole.ADMIN],
+    requiresAuth: true,
+    hideWhenAuth: false,
   },
   {
     text: 'Reports',
     icon: <Assessment />,
     path: '/reports',
     roles: [UserRole.ADMIN],
+    requiresAuth: true,
+    hideWhenAuth: false,
   },
 ];
 
@@ -111,6 +215,8 @@ const managementMenuItems: MenuItemType[] = [
     icon: <People />,
     path: '/admin/users',
     roles: [UserRole.ADMIN],
+    requiresAuth: true,
+    hideWhenAuth: false,
     description: 'Manage users, roles, and permissions',
   },
   {
@@ -118,8 +224,10 @@ const managementMenuItems: MenuItemType[] = [
     icon: <AdminPanelSettings />,
     path: '/admin/opportunities',
     roles: [UserRole.ADMIN],
+    requiresAuth: true,
+    hideWhenAuth: false,
     description: 'Review and validate scraped rewards and offers',
-    badge: 5, // Shows number of pending reviews
+    badge: 5,
   },
 ];
 
@@ -130,12 +238,15 @@ const accountMenuItems: MenuItemType[] = [
     path: '/settings',
     description: 'Profile, preferences, and security',
     requiresAuth: true,
+    hideWhenAuth: false,
   },
   {
     text: 'Help & Support',
     icon: <Help />,
     path: '/help',
     description: 'Documentation and support',
+    requiresAuth: false,
+    hideWhenAuth: false,
   },
 ];
 
@@ -149,6 +260,7 @@ export default function AppNavbar() {
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(
     null
   );
+  const [offersAnchorEl, setOffersAnchorEl] = useState<null | HTMLElement>(null);
 
   const isAdmin = hasRole(UserRole.ADMIN);
 
@@ -192,7 +304,24 @@ export default function AppNavbar() {
     }
   };
 
-  const renderMenuItem = (item: MenuItemType) => {
+  const handleOffersMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setOffersAnchorEl(event.currentTarget);
+  };
+
+  const handleOffersClose = () => {
+    setOffersAnchorEl(null);
+  };
+
+  const renderMenuItem = (item: MenuItemType, index: number): ReactElement | null => {
+    // Skip section items in the drawer menu
+    if ('section' in item) {
+      return (
+        <Fragment key={`section-${item.section}-${index}`}>
+          {item.items.map((subItem, subIndex) => renderMenuItem(subItem, subIndex))}
+        </Fragment>
+      );
+    }
+
     // Check if the user has the required role to see this item
     if (item.roles && !item.roles.some((role) => hasRole(role))) {
       return null;
@@ -209,7 +338,7 @@ export default function AppNavbar() {
     }
 
     return (
-      <ListItem key={item.text} disablePadding>
+      <ListItem key={`${item.path}-${index}`} disablePadding>
         <ListItemButton
           component={Link}
           href={item.path}
@@ -241,6 +370,259 @@ export default function AppNavbar() {
     );
   };
 
+  const renderOffersMenu = () => (
+    <Menu
+      anchorEl={offersAnchorEl}
+      open={Boolean(offersAnchorEl)}
+      onClose={handleOffersClose}
+      anchorOrigin={{
+        vertical: 'bottom',
+        horizontal: 'left',
+      }}
+      transformOrigin={{
+        vertical: 'top',
+        horizontal: 'left',
+      }}
+      PaperProps={{
+        elevation: 2,
+        sx: {
+          mt: 1,
+          width: 320,
+          maxHeight: '80vh',
+          borderRadius: 2,
+          overflow: 'auto',
+        },
+      }}
+    >
+      {offersMenuItems.map((item) => {
+        if ('section' in item) {
+          return (
+            <Box key={`section-${item.section}`}>
+              <Typography
+                variant="overline"
+                sx={{
+                  px: 2,
+                  py: 1,
+                  display: 'block' as const,
+                  color: 'text.secondary',
+                  fontWeight: 600,
+                }}
+              >
+                {item.section}
+              </Typography>
+              {item.items?.map((subItem) => (
+                <MenuItem
+                  key={subItem.text}
+                  component={Link}
+                  href={subItem.path}
+                  onClick={handleOffersClose}
+                  selected={pathname === subItem.path}
+                  sx={{
+                    px: 2,
+                    py: 1.5,
+                    borderRadius: 1,
+                    mx: 1,
+                    mb: 0.5,
+                    '&:last-child': { mb: 0 },
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    },
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36, color: 'primary.main' }}>
+                    {subItem.icon}
+                  </ListItemIcon>
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>
+                      {subItem.text}
+                    </Typography>
+                    {subItem.description && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                      >
+                        {subItem.description}
+                      </Typography>
+                    )}
+                  </Box>
+                </MenuItem>
+              ))}
+            </Box>
+          );
+        }
+
+        return (
+          <MenuItem
+            key={item.text}
+            component={Link}
+            href={item.path}
+            onClick={handleOffersClose}
+            selected={pathname === item.path}
+            sx={{
+              px: 2,
+              py: 1.5,
+              borderRadius: 1,
+              mx: 1,
+              mb: 0.5,
+              '&:hover': {
+                bgcolor: alpha(theme.palette.primary.main, 0.08),
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 36, color: 'primary.main' }}>
+              {item.badge ? (
+                <Badge badgeContent={item.badge} color="error">
+                  {item.icon}
+                </Badge>
+              ) : (
+                item.icon
+              )}
+            </ListItemIcon>
+            <Box>
+              <Typography variant="body2" fontWeight={500}>
+                {item.text}
+              </Typography>
+              {item.description && (
+                <Typography variant="caption" color="text.secondary" display="block">
+                  {item.description}
+                </Typography>
+              )}
+            </Box>
+          </MenuItem>
+        );
+      })}
+    </Menu>
+  );
+
+  const renderDrawerContent = () => {
+    if (!user) {
+      // Guest Menu
+      return (
+        <>
+          <Box sx={{ mb: 2, px: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              MAIN MENU
+            </Typography>
+          </Box>
+          {mainMenuItems
+            .filter(
+              (item): item is RegularMenuItem =>
+                !('section' in item) && !item.requiresAuth
+            )
+            .map((item, index) => renderMenuItem(item, index))}
+
+          <Divider sx={{ my: 2 }} />
+          <Box sx={{ mb: 2, px: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              OFFERS
+            </Typography>
+          </Box>
+          {offersMenuItems.map((item, index) => {
+            if ('section' in item) {
+              return (
+                <Box key={`section-${item.section}-${index}`}>
+                  <Typography
+                    variant="overline"
+                    sx={{
+                      px: 2,
+                      py: 1,
+                      display: 'block' as const,
+                      color: 'text.secondary',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {item.section}
+                  </Typography>
+                  {item.items.map((subItem, subIndex) =>
+                    renderMenuItem(subItem, subIndex)
+                  )}
+                </Box>
+              );
+            }
+            return renderMenuItem(item, index);
+          })}
+        </>
+      );
+    }
+
+    // Authenticated User Menu
+    return (
+      <>
+        <Box sx={{ mb: 2, px: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary">
+            MY DASHBOARD
+          </Typography>
+        </Box>
+        {mainMenuItems
+          .filter(
+            (item): item is RegularMenuItem =>
+              !('section' in item) &&
+              Boolean(item.requiresAuth) &&
+              !Boolean(item.hideWhenAuth)
+          )
+          .map((item, index) => renderMenuItem(item, index))}
+
+        <Divider sx={{ my: 2 }} />
+        <Box sx={{ mb: 2, px: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary">
+            OFFERS
+          </Typography>
+        </Box>
+        {offersMenuItems.map((item, index) => {
+          if ('section' in item) {
+            return (
+              <Box key={`section-${item.section}-${index}`}>
+                <Typography
+                  variant="overline"
+                  sx={{
+                    px: 2,
+                    py: 1,
+                    display: 'block' as const,
+                    color: 'text.secondary',
+                    fontWeight: 500,
+                  }}
+                >
+                  {item.section}
+                </Typography>
+                {item.items.map((subItem, subIndex) => renderMenuItem(subItem, subIndex))}
+              </Box>
+            );
+          }
+          return renderMenuItem(item, index);
+        })}
+
+        {isAdmin && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Box sx={{ mb: 2, px: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                ANALYTICS
+              </Typography>
+            </Box>
+            {analyticsMenuItems.map((item, index) => renderMenuItem(item, index))}
+
+            <Divider sx={{ my: 2 }} />
+            <Box sx={{ mb: 2, px: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                MANAGEMENT
+              </Typography>
+            </Box>
+            {managementMenuItems.map((item, index) => renderMenuItem(item, index))}
+          </>
+        )}
+
+        <Divider sx={{ my: 2 }} />
+        <Box sx={{ mb: 2, px: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary">
+            SETTINGS
+          </Typography>
+        </Box>
+        {accountMenuItems.map((item, index) => renderMenuItem(item, index))}
+      </>
+    );
+  };
+
   return (
     <>
       <AppBar position="fixed" color="default" elevation={1}>
@@ -254,9 +636,66 @@ export default function AppNavbar() {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+          <Typography
+            variant="h6"
+            component={Link}
+            href="/"
+            sx={{
+              flexGrow: 0,
+              textDecoration: 'none',
+              color: 'inherit',
+              mr: 4,
+            }}
+          >
             Churnistic
           </Typography>
+
+          {/* Top Navigation Menu */}
+          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' }, gap: 1 }}>
+            <Button
+              onClick={handleOffersMenu}
+              sx={{
+                color: 'inherit',
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                },
+              }}
+              endIcon={<ArrowDropDown />}
+            >
+              Offers
+            </Button>
+            {renderOffersMenu()}
+
+            {user && (
+              <>
+                <Button
+                  component={Link}
+                  href="/dashboard"
+                  sx={{
+                    color: 'inherit',
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    },
+                  }}
+                >
+                  Dashboard
+                </Button>
+                <Button
+                  component={Link}
+                  href="/track"
+                  sx={{
+                    color: 'inherit',
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    },
+                  }}
+                >
+                  Track Progress
+                </Button>
+              </>
+            )}
+          </Box>
+
           {user ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <IconButton
@@ -362,7 +801,7 @@ export default function AppNavbar() {
         open={drawerOpen}
         onClose={handleDrawerToggle}
         ModalProps={{
-          keepMounted: true, // Better open performance on mobile
+          keepMounted: true,
         }}
         sx={{
           '& .MuiDrawer-paper': {
@@ -374,44 +813,7 @@ export default function AppNavbar() {
         }}
       >
         <List component="nav" sx={{ pt: 0 }}>
-          <Box sx={{ mb: 2, px: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              MAIN MENU
-            </Typography>
-          </Box>
-          {mainMenuItems.map(renderMenuItem)}
-
-          {user && (
-            <>
-              {isAdmin && (
-                <>
-                  <Divider sx={{ my: 2 }} />
-                  <Box sx={{ mb: 2, px: 2 }}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      ANALYTICS
-                    </Typography>
-                  </Box>
-                  {analyticsMenuItems.map(renderMenuItem)}
-
-                  <Divider sx={{ my: 2 }} />
-                  <Box sx={{ mb: 2, px: 2 }}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      MANAGEMENT
-                    </Typography>
-                  </Box>
-                  {managementMenuItems.map(renderMenuItem)}
-                </>
-              )}
-
-              <Divider sx={{ my: 2 }} />
-              <Box sx={{ mb: 2, px: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  ACCOUNT
-                </Typography>
-              </Box>
-              {accountMenuItems.map(renderMenuItem)}
-            </>
-          )}
+          {renderDrawerContent()}
         </List>
       </Drawer>
     </>

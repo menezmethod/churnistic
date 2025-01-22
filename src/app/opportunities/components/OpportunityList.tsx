@@ -21,7 +21,7 @@ import { getTypeColors } from '../utils/colorUtils';
 interface OpportunityListProps {
   opportunities: FirestoreOpportunity[];
   isDeleting: string | null;
-  onDeleteClick: (opportunity: { id?: string; name?: string }) => void;
+  onDeleteClick: (opportunity: FirestoreOpportunity) => void;
 }
 
 const OpportunityList = ({

@@ -9,7 +9,7 @@ import OpportunityCard from './OpportunityCard';
 interface OpportunityGridProps {
   opportunities: FirestoreOpportunity[];
   isDeleting: string | null;
-  onDeleteClick: (opportunity: { id?: string; name?: string }) => void;
+  onDeleteClick: (opportunity: FirestoreOpportunity) => void;
 }
 
 export default function OpportunityGrid({

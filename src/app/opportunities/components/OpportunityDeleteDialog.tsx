@@ -12,9 +12,11 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 
+import { FirestoreOpportunity } from '@/types/opportunity';
+
 interface OpportunityDeleteDialogProps {
   open: boolean;
-  opportunity?: { id?: string; name?: string };
+  opportunity?: FirestoreOpportunity | null;
   onCancelAction: () => void;
   onConfirmAction: () => void;
 }

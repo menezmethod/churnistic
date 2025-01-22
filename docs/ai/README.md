@@ -1,6 +1,7 @@
 # AI-Optimized Project Documentation
 
 ## Quick Reference
+
 - **Project Name**: Churnistic
 - **Tech Stack**: Next.js 15
 - **Testing Framework**: Jest (Unit), Cypress (E2E)
@@ -8,6 +9,7 @@
 - **Documentation Version**: 1.0.0
 
 ## Project Structure
+
 ```
 src/
 ├── app/           # Next.js application routes and components
@@ -16,6 +18,7 @@ src/
 ```
 
 ## Key Documentation Links
+
 - [Architecture Documentation](./architecture_documentation.md)
 - [Testing Strategy](./unit_testing_plan.md)
 - [E2E Testing](./cypress_testing_strategy.md)
@@ -24,6 +27,7 @@ src/
 ## Development Guidelines
 
 ### Testing Requirements
+
 - Unit Test Coverage: 90%
 - Integration Test Coverage: 85%
 - E2E Test Coverage: 80%
@@ -31,6 +35,7 @@ src/
 - Run tests: `npm test`
 
 ### Feature Development Workflow
+
 1. Define requirements
 2. Write tests
 3. Implement feature
@@ -40,12 +45,14 @@ src/
 7. Production deployment
 
 ### AI Integration Guidelines
+
 - Maximum context window: 8000 tokens
 - Code review required for AI-generated code
 - Changes must include explanations
 - Use secure coding practices
 
 ### Security Protocols
+
 - OWASP compliance required
 - GDPR standards enforced
 - Security review mandatory for new features
@@ -54,6 +61,7 @@ src/
 ## Common Tasks for LLMs
 
 ### Code Generation
+
 - Follow project structure
 - Include necessary imports
 - Add comprehensive tests
@@ -61,6 +69,7 @@ src/
 - Follow TypeScript standards
 
 ### Code Review
+
 - Check test coverage
 - Verify security compliance
 - Ensure documentation updates
@@ -68,7 +77,9 @@ src/
 - Review error handling
 
 ### Documentation Updates
+
 Required sections for new features:
+
 1. Overview
 2. Architecture impact
 3. Security considerations
@@ -77,21 +88,25 @@ Required sections for new features:
 6. Usage examples
 
 ## Version Control
+
 - Feature branches from main
 - PR required for all changes
 - CI/CD checks must pass
 - Squash commits on merge
 
 ## Deployment
+
 - Staging environment required
 - Production approval needed
 - Feature flags for gradual rollout
 - Monitoring required
 
 ## Support and Resources
+
 - Project analysis in [project_analysis_report.md](./project_analysis_report.md)
 - Collaboration templates in [collaboration_template.md](./collaboration_template.md)
 - Architecture details in [architecture_documentation.md](./architecture_documentation.md)
 
 ---
-Last Updated: 2024-01-19 
+
+Last Updated: 2024-01-19
