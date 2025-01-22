@@ -29,28 +29,39 @@ export async function GET(request: Request) {
 
     // Add a timeout to the query
     const queryPromise = getDocs(q);
-    const timeoutPromise = new Promise((_, reject) => {
+    const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Query timeout')), 5000);
     });
 
-    const snapshot = await Promise.race([queryPromise, timeoutPromise]);
-    console.log('Query snapshot:', {
-      size: snapshot.size,
-      empty: snapshot.empty,
-      docs: snapshot.docs.length,
-    });
+    try {
+      const snapshot = await Promise.race([queryPromise, timeoutPromise]);
+      console.log('Query snapshot:', {
+        size: snapshot.size,
+        empty: snapshot.empty,
+        docs: snapshot.docs.length,
+      });
 
-    if (snapshot.empty) {
-      console.log('No opportunities found in Firestore');
-      return NextResponse.json([]);
+      if (snapshot.empty) {
+        console.log('No opportunities found in Firestore');
+        return NextResponse.json([]);
+      }
+
+      const opportunities = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+        } as FirestoreOpportunity;
+      });
+
+      return NextResponse.json(opportunities);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Query timeout') {
+        console.error('Firestore query timed out');
+        return NextResponse.json({ error: 'Request timeout' }, { status: 504 });
+      }
+      throw error;
     }
-
-    const opportunities = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as FirestoreOpportunity[];
-
-    return NextResponse.json(opportunities);
   } catch (error) {
     console.error('Error fetching opportunities:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
