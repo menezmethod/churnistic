@@ -54,7 +54,10 @@ export default function OpportunityDeleteDialog({
       maxWidth="xs"
       fullWidth
     >
-      <DialogTitle id="delete-dialog-title" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <DialogTitle
+        id="delete-dialog-title"
+        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+      >
         <WarningIcon color="error" />
         Delete Opportunity
       </DialogTitle>
@@ -65,8 +68,8 @@ export default function OpportunityDeleteDialog({
           </Alert>
         )}
         <DialogContentText id="delete-dialog-description">
-          Are you sure you want to delete the opportunity &quot;{opportunity.name}&quot;? This action
-          cannot be undone.
+          Are you sure you want to delete the opportunity &quot;{opportunity.name}&quot;?
+          This action cannot be undone.
         </DialogContentText>
       </DialogContent>
       <DialogActions>

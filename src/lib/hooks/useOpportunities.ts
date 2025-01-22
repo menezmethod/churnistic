@@ -45,14 +45,12 @@ const createOpportunity = async (
   return handleResponse<FirestoreOpportunity>(response);
 };
 
-const updateOpportunity = async (
-  params: {
-    id: string;
-    data: Partial<FirestoreOpportunity>;
-  }
-): Promise<FirestoreOpportunity> => {
+const updateOpportunity = async (params: {
+  id: string;
+  data: Partial<FirestoreOpportunity>;
+}): Promise<FirestoreOpportunity> => {
   const { id, data } = params;
-  
+
   // Prepare payload with proper metadata handling
   const payload = data.metadata
     ? { ...data, metadata: { ...data.metadata, updated_at: new Date().toISOString() } }
@@ -65,17 +63,17 @@ const updateOpportunity = async (
     },
     body: JSON.stringify(payload),
   });
-  return handleResponse<FirestoreOpportunity>(response); 
-}; 
+  return handleResponse<FirestoreOpportunity>(response);
+};
 
 // Type guard for FirestoreOpportunity
-function isFirestoreOpportunity(
-  response: unknown
-): response is FirestoreOpportunity {
-  return typeof response === 'object' &&
+function isFirestoreOpportunity(response: unknown): response is FirestoreOpportunity {
+  return (
+    typeof response === 'object' &&
     response !== null &&
     'id' in response &&
-    'metadata' in response;
+    'metadata' in response
+  );
 }
 
 const deleteOpportunity = async (id: string): Promise<void> => {
@@ -115,7 +113,7 @@ export function useOpportunities() {
     mutationFn: updateOpportunity,
     onSuccess: (updatedOpportunity) => {
       if (!isFirestoreOpportunity(updatedOpportunity)) return;
-      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities'], (old) => { 
+      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities'], (old) => {
         return old
           ? old.map((opp) =>
               opp.id === updatedOpportunity.id ? updatedOpportunity : opp

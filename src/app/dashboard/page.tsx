@@ -209,9 +209,13 @@ export default function DashboardPage() {
                 </Button>
               </Box>
               <Stack spacing={2}>
-                {quickOpportunities.map((opp) => (
-                  <OpportunityCard key={opp.id} opportunity={opp} />
-                ))}
+                {quickOpportunities.map((opp) => {
+                  const transformedOpp = {
+                    ...opp,
+                    type: opp.type === 'bank' ? 'bank_account' : opp.type as 'credit_card' | 'bank_account',
+                  };
+                  return <OpportunityCard key={opp.id} opportunity={transformedOpp} />;
+                })}
               </Stack>
             </Box>
 
