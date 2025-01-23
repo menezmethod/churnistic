@@ -1,30 +1,20 @@
 'use client';
 
+import { createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
-import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material/styles';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
   mode: ThemeMode;
   setMode: (mode: ThemeMode) => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
-export const useTheme = (): ThemeContextType => {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
-};
-
-interface ThemeProviderProps {
-  children: React.ReactNode;
-  defaultMode?: ThemeMode;
-}
+const ThemeContext = createContext<ThemeContextType>({
+  mode: 'system',
+  setMode: () => {},
+});
 
 // Our custom gray palette
 const gray = {
@@ -40,46 +30,39 @@ const gray = {
   900: 'hsl(220, 35%, 3%)',
 } as const;
 
-export const ThemeProvider = ({
-  children,
-  defaultMode = 'system',
-}: ThemeProviderProps): React.ReactElement => {
-  const [mode, setMode] = useState<ThemeMode>(defaultMode);
-  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>('light');
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  // Initialize with a default theme to avoid hydration mismatch
+  const [mounted, setMounted] = useState(false);
+  const [mode, setMode] = useState<ThemeMode>('system');
+  const [systemPreference, setSystemPreference] = useState<'light' | 'dark'>('light');
 
+  // Only update the theme after component mount to avoid hydration mismatch
   useEffect(() => {
-    try {
-      // Watch for system theme changes
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
-      // Set initial system theme
-      setSystemTheme(mediaQuery.matches ? 'dark' : 'light');
-
-      // Handle system theme changes
-      const handleChange = (e: MediaQueryListEvent): void => {
-        setSystemTheme(e.matches ? 'dark' : 'light');
-      };
-
-      mediaQuery.addEventListener('change', handleChange);
-
-      const cleanup = (): void => {
-        mediaQuery.removeEventListener('change', handleChange);
-      };
-
-      return cleanup;
-    } catch (error) {
-      console.error('Error setting up theme detection:', error);
-      // Default to light theme if there's an error
-      setSystemTheme('light');
+    setMounted(true);
+    const savedMode = localStorage.getItem('theme-mode') as ThemeMode | null;
+    if (savedMode) {
+      setMode(savedMode);
     }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    setSystemPreference(mediaQuery.matches ? 'dark' : 'light');
+
+    const handleChange = (e: MediaQueryListEvent) => {
+      setSystemPreference(e.matches ? 'dark' : 'light');
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  const currentTheme = useMemo((): ReturnType<typeof createTheme> => {
-    try {
-      // Determine the actual theme mode
-      const actualMode = mode === 'system' ? systemTheme : mode;
+  const actualMode = useMemo(() => {
+    if (!mounted) return 'light'; // Default during SSR
+    return mode === 'system' ? systemPreference : mode;
+  }, [mounted, mode, systemPreference]);
 
-      return createTheme({
+  const theme = useMemo(
+    () =>
+      createTheme({
         palette: {
           mode: actualMode,
           primary: {
@@ -103,7 +86,7 @@ export const ThemeProvider = ({
             secondary: actualMode === 'light' ? gray[600] : gray[400],
           },
           background: {
-            default: actualMode === 'light' ? '#FFFFFF' : gray[900],
+            default: actualMode === 'light' ? gray[50] : gray[900],
             paper: actualMode === 'light' ? '#FFFFFF' : gray[800],
           },
           divider: actualMode === 'light' ? gray[200] : gray[700],
@@ -328,36 +311,47 @@ export const ThemeProvider = ({
             },
           },
         },
-      });
-    } catch (error) {
-      console.error('Error creating theme:', error);
-      // Return a default light theme if there's an error
-      return createTheme({
-        palette: {
-          mode: 'light',
-        },
-      });
-    }
-  }, [mode, systemTheme]);
+      }),
+    [actualMode]
+  );
 
-  const safeSetMode = (newMode: ThemeMode): void => {
-    try {
-      setMode(newMode);
-    } catch (error) {
-      console.error('Error setting theme mode:', error);
-      // Default to system theme if there's an error
-      setMode('system');
-    }
+  const handleSetMode = (newMode: ThemeMode) => {
+    setMode(newMode);
+    localStorage.setItem('theme-mode', newMode);
   };
 
-  const value = useMemo(() => ({ mode, setMode: safeSetMode }), [mode]);
+  const value = useMemo(
+    () => ({
+      mode,
+      setMode: handleSetMode,
+    }),
+    [mode]
+  );
+
+  // Render with default theme during SSR to avoid hydration mismatch
+  if (!mounted) {
+    return (
+      <MuiThemeProvider theme={theme}>
+        <CssBaseline />
+        {children}
+      </MuiThemeProvider>
+    );
+  }
 
   return (
     <ThemeContext.Provider value={value}>
-      <MuiThemeProvider theme={currentTheme}>
+      <MuiThemeProvider theme={theme}>
         <CssBaseline />
         {children}
       </MuiThemeProvider>
     </ThemeContext.Provider>
   );
-};
+}
+
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+}

@@ -309,10 +309,10 @@ export default function AppNavbar() {
 
   const isAdmin = hasRole(UserRole.ADMIN);
   const isUserSuperAdmin = isSuperAdmin();
-  const userRoleColor = isUserSuperAdmin 
-    ? theme.palette.warning.main 
-    : isAdmin 
-      ? theme.palette.error.main 
+  const userRoleColor = isUserSuperAdmin
+    ? theme.palette.warning.main
+    : isAdmin
+      ? theme.palette.error.main
       : theme.palette.primary.main;
   const userRoleLabel = isUserSuperAdmin ? 'Super Admin' : isAdmin ? 'Admin' : 'User';
 
@@ -371,17 +371,18 @@ export default function AppNavbar() {
         width: 360,
         maxHeight: '80vh',
         overflow: 'auto',
-        bgcolor: theme.palette.mode === 'dark' 
-          ? alpha(theme.palette.background.paper, 0.9)
-          : theme.palette.background.paper,
+        bgcolor:
+          theme.palette.mode === 'dark'
+            ? alpha(theme.palette.background.paper, 0.9)
+            : theme.palette.background.paper,
       }}
     >
-      <Box 
-        sx={{ 
-          p: 2, 
-          borderBottom: 1, 
+      <Box
+        sx={{
+          p: 2,
+          borderBottom: 1,
           borderColor: 'divider',
-          background: isUserSuperAdmin 
+          background: isUserSuperAdmin
             ? `linear-gradient(45deg, ${alpha(theme.palette.warning.main, 0.05)}, transparent)`
             : isAdmin
               ? `linear-gradient(45deg, ${alpha(theme.palette.error.main, 0.05)}, transparent)`
@@ -397,7 +398,9 @@ export default function AppNavbar() {
               height: 56,
               mr: 2,
               border: `2px solid ${userRoleColor}`,
-              boxShadow: isUserSuperAdmin ? `0 0 10px ${alpha(theme.palette.warning.main, 0.3)}` : 'none',
+              boxShadow: isUserSuperAdmin
+                ? `0 0 10px ${alpha(theme.palette.warning.main, 0.3)}`
+                : 'none',
             }}
           />
           <Box>
@@ -414,7 +417,7 @@ export default function AppNavbar() {
                 label={userRoleLabel}
                 color={isUserSuperAdmin ? 'warning' : isAdmin ? 'error' : 'primary'}
                 variant="outlined"
-                sx={{ 
+                sx={{
                   height: 24,
                   ...(isUserSuperAdmin && {
                     borderColor: theme.palette.warning.main,
@@ -647,10 +650,20 @@ export default function AppNavbar() {
               }
               secondary={
                 <span>
-                  <span className="MuiTypography-root MuiTypography-body2" style={{ color: 'text.secondary', display: 'block', marginBottom: '0.5rem' }}>
+                  <span
+                    className="MuiTypography-root MuiTypography-body2"
+                    style={{
+                      color: 'text.secondary',
+                      display: 'block',
+                      marginBottom: '0.5rem',
+                    }}
+                  >
                     {notification.description}
                   </span>
-                  <span className="MuiTypography-root MuiTypography-caption" style={{ color: 'text.secondary', display: 'block' }}>
+                  <span
+                    className="MuiTypography-root MuiTypography-caption"
+                    style={{ color: 'text.secondary', display: 'block' }}
+                  >
                     {notification.time}
                   </span>
                 </span>
@@ -698,13 +711,13 @@ export default function AppNavbar() {
             borderRadius: 1,
             mx: 1,
             '&.Mui-selected': {
-              backgroundColor: isUserSuperAdmin 
+              backgroundColor: isUserSuperAdmin
                 ? theme.palette.warning.main + '20'
                 : isAdmin
                   ? theme.palette.error.main + '20'
                   : theme.palette.primary.main + '20',
               '&:hover': {
-                backgroundColor: isUserSuperAdmin 
+                backgroundColor: isUserSuperAdmin
                   ? theme.palette.warning.main + '30'
                   : isAdmin
                     ? theme.palette.error.main + '30'
@@ -722,8 +735,8 @@ export default function AppNavbar() {
               item.icon
             )}
           </ListItemIcon>
-          <ListItemText 
-            primary={item.text} 
+          <ListItemText
+            primary={item.text}
             secondary={item.description}
             primaryTypographyProps={{
               variant: 'body2',
@@ -965,12 +978,12 @@ export default function AppNavbar() {
           <>
             <Divider sx={{ my: 2 }} />
             <Box sx={{ mb: 2, px: 2 }}>
-              <Typography 
-                variant="subtitle2" 
-                color={isUserSuperAdmin ? "warning.main" : "error.main"}
-                sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
+              <Typography
+                variant="subtitle2"
+                color={isUserSuperAdmin ? 'warning.main' : 'error.main'}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
                   gap: 1,
                   fontWeight: 600,
                 }}
@@ -983,12 +996,12 @@ export default function AppNavbar() {
 
             <Divider sx={{ my: 2 }} />
             <Box sx={{ mb: 2, px: 2 }}>
-              <Typography 
-                variant="subtitle2" 
-                color={isUserSuperAdmin ? "warning.main" : "error.main"}
-                sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
+              <Typography
+                variant="subtitle2"
+                color={isUserSuperAdmin ? 'warning.main' : 'error.main'}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
                   gap: 1,
                   fontWeight: 600,
                 }}
@@ -1021,7 +1034,7 @@ export default function AppNavbar() {
         sx={{
           backdropFilter: 'blur(8px)',
           backgroundColor: alpha(theme.palette.background.default, 0.9),
-          borderBottom: isUserSuperAdmin 
+          borderBottom: isUserSuperAdmin
             ? `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
             : isAdmin
               ? `1px solid ${alpha(theme.palette.error.main, 0.2)}`
