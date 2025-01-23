@@ -1,6 +1,7 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 import { ThemeMode } from '@/app/styles/theme/ThemeContext';
 
@@ -13,32 +14,50 @@ const loadTheme = (): ThemeMode => {
 };
 
 // Save theme to localStorage
-const saveTheme = (mode: ThemeMode): void => {
-  localStorage.setItem(THEME_KEY, mode);
+const saveTheme = (mode: ThemeMode) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(THEME_KEY, mode);
+  }
 };
 
-// Custom hook for theme management
-export function useThemeMode() {
-  const queryClient = useQueryClient();
+interface ThemeContextType {
+  mode: ThemeMode;
+  setMode: (mode: ThemeMode) => void;
+}
 
-  const { data: themeMode = 'system' } = useQuery({
-    queryKey: ['theme'],
-    queryFn: loadTheme,
-    staleTime: Infinity,
-  });
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-  const { mutate: setThemeMode } = useMutation({
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [mode, setMode] = useState<ThemeMode>(loadTheme);
+
+  const { mutate: setThemeMode } = useMutation<ThemeMode, Error, ThemeMode>({
     mutationFn: (newMode: ThemeMode) => {
       saveTheme(newMode);
-      return newMode;
+      return Promise.resolve(newMode);
     },
     onSuccess: (newMode) => {
-      queryClient.setQueryData(['theme'], newMode);
+      setMode(newMode);
     },
   });
 
-  return {
-    themeMode,
-    setThemeMode,
-  };
+  useEffect(() => {
+    const savedMode = loadTheme();
+    if (savedMode) {
+      setMode(savedMode);
+    }
+  }, []);
+
+  return (
+    <ThemeContext.Provider value={{ mode, setMode: setThemeMode }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
 }
