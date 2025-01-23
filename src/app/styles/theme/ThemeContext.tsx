@@ -2,7 +2,7 @@
 
 import { createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -33,25 +33,35 @@ const gray = {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Initialize with a default theme to avoid hydration mismatch
   const [mounted, setMounted] = useState(false);
-  const [mode, setMode] = useState<ThemeMode>('system');
-  const [systemPreference, setSystemPreference] = useState<'light' | 'dark'>('light');
+  const [mode, setMode] = useState<ThemeMode>(() => {
+    // Try to get the saved theme during initialization
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
+      return savedMode || 'system';
+    }
+    return 'system';
+  });
+  const [systemPreference, setSystemPreference] = useState<'light' | 'dark'>(() => {
+    // Try to get system preference during initialization
+    if (typeof window !== 'undefined') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'light';
+  });
 
   // Only update the theme after component mount to avoid hydration mismatch
   useEffect(() => {
     setMounted(true);
-    const savedMode = localStorage.getItem('theme-mode') as ThemeMode | null;
-    if (savedMode) {
-      setMode(savedMode);
-    }
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    setSystemPreference(mediaQuery.matches ? 'dark' : 'light');
-
     const handleChange = (e: MediaQueryListEvent) => {
       setSystemPreference(e.matches ? 'dark' : 'light');
     };
 
+    // Update system preference immediately and add listener
+    setSystemPreference(mediaQuery.matches ? 'dark' : 'light');
     mediaQuery.addEventListener('change', handleChange);
+
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
@@ -60,6 +70,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return mode === 'system' ? systemPreference : mode;
   }, [mounted, mode, systemPreference]);
 
+  const handleSetMode = useCallback((newMode: ThemeMode) => {
+    setMode(newMode);
+    localStorage.setItem('theme-mode', newMode);
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      mode,
+      setMode: handleSetMode,
+    }),
+    [mode, handleSetMode]
+  );
+
+  // Create theme with current mode
   const theme = useMemo(
     () =>
       createTheme({
@@ -313,19 +337,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         },
       }),
     [actualMode]
-  );
-
-  const handleSetMode = (newMode: ThemeMode) => {
-    setMode(newMode);
-    localStorage.setItem('theme-mode', newMode);
-  };
-
-  const value = useMemo(
-    () => ({
-      mode,
-      setMode: handleSetMode,
-    }),
-    [mode]
   );
 
   // Render with default theme during SSR to avoid hydration mismatch
