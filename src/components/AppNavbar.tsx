@@ -23,6 +23,18 @@ import {
   ViewList,
   Bolt,
   MonetizationOn,
+  Verified,
+  NotificationsActive,
+  Palette,
+  Language,
+  NotificationsOff,
+  History,
+  AccountBox,
+  VpnKey,
+  Email,
+  VerifiedUser,
+  Schedule,
+  Payments,
 } from '@mui/icons-material';
 import {
   AppBar,
@@ -44,6 +56,10 @@ import {
   useTheme,
   Button,
   alpha,
+  Tooltip,
+  Fade,
+  Chip,
+  Paper,
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
@@ -311,6 +327,283 @@ export default function AppNavbar() {
   const handleOffersClose = () => {
     setOffersAnchorEl(null);
   };
+
+  const userRoleColor = isAdmin ? theme.palette.error.main : theme.palette.primary.main;
+  const userRoleLabel = isAdmin ? 'Admin' : 'User';
+
+  const renderUserProfileMenu = () => (
+    <Paper
+      elevation={2}
+      sx={{
+        width: 360,
+        maxHeight: '80vh',
+        overflow: 'auto',
+      }}
+    >
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Avatar
+            alt={user?.email || undefined}
+            src={user?.photoURL || undefined}
+            sx={{
+              width: 56,
+              height: 56,
+              mr: 2,
+              border: `2px solid ${theme.palette.primary.main}`,
+            }}
+          />
+          <Box>
+            <Typography variant="h6" fontWeight={600}>
+              {user?.displayName || user?.email?.split('@')[0]}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              {user?.email}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                size="small"
+                icon={<Verified sx={{ fontSize: 16 }} />}
+                label={userRoleLabel}
+                color={isAdmin ? 'error' : 'primary'}
+                variant="outlined"
+                sx={{ height: 24 }}
+              />
+              {user?.emailVerified && (
+                <Tooltip title="Email verified">
+                  <Chip
+                    size="small"
+                    icon={<VerifiedUser sx={{ fontSize: 16 }} />}
+                    label="Verified"
+                    color="success"
+                    variant="outlined"
+                    sx={{ height: 24 }}
+                  />
+                </Tooltip>
+              )}
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+
+      <Box sx={{ py: 1 }}>
+        <Typography
+          variant="overline"
+          sx={{
+            px: 2,
+            py: 1,
+            display: 'block',
+            color: 'text.secondary',
+            fontWeight: 600,
+          }}
+        >
+          Account & Security
+        </Typography>
+        <MenuItem onClick={handleClose} component={Link} href="/settings/profile">
+          <ListItemIcon>
+            <AccountBox fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Profile Settings"
+            secondary="Update your personal information"
+          />
+        </MenuItem>
+        <MenuItem onClick={handleClose} component={Link} href="/settings/security">
+          <ListItemIcon>
+            <VpnKey fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Security"
+            secondary="Password and authentication settings"
+          />
+        </MenuItem>
+        <MenuItem onClick={handleClose} component={Link} href="/settings/email">
+          <ListItemIcon>
+            <Email fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Email Preferences"
+            secondary="Manage email notifications"
+          />
+        </MenuItem>
+
+        <Typography
+          variant="overline"
+          sx={{
+            px: 2,
+            py: 1,
+            display: 'block',
+            color: 'text.secondary',
+            fontWeight: 600,
+            mt: 1,
+          }}
+        >
+          Activity & Progress
+        </Typography>
+        <MenuItem onClick={handleClose} component={Link} href="/track">
+          <ListItemIcon>
+            <History fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Recent Activity"
+            secondary="View your latest actions and progress"
+          />
+        </MenuItem>
+        <MenuItem onClick={handleClose} component={Link} href="/track/schedule">
+          <ListItemIcon>
+            <Schedule fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Upcoming Tasks"
+            secondary="View scheduled activities and deadlines"
+          />
+        </MenuItem>
+        <MenuItem onClick={handleClose} component={Link} href="/track/earnings">
+          <ListItemIcon>
+            <Payments fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Earnings Overview"
+            secondary="Track your rewards and bonuses"
+          />
+        </MenuItem>
+
+        <Typography
+          variant="overline"
+          sx={{
+            px: 2,
+            py: 1,
+            display: 'block',
+            color: 'text.secondary',
+            fontWeight: 600,
+            mt: 1,
+          }}
+        >
+          Preferences
+        </Typography>
+        <MenuItem onClick={handleClose} component={Link} href="/settings/notifications">
+          <ListItemIcon>
+            <NotificationsOff fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Notification Settings"
+            secondary="Customize your alert preferences"
+          />
+        </MenuItem>
+        <MenuItem onClick={handleClose} component={Link} href="/settings/appearance">
+          <ListItemIcon>
+            <Palette fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Appearance"
+            secondary="Customize your visual experience"
+          />
+        </MenuItem>
+        <MenuItem onClick={handleClose} component={Link} href="/settings/language">
+          <ListItemIcon>
+            <Language fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Language & Region"
+            secondary="Set your local preferences"
+          />
+        </MenuItem>
+
+        <Divider sx={{ my: 1 }} />
+
+        <MenuItem onClick={handleClose} component={Link} href="/help">
+          <ListItemIcon>
+            <Help fontSize="small" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Help & Support"
+            secondary="Get assistance and documentation"
+          />
+        </MenuItem>
+        <MenuItem onClick={handleLogout} sx={{ color: theme.palette.error.main }}>
+          <ListItemIcon>
+            <Logout fontSize="small" color="error" />
+          </ListItemIcon>
+          <ListItemText primary="Sign Out" secondary="End your current session" />
+        </MenuItem>
+      </Box>
+    </Paper>
+  );
+
+  const renderNotificationsMenu = () => (
+    <Paper
+      elevation={2}
+      sx={{
+        width: 360,
+        maxHeight: '80vh',
+        overflow: 'auto',
+      }}
+    >
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="h6" fontWeight={600}>
+          Notifications
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Stay updated with your latest activity
+        </Typography>
+      </Box>
+      <List sx={{ p: 0 }}>
+        {[
+          {
+            title: 'New Opportunity Available',
+            description: 'A new high-value credit card bonus was just added',
+            icon: <Star color="primary" />,
+            time: '5m ago',
+            unread: true,
+          },
+          {
+            title: 'Offer Expiring Soon',
+            description: 'Chase Sapphire bonus ends in 2 days',
+            icon: <NotificationsActive color="error" />,
+            time: '2h ago',
+            unread: true,
+          },
+        ].map((notification, index) => (
+          <ListItem
+            key={index}
+            sx={{
+              py: 2,
+              px: 2,
+              borderBottom: 1,
+              borderColor: 'divider',
+              bgcolor: notification.unread
+                ? alpha(theme.palette.primary.main, 0.04)
+                : 'transparent',
+              '&:hover': {
+                bgcolor: alpha(theme.palette.primary.main, 0.08),
+              },
+            }}
+          >
+            <ListItemIcon sx={{ mt: 0 }}>{notification.icon}</ListItemIcon>
+            <ListItemText
+              primary={
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={notification.unread ? 600 : 400}
+                >
+                  {notification.title}
+                </Typography>
+              }
+              secondary={
+                <Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    {notification.description}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {notification.time}
+                  </Typography>
+                </Box>
+              }
+            />
+          </ListItem>
+        ))}
+      </List>
+    </Paper>
+  );
 
   const renderMenuItem = (item: MenuItemType, index: number): ReactElement | null => {
     // Skip section items in the drawer menu
@@ -625,14 +918,28 @@ export default function AppNavbar() {
 
   return (
     <>
-      <AppBar position="fixed" color="default" elevation={1}>
+      <AppBar
+        position="fixed"
+        color="default"
+        elevation={1}
+        sx={{
+          backdropFilter: 'blur(8px)',
+          backgroundColor: alpha(theme.palette.background.default, 0.9),
+        }}
+      >
         <Toolbar>
           <IconButton
             edge="start"
             color="inherit"
             aria-label="menu"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2 }}
+            sx={{
+              mr: 2,
+              transition: 'transform 0.2s',
+              '&:hover': {
+                transform: 'scale(1.1)',
+              },
+            }}
           >
             <MenuIcon />
           </IconButton>
@@ -645,6 +952,12 @@ export default function AppNavbar() {
               textDecoration: 'none',
               color: 'inherit',
               mr: 4,
+              fontWeight: 700,
+              letterSpacing: '-0.5px',
+              '&:hover': {
+                color: theme.palette.primary.main,
+              },
+              transition: 'color 0.2s',
             }}
           >
             Churnistic
@@ -656,9 +969,12 @@ export default function AppNavbar() {
               onClick={handleOffersMenu}
               sx={{
                 color: 'inherit',
+                borderRadius: 2,
+                px: 2,
                 '&:hover': {
                   bgcolor: alpha(theme.palette.primary.main, 0.08),
                 },
+                transition: 'all 0.2s',
               }}
               endIcon={<ArrowDropDown />}
             >
@@ -673,9 +989,12 @@ export default function AppNavbar() {
                   href="/dashboard"
                   sx={{
                     color: 'inherit',
+                    borderRadius: 2,
+                    px: 2,
                     '&:hover': {
                       bgcolor: alpha(theme.palette.primary.main, 0.08),
                     },
+                    transition: 'all 0.2s',
                   }}
                 >
                   Dashboard
@@ -685,9 +1004,12 @@ export default function AppNavbar() {
                   href="/track"
                   sx={{
                     color: 'inherit',
+                    borderRadius: 2,
+                    px: 2,
                     '&:hover': {
                       bgcolor: alpha(theme.palette.primary.main, 0.08),
                     },
+                    transition: 'all 0.2s',
                   }}
                 >
                   Track Progress
@@ -698,30 +1020,77 @@ export default function AppNavbar() {
 
           {user ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <IconButton
-                size="large"
-                aria-label="show notifications"
-                color="inherit"
-                onClick={handleNotificationsMenu}
+              <Tooltip
+                title="Notifications"
+                TransitionComponent={Fade}
+                TransitionProps={{ timeout: 200 }}
               >
-                <Badge badgeContent={4} color="error">
-                  <Notifications />
-                </Badge>
-              </IconButton>
-              <IconButton
-                size="large"
-                aria-label="account"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                onClick={handleMenu}
-                color="inherit"
+                <IconButton
+                  size="large"
+                  aria-label="show notifications"
+                  color="inherit"
+                  onClick={handleNotificationsMenu}
+                  sx={{
+                    transition: 'transform 0.2s',
+                    '&:hover': {
+                      transform: 'scale(1.1)',
+                    },
+                  }}
+                >
+                  <Badge
+                    badgeContent={4}
+                    color="error"
+                    sx={{
+                      '& .MuiBadge-badge': {
+                        animation: 'pulse 2s infinite',
+                        '@keyframes pulse': {
+                          '0%': {
+                            transform: 'scale(1)',
+                          },
+                          '50%': {
+                            transform: 'scale(1.2)',
+                          },
+                          '100%': {
+                            transform: 'scale(1)',
+                          },
+                        },
+                      },
+                    }}
+                  >
+                    <Notifications />
+                  </Badge>
+                </IconButton>
+              </Tooltip>
+              <Tooltip
+                title={`Signed in as ${user.email}`}
+                TransitionComponent={Fade}
+                TransitionProps={{ timeout: 200 }}
               >
-                <Avatar
-                  alt={user.email || undefined}
-                  src={user.photoURL || undefined}
-                  sx={{ width: 32, height: 32 }}
-                />
-              </IconButton>
+                <IconButton
+                  size="large"
+                  aria-label="account"
+                  aria-controls="menu-appbar"
+                  aria-haspopup="true"
+                  onClick={handleMenu}
+                  color="inherit"
+                  sx={{
+                    transition: 'transform 0.2s',
+                    '&:hover': {
+                      transform: 'scale(1.1)',
+                    },
+                  }}
+                >
+                  <Avatar
+                    alt={user.email || undefined}
+                    src={user.photoURL || undefined}
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      border: `2px solid ${userRoleColor}`,
+                    }}
+                  />
+                </IconButton>
+              </Tooltip>
               <Menu
                 id="menu-appbar"
                 anchorEl={anchorEl}
@@ -736,19 +1105,18 @@ export default function AppNavbar() {
                 }}
                 open={Boolean(anchorEl)}
                 onClose={handleClose}
+                TransitionComponent={Fade}
+                PaperProps={{
+                  elevation: 2,
+                  sx: {
+                    mt: 1,
+                    '& .MuiList-root': {
+                      p: 0,
+                    },
+                  },
+                }}
               >
-                <MenuItem onClick={handleClose} component={Link} href="/settings">
-                  <ListItemIcon>
-                    <Settings fontSize="small" />
-                  </ListItemIcon>
-                  Settings
-                </MenuItem>
-                <MenuItem onClick={handleLogout}>
-                  <ListItemIcon>
-                    <Logout fontSize="small" />
-                  </ListItemIcon>
-                  Sign Out
-                </MenuItem>
+                {renderUserProfileMenu()}
               </Menu>
               <Menu
                 id="notifications-menu"
@@ -764,13 +1132,18 @@ export default function AppNavbar() {
                 }}
                 open={Boolean(notificationsAnchorEl)}
                 onClose={handleNotificationsClose}
+                TransitionComponent={Fade}
+                PaperProps={{
+                  elevation: 2,
+                  sx: {
+                    mt: 1,
+                    '& .MuiList-root': {
+                      p: 0,
+                    },
+                  },
+                }}
               >
-                <MenuItem onClick={handleNotificationsClose}>
-                  New opportunity available
-                </MenuItem>
-                <MenuItem onClick={handleNotificationsClose}>
-                  Offer expiring soon
-                </MenuItem>
+                {renderNotificationsMenu()}
               </Menu>
             </Box>
           ) : (
@@ -780,6 +1153,14 @@ export default function AppNavbar() {
                 href="/auth/signin"
                 variant="outlined"
                 startIcon={<Login />}
+                sx={{
+                  borderRadius: 2,
+                  px: 2,
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.05)',
+                  },
+                }}
               >
                 Sign In
               </Button>
@@ -788,6 +1169,14 @@ export default function AppNavbar() {
                 href="/auth/signup"
                 variant="contained"
                 startIcon={<PersonAdd />}
+                sx={{
+                  borderRadius: 2,
+                  px: 2,
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.05)',
+                  },
+                }}
               >
                 Sign Up
               </Button>
