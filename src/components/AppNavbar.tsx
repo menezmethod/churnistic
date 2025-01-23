@@ -267,7 +267,7 @@ const accountMenuItems: MenuItemType[] = [
 ];
 
 export default function AppNavbar() {
-  const { user, signOut, hasRole } = useAuth();
+  const { user, signOut, hasRole, isSuperAdmin } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
@@ -279,6 +279,13 @@ export default function AppNavbar() {
   const [offersAnchorEl, setOffersAnchorEl] = useState<null | HTMLElement>(null);
 
   const isAdmin = hasRole(UserRole.ADMIN);
+  const isUserSuperAdmin = isSuperAdmin();
+  const userRoleColor = isUserSuperAdmin 
+    ? theme.palette.warning.main 
+    : isAdmin 
+      ? theme.palette.error.main 
+      : theme.palette.primary.main;
+  const userRoleLabel = isUserSuperAdmin ? 'Super Admin' : isAdmin ? 'Admin' : 'User';
 
   // Only log in development and when user state changes
   useEffect(() => {
@@ -328,9 +335,6 @@ export default function AppNavbar() {
     setOffersAnchorEl(null);
   };
 
-  const userRoleColor = isAdmin ? theme.palette.error.main : theme.palette.primary.main;
-  const userRoleLabel = isAdmin ? 'Admin' : 'User';
-
   const renderUserProfileMenu = () => (
     <Paper
       elevation={2}
@@ -338,9 +342,23 @@ export default function AppNavbar() {
         width: 360,
         maxHeight: '80vh',
         overflow: 'auto',
+        bgcolor: theme.palette.mode === 'dark' 
+          ? alpha(theme.palette.background.paper, 0.9)
+          : theme.palette.background.paper,
       }}
     >
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+      <Box 
+        sx={{ 
+          p: 2, 
+          borderBottom: 1, 
+          borderColor: 'divider',
+          background: isUserSuperAdmin 
+            ? `linear-gradient(45deg, ${alpha(theme.palette.warning.main, 0.05)}, transparent)`
+            : isAdmin
+              ? `linear-gradient(45deg, ${alpha(theme.palette.error.main, 0.05)}, transparent)`
+              : 'none',
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Avatar
             alt={user?.email || undefined}
@@ -349,7 +367,8 @@ export default function AppNavbar() {
               width: 56,
               height: 56,
               mr: 2,
-              border: `2px solid ${theme.palette.primary.main}`,
+              border: `2px solid ${userRoleColor}`,
+              boxShadow: isUserSuperAdmin ? `0 0 10px ${alpha(theme.palette.warning.main, 0.3)}` : 'none',
             }}
           />
           <Box>
@@ -364,9 +383,18 @@ export default function AppNavbar() {
                 size="small"
                 icon={<Verified sx={{ fontSize: 16 }} />}
                 label={userRoleLabel}
-                color={isAdmin ? 'error' : 'primary'}
+                color={isUserSuperAdmin ? 'warning' : isAdmin ? 'error' : 'primary'}
                 variant="outlined"
-                sx={{ height: 24 }}
+                sx={{ 
+                  height: 24,
+                  ...(isUserSuperAdmin && {
+                    borderColor: theme.palette.warning.main,
+                    color: theme.palette.warning.main,
+                    '& .MuiChip-icon': {
+                      color: theme.palette.warning.main,
+                    },
+                  }),
+                }}
               />
               {user?.emailVerified && (
                 <Tooltip title="Email verified">
