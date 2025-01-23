@@ -32,9 +32,9 @@ import {
 import { useState } from 'react';
 
 import { FormField } from '@/components/forms/FormField';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { useOpportunityForm } from '@/lib/hooks/useOpportunityForm';
 import { Opportunity, USState } from '@/types/opportunity';
-import { useAuth } from '@/lib/auth/AuthContext';
 
 import { getRandomOffer } from './mockData';
 
