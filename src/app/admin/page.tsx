@@ -253,13 +253,12 @@ export default function AdminDashboard() {
                           primary={activity.user}
                           secondary={
                             <>
-                              <Typography
-                                component="span"
-                                variant="body2"
-                                color="text.primary"
+                              <span
+                                className="MuiTypography-root MuiTypography-body2"
+                                style={{ color: 'text.primary' }}
                               >
                                 {activity.action}
-                              </Typography>
+                              </span>
                               {` — ${activity.timestamp}`}
                             </>
                           }

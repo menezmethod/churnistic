@@ -74,67 +74,75 @@ export const useDashboardData = () => {
   // Transform opportunities data
   const transformedOpportunities = opportunities.map((opp) => ({
     id: opp.id || crypto.randomUUID(),
-    value: typeof opp.value === 'number' ? opp.value : parseInt(opp.value),
+    value:
+      typeof opp.value === 'number'
+        ? opp.value
+        : typeof opp.value === 'string'
+          ? parseInt(opp.value) || 0
+          : 0,
     title: opp.name || opp.title || 'Untitled Opportunity',
-    type: opp.type === 'bank' ? 'bank_account' : opp.type,
+    type: (opp.type === 'bank' ? 'bank_account' : opp.type) || 'bank_account',
     bank: opp.bank || 'Unknown Bank',
     description: opp.bonus?.description || '',
-    requirements: [opp.bonus?.requirements?.description || ''],
+    requirements: [opp.bonus?.requirements?.description || 'No requirements specified'],
     status: opp.metadata?.status || 'active',
     source: opp.metadata?.created_by || 'Unknown',
     sourceLink: opp.offer_link || '',
     postedDate: opp.metadata?.created_at || new Date().toISOString(),
     expirationDate: opp.details?.expiration,
-    confidence: 0.9, // We can implement real confidence scoring later
+    confidence: 0.9,
   }));
 
   // Get active opportunities sorted by value
   const activeOpportunities = transformedOpportunities
     .filter((opp) => opp.status === 'active')
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => (b.value || 0) - (a.value || 0));
 
   // Get quick opportunities (top 3 by value)
   const quickOpportunities = activeOpportunities.slice(0, 3);
 
-  // Calculate total potential value
+  // Calculate total potential value (ensure we don't divide by zero)
   const totalPotentialValue = activeOpportunities.reduce(
-    (sum, opp) => sum + opp.value,
+    (sum, opp) => sum + (opp.value || 0),
     0
   );
+
+  const numActiveOpportunities = Math.max(activeOpportunities.length, 1);
 
   // Get tracked opportunities (opportunities with progress)
   const trackedOpportunities = transformedOpportunities
     .filter((opp) => opp.status === 'active')
     .map((opp) => ({
       id: opp.id,
-      title: opp.title,
-      type: opp.type as 'credit_card' | 'bank_account',
-      progress: opp.value * 0.5, // For now, assume 50% progress
-      target: opp.value,
-      daysLeft: 30, // Default to 30 days for now
+      title: opp.title || 'Untitled Opportunity',
+      type: (opp.type as 'credit_card' | 'bank_account') || 'bank_account',
+      progress: Math.min((opp.value || 0) * 0.5, opp.value || 0), // Ensure progress doesn't exceed value
+      target: opp.value || 0,
+      daysLeft: 30,
     }));
 
-  // Calculate stats
+  // Calculate stats with safe math operations
   const stats: DashboardStats = {
     trackedValue: formatCurrency(
-      trackedOpportunities.reduce((sum, opp) => sum + opp.progress, 0)
+      trackedOpportunities.reduce((sum, opp) => sum + (opp.progress || 0), 0)
     ),
     potentialValue: formatCurrency(totalPotentialValue),
     activeOpportunities: activeOpportunities.length.toString(),
-    averageValue: formatCurrency(
-      totalPotentialValue / Math.max(activeOpportunities.length, 1)
-    ),
+    averageValue: formatCurrency(totalPotentialValue / numActiveOpportunities),
     trends: {
       trackedValue: {
         value: trackedOpportunities.length,
         label: 'opportunities in progress',
       },
       potentialValue: {
-        value: Math.round(totalPotentialValue / Math.max(activeOpportunities.length, 1)),
+        value: Math.round(totalPotentialValue / numActiveOpportunities),
         label: 'avg per opportunity',
       },
       activeOpportunities: {
-        value: Math.round((activeOpportunities.length / opportunities.length) * 100),
+        value:
+          opportunities.length > 0
+            ? Math.round((activeOpportunities.length / opportunities.length) * 100)
+            : 0,
         label: 'of total opportunities',
       },
       averageValue: {

@@ -40,7 +40,7 @@ function HeroSection({ user }: { user: AuthUser }) {
         alignItems: 'center',
         background: `linear-gradient(135deg, 
           ${alpha(theme.palette.primary.dark, 0.95)} 0%,
-          ${alpha(theme.palette.primary.main, 0.90)} 100%)`,
+          ${alpha(theme.palette.primary.main, 0.9)} 100%)`,
         overflow: 'hidden',
       }}
     >
@@ -60,16 +60,16 @@ function HeroSection({ user }: { user: AuthUser }) {
           <motion.div
             key={i}
             initial={{ opacity: 0, scale: 0 }}
-            animate={{ 
+            animate={{
               opacity: [0.1, 0.3, 0.1],
               scale: [1, 1.5, 1],
               x: [0, 100, 0],
-              y: [0, -50, 0]
+              y: [0, -50, 0],
             }}
             transition={{
               duration: 10 + i * 2,
               repeat: Infinity,
-              ease: "linear"
+              ease: 'linear',
             }}
             style={{
               position: 'absolute',
@@ -109,7 +109,7 @@ function HeroSection({ user }: { user: AuthUser }) {
                       Track Your Rewards Journey
                     </Typography>
                   </motion.div>
-                  
+
                   <motion.div
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -124,7 +124,8 @@ function HeroSection({ user }: { user: AuthUser }) {
                         maxWidth: '600px',
                       }}
                     >
-                      Banks offer hundreds of sign-up bonuses. We help you find and track the best ones.
+                      Banks offer hundreds of sign-up bonuses. We help you find and track
+                      the best ones.
                     </Typography>
                   </motion.div>
 
@@ -418,71 +419,71 @@ export default function HomePage() {
           </Box>
         )}
 
-          <Box
-            component={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.8 }}
+        <Box
+          component={motion.div}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          sx={{
+            p: 4,
+            borderRadius: 4,
+            bgcolor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: theme.shadows[1],
+            position: 'relative',
+            overflow: 'hidden',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: `radial-gradient(circle at top right, ${alpha(
+                theme.palette.primary.main,
+                0.1
+              )}, transparent 70%)`,
+              opacity: 0,
+              transition: 'opacity 0.3s',
+            },
+            '&:hover::after': {
+              opacity: 1,
+            },
+          }}
+        >
+          <Typography variant="h4" sx={{ mb: 2, fontWeight: 700 }}>
+            Ready to get started?
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            Join thousands of users maximizing their rewards
+          </Typography>
+          <Button
+            variant="contained"
+            size="large"
+            component={Link}
+            href="/auth/signup"
+            endIcon={<KeyboardArrowRight />}
             sx={{
-              p: 4,
-              borderRadius: 4,
-              bgcolor: 'background.paper',
-              border: '1px solid',
-              borderColor: 'divider',
-              boxShadow: theme.shadows[1],
-              position: 'relative',
-              overflow: 'hidden',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: `radial-gradient(circle at top right, ${alpha(
-                  theme.palette.primary.main,
-                  0.1
-                )}, transparent 70%)`,
-                opacity: 0,
-                transition: 'opacity 0.3s',
-              },
-              '&:hover::after': {
-                opacity: 1,
+              px: 4,
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontSize: '1.1rem',
+              fontWeight: 500,
+              background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+              boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.25)}`,
+              transition: 'all 0.3s',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: `0 6px 12px ${alpha(theme.palette.primary.main, 0.35)}`,
+                background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
               },
             }}
           >
-            <Typography variant="h4" sx={{ mb: 2, fontWeight: 700 }}>
-              Ready to get started?
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              Join thousands of users maximizing their rewards
-            </Typography>
-            <Button
-              variant="contained"
-              size="large"
-              component={Link}
-              href="/auth/signup"
-              endIcon={<KeyboardArrowRight />}
-              sx={{
-                px: 4,
-                py: 1.5,
-                borderRadius: 2,
-                textTransform: 'none',
-                fontSize: '1.1rem',
-                fontWeight: 500,
-                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.25)}`,
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: `0 6px 12px ${alpha(theme.palette.primary.main, 0.35)}`,
-                  background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
-                },
-              }}
-            >
-              Get Started Now
-            </Button>
-          </Box>
+            Get Started Now
+          </Button>
+        </Box>
       </Container>
     </Box>
   );
