@@ -25,16 +25,9 @@ import {
   MonetizationOn,
   Verified,
   NotificationsActive,
-  Palette,
-  Language,
-  NotificationsOff,
   History,
-  AccountBox,
   VpnKey,
-  Email,
   VerifiedUser,
-  Schedule,
-  Payments,
 } from '@mui/icons-material';
 import {
   AppBar,
@@ -281,7 +274,7 @@ const accountMenuItems: MenuItemType[] = [
     text: 'Settings',
     icon: <Settings />,
     path: '/settings',
-    description: 'Profile, preferences, and security',
+    description: 'Manage your account settings and preferences',
     requiresAuth: true,
     hideWhenAuth: false,
   },
@@ -446,59 +439,16 @@ export default function AppNavbar() {
       </Box>
 
       <Box sx={{ py: 1 }}>
-        <Typography
-          variant="overline"
-          sx={{
-            px: 2,
-            py: 1,
-            display: 'block',
-            color: 'text.secondary',
-            fontWeight: 600,
-          }}
-        >
-          Account & Security
-        </Typography>
-        <MenuItem onClick={handleClose} component={Link} href="/settings/profile">
+        <MenuItem onClick={handleClose} component={Link} href="/settings">
           <ListItemIcon>
-            <AccountBox fontSize="small" color="primary" />
+            <Settings fontSize="small" color="primary" />
           </ListItemIcon>
           <ListItemText
-            primary="Profile Settings"
-            secondary="Update your personal information"
-          />
-        </MenuItem>
-        <MenuItem onClick={handleClose} component={Link} href="/settings/security">
-          <ListItemIcon>
-            <VpnKey fontSize="small" color="primary" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Security"
-            secondary="Password and authentication settings"
-          />
-        </MenuItem>
-        <MenuItem onClick={handleClose} component={Link} href="/settings/email">
-          <ListItemIcon>
-            <Email fontSize="small" color="primary" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Email Preferences"
-            secondary="Manage email notifications"
+            primary="Settings"
+            secondary="Manage your account settings and preferences"
           />
         </MenuItem>
 
-        <Typography
-          variant="overline"
-          sx={{
-            px: 2,
-            py: 1,
-            display: 'block',
-            color: 'text.secondary',
-            fontWeight: 600,
-            mt: 1,
-          }}
-        >
-          Activity & Progress
-        </Typography>
         <MenuItem onClick={handleClose} component={Link} href="/track">
           <ListItemIcon>
             <History fontSize="small" color="primary" />
@@ -508,67 +458,6 @@ export default function AppNavbar() {
             secondary="View your latest actions and progress"
           />
         </MenuItem>
-        <MenuItem onClick={handleClose} component={Link} href="/track/schedule">
-          <ListItemIcon>
-            <Schedule fontSize="small" color="primary" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Upcoming Tasks"
-            secondary="View scheduled activities and deadlines"
-          />
-        </MenuItem>
-        <MenuItem onClick={handleClose} component={Link} href="/track/earnings">
-          <ListItemIcon>
-            <Payments fontSize="small" color="primary" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Earnings Overview"
-            secondary="Track your rewards and bonuses"
-          />
-        </MenuItem>
-
-        <Typography
-          variant="overline"
-          sx={{
-            px: 2,
-            py: 1,
-            display: 'block',
-            color: 'text.secondary',
-            fontWeight: 600,
-            mt: 1,
-          }}
-        >
-          Preferences
-        </Typography>
-        <MenuItem onClick={handleClose} component={Link} href="/settings/notifications">
-          <ListItemIcon>
-            <NotificationsOff fontSize="small" color="primary" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Notification Settings"
-            secondary="Customize your alert preferences"
-          />
-        </MenuItem>
-        <MenuItem onClick={handleClose} component={Link} href="/settings/appearance">
-          <ListItemIcon>
-            <Palette fontSize="small" color="primary" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Appearance"
-            secondary="Customize your visual experience"
-          />
-        </MenuItem>
-        <MenuItem onClick={handleClose} component={Link} href="/settings/language">
-          <ListItemIcon>
-            <Language fontSize="small" color="primary" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Language & Region"
-            secondary="Set your local preferences"
-          />
-        </MenuItem>
-
-        <Divider sx={{ my: 1 }} />
 
         <MenuItem onClick={handleClose} component={Link} href="/help">
           <ListItemIcon>
@@ -579,6 +468,7 @@ export default function AppNavbar() {
             secondary="Get assistance and documentation"
           />
         </MenuItem>
+
         <MenuItem onClick={handleLogout} sx={{ color: theme.palette.error.main }}>
           <ListItemIcon>
             <Logout fontSize="small" color="error" />
@@ -1030,18 +920,19 @@ export default function AppNavbar() {
       <AppBar
         position="fixed"
         color="default"
-        elevation={1}
+        elevation={0}
         sx={{
-          backdropFilter: 'blur(8px)',
-          backgroundColor: alpha(theme.palette.background.default, 0.9),
+          backdropFilter: 'blur(20px)',
+          backgroundColor: alpha(theme.palette.background.default, 0.8),
           borderBottom: isUserSuperAdmin
             ? `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
             : isAdmin
               ? `1px solid ${alpha(theme.palette.error.main, 0.2)}`
-              : undefined,
+              : `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          boxShadow: `0 1px 3px ${alpha(theme.palette.common.black, 0.02)}`,
         }}
       >
-        <Toolbar>
+        <Toolbar sx={{ minHeight: { xs: 64, md: 72 } }}>
           <IconButton
             edge="start"
             color="inherit"
@@ -1049,16 +940,17 @@ export default function AppNavbar() {
             onClick={handleDrawerToggle}
             sx={{
               mr: 2,
-              transition: 'transform 0.2s',
+              transition: 'all 0.2s ease',
               '&:hover': {
                 transform: 'scale(1.1)',
+                backgroundColor: alpha(theme.palette.primary.main, 0.08),
               },
             }}
           >
             <MenuIcon />
           </IconButton>
           <Typography
-            variant="h6"
+            variant="h5"
             component={Link}
             href="/"
             sx={{
@@ -1066,12 +958,19 @@ export default function AppNavbar() {
               textDecoration: 'none',
               color: 'inherit',
               mr: 4,
-              fontWeight: 700,
+              fontWeight: 800,
               letterSpacing: '-0.5px',
+              background: isUserSuperAdmin
+                ? `-webkit-linear-gradient(45deg, ${theme.palette.warning.main}, ${theme.palette.warning.light})`
+                : isAdmin
+                  ? `-webkit-linear-gradient(45deg, ${theme.palette.error.main}, ${theme.palette.error.light})`
+                  : `-webkit-linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              transition: 'opacity 0.2s',
               '&:hover': {
-                color: theme.palette.primary.main,
+                opacity: 0.85,
               },
-              transition: 'color 0.2s',
             }}
           >
             Churnistic
@@ -1082,13 +981,17 @@ export default function AppNavbar() {
             <Button
               onClick={handleOffersMenu}
               sx={{
-                color: 'inherit',
+                color: 'text.primary',
                 borderRadius: 2,
                 px: 2,
+                py: 1,
+                fontSize: '0.95rem',
+                fontWeight: 500,
                 '&:hover': {
                   bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  transform: 'translateY(-1px)',
                 },
-                transition: 'all 0.2s',
+                transition: 'all 0.2s ease',
               }}
               endIcon={<ArrowDropDown />}
             >
@@ -1102,13 +1005,17 @@ export default function AppNavbar() {
                   component={Link}
                   href="/dashboard"
                   sx={{
-                    color: 'inherit',
+                    color: 'text.primary',
                     borderRadius: 2,
                     px: 2,
+                    py: 1,
+                    fontSize: '0.95rem',
+                    fontWeight: 500,
                     '&:hover': {
                       bgcolor: alpha(theme.palette.primary.main, 0.08),
+                      transform: 'translateY(-1px)',
                     },
-                    transition: 'all 0.2s',
+                    transition: 'all 0.2s ease',
                   }}
                 >
                   Dashboard
@@ -1117,13 +1024,17 @@ export default function AppNavbar() {
                   component={Link}
                   href="/track"
                   sx={{
-                    color: 'inherit',
+                    color: 'text.primary',
                     borderRadius: 2,
                     px: 2,
+                    py: 1,
+                    fontSize: '0.95rem',
+                    fontWeight: 500,
                     '&:hover': {
                       bgcolor: alpha(theme.palette.primary.main, 0.08),
+                      transform: 'translateY(-1px)',
                     },
-                    transition: 'all 0.2s',
+                    transition: 'all 0.2s ease',
                   }}
                 >
                   Track Progress
@@ -1133,11 +1044,12 @@ export default function AppNavbar() {
           </Box>
 
           {user ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Tooltip
                 title="Notifications"
                 TransitionComponent={Fade}
                 TransitionProps={{ timeout: 200 }}
+                arrow
               >
                 <IconButton
                   size="large"
@@ -1145,9 +1057,10 @@ export default function AppNavbar() {
                   color="inherit"
                   onClick={handleNotificationsMenu}
                   sx={{
-                    transition: 'transform 0.2s',
+                    transition: 'all 0.2s ease',
                     '&:hover': {
-                      transform: 'scale(1.1)',
+                      transform: 'translateY(-1px)',
+                      backgroundColor: alpha(theme.palette.primary.main, 0.08),
                     },
                   }}
                 >
@@ -1158,15 +1071,9 @@ export default function AppNavbar() {
                       '& .MuiBadge-badge': {
                         animation: 'pulse 2s infinite',
                         '@keyframes pulse': {
-                          '0%': {
-                            transform: 'scale(1)',
-                          },
-                          '50%': {
-                            transform: 'scale(1.2)',
-                          },
-                          '100%': {
-                            transform: 'scale(1)',
-                          },
+                          '0%': { transform: 'scale(.9)', opacity: 0.9 },
+                          '50%': { transform: 'scale(1.1)', opacity: 1 },
+                          '100%': { transform: 'scale(.9)', opacity: 0.9 },
                         },
                       },
                     }}
@@ -1179,6 +1086,7 @@ export default function AppNavbar() {
                 title={`Signed in as ${user.email}`}
                 TransitionComponent={Fade}
                 TransitionProps={{ timeout: 200 }}
+                arrow
               >
                 <IconButton
                   size="large"
@@ -1188,9 +1096,11 @@ export default function AppNavbar() {
                   onClick={handleMenu}
                   color="inherit"
                   sx={{
-                    transition: 'transform 0.2s',
+                    transition: 'all 0.2s ease',
+                    p: 0.5,
                     '&:hover': {
-                      transform: 'scale(1.1)',
+                      transform: 'translateY(-1px)',
+                      backgroundColor: alpha(theme.palette.primary.main, 0.08),
                     },
                   }}
                 >
@@ -1198,9 +1108,14 @@ export default function AppNavbar() {
                     alt={user.email || undefined}
                     src={user.photoURL || undefined}
                     sx={{
-                      width: 32,
-                      height: 32,
+                      width: 36,
+                      height: 36,
                       border: `2px solid ${userRoleColor}`,
+                      boxShadow: isUserSuperAdmin
+                        ? `0 0 10px ${alpha(theme.palette.warning.main, 0.3)}`
+                        : isAdmin
+                          ? `0 0 10px ${alpha(theme.palette.error.main, 0.3)}`
+                          : `0 0 10px ${alpha(theme.palette.primary.main, 0.3)}`,
                     }}
                   />
                 </IconButton>
@@ -1261,7 +1176,7 @@ export default function AppNavbar() {
               </Menu>
             </Box>
           ) : (
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 2 }}>
               <Button
                 component={Link}
                 href="/auth/signin"
@@ -1269,10 +1184,16 @@ export default function AppNavbar() {
                 startIcon={<Login />}
                 sx={{
                   borderRadius: 2,
-                  px: 2,
-                  transition: 'all 0.2s',
+                  px: 3,
+                  py: 1,
+                  borderWidth: 1.5,
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  transition: 'all 0.2s ease',
                   '&:hover': {
-                    transform: 'scale(1.05)',
+                    transform: 'translateY(-1px)',
+                    borderWidth: 1.5,
+                    boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.2)}`,
                   },
                 }}
               >
@@ -1285,10 +1206,15 @@ export default function AppNavbar() {
                 startIcon={<PersonAdd />}
                 sx={{
                   borderRadius: 2,
-                  px: 2,
-                  transition: 'all 0.2s',
+                  px: 3,
+                  py: 1,
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  transition: 'all 0.2s ease',
+                  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
                   '&:hover': {
-                    transform: 'scale(1.05)',
+                    transform: 'translateY(-1px)',
+                    boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.3)}`,
                   },
                 }}
               >
@@ -1306,12 +1232,17 @@ export default function AppNavbar() {
         ModalProps={{
           keepMounted: true,
         }}
-        sx={{
-          '& .MuiDrawer-paper': {
+        PaperProps={{
+          elevation: 0,
+          sx: {
             width: 280,
             boxSizing: 'border-box',
-            top: '64px',
-            height: 'calc(100% - 64px)',
+            top: { xs: '64px', md: '72px' },
+            height: { xs: 'calc(100% - 64px)', md: 'calc(100% - 72px)' },
+            borderRight: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            boxShadow: `1px 0 3px ${alpha(theme.palette.common.black, 0.02)}`,
+            backdropFilter: 'blur(20px)',
+            backgroundColor: alpha(theme.palette.background.default, 0.8),
           },
         }}
       >
