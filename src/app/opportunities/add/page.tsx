@@ -34,6 +34,7 @@ import { useState } from 'react';
 import { FormField } from '@/components/forms/FormField';
 import { useOpportunityForm } from '@/lib/hooks/useOpportunityForm';
 import { Opportunity, USState } from '@/types/opportunity';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 import { getRandomOffer } from './mockData';
 
@@ -100,6 +101,7 @@ export default function AddOpportunityPage() {
   const [debugOpen, setDebugOpen] = useState(false);
   const { formData, errors, isSubmitting, submitError, handleChange, handleSubmit } =
     useOpportunityForm();
+  const { isSuperAdmin } = useAuth();
 
   const handleNext = () => {
     if (validateStep(activeStep)) {
@@ -1309,7 +1311,7 @@ export default function AddOpportunityPage() {
         </form>
       </Paper>
 
-      {process.env.NODE_ENV === 'development' && (
+      {(process.env.NODE_ENV === 'development' || isSuperAdmin()) && (
         <>
           <Tooltip title="Debug Tools" placement="left">
             <Fab
