@@ -208,20 +208,31 @@ const offersMenuItems: MenuItemType[] = [
 
 const analyticsMenuItems: MenuItemType[] = [
   {
-    text: 'Analytics',
+    text: 'Analytics Dashboard',
     icon: <Analytics />,
-    path: '/analytics',
+    path: '/admin/analytics',
     roles: [UserRole.ADMIN],
     requiresAuth: true,
     hideWhenAuth: false,
+    description: 'View comprehensive analytics and insights',
   },
   {
     text: 'Reports',
     icon: <Assessment />,
-    path: '/reports',
+    path: '/admin/reports',
     roles: [UserRole.ADMIN],
     requiresAuth: true,
     hideWhenAuth: false,
+    description: 'Generate and view detailed reports',
+  },
+  {
+    text: 'System Logs',
+    icon: <History />,
+    path: '/admin/logs',
+    roles: [UserRole.ADMIN],
+    requiresAuth: true,
+    hideWhenAuth: false,
+    description: 'View system logs and activity',
   },
 ];
 
@@ -244,6 +255,24 @@ const managementMenuItems: MenuItemType[] = [
     hideWhenAuth: false,
     description: 'Review and validate scraped rewards and offers',
     badge: 5,
+  },
+  {
+    text: 'System Settings',
+    icon: <Settings />,
+    path: '/admin/settings',
+    roles: [UserRole.ADMIN],
+    requiresAuth: true,
+    hideWhenAuth: false,
+    description: 'Configure system-wide settings and features',
+  },
+  {
+    text: 'API Management',
+    icon: <VpnKey />,
+    path: '/admin/api',
+    roles: [UserRole.ADMIN],
+    requiresAuth: true,
+    hideWhenAuth: false,
+    description: 'Manage API keys and access',
   },
 ];
 
@@ -644,7 +673,7 @@ export default function AppNavbar() {
     }
 
     // Check if the user has the required role to see this item
-    if (item.roles && !item.roles.some((role) => hasRole(role))) {
+    if (item.roles && !item.roles.some((role) => hasRole(role)) && !isUserSuperAdmin) {
       return null;
     }
 
@@ -669,9 +698,17 @@ export default function AppNavbar() {
             borderRadius: 1,
             mx: 1,
             '&.Mui-selected': {
-              backgroundColor: theme.palette.primary.main + '20',
+              backgroundColor: isUserSuperAdmin 
+                ? theme.palette.warning.main + '20'
+                : isAdmin
+                  ? theme.palette.error.main + '20'
+                  : theme.palette.primary.main + '20',
               '&:hover': {
-                backgroundColor: theme.palette.primary.main + '30',
+                backgroundColor: isUserSuperAdmin 
+                  ? theme.palette.warning.main + '30'
+                  : isAdmin
+                    ? theme.palette.error.main + '30'
+                    : theme.palette.primary.main + '30',
               },
             },
           }}
@@ -685,7 +722,18 @@ export default function AppNavbar() {
               item.icon
             )}
           </ListItemIcon>
-          <ListItemText primary={item.text} />
+          <ListItemText 
+            primary={item.text} 
+            secondary={item.description}
+            primaryTypographyProps={{
+              variant: 'body2',
+              fontWeight: 500,
+            }}
+            secondaryTypographyProps={{
+              variant: 'caption',
+              sx: { display: 'block', mt: 0.5 },
+            }}
+          />
         </ListItemButton>
       </ListItem>
     );
@@ -913,19 +961,39 @@ export default function AppNavbar() {
           return renderMenuItem(item, index);
         })}
 
-        {isAdmin && (
+        {(isAdmin || isUserSuperAdmin) && (
           <>
             <Divider sx={{ my: 2 }} />
             <Box sx={{ mb: 2, px: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary">
-                ANALYTICS
+              <Typography 
+                variant="subtitle2" 
+                color={isUserSuperAdmin ? "warning.main" : "error.main"}
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  fontWeight: 600,
+                }}
+              >
+                <AdminPanelSettings fontSize="small" />
+                ADMIN CONTROLS
               </Typography>
             </Box>
             {analyticsMenuItems.map((item, index) => renderMenuItem(item, index))}
 
             <Divider sx={{ my: 2 }} />
             <Box sx={{ mb: 2, px: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary">
+              <Typography 
+                variant="subtitle2" 
+                color={isUserSuperAdmin ? "warning.main" : "error.main"}
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  fontWeight: 600,
+                }}
+              >
+                <Settings fontSize="small" />
                 MANAGEMENT
               </Typography>
             </Box>
@@ -953,6 +1021,11 @@ export default function AppNavbar() {
         sx={{
           backdropFilter: 'blur(8px)',
           backgroundColor: alpha(theme.palette.background.default, 0.9),
+          borderBottom: isUserSuperAdmin 
+            ? `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
+            : isAdmin
+              ? `1px solid ${alpha(theme.palette.error.main, 0.2)}`
+              : undefined,
         }}
       >
         <Toolbar>
