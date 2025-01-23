@@ -1,86 +1,88 @@
-import { collection, getDocs, query, where, limit, addDoc } from 'firebase/firestore';
-import { NextRequest, NextResponse } from 'next/server';
+import { QueryDocumentSnapshot } from 'firebase-admin/firestore';
+import { type NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
-import { getFirestore } from '@/lib/firebase/firestore';
+import { getAdminDb } from '@/lib/firebase/admin';
 import { FormData, FirestoreOpportunity } from '@/types/opportunity';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+const isPreviewEnvironment = process.env.VERCEL_ENV === 'preview';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     console.log('GET /api/opportunities - Starting request');
+    console.log('Environment:', {
+      useEmulator,
+      isPreviewEnvironment,
+      vercelEnv: process.env.VERCEL_ENV,
+    });
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
     const limitNum = Number(searchParams.get('limit')) || 10;
 
     console.log('Query params:', { type, limitNum });
 
-    const db = getFirestore();
-    console.log('Got Firestore instance');
+    const db = getAdminDb();
+    const opportunitiesRef = db.collection('opportunities');
+
+    // Skip auth check in emulator or preview environment
+    if (!useEmulator && !isPreviewEnvironment) {
+      const { session } = await createAuthContext(request);
+      if (!session?.email) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
 
     console.log('Building Firestore query...');
-    const opportunitiesRef = collection(db, 'opportunities');
-    let q = query(opportunitiesRef, limit(limitNum));
+    let queryRef = opportunitiesRef.limit(limitNum);
 
     if (type) {
-      q = query(q, where('type', '==', type));
+      queryRef = queryRef.where('type', '==', type);
     }
 
-    // Add a timeout to the query
-    const queryPromise = getDocs(q);
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Query timeout')), 5000);
+    const snapshot = await queryRef.get();
+    console.log('Query snapshot:', {
+      size: snapshot.size,
+      empty: snapshot.empty,
+      docs: snapshot.docs.length,
     });
 
-    try {
-      const snapshot = await Promise.race([queryPromise, timeoutPromise]);
-      console.log('Query snapshot:', {
-        size: snapshot.size,
-        empty: snapshot.empty,
-        docs: snapshot.docs.length,
-      });
-
-      if (snapshot.empty) {
-        console.log('No opportunities found in Firestore');
-        return NextResponse.json([]);
-      }
-
-      const opportunities = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-        } as FirestoreOpportunity;
-      });
-
-      return NextResponse.json(opportunities);
-    } catch (error) {
-      if (error instanceof Error && error.message === 'Query timeout') {
-        console.error('Firestore query timed out');
-        return NextResponse.json({ error: 'Request timeout' }, { status: 504 });
-      }
-      throw error;
+    if (snapshot.empty) {
+      console.log('No opportunities found');
+      return NextResponse.json([]);
     }
+
+    const opportunities = snapshot.docs.map((doc: QueryDocumentSnapshot) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+      } as FirestoreOpportunity;
+    });
+
+    return NextResponse.json(opportunities);
   } catch (error) {
     console.error('Error fetching opportunities:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error details:', errorMessage);
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: error instanceof Error && error.message === 'Query timeout' ? 504 : 500 }
-    );
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
     console.log('POST /api/opportunities - Starting request');
+    console.log('Environment:', {
+      useEmulator,
+      isPreviewEnvironment,
+      vercelEnv: process.env.VERCEL_ENV,
+    });
 
-    let userEmail = 'test@example.com';
+    let userEmail = 'preview@example.com';
 
-    // Skip auth check in emulator mode
-    if (!useEmulator) {
+    // Skip auth check in emulator or preview environment
+    if (!useEmulator && !isPreviewEnvironment) {
       const { session } = await createAuthContext(req);
       if (!session?.email) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -88,7 +90,7 @@ export async function POST(req: NextRequest) {
       userEmail = session.email;
     }
 
-    // Check if request has body
+    // Parse and validate request body
     if (!req.body) {
       return NextResponse.json({ error: 'Request body is required' }, { status: 400 });
     }
@@ -105,13 +107,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!body || typeof body !== 'object' || Array.isArray(body)) {
-      return NextResponse.json(
-        { error: 'Request body must be a valid JSON object' },
-        { status: 400 }
-      );
-    }
-
     const data = body as FormData;
 
     // Validate required fields
@@ -122,7 +117,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert the value to a number for storage
     const opportunity = {
       name: data.name.trim(),
       type: data.type,
@@ -175,16 +169,13 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
         created_by: userEmail,
         status: 'active',
+        environment: isPreviewEnvironment ? 'preview' : 'production',
       },
     };
 
-    console.log('Prepared opportunity data:', opportunity);
+    const db = getAdminDb();
+    const docRef = await db.collection('opportunities').add(opportunity);
 
-    const db = getFirestore();
-    console.log('Got Firestore instance');
-
-    const opportunitiesRef = collection(db, 'opportunities');
-    const docRef = await addDoc(opportunitiesRef, opportunity);
     console.log('Opportunity created with ID:', docRef.id);
 
     return NextResponse.json({
