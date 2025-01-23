@@ -64,7 +64,9 @@ async function handleUserProfile(user: User): Promise<void> {
 export const isSuperAdmin = (user: AuthUser | null): boolean => {
   if (!user || !user.email) return false;
   const superAdminEmail = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL;
-  return superAdminEmail ? user.email.toLowerCase() === superAdminEmail.toLowerCase() : false;
+  return superAdminEmail
+    ? user.email.toLowerCase() === superAdminEmail.toLowerCase()
+    : false;
 };
 
 // Get the currently logged-in user
