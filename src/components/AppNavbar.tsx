@@ -646,14 +646,14 @@ export default function AppNavbar() {
                 </Typography>
               }
               secondary={
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                <span>
+                  <span className="MuiTypography-root MuiTypography-body2" style={{ color: 'text.secondary', display: 'block', marginBottom: '0.5rem' }}>
                     {notification.description}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  </span>
+                  <span className="MuiTypography-root MuiTypography-caption" style={{ color: 'text.secondary', display: 'block' }}>
                     {notification.time}
-                  </Typography>
-                </Box>
+                  </span>
+                </span>
               }
             />
           </ListItem>
