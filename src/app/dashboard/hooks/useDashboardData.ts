@@ -74,16 +74,17 @@ export const useDashboardData = () => {
   // Transform opportunities data
   const transformedOpportunities = opportunities.map((opp) => ({
     id: opp.id || crypto.randomUUID(),
-    value: typeof opp.value === 'number' 
-      ? opp.value 
-      : typeof opp.value === 'string' 
-        ? parseInt(opp.value) || 0 
-        : 0,
+    value:
+      typeof opp.value === 'number'
+        ? opp.value
+        : typeof opp.value === 'string'
+          ? parseInt(opp.value) || 0
+          : 0,
     title: opp.name || opp.title || 'Untitled Opportunity',
     type: (opp.type === 'bank' ? 'bank_account' : opp.type) || 'bank_account',
     bank: opp.bank || 'Unknown Bank',
     description: opp.bonus?.description || '',
-    requirements: [(opp.bonus?.requirements?.description || 'No requirements specified')],
+    requirements: [opp.bonus?.requirements?.description || 'No requirements specified'],
     status: opp.metadata?.status || 'active',
     source: opp.metadata?.created_by || 'Unknown',
     sourceLink: opp.offer_link || '',
@@ -127,9 +128,7 @@ export const useDashboardData = () => {
     ),
     potentialValue: formatCurrency(totalPotentialValue),
     activeOpportunities: activeOpportunities.length.toString(),
-    averageValue: formatCurrency(
-      totalPotentialValue / numActiveOpportunities
-    ),
+    averageValue: formatCurrency(totalPotentialValue / numActiveOpportunities),
     trends: {
       trackedValue: {
         value: trackedOpportunities.length,
@@ -140,9 +139,10 @@ export const useDashboardData = () => {
         label: 'avg per opportunity',
       },
       activeOpportunities: {
-        value: opportunities.length > 0 
-          ? Math.round((activeOpportunities.length / opportunities.length) * 100)
-          : 0,
+        value:
+          opportunities.length > 0
+            ? Math.round((activeOpportunities.length / opportunities.length) * 100)
+            : 0,
         label: 'of total opportunities',
       },
       averageValue: {
