@@ -48,6 +48,7 @@
     "@trpc/next": "^10.45.2",
     "@trpc/react-query": "^10.45.2",
     "acorn": "^8.14.0",
+    "caniuse-lite": "^1.0.30001695",
     "cheerio": "^1.0.0",
     "critters": "^0.0.20",
     "date-fns": "3.6.0",
