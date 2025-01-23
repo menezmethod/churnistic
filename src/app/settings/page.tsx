@@ -9,6 +9,7 @@ import {
   Tab,
   Tabs,
   TextField,
+  Typography,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -68,6 +69,47 @@ function TabPanel(props: TabPanelProps): JSX.Element {
   );
 }
 
+const StyledContainer = styled(Container)(({ theme }) => ({
+  maxWidth: '1536px', // xl container width
+  padding: theme.spacing(3),
+  [theme.breakpoints.up('sm')]: {
+    padding: theme.spacing(4),
+  },
+}));
+
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  backgroundColor: theme.palette.mode === 'light' ? '#FFFFFF' : gray[900],
+  borderRadius: '20px',
+  border: '1px solid',
+  borderColor: theme.palette.mode === 'light' ? gray[200] : gray[700],
+  overflow: 'hidden',
+  transition: 'all 0.2s ease-in-out',
+  boxShadow:
+    theme.palette.mode === 'light'
+      ? '0px 12px 32px -4px rgba(16, 24, 40, 0.1), 0px 6px 16px -6px rgba(16, 24, 40, 0.08)'
+      : '0px 8px 24px -4px rgba(0, 0, 0, 0.4), 0px 4px 8px -2px rgba(0, 0, 0, 0.25)',
+  '&:hover': {
+    boxShadow:
+      theme.palette.mode === 'light'
+        ? '0px 16px 40px -4px rgba(16, 24, 40, 0.12), 0px 8px 24px -6px rgba(16, 24, 40, 0.1)'
+        : '0px 12px 32px -4px rgba(0, 0, 0, 0.5), 0px 6px 12px -4px rgba(0, 0, 0, 0.3)',
+  },
+}));
+
+const StyledTabs = styled(Tabs)(({ theme }) => ({
+  borderBottom: `1px solid ${theme.palette.mode === 'light' ? gray[200] : gray[700]}`,
+  '& .MuiTabs-indicator': {
+    backgroundColor: '#0B5CFF',
+    height: 3,
+    borderRadius: '3px',
+    transition: 'all 0.2s ease-in-out',
+  },
+  '& .MuiTabs-flexContainer': {
+    gap: '12px',
+    padding: '0 24px',
+  },
+}));
+
 const StyledTab = styled(Tab)(({ theme }) => ({
   textTransform: 'none',
   fontSize: '0.875rem',
@@ -77,49 +119,46 @@ const StyledTab = styled(Tab)(({ theme }) => ({
     color: theme.palette.mode === 'light' ? gray[800] : '#FFFFFF',
     fontWeight: 600,
   },
-  minHeight: 48,
-}));
-
-const StyledTabs = styled(Tabs)(({ theme }) => ({
-  borderBottom: `1px solid ${theme.palette.mode === 'light' ? gray[200] : gray[700]}`,
-  '& .MuiTabs-indicator': {
-    backgroundColor: '#0B5CFF',
-    height: 2,
+  minHeight: 56,
+  padding: '16px 28px',
+  borderRadius: '12px',
+  transition: 'all 0.2s ease-in-out',
+  '&:hover': {
+    backgroundColor: theme.palette.mode === 'light' ? gray[50] : gray[800],
+    color: theme.palette.mode === 'light' ? gray[800] : '#FFFFFF',
   },
 }));
 
 const StyledTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
     backgroundColor: theme.palette.mode === 'light' ? '#FFFFFF' : gray[900],
+    borderRadius: '8px',
+    transition: 'all 0.2s ease-in-out',
     '& fieldset': {
       borderColor: theme.palette.mode === 'light' ? gray[200] : gray[700],
+      transition: 'all 0.2s ease-in-out',
     },
     '&:hover fieldset': {
       borderColor: '#0B5CFF',
     },
     '&.Mui-focused fieldset': {
       borderColor: '#0B5CFF',
+      borderWidth: '1px',
     },
   },
   '& .MuiInputBase-input': {
     fontSize: '0.875rem',
     lineHeight: 1.5,
+    padding: '12px 16px',
     color: theme.palette.mode === 'light' ? gray[800] : '#FFFFFF',
   },
-}));
-
-const StyledPaper = styled(Paper)(({ theme }) => ({
-  backgroundColor: theme.palette.mode === 'light' ? '#FFFFFF' : gray[900],
-  borderRadius: '12px',
-  border: '1px solid',
-  borderColor: theme.palette.mode === 'light' ? gray[200] : gray[700],
-  overflow: 'hidden',
-}));
-
-const StyledContainer = styled(Container)(({ theme }) => ({
-  maxWidth: '1128px',
-  padding: '32px',
-  backgroundColor: theme.palette.mode === 'light' ? '#FFFFFF' : gray[900],
+  '& .MuiInputLabel-root': {
+    fontSize: '0.875rem',
+    color: theme.palette.mode === 'light' ? gray[600] : gray[400],
+    '&.Mui-focused': {
+      color: '#0B5CFF',
+    },
+  },
 }));
 
 const SettingsPage = (): JSX.Element => {
@@ -300,23 +339,58 @@ const SettingsPage = (): JSX.Element => {
     <Box
       sx={{
         minHeight: '100vh',
-        bgcolor: (theme) => (theme.palette.mode === 'light' ? '#FFFFFF' : gray[900]),
+        bgcolor: (theme) => (theme.palette.mode === 'light' ? gray[100] : gray[900]),
+        py: 4,
       }}
     >
-      <StyledContainer maxWidth={false}>
+      <StyledContainer maxWidth="xl">
+        <Box mb={5}>
+          <Typography
+            variant="h1"
+            sx={{
+              fontSize: { xs: '1.75rem', sm: '2rem' },
+              fontWeight: 600,
+              color: (theme) => (theme.palette.mode === 'light' ? gray[800] : '#FFFFFF'),
+              mb: 1.5,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Settings
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              fontSize: '1.125rem',
+              color: (theme) => (theme.palette.mode === 'light' ? gray[600] : gray[400]),
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Manage your account settings and preferences
+          </Typography>
+        </Box>
+
         <StyledPaper elevation={0}>
           <StyledTabs
             value={activeTab}
             onChange={handleTabChange}
-            aria-label="profile tabs"
+            aria-label="settings tabs"
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
-              minHeight: '44px',
+              minHeight: '56px',
               '& .MuiTabs-flexContainer': {
-                minHeight: '44px',
+                minHeight: '56px',
               },
               '& .MuiTab-root': {
-                minHeight: '44px',
+                minHeight: '56px',
                 py: 0,
+              },
+              '& .MuiTabs-scrollButtons': {
+                width: 48,
+                '&.Mui-disabled': {
+                  opacity: 0.3,
+                },
               },
             }}
           >
@@ -367,22 +441,27 @@ const SettingsPage = (): JSX.Element => {
             )}
           </TabPanel>
         </StyledPaper>
-      </StyledContainer>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        message={snackbar.message}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        sx={{
-          '& .MuiSnackbarContent-root': {
-            bgcolor: snackbar.severity === 'success' ? '#027A48' : '#B42318',
-            color: '#FFFFFF',
-            fontSize: '0.875rem',
-          },
-        }}
-      />
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          message={snackbar.message}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          sx={{
+            '& .MuiSnackbarContent-root': {
+              bgcolor: snackbar.severity === 'success' ? '#027A48' : '#B42318',
+              color: '#FFFFFF',
+              fontSize: '0.875rem',
+              borderRadius: '12px',
+              py: 1.5,
+              px: 2.5,
+              boxShadow:
+                '0px 8px 24px -4px rgba(16, 24, 40, 0.12), 0px 16px 32px -4px rgba(16, 24, 40, 0.16)',
+            },
+          }}
+        />
+      </StyledContainer>
     </Box>
   );
 };
