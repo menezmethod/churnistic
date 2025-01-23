@@ -195,6 +195,7 @@ export interface AuthContextType {
   loading: boolean;
   hasRole: (role: UserRole) => boolean;
   hasPermission: (permission: Permission) => boolean;
+  isSuperAdmin: () => boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
