@@ -126,7 +126,7 @@ const OpportunityList = ({
             transition={{ duration: 0.3, delay: index * 0.1 }}
             elevation={1}
             sx={{
-              mb: isLast ? 0 : 2,
+              mb: isLast ? 0 : { xs: 2, md: 3 },
               borderRadius: 3,
               overflow: 'hidden',
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -147,7 +147,7 @@ const OpportunityList = ({
             <ListItem
               disableGutters
               sx={{
-                p: 3,
+                p: { xs: 2, sm: 3 },
                 display: 'flex',
                 flexDirection: { xs: 'column', sm: 'row' },
                 alignItems: { xs: 'flex-start', sm: 'center' },
@@ -159,8 +159,8 @@ const OpportunityList = ({
                 <ListItemAvatar>
                   <Avatar
                     sx={{
-                      width: 56,
-                      height: 56,
+                      width: { xs: 48, sm: 56 },
+                      height: { xs: 48, sm: 56 },
                       bgcolor: alpha(colors.primary, 0.15),
                       color: colors.primary,
                       boxShadow: `0 0 0 1px ${alpha(colors.primary, 0.1)}`,
