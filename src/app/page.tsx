@@ -220,7 +220,7 @@ function StatsSection({ stats }: { stats: Array<{ label: string; value: string }
   });
 
   return (
-    <Container maxWidth="lg" sx={{ py: 8 }} ref={ref}>
+    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }} ref={ref}>
       <Grid container spacing={3}>
         {stats.map((stat, index) => (
           <Grid item xs={12} md={4} key={stat.label}>
@@ -415,14 +415,14 @@ export default function HomePage() {
     <Box component="main">
       <HeroSection user={user} />
       <StatsSection stats={realStats} />
-      <Container maxWidth="lg">
+      <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
         {/* Featured Offers */}
         <Box
           component={motion.div}
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
-          sx={{ mb: 8 }}
+          sx={{ mb: { xs: 4, md: 6 } }}
         >
           <Typography
             variant="h4"

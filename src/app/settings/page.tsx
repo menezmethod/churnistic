@@ -75,6 +75,9 @@ const StyledContainer = styled(Container)(({ theme }) => ({
   [theme.breakpoints.up('sm')]: {
     padding: theme.spacing(4),
   },
+  [theme.breakpoints.up('md')]: {
+    padding: theme.spacing(6),
+  },
 }));
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
@@ -340,11 +343,10 @@ const SettingsPage = (): JSX.Element => {
       sx={{
         minHeight: '100vh',
         bgcolor: (theme) => (theme.palette.mode === 'light' ? gray[100] : gray[900]),
-        py: 4,
       }}
     >
       <StyledContainer maxWidth="xl">
-        <Box mb={5}>
+        <Box mb={{ xs: 4, md: 6 }}>
           <Typography
             variant="h1"
             sx={{

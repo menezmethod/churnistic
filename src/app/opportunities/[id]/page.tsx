@@ -135,7 +135,7 @@ export default function OpportunityDetailsPage() {
 
   if (isLoading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 8 }}>
+      <Container maxWidth="xl" sx={{ py: 8 }}>
         <LoadingState />
       </Container>
     );
@@ -143,7 +143,7 @@ export default function OpportunityDetailsPage() {
 
   if (error || !opportunity) {
     return (
-      <Container maxWidth="lg" sx={{ py: 8 }}>
+      <Container maxWidth="xl" sx={{ py: 8 }}>
         <ErrorState
           error={error instanceof Error ? error : new Error('Opportunity not found')}
         />
@@ -153,7 +153,7 @@ export default function OpportunityDetailsPage() {
 
   return (
     <Container
-      maxWidth="lg"
+      maxWidth="xl"
       sx={{
         py: 4,
         animation: 'fadeIn 0.5s ease-out',

@@ -301,7 +301,7 @@ export default function OpportunitiesSection({
 
   return (
     <Container
-      maxWidth="lg"
+      maxWidth="xl"
       sx={{
         py: { xs: 2, md: 4 },
       }}
