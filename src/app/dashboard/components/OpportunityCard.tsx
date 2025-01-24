@@ -4,6 +4,9 @@ import {
   Timer as TimerIcon,
   Star as StarIcon,
   ArrowForward as ArrowForwardIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  AttachMoney as AttachMoneyIcon,
 } from '@mui/icons-material';
 import { Box, Paper, Typography, Chip, IconButton, Fade } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
@@ -26,9 +29,28 @@ const formatCurrency = (value: string | number) => {
   return isNaN(numericValue) ? '$0' : `$${numericValue.toLocaleString()}`;
 };
 
+const isExpired = (date?: string) => {
+  if (!date) return false;
+  return new Date(date) < new Date();
+};
+
+const isExpiringSoon = (date?: string) => {
+  if (!date) return false;
+  const daysUntilExpiration = Math.ceil(
+    (new Date(date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+  );
+  return daysUntilExpiration <= 7 && daysUntilExpiration > 0;
+};
+
 export function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const theme = useTheme();
   const colors = getTypeColors(opportunity.type, theme);
+  const expired = isExpired(opportunity.expirationDate);
+  const expiringSoon = isExpiringSoon(opportunity.expirationDate);
+
+  if (expired) {
+    return null; // Don't show expired opportunities in the dashboard
+  }
 
   return (
     <Fade in={true}>
@@ -67,7 +89,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'linear-gradient(135deg, primary.main, primary.light)',
+            background: `linear-gradient(135deg, ${colors.primary}, ${colors.light})`,
             opacity: 0.08,
             transition: 'opacity 0.3s',
           },
@@ -76,7 +98,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
         <Box
           sx={{
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             gap: 2,
           }}
         >
@@ -142,28 +164,72 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
                 </Box>
               )}
             </Box>
-            <Box display="flex" alignItems="center" gap={1}>
-              <Chip
-                label={opportunity.bank}
-                size="small"
-                sx={{
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  fontWeight: 500,
-                }}
-              />
-              {opportunity.expirationDate && (
+            <Box display="flex" alignItems="center" gap={1} mb={1}>
+              {opportunity.bank && opportunity.bank !== 'Unknown Bank' && (
+                <Chip
+                  label={opportunity.bank}
+                  size="small"
+                  sx={{
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    fontWeight: 500,
+                  }}
+                />
+              )}
+              {expiringSoon && (
                 <Chip
                   icon={<TimerIcon sx={{ fontSize: '1rem !important' }} />}
-                  label={`Expires: ${new Date(opportunity.expirationDate).toLocaleDateString()}`}
+                  label={`Expires ${new Date(opportunity.expirationDate!).toLocaleDateString()}`}
                   size="small"
                   color="warning"
                   variant="outlined"
                 />
               )}
+              {opportunity.metadata?.riskLevel && opportunity.metadata.riskLevel > 7 && (
+                <Chip
+                  icon={<WarningIcon sx={{ fontSize: '1rem !important' }} />}
+                  label="High Risk"
+                  size="small"
+                  color="error"
+                  variant="outlined"
+                />
+              )}
             </Box>
+            {opportunity.requirements && opportunity.requirements.length > 0 && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  mb: 1,
+                }}
+              >
+                <Box
+                  component="span"
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                >
+                  <CheckCircleIcon sx={{ fontSize: '1rem', color: 'success.main' }} />
+                  {opportunity.requirements[0]}
+                </Box>
+              </Typography>
+            )}
           </Box>
           <Box textAlign="right">
-            <Typography variant="h6" color="primary" fontWeight="bold" sx={{ mb: 1 }}>
+            <Typography
+              variant="h6"
+              color="primary"
+              fontWeight="bold"
+              sx={{
+                mb: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                justifyContent: 'flex-end',
+              }}
+            >
+              <AttachMoneyIcon sx={{ fontSize: '1.5rem' }} />
               {formatCurrency(opportunity.value)}
             </Typography>
             <IconButton
