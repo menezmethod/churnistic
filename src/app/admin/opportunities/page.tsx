@@ -1,126 +1,308 @@
 'use client';
 
-import { Box, Container, Typography } from '@mui/material';
+import {
+  CheckCircle as ApproveIcon,
+  Cancel as RejectIcon,
+  Search as SearchIcon,
+  TrendingUp as TrendingUpIcon,
+  AccountBalance as BankIcon,
+  CreditCard as CardIcon,
+  PendingActions as PendingIcon,
+  Visibility as PreviewIcon,
+} from '@mui/icons-material';
+import {
+  Box,
+  Card,
+  CardContent,
+  Chip,
+  Container,
+  Grid,
+  IconButton,
+  InputAdornment,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
+  TableSortLabel,
+  TextField,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { useState } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-import { UserRole } from '@/lib/auth/types';
-
-import AdminProtectedRoute from '../components/AdminProtectedRoute';
-import { FilterMenu } from './components/FilterMenu';
-import { OpportunitiesTable } from './components/OpportunitiesTable';
-import { TableActions } from './components/TableActions';
+import { OpportunityPreviewModal } from './components/OpportunityPreviewModal';
 import { useOpportunities } from './hooks/useOpportunities';
+import { Opportunity } from './types/opportunity';
 
-export default function OpportunitiesPage() {
-  const { hasRole } = useAuth();
-  const [tab, setTab] = useState(0);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+const StatsCard = ({
+  title,
+  value,
+  icon,
+  color,
+}: {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  color: string;
+}) => (
+  <Card sx={{ height: '100%' }}>
+    <CardContent>
+      <Stack direction="row" alignItems="center" spacing={2}>
+        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: `${color}20` }}>{icon}</Box>
+        <Box>
+          <Typography variant="h4" fontWeight="bold">
+            {value}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {title}
+          </Typography>
+        </Box>
+      </Stack>
+    </CardContent>
+  </Card>
+);
 
-  const { opportunities, error, approveOpportunity, rejectOpportunity } =
-    useOpportunities();
+const OpportunitiesPage = () => {
+  const theme = useTheme();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(
+    null
+  );
 
-  // Check if user has admin role (which includes both admin and superadmin)
-  const canManageOpportunities = hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPERADMIN);
+  const {
+    opportunities,
+    pagination,
+    updatePagination,
+    hasMore,
+    approveOpportunity,
+    rejectOpportunity,
+    stats,
+  } = useOpportunities();
 
-  const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
+  const handleSort = (field: string) => {
+    updatePagination({
+      sortBy: field,
+      sortDirection:
+        pagination.sortBy === field && pagination.sortDirection === 'asc'
+          ? 'desc'
+          : 'asc',
+    });
   };
 
-  const handleFilterClose = () => {
-    setAnchorEl(null);
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    updatePagination({
+      filters: {
+        ...pagination.filters,
+        search: value || undefined,
+      },
+    });
   };
 
-  const handleFilterSelect = (filter: string) => {
-    setActiveFilter(filter);
+  const handleChangePage = (_: unknown, newPage: number) => {
+    updatePagination({ page: newPage + 1 });
   };
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    updatePagination({
+      pageSize: parseInt(event.target.value, 10),
+    });
   };
 
-  // Filter opportunities based on search query and active filter
-  const filteredOpportunities = opportunities.filter((opp) => {
-    let matchesSearch = true;
-    let matchesFilter = true;
-
-    if (searchQuery) {
-      const searchLower = searchQuery.toLowerCase();
-      matchesSearch =
-        opp.name.toLowerCase().includes(searchLower) ||
-        opp.bank.toLowerCase().includes(searchLower) ||
-        opp.bonus.title.toLowerCase().includes(searchLower);
+  const getStatusChip = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Chip label="Pending" color="warning" size="small" />;
+      case 'approved':
+        return <Chip label="Approved" color="success" size="small" />;
+      case 'rejected':
+        return <Chip label="Rejected" color="error" size="small" />;
+      default:
+        return null;
     }
-
-    if (activeFilter) {
-      switch (activeFilter) {
-        case 'credit_cards':
-          matchesFilter = opp.type === 'credit_card';
-          break;
-        case 'bank_accounts':
-          matchesFilter = opp.type === 'bank';
-          break;
-        case 'high_value':
-          matchesFilter = opp.value >= 500;
-          break;
-        case 'new_sources':
-          matchesFilter =
-            new Date(opp.source.collected_at).getTime() >
-            Date.now() - 24 * 60 * 60 * 1000;
-          break;
-        case 'has_warnings':
-          matchesFilter = opp.ai_insights.validation_warnings.length > 0;
-          break;
-      }
-    }
-
-    return matchesSearch && matchesFilter;
-  });
-
-  if (error) {
-    return (
-      <Container maxWidth="xl" sx={{ paddingTop: 2, paddingBottom: 2 }}>
-        <Typography color="error">{error}</Typography>
-      </Container>
-    );
-  }
+  };
 
   return (
-    <AdminProtectedRoute>
-      <Container maxWidth="xl" sx={{ paddingTop: 2, paddingBottom: 2 }}>
-        <Box sx={{ width: '100%', mb: 3 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Offer Validation
-          </Typography>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Grid container spacing={3}>
+        {/* Stats Cards */}
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Total Opportunities"
+            value={stats.total}
+            icon={<TrendingUpIcon sx={{ color: theme.palette.primary.main }} />}
+            color={theme.palette.primary.main}
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Pending Review"
+            value={stats.pending}
+            icon={<PendingIcon sx={{ color: theme.palette.warning.main }} />}
+            color={theme.palette.warning.main}
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Bank Offers"
+            value={opportunities.filter((opp) => opp.type === 'bank').length}
+            icon={<BankIcon sx={{ color: theme.palette.success.main }} />}
+            color={theme.palette.success.main}
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Credit Card Offers"
+            value={opportunities.filter((opp) => opp.type === 'credit_card').length}
+            icon={<CardIcon sx={{ color: theme.palette.info.main }} />}
+            color={theme.palette.info.main}
+          />
+        </Grid>
 
-          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-            <TableActions
-              tab={tab}
-              pendingCount={
-                opportunities.filter((opp) => opp.status === 'pending').length
-              }
-              onTabChange={setTab}
-              onSearch={handleSearch}
-              onFilterClick={handleFilterClick}
+        {/* Search and Filters */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                fullWidth
+                placeholder="Search opportunities..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Stack>
+          </Paper>
+        </Grid>
+
+        {/* Opportunities Table */}
+        <Grid item xs={12}>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>
+                    <TableSortLabel
+                      active={pagination.sortBy === 'name'}
+                      direction={pagination.sortDirection}
+                      onClick={() => handleSort('name')}
+                    >
+                      Name
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>
+                    <TableSortLabel
+                      active={pagination.sortBy === 'value'}
+                      direction={pagination.sortDirection}
+                      onClick={() => handleSort('value')}
+                    >
+                      Value
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {opportunities.map((opportunity: Opportunity) => (
+                  <TableRow key={opportunity.id} hover>
+                    <TableCell>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        {opportunity.logo && (
+                          <Box
+                            component="img"
+                            src={opportunity.logo.url}
+                            alt={opportunity.name}
+                            sx={{ width: 24, height: 24, objectFit: 'contain' }}
+                          />
+                        )}
+                        <Typography>{opportunity.name}</Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={opportunity.type}
+                        size="small"
+                        color={opportunity.type === 'bank' ? 'success' : 'info'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography color="success.main" fontWeight="bold">
+                        ${opportunity.value}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{getStatusChip(opportunity.status)}</TableCell>
+                    <TableCell align="right">
+                      <IconButton
+                        onClick={() => setSelectedOpportunity(opportunity)}
+                        color="primary"
+                      >
+                        <PreviewIcon />
+                      </IconButton>
+                      <IconButton
+                        color="success"
+                        onClick={() => approveOpportunity(opportunity.id)}
+                        disabled={opportunity.status !== 'pending'}
+                      >
+                        <ApproveIcon />
+                      </IconButton>
+                      <IconButton
+                        color="error"
+                        onClick={() => rejectOpportunity(opportunity.id)}
+                        disabled={opportunity.status !== 'pending'}
+                      >
+                        <RejectIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <TablePagination
+              component="div"
+              count={stats.total || 0}
+              page={pagination.page - 1}
+              rowsPerPage={pagination.pageSize}
+              rowsPerPageOptions={[10, 20, 50]}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              nextIconButtonProps={{
+                disabled: !hasMore,
+              }}
             />
-          </Box>
+          </TableContainer>
+        </Grid>
+      </Grid>
 
-          <FilterMenu
-            anchorEl={anchorEl}
-            onClose={handleFilterClose}
-            onFilterSelect={handleFilterSelect}
-          />
-
-          <OpportunitiesTable
-            opportunities={filteredOpportunities}
-            canManageOpportunities={canManageOpportunities}
-            onApprove={approveOpportunity}
-            onReject={rejectOpportunity}
-          />
-        </Box>
-      </Container>
-    </AdminProtectedRoute>
+      {/* Preview Modal */}
+      <OpportunityPreviewModal
+        opportunity={selectedOpportunity}
+        open={!!selectedOpportunity}
+        onClose={() => setSelectedOpportunity(null)}
+        onApprove={
+          selectedOpportunity
+            ? () => approveOpportunity(selectedOpportunity.id)
+            : undefined
+        }
+        onReject={
+          selectedOpportunity
+            ? () => rejectOpportunity(selectedOpportunity.id)
+            : undefined
+        }
+      />
+    </Container>
   );
-}
+};
+
+export default OpportunitiesPage;

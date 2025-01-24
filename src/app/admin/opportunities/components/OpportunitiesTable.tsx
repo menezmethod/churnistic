@@ -1,34 +1,33 @@
 'use client';
 
+import CancelIcon from '@mui/icons-material/Cancel';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PreviewIcon from '@mui/icons-material/Preview';
+import WarningIcon from '@mui/icons-material/Warning';
 import {
-  CheckCircle as ApproveIcon,
-  Cancel as RejectIcon,
-  Warning as WarningIcon,
-} from '@mui/icons-material';
-import {
+  Box,
+  IconButton,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
-  Paper,
+  Tooltip,
   Typography,
-  Chip,
-  Box,
-  Stack,
-  IconButton,
 } from '@mui/material';
+import Image from 'next/image';
 import { useState } from 'react';
 
+import { OpportunityPreviewModal } from './OpportunityPreviewModal';
 import { Opportunity } from '../types/opportunity';
 
 interface OpportunitiesTableProps {
   opportunities: Opportunity[];
   canManageOpportunities: boolean;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onApprove: (id: string) => Promise<void>;
+  onReject: (id: string) => Promise<void>;
 }
 
 export const OpportunitiesTable = ({
@@ -37,125 +36,187 @@ export const OpportunitiesTable = ({
   onApprove,
   onReject,
 }: OpportunitiesTableProps) => {
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(
+    null
+  );
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
+  const handlePreview = (opportunity: Opportunity) => {
+    setSelectedOpportunity(opportunity);
   };
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
+  const handleClosePreview = () => {
+    setSelectedOpportunity(null);
+  };
+
+  const handleApprove = async (id: string) => {
+    await onApprove(id);
+    if (selectedOpportunity?.id === id) {
+      handleClosePreview();
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    await onReject(id);
+    if (selectedOpportunity?.id === id) {
+      handleClosePreview();
+    }
   };
 
   return (
-    <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-      <Table sx={{ minWidth: 800 }}>
-        <TableHead>
-          <TableRow>
-            <TableCell sx={{ paddingLeft: 2, paddingRight: 2 }}>Offer Details</TableCell>
-            <TableCell sx={{ paddingLeft: 2, paddingRight: 2 }}>Source</TableCell>
-            <TableCell sx={{ paddingLeft: 2, paddingRight: 2 }}>Requirements</TableCell>
-            <TableCell sx={{ paddingLeft: 2, paddingRight: 2 }}>AI Insights</TableCell>
-            {canManageOpportunities && (
-              <TableCell align="right" sx={{ paddingLeft: 2, paddingRight: 2 }}>
-                Actions
-              </TableCell>
-            )}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {opportunities
-            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-            .map((opp) => (
-              <TableRow key={opp.id} hover>
-                <TableCell sx={{ paddingLeft: 2, paddingRight: 2 }}>
-                  <Box>
-                    <Typography variant="subtitle2">{opp.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {opp.bonus.title}
-                    </Typography>
-                    <Chip
-                      size="small"
-                      label={opp.type === 'credit_card' ? 'Credit Card' : 'Bank Account'}
-                      sx={{ mt: 1 }}
-                    />
+    <>
+      <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Offer Details</TableCell>
+              <TableCell>Source</TableCell>
+              <TableCell>Requirements</TableCell>
+              <TableCell>AI Insights</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {opportunities.map((opportunity) => (
+              <TableRow
+                key={opportunity.id}
+                sx={{
+                  '&:last-child td, &:last-child th': { border: 0 },
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    {opportunity.logo && (
+                      <Box
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          position: 'relative',
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Image
+                          src={opportunity.logo.url}
+                          alt={opportunity.name}
+                          fill
+                          style={{ objectFit: 'contain' }}
+                        />
+                      </Box>
+                    )}
+                    <Box>
+                      <Typography variant="subtitle1">{opportunity.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {opportunity.type.charAt(0).toUpperCase() +
+                          opportunity.type.slice(1)}
+                      </Typography>
+                      <Typography variant="h6" color="primary">
+                        ${opportunity.value.toLocaleString()}
+                      </Typography>
+                    </Box>
                   </Box>
                 </TableCell>
-                <TableCell sx={{ paddingLeft: 2, paddingRight: 2 }}>
-                  <Typography variant="body2">{opp.source.name}</Typography>
+
+                <TableCell>
+                  <Typography variant="body2">{opportunity.source.name}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {new Date(opp.source.collected_at).toLocaleString()}
+                    {new Date(opportunity.source.collected_at).toLocaleDateString()}
                   </Typography>
                 </TableCell>
-                <TableCell sx={{ paddingLeft: 2, paddingRight: 2 }}>
-                  {opp.bonus.requirements.map((req, index) => (
+
+                <TableCell>
+                  {opportunity.bonus.requirements.map((req, index) => (
                     <Typography key={index} variant="body2">
-                      {req.type === 'spend'
-                        ? `Spend $${req.details.amount} in ${req.details.period} days`
-                        : `Direct deposit $${req.details.amount} in ${req.details.period} days`}
+                      {req.type === 'spend' && (
+                        <>
+                          Spend ${req.details.amount.toLocaleString()} in{' '}
+                          {req.details.period} days
+                        </>
+                      )}
+                      {req.type === 'deposit' && (
+                        <>Deposit ${req.details.amount.toLocaleString()}</>
+                      )}
+                      {req.type === 'other' && 'Custom requirement'}
                     </Typography>
                   ))}
-                </TableCell>
-                <TableCell sx={{ paddingLeft: 2, paddingRight: 2 }}>
-                  <Stack spacing={1}>
-                    <Typography variant="body2">
-                      Confidence: {(opp.ai_insights.confidence_score * 100).toFixed(0)}%
+                  {opportunity.details?.expiration && (
+                    <Typography variant="caption" color="text.secondary">
+                      Expires: {opportunity.details.expiration}
                     </Typography>
-                    {opp.ai_insights.validation_warnings.map((warning, index) => (
-                      <Chip
-                        key={index}
-                        size="small"
-                        icon={<WarningIcon />}
-                        label={warning}
-                        color="warning"
-                      />
-                    ))}
-                    {opp.ai_insights.potential_duplicates.length > 0 && (
-                      <Chip
-                        size="small"
-                        icon={<WarningIcon />}
-                        label={`${opp.ai_insights.potential_duplicates.length} potential duplicate(s)`}
-                        color="warning"
-                      />
-                    )}
-                  </Stack>
+                  )}
                 </TableCell>
-                {canManageOpportunities && (
-                  <TableCell align="right" sx={{ paddingLeft: 2, paddingRight: 2 }}>
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <IconButton
-                        color="success"
-                        size="small"
-                        onClick={() => onApprove(opp.id)}
+
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography
+                      variant="body2"
+                      color={
+                        opportunity.ai_insights.confidence_score >= 0.8
+                          ? 'success.main'
+                          : 'warning.main'
+                      }
+                    >
+                      {(opportunity.ai_insights.confidence_score * 100).toFixed(0)}%
+                    </Typography>
+                    {opportunity.ai_insights.validation_warnings.length > 0 && (
+                      <Tooltip
+                        title={opportunity.ai_insights.validation_warnings.join('\n')}
+                        arrow
                       >
-                        <ApproveIcon />
+                        <WarningIcon color="warning" sx={{ fontSize: 20 }} />
+                      </Tooltip>
+                    )}
+                  </Box>
+                </TableCell>
+
+                <TableCell align="right">
+                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                    <Tooltip title="Preview">
+                      <IconButton size="small" onClick={() => handlePreview(opportunity)}>
+                        <PreviewIcon />
                       </IconButton>
-                      <IconButton
-                        color="error"
-                        size="small"
-                        onClick={() => onReject(opp.id)}
-                      >
-                        <RejectIcon />
-                      </IconButton>
-                    </Stack>
-                  </TableCell>
-                )}
+                    </Tooltip>
+
+                    {canManageOpportunities && (
+                      <>
+                        <Tooltip title="Approve">
+                          <IconButton
+                            size="small"
+                            color="success"
+                            onClick={() => handleApprove(opportunity.id)}
+                          >
+                            <CheckCircleIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Reject">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleReject(opportunity.id)}
+                          >
+                            <CancelIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    )}
+                  </Box>
+                </TableCell>
               </TableRow>
             ))}
-        </TableBody>
-      </Table>
-      <TablePagination
-        rowsPerPageOptions={[5, 10, 25]}
-        component="div"
-        count={opportunities.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        sx={{ paddingRight: 2 }}
-      />
-    </TableContainer>
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {selectedOpportunity && (
+        <OpportunityPreviewModal
+          opportunity={selectedOpportunity}
+          open={true}
+          onClose={handleClosePreview}
+          onApprove={() => handleApprove(selectedOpportunity.id)}
+          onReject={() => handleReject(selectedOpportunity.id)}
+        />
+      )}
+    </>
   );
 };
