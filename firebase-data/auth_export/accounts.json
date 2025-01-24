@@ -8,7 +8,7 @@
       "displayName": "Test Admin",
       "passwordHash": "fakeHash:salt=fakeSalt1Ex8xMZTVOJ4KyrNDFnr:password=testpass123",
       "salt": "fakeSalt1Ex8xMZTVOJ4KyrNDFnr",
-      "passwordUpdatedAt": 1737169358383,
+      "passwordUpdatedAt": 1737749062064,
       "customAttributes": "{\"role\":\"admin\",\"isSuperAdmin\":true}",
       "providerUserInfo": [
         {
@@ -19,11 +19,10 @@
           "displayName": "Test Admin"
         }
       ],
-      "validSince": "1737169358",
+      "validSince": "1737749062",
       "email": "admin@test.com",
       "emailVerified": false,
-      "disabled": false,
-      "lastRefreshAt": "2025-01-18T05:45:16.223Z"
+      "disabled": false
     }
   ]
 }

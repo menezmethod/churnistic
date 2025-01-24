@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
+import { UserRole } from '@/lib/auth/types';
 import { auth, db } from '@/lib/firebase/client-app';
 import { manageSessionCookie } from '@/lib/firebase/config';
 import { UserProfile } from '@/types/user';
@@ -188,4 +189,14 @@ export const logout = async (): Promise<void> => {
     console.error('Logout error:', error);
     throw error;
   }
+};
+
+// Example role check implementation
+export const hasRole = (role: UserRole): boolean => {
+  const user = auth.currentUser as AuthUser | null;
+  if (!user) return false;
+
+  // Check both custom claims and direct role property
+  const userRole = user.customClaims?.role || user.role;
+  return userRole === role;
 };

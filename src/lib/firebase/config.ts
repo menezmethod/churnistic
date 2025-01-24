@@ -16,9 +16,11 @@ const USE_EMULATOR = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 export const firebaseConfig = {
   apiKey: USE_EMULATOR ? 'fake-api-key' : process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: USE_EMULATOR ? 'localhost' : process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: USE_EMULATOR ? 'demo-local' : process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  projectId: USE_EMULATOR
+    ? 'demo-churnistic-local'
+    : process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: USE_EMULATOR
-    ? 'demo-local'
+    ? 'demo-churnistic-local'
     : process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: USE_EMULATOR
     ? '000000000000'

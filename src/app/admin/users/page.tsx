@@ -32,10 +32,11 @@ import {
   InputLabel,
 } from '@mui/material';
 import { visuallyHidden } from '@mui/utils';
-import { useState } from 'react';
+import { collection, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 
 import { UserRole } from '@/lib/auth/types';
-import { trpc } from '@/lib/trpc/client';
+import { db } from '@/lib/firebase/config';
 
 import UserDetailsModal from './components/UserDetailsModal';
 import type { User } from './hooks/useUsers';
@@ -131,43 +132,30 @@ export default function UsersPage() {
     severity: 'success',
   });
 
-  const { data: userData, refetch } = trpc.user.me.useQuery();
-  const users = userData ? [userData] : [];
+  const [users, setUsers] = useState<User[]>([]);
 
-  const updateUserMutation = trpc.user.update.useMutation({
-    onSuccess: () => {
-      void refetch();
-      setSnackbar({
-        open: true,
-        message: 'User updated successfully',
-        severity: 'success',
-      });
-    },
-    onError: () => {
-      setSnackbar({
-        open: true,
-        message: 'Error updating user',
-        severity: 'error',
-      });
-    },
-  });
-  const deleteUserMutation = trpc.user.delete.useMutation({
-    onSuccess: () => {
-      void refetch();
-      setSnackbar({
-        open: true,
-        message: 'User deleted successfully',
-        severity: 'success',
-      });
-    },
-    onError: () => {
-      setSnackbar({
-        open: true,
-        message: 'Error deleting user',
-        severity: 'error',
-      });
-    },
-  });
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const usersCollection = collection(db, 'users');
+        const usersSnapshot = await getDocs(usersCollection);
+        const usersList = usersSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as User[];
+        setUsers(usersList);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        setSnackbar({
+          open: true,
+          message: 'Error fetching users',
+          severity: 'error',
+        });
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const handleRequestSort = (property: keyof User) => {
     const isAsc = orderBy === property && order === 'asc';
@@ -196,8 +184,14 @@ export default function UsersPage() {
     if (!deletingUser) return;
 
     try {
-      await deleteUserMutation.mutateAsync({ id: deletingUser.id });
+      await deleteDoc(doc(db, 'users', deletingUser.id));
+      setUsers(users.filter((user) => user.id !== deletingUser.id));
       setDeletingUser(null);
+      setSnackbar({
+        open: true,
+        message: 'User deleted successfully',
+        severity: 'success',
+      });
     } catch (error) {
       console.error('Error deleting user:', error);
       setSnackbar({
@@ -214,10 +208,34 @@ export default function UsersPage() {
 
   const handleUpdateUser = async (
     _user: User,
-    data: { email?: string; displayName?: string; photoURL?: string }
+    data: { email?: string; displayName?: string; photoURL?: string; role?: string }
   ) => {
     try {
-      await updateUserMutation.mutateAsync({ id: _user.id, ...data });
+      const userRef = doc(db, 'users', _user.id);
+      await updateDoc(userRef, data);
+      setUsers(
+        users.map((user) =>
+          user.id === _user.id
+            ? {
+                ...user,
+                ...data,
+                role: data.role as
+                  | 'user'
+                  | 'admin'
+                  | 'manager'
+                  | 'analyst'
+                  | 'agent'
+                  | 'free_user',
+              }
+            : user
+        )
+      );
+      setEditingUser(null);
+      setSnackbar({
+        open: true,
+        message: 'User updated successfully',
+        severity: 'success',
+      });
     } catch (error) {
       console.error('Error updating user:', error);
       setSnackbar({
