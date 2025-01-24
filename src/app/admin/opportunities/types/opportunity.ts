@@ -1,7 +1,7 @@
 export interface Opportunity {
   id: string;
   name: string;
-  type: string;
+  type: 'bank' | 'credit_card' | 'brokerage';
   bank: string;
   value: number;
   status: 'pending' | 'approved' | 'rejected';
@@ -40,6 +40,17 @@ export interface Opportunity {
     } | null;
     credit_inquiry?: string | null;
     expiration?: string | null;
+    trading_requirements?: {
+      min_trades?: number;
+      period_days?: number;
+      eligible_securities?: string[];
+    } | null;
+    platform_features?: {
+      mobile_app?: boolean;
+      research_tools?: boolean;
+      paper_trading?: boolean;
+      fractional_shares?: boolean;
+    } | null;
   };
   logo?: {
     type: string;

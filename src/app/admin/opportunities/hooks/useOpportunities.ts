@@ -97,9 +97,11 @@ const extractRequirements = (description: string) => {
   if (!description) return { type: 'other', details: { amount: 0, period: 0 } };
 
   // Try to match spend requirements first
-  const spendMatch = description.toLowerCase().match(
-    /(?:spend|purchase)\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:in|within|over|during)\s+(\d+)\s*(day|month|year)s?/i
-  );
+  const spendMatch = description
+    .toLowerCase()
+    .match(
+      /(?:spend|purchase)\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:in|within|over|during)\s+(\d+)\s*(day|month|year)s?/i
+    );
   if (spendMatch) {
     const amount = parseFloat(spendMatch[1].replace(/,/g, ''));
     const period = parseInt(spendMatch[2]);
@@ -119,9 +121,9 @@ const extractRequirements = (description: string) => {
   }
 
   // Try to match deposit requirements
-  const depositMatch = description.toLowerCase().match(
-    /(?:deposit|transfer in|maintain|keep)\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/i
-  );
+  const depositMatch = description
+    .toLowerCase()
+    .match(/(?:deposit|transfer in|maintain|keep)\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/i);
   if (depositMatch) {
     return {
       type: 'deposit',
@@ -133,9 +135,9 @@ const extractRequirements = (description: string) => {
   }
 
   // Try to match direct deposit requirements
-  const ddMatch = description.toLowerCase().match(
-    /direct\s+deposit.*?\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/i
-  );
+  const ddMatch = description
+    .toLowerCase()
+    .match(/direct\s+deposit.*?\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/i);
   if (ddMatch) {
     return {
       type: 'deposit',
@@ -159,6 +161,14 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Omit<Opportunity, '
   const requirements = extractRequirements(offer.bonus.requirements.description);
   const warnings: string[] = [];
 
+  // Map the type to our strict type definition
+  const mappedType =
+    offer.type === 'credit_card'
+      ? 'credit_card'
+      : offer.type === 'brokerage'
+        ? 'brokerage'
+        : 'bank';
+
   // Validate and collect warnings
   if (requirements.type === 'other') {
     warnings.push('Unable to automatically extract requirements');
@@ -173,7 +183,7 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Omit<Opportunity, '
   // Ensure all optional fields are null instead of undefined
   const transformedOffer = {
     name: offer.name,
-    type: offer.type,
+    type: mappedType,
     bank: offer.name.split(' ')[0],
     value: offer.value,
     status: 'pending' as OpportunityStatus,
@@ -346,6 +356,13 @@ export const useOpportunities = (initialPagination: Partial<PaginationState> = {
     pending: 0,
     approved: 0,
     rejected: 0,
+    avgValue: 0,
+    highValue: 0,
+    byType: {
+      bank: 0,
+      credit_card: 0,
+      brokerage: 0,
+    },
   });
 
   // Fetch paginated opportunities
@@ -359,7 +376,7 @@ export const useOpportunities = (initialPagination: Partial<PaginationState> = {
     keepPreviousData: true,
   });
 
-  // Fetch total stats
+  // Fetch total stats with detailed metrics
   const { data: totalStats } = useQuery({
     queryKey: ['opportunities', 'stats'],
     queryFn: async () => {
@@ -368,11 +385,22 @@ export const useOpportunities = (initialPagination: Partial<PaginationState> = {
         id: doc.id,
         ...doc.data(),
       })) as Opportunity[];
+
+      const totalValue = opportunities.reduce((sum, opp) => sum + opp.value, 0);
+
       return {
         total: opportunities.length,
         pending: opportunities.filter((opp) => opp.status === 'pending').length,
         approved: opportunities.filter((opp) => opp.status === 'approved').length,
         rejected: opportunities.filter((opp) => opp.status === 'rejected').length,
+        avgValue:
+          opportunities.length > 0 ? Math.round(totalValue / opportunities.length) : 0,
+        highValue: opportunities.filter((opp) => opp.value >= 500).length,
+        byType: {
+          bank: opportunities.filter((opp) => opp.type === 'bank').length,
+          credit_card: opportunities.filter((opp) => opp.type === 'credit_card').length,
+          brokerage: opportunities.filter((opp) => opp.type === 'brokerage').length,
+        },
       };
     },
   });

@@ -9,6 +9,9 @@ import {
   CreditCard as CardIcon,
   PendingActions as PendingIcon,
   Visibility as PreviewIcon,
+  ShowChart as BrokerageIcon,
+  AttachMoney as ValueIcon,
+  Speed as SpeedIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -44,11 +47,15 @@ const StatsCard = ({
   value,
   icon,
   color,
+  suffix,
+  prefix,
 }: {
   title: string;
   value: number;
   icon: React.ReactNode;
   color: string;
+  suffix?: string;
+  prefix?: string;
 }) => (
   <Card sx={{ height: '100%' }}>
     <CardContent>
@@ -56,7 +63,9 @@ const StatsCard = ({
         <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: `${color}20` }}>{icon}</Box>
         <Box>
           <Typography variant="h4" fontWeight="bold">
+            {prefix && <span>{prefix}</span>}
             {value}
+            {suffix && <span>{suffix}</span>}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {title}
@@ -127,10 +136,15 @@ const OpportunitiesPage = () => {
     }
   };
 
+  const processingSpeed =
+    stats.total > 0
+      ? (((stats.approved + stats.rejected) / stats.total) * 100).toFixed(1)
+      : '0';
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Grid container spacing={3}>
-        {/* Stats Cards */}
+        {/* Main Stats */}
         <Grid item xs={12} md={3}>
           <StatsCard
             title="Total Opportunities"
@@ -149,8 +163,28 @@ const OpportunitiesPage = () => {
         </Grid>
         <Grid item xs={12} md={3}>
           <StatsCard
+            title="Processing Rate"
+            value={Number(processingSpeed)}
+            icon={<SpeedIcon sx={{ color: theme.palette.info.main }} />}
+            color={theme.palette.info.main}
+            suffix="%"
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Avg. Bonus Value"
+            value={stats.avgValue}
+            icon={<ValueIcon sx={{ color: theme.palette.success.main }} />}
+            color={theme.palette.success.main}
+            prefix="$"
+          />
+        </Grid>
+
+        {/* Offer Type Distribution */}
+        <Grid item xs={12} md={3}>
+          <StatsCard
             title="Bank Offers"
-            value={opportunities.filter((opp) => opp.type === 'bank').length}
+            value={stats.byType.bank}
             icon={<BankIcon sx={{ color: theme.palette.success.main }} />}
             color={theme.palette.success.main}
           />
@@ -158,13 +192,29 @@ const OpportunitiesPage = () => {
         <Grid item xs={12} md={3}>
           <StatsCard
             title="Credit Card Offers"
-            value={opportunities.filter((opp) => opp.type === 'credit_card').length}
+            value={stats.byType.credit_card}
             icon={<CardIcon sx={{ color: theme.palette.info.main }} />}
             color={theme.palette.info.main}
           />
         </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Brokerage Offers"
+            value={stats.byType.brokerage}
+            icon={<BrokerageIcon sx={{ color: theme.palette.secondary.main }} />}
+            color={theme.palette.secondary.main}
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="High Value ($500+)"
+            value={stats.highValue}
+            icon={<ValueIcon sx={{ color: theme.palette.error.main }} />}
+            color={theme.palette.error.main}
+          />
+        </Grid>
 
-        {/* Search and Filters */}
+        {/* Search and Table */}
         <Grid item xs={12}>
           <Paper sx={{ p: 2, mb: 3 }}>
             <Stack direction="row" spacing={2}>
