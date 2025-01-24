@@ -132,9 +132,7 @@ export default function UserDetailsModal({
               <InputLabel>Role</InputLabel>
               <Select
                 value={formData.role}
-                onChange={(e) =>
-                  setFormData({ ...formData, role: e.target.value as UserRole })
-                }
+                onChange={(e) => handleChange('role', e.target.value as string)}
               >
                 <MenuItem value={UserRole.USER}>User</MenuItem>
                 <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>

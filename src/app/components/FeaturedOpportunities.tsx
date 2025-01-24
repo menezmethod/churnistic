@@ -37,13 +37,13 @@ export function FeaturedOpportunities() {
     .slice(0, 3);
 
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="lg" sx={{ mb: 8 }}>
       <Box
         component={motion.div}
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3 }}
-        sx={{ mb: 8 }}
+        sx={{ py: 4 }}
         ref={ref}
       >
         <Typography
@@ -71,7 +71,7 @@ export function FeaturedOpportunities() {
         </Typography>
 
         {featuredOffers.length > 0 ? (
-          <Grid container spacing={4} sx={{ mb: 8 }}>
+          <Grid container spacing={4}>
             {featuredOffers.map((offer, index) => {
               const colors = getTypeColors(offer.type, theme);
               return (
@@ -344,7 +344,7 @@ export function FeaturedOpportunities() {
           <Box
             sx={{
               p: 4,
-              mb: 8,
+              mt: 4,
               borderRadius: 2,
               bgcolor: alpha(theme.palette.primary.main, 0.05),
               border: '1px solid',
