@@ -20,7 +20,7 @@ import { Opportunity } from '../types/opportunity';
 interface BankRewardsOffer {
   id: string;
   name: string;
-  type: string;
+  type: 'bank' | 'credit_card' | 'brokerage';
   value: number;
   bonus: {
     title: string;
@@ -161,14 +161,6 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Omit<Opportunity, '
   const requirements = extractRequirements(offer.bonus.requirements.description);
   const warnings: string[] = [];
 
-  // Map the type to our strict type definition
-  const mappedType =
-    offer.type === 'credit_card'
-      ? 'credit_card'
-      : offer.type === 'brokerage'
-        ? 'brokerage'
-        : 'bank';
-
   // Validate and collect warnings
   if (requirements.type === 'other') {
     warnings.push('Unable to automatically extract requirements');
@@ -183,7 +175,7 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Omit<Opportunity, '
   // Ensure all optional fields are null instead of undefined
   const transformedOffer = {
     name: offer.name,
-    type: mappedType,
+    type: offer.type,
     bank: offer.name.split(' ')[0],
     value: offer.value,
     status: 'pending' as OpportunityStatus,
