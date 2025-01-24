@@ -60,6 +60,28 @@ export interface FirestoreOpportunity {
   type: 'credit_card' | 'bank' | 'brokerage';
   offer_link: string;
   value: number;
+  bank?: string;
+  description?: string;
+  title?: string;
+  requirements?: string[];
+  isNew?: boolean;
+  expirationDate?: string;
+  metadata: {
+    created_at: string;
+    updated_at: string;
+    created_by: string;
+    status: 'active' | 'inactive';
+    timing?: {
+      bonus_posting_time?: string;
+    };
+    availability?: {
+      is_nationwide?: boolean;
+      regions?: string[];
+    };
+    credit?: {
+      inquiry?: 'soft_pull' | 'hard_pull';
+    };
+  };
   bonus?: {
     title?: string;
     description?: string;
@@ -88,10 +110,10 @@ export interface FirestoreOpportunity {
       waiver_details?: string;
     };
     account_type?: string;
-    account_category?: 'personal' | 'business'; // For credit cards and bank accounts
+    account_category?: 'personal' | 'business';
     availability?: {
       type: 'Nationwide' | 'State';
-      states?: USState[];
+      states?: string[];
       details?: string;
     };
     credit_inquiry?: string;
@@ -138,15 +160,6 @@ export interface FirestoreOpportunity {
     color?: string;
     badge?: string;
   };
-  metadata?: {
-    created_at: string;
-    updated_at: string;
-    created_by: string;
-    status: 'active' | 'inactive';
-  };
-  bank?: string;
-  description?: string;
-  title?: string;
 }
 
 // This is for the UI components to use - it's the same structure but with value as string
