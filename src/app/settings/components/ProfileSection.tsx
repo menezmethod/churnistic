@@ -1,5 +1,15 @@
 import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
-import { Box, Typography, Avatar, Button } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Avatar,
+  Button,
+  Fade,
+  CircularProgress,
+  Stack,
+  useTheme,
+  Divider,
+} from '@mui/material';
 import { useState } from 'react';
 
 import type { ProfileSectionProps } from './types';
@@ -10,185 +20,202 @@ export function ProfileSection({
   onPhotoChange,
   StyledTextField,
 }: ProfileSectionProps) {
-  const [firstName, setFirstName] = useState(
-    profile?.customDisplayName?.split(' ')[0] || ''
-  );
-  const [lastName, setLastName] = useState(
-    profile?.customDisplayName?.split(' ')[1] || ''
-  );
-  const [isSaving, setIsSaving] = useState(false);
+  const theme = useTheme();
+  const [formData, setFormData] = useState({
+    firstName: profile?.customDisplayName?.split(' ')[0] || '',
+    lastName: profile?.customDisplayName?.split(' ')[1] || '',
+  });
+  const [loading, setLoading] = useState({
+    save: false,
+    upload: false,
+  });
+  const [isDirty, setIsDirty] = useState(false);
 
-  const handleSave = async () => {
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!profile) return;
-    setIsSaving(true);
+
+    setLoading((prev) => ({ ...prev, save: true }));
     try {
       await onSave({
         ...profile,
-        customDisplayName: `${firstName} ${lastName}`.trim(),
+        customDisplayName: `${formData.firstName} ${formData.lastName}`.trim(),
       });
+      setIsDirty(false);
     } finally {
-      setIsSaving(false);
+      setLoading((prev) => ({ ...prev, save: false }));
     }
+  };
+
+  const handlePhotoUpload = async (file: File) => {
+    setLoading((prev) => ({ ...prev, upload: true }));
+    try {
+      await onPhotoChange(file);
+    } finally {
+      setLoading((prev) => ({ ...prev, upload: false }));
+    }
+  };
+
+  const handleInputChange = (field: 'firstName' | 'lastName', value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setIsDirty(true);
+  };
+
+  const handleReset = () => {
+    setFormData({
+      firstName: profile?.customDisplayName?.split(' ')[0] || '',
+      lastName: profile?.customDisplayName?.split(' ')[1] || '',
+    });
+    setIsDirty(false);
   };
 
   const TextField = StyledTextField || 'div';
 
   return (
-    <>
-      <Typography
-        variant="h1"
-        component="h1"
-        sx={{
-          fontSize: '30px',
-          fontWeight: 600,
-          mb: 2,
-          color: (theme) =>
-            theme.palette.mode === 'dark' ? 'hsl(0, 0%, 100%)' : '#101828',
-        }}
-      >
-        Profile
-      </Typography>
-
-      <Box
-        component="form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void handleSave();
-        }}
-      >
-        <Box mb={4}>
+    <Fade in timeout={300}>
+      <Box component="form" onSubmit={handleSave}>
+        <Stack spacing={2.5}>
           <Typography
-            variant="subtitle2"
-            sx={{ fontSize: '0.875rem', fontWeight: 600, mb: 1 }}
+            variant="h1"
+            sx={{
+              fontSize: { xs: '1.5rem', sm: '1.75rem' },
+              fontWeight: 600,
+              color: theme.palette.text.primary,
+              letterSpacing: '-0.02em',
+            }}
           >
-            Your Photo{' '}
-            <Box component="span" sx={{ color: 'error.main' }}>
-              *
-            </Box>
+            Profile Settings
           </Typography>
-          <Box display="flex" alignItems="center" gap={2}>
-            <Avatar
-              src={profile?.photoURL || undefined}
-              alt={profile?.customDisplayName || 'User avatar'}
-              sx={{
-                width: 64,
-                height: 64,
-                border: '4px solid #FFFFFF',
-                boxShadow:
-                  '0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06)',
-              }}
-            />
+
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: 1,
+              bgcolor: theme.palette.background.paper,
+              border: `1px solid ${theme.palette.divider}`,
+            }}
+          >
+            <Stack spacing={2}>
+              <Stack direction="row" spacing={3} alignItems="center">
+                <Box sx={{ position: 'relative' }}>
+                  <Avatar
+                    src={profile?.photoURL || undefined}
+                    alt={profile?.customDisplayName || 'Profile photo'}
+                    sx={{
+                      width: 72,
+                      height: 72,
+                      border: `3px solid ${theme.palette.background.paper}`,
+                      boxShadow: theme.shadows[1],
+                    }}
+                  />
+                  {loading.upload && (
+                    <CircularProgress
+                      size={72}
+                      thickness={2}
+                      sx={{ position: 'absolute', top: 0, left: 0 }}
+                    />
+                  )}
+                </Box>
+
+                <Stack spacing={0.5} flex={1}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    Profile Photo
+                  </Typography>
+                  <Button
+                    component="label"
+                    variant="outlined"
+                    disabled={loading.upload}
+                    startIcon={<CloudUploadIcon />}
+                    size="small"
+                    sx={{
+                      py: 1,
+                      px: 2,
+                      maxWidth: 'fit-content',
+                      borderRadius: 1,
+                      textTransform: 'none',
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    {loading.upload ? 'Uploading...' : 'Change Photo'}
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handlePhotoUpload(file);
+                      }}
+                    />
+                  </Button>
+                </Stack>
+              </Stack>
+
+              <Divider />
+
+              <Stack spacing={1}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  Personal Information
+                </Typography>
+                <Stack direction="row" spacing={2}>
+                  <TextField
+                    fullWidth
+                    placeholder="First name"
+                    value={formData.firstName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      handleInputChange('firstName', e.target.value)
+                    }
+                  />
+                  <TextField
+                    fullWidth
+                    placeholder="Last name"
+                    value={formData.lastName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      handleInputChange('lastName', e.target.value)
+                    }
+                  />
+                </Stack>
+              </Stack>
+            </Stack>
+          </Box>
+
+          <Stack direction="row" spacing={1.5} justifyContent="flex-end" sx={{ pt: 1 }}>
             <Button
               variant="outlined"
-              startIcon={<CloudUploadIcon />}
-              component="label"
+              disabled={loading.save || !isDirty}
+              onClick={handleReset}
+              size="small"
               sx={{
+                px: 2,
+                py: 1,
+                borderRadius: 1,
                 textTransform: 'none',
                 fontSize: '0.875rem',
-                color: 'text.primary',
-                borderColor: '#D0D5DD',
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={loading.save || !isDirty}
+              size="small"
+              sx={{
+                px: 2,
+                py: 1,
+                borderRadius: 1,
+                textTransform: 'none',
+                fontSize: '0.875rem',
+                bgcolor: 'primary.main',
                 '&:hover': {
-                  borderColor: '#0B5CFF',
-                  backgroundColor: 'transparent',
+                  bgcolor: 'primary.dark',
                 },
               }}
             >
-              Change Photo
-              <input
-                type="file"
-                hidden
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void onPhotoChange(file);
-                }}
-              />
+              {loading.save ? 'Saving...' : 'Save Changes'}
             </Button>
-          </Box>
-        </Box>
-
-        <Box mb={4}>
-          <Typography
-            variant="subtitle2"
-            sx={{ fontSize: '0.875rem', fontWeight: 600, mb: 1 }}
-          >
-            Name{' '}
-            <Box component="span" sx={{ color: 'error.main' }}>
-              *
-            </Box>
-          </Typography>
-          <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2}>
-            <TextField
-              fullWidth
-              placeholder="First name"
-              value={firstName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setFirstName(e.target.value)
-              }
-            />
-            <TextField
-              fullWidth
-              placeholder="Last name"
-              value={lastName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setLastName(e.target.value)
-              }
-            />
-          </Box>
-        </Box>
-
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 2,
-            pt: 4,
-            mt: 4,
-            borderTop: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Button
-            variant="outlined"
-            disabled={isSaving}
-            sx={{
-              textTransform: 'none',
-              fontSize: '0.875rem',
-              color: 'text.primary',
-              borderColor: '#D0D5DD',
-              px: 2.5,
-              py: 1.25,
-              '&:hover': {
-                borderColor: '#0B5CFF',
-                backgroundColor: 'transparent',
-              },
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={isSaving}
-            sx={{
-              textTransform: 'none',
-              fontSize: '0.875rem',
-              px: 2.5,
-              py: 1.25,
-              bgcolor: '#0B5CFF',
-              '&:hover': {
-                bgcolor: '#0B4ECC',
-              },
-              '&:disabled': {
-                bgcolor: '#0B5CFF',
-                opacity: 0.7,
-              },
-            }}
-          >
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </Box>
+          </Stack>
+        </Stack>
       </Box>
-    </>
+    </Fade>
   );
 }

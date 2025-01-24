@@ -47,9 +47,9 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
         {/* Stats Section */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid container spacing={3} sx={{ mb: { xs: 4, md: 6 } }}>
           {[1, 2, 3, 4].map((item) => (
             <Grid item xs={12} sm={6} md={3} key={item}>
               <StatCardSkeleton />
@@ -58,7 +58,7 @@ export default function DashboardPage() {
         </Grid>
 
         {/* Quick Opportunities Section */}
-        <Box sx={{ mb: 4 }}>
+        <Box sx={{ mb: { xs: 4, md: 6 } }}>
           <Stack spacing={2}>
             {[1, 2, 3].map((item) => (
               <OpportunityCardSkeleton key={item} />
@@ -120,7 +120,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4, minHeight: '100vh' }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 }, minHeight: '100vh' }}>
       {/* Welcome Section */}
       <WelcomeSection userName={userName} />
 
