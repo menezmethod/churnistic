@@ -80,7 +80,13 @@ const transformBankRewardsOffer = (
         holding_period: undefined,
       },
       additional_info: undefined,
-      tiers: offer.bonus?.tiers?.length ? offer.bonus.tiers : undefined,
+      tiers: offer.bonus?.tiers?.length
+        ? offer.bonus.tiers.map((tier) => ({
+            ...tier,
+            reward: '',
+            deposit: '',
+          }))
+        : undefined,
     },
     details: {
       monthly_fees: {

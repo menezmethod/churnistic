@@ -210,10 +210,12 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Omit<Opportunity, '
       title: offer.bonus.title,
       description: offer.bonus.description,
       value: offer.value,
-      requirements: [{
-        type: requirements.type,
-        details: requirements.details
-      }],
+      requirements: [
+        {
+          type: requirements.type,
+          details: requirements.details,
+        },
+      ],
       tiers: offer.bonus.tiers
         ? offer.bonus.tiers.map((tier) => ({
             reward: tier.reward,
@@ -273,12 +275,12 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Omit<Opportunity, '
       source_validation: false,
       ai_processed: false,
       duplicate_checked: false,
-      needs_review: true
+      needs_review: true,
     },
     ai_insights: {
       confidence_score: 0,
       validation_warnings: warnings,
-      potential_duplicates: []
+      potential_duplicates: [],
     },
   };
 

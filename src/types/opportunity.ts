@@ -102,6 +102,8 @@ export interface FirestoreOpportunity {
     };
     additional_info?: string;
     tiers?: Array<{
+      reward: string;
+      deposit: string;
       level: string;
       value: number;
       minimum_deposit: number;
