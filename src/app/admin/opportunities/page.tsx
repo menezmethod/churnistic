@@ -101,9 +101,12 @@ const OpportunitiesPage = () => {
     importOpportunities();
 
     // Set up interval for continuous sync
-    const syncInterval = setInterval(() => {
-      importOpportunities();
-    }, 5 * 60 * 1000); // Sync every 5 minutes
+    const syncInterval = setInterval(
+      () => {
+        importOpportunities();
+      },
+      5 * 60 * 1000
+    ); // Sync every 5 minutes
 
     return () => clearInterval(syncInterval);
   }, [importOpportunities]);
@@ -329,8 +332,8 @@ const OpportunitiesPage = () => {
               </TableHead>
               <TableBody>
                 {opportunities.map((opportunity) => (
-                  <TableRow 
-                    key={opportunity.id} 
+                  <TableRow
+                    key={opportunity.id}
                     hover
                     sx={opportunity.isStaged ? { bgcolor: 'action.hover' } : undefined}
                   >
@@ -370,14 +373,20 @@ const OpportunitiesPage = () => {
                       <IconButton
                         color="success"
                         onClick={() => handleApprove(opportunity)}
-                        disabled={opportunity.status === 'approved' || opportunity.status === 'rejected'}
+                        disabled={
+                          opportunity.status === 'approved' ||
+                          opportunity.status === 'rejected'
+                        }
                       >
                         <ApproveIcon />
                       </IconButton>
                       <IconButton
                         color="error"
                         onClick={() => handleReject(opportunity)}
-                        disabled={opportunity.status === 'approved' || opportunity.status === 'rejected'}
+                        disabled={
+                          opportunity.status === 'approved' ||
+                          opportunity.status === 'rejected'
+                        }
                       >
                         <RejectIcon />
                       </IconButton>

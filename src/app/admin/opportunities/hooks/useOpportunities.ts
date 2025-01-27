@@ -105,7 +105,6 @@ interface PaginationState {
 
 const ITEMS_PER_PAGE = 20;
 
-
 const extractRequirements = (description: string) => {
   if (!description) return { type: 'other', details: { amount: 0, period: 0 } };
 
@@ -172,14 +171,17 @@ const extractRequirements = (description: string) => {
 
 const transformBankRewardsOffer = (offer: BankRewardsOffer): Omit<Opportunity, 'id'> => {
   console.log('Starting transformation for offer:', offer.name);
-  
+
   const requirements = extractRequirements(offer.bonus.requirements.description);
   const warnings: string[] = [];
 
   // Validate and collect warnings
   if (requirements.type === 'other') {
     warnings.push('Unable to automatically extract requirements');
-    console.warn(`Could not extract requirements for ${offer.name}:`, offer.bonus.requirements.description);
+    console.warn(
+      `Could not extract requirements for ${offer.name}:`,
+      offer.bonus.requirements.description
+    );
   }
   if (!offer.details?.expiration) {
     warnings.push('No expiration date specified');
@@ -199,59 +201,64 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Omit<Opportunity, '
     offer_link: offer.offer_link,
     description: offer.bonus.description,
     title: offer.bonus.title,
-    status: 'pending',
+    status: 'pending' as const,
     source: {
       name: 'bankrewards',
-      collected_at: new Date().toISOString()
+      collected_at: new Date().toISOString(),
     },
     bonus: {
       title: offer.bonus.title,
       description: offer.bonus.description,
       value: offer.value,
-      requirements: {
-        title: offer.bonus.requirements.title,
-        description: offer.bonus.requirements.description,
-        spending_requirement: requirements.type === 'spend' ? {
-          amount: requirements.details.amount,
-          timeframe: `${requirements.details.period} days`
-        } : null,
-        extracted: requirements
-      },
-      tiers: offer.bonus.tiers ? offer.bonus.tiers.map(tier => ({
-        reward: tier.reward,
-        deposit: tier.deposit
-      })) : null
+      requirements: [{
+        type: requirements.type,
+        details: requirements.details
+      }],
+      tiers: offer.bonus.tiers
+        ? offer.bonus.tiers.map((tier) => ({
+            reward: tier.reward,
+            deposit: tier.deposit,
+          }))
+        : null,
     },
     details: {
-      monthly_fees: offer.details.monthly_fees ? {
-        amount: offer.details.monthly_fees.amount,
-        waiver_details: offer.details.monthly_fees.waiver_details || null
-      } : null,
+      monthly_fees: offer.details.monthly_fees
+        ? {
+            amount: offer.details.monthly_fees.amount,
+            waiver_details: offer.details.monthly_fees.waiver_details || null,
+          }
+        : null,
       account_type: offer.details.account_type || null,
       availability: offer.details.availability || null,
       credit_inquiry: offer.details.credit_inquiry || null,
-      credit_score: offer.details.credit_score ? {
-        min: parseInt(offer.details.credit_score.replace(/.*?(\d+).*/, '$1')),
-        recommended: null
-      } : null,
+      credit_score: offer.details.credit_score
+        ? {
+            min: parseInt(offer.details.credit_score.replace(/.*?(\d+).*/, '$1')),
+            recommended: null,
+          }
+        : null,
       household_limit: offer.details.household_limit || null,
       early_closure_fee: offer.details.early_closure_fee || null,
       chex_systems: offer.details.chex_systems || null,
       expiration: offer.details.expiration || null,
-      under_5_24: offer.details.under_5_24 ? {
-        required: true,
-        details: offer.details.under_5_24
-      } : null,
+      under_5_24: offer.details.under_5_24
+        ? {
+            required: true,
+            details: offer.details.under_5_24,
+          }
+        : null,
       annual_fees: offer.details.annual_fees || null,
       foreign_transaction_fees: offer.details.foreign_transaction_fees || null,
       minimum_credit_limit: offer.details.minimum_credit_limit || null,
-      rewards_structure: offer.details.rewards_structure ? {
-        base_rewards: offer.details.rewards_structure,
-        bonus_categories: [],
-        welcome_bonus: null
-      } : null,
+      rewards_structure: offer.details.rewards_structure
+        ? {
+            base_rewards: offer.details.rewards_structure,
+            bonus_categories: [],
+            welcome_bonus: null,
+          }
+        : null,
       options_trading: offer.details.options_trading || null,
-      ira_accounts: offer.details.ira_accounts || null
+      ira_accounts: offer.details.ira_accounts || null,
     },
     logo: offer.logo,
     card_image: offer.card_image || null,
@@ -260,8 +267,19 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Omit<Opportunity, '
       updated_at: offer.metadata.updated,
       created_by: 'bankrewards',
       status: 'active',
-      warnings: warnings.length > 0 ? warnings : null
-    }
+      warnings: warnings.length > 0 ? warnings : null,
+    },
+    processing_status: {
+      source_validation: false,
+      ai_processed: false,
+      duplicate_checked: false,
+      needs_review: true
+    },
+    ai_insights: {
+      confidence_score: 0,
+      validation_warnings: warnings,
+      potential_duplicates: []
+    },
   };
 
   console.log('Transformed offer:', transformed);
@@ -412,13 +430,13 @@ export function useOpportunities() {
       console.log('Starting import process');
       const response = await fetchBankRewardsOffers();
       console.log('Fetched offers:', response.data.offers.length);
-      
+
       const batch = writeBatch(db);
-      
+
       // Transform offers
       const newOffers = response.data.offers.map(transformBankRewardsOffer);
       console.log('Transformed offers:', newOffers.length);
-      
+
       // Get existing staged offers to check for duplicates
       const [stagedSnapshot, approvedSnapshot] = await Promise.all([
         getDocs(collection(db, 'staged_offers')),
@@ -430,22 +448,22 @@ export function useOpportunities() {
 
       // Track both staged and approved offers by source_id
       const existingSourceIds = new Set([
-        ...stagedSnapshot.docs.map(doc => doc.data().source_id),
-        ...approvedSnapshot.docs.map(doc => doc.data().source_id),
+        ...stagedSnapshot.docs.map((doc) => doc.data().source_id),
+        ...approvedSnapshot.docs.map((doc) => doc.data().source_id),
       ]);
-      
+
       console.log('Existing source IDs:', existingSourceIds.size);
-      
+
       let addedCount = 0;
       let skippedCount = 0;
-      
+
       for (const offer of newOffers) {
         // Skip if already staged or previously approved
         if (existingSourceIds.has(offer.source_id)) {
           skippedCount++;
           continue;
         }
-        
+
         // Add new offer to staged_offers collection
         const docRef = doc(collection(db, 'staged_offers'));
         batch.set(docRef, {
@@ -454,20 +472,20 @@ export function useOpportunities() {
         });
         addedCount++;
       }
-      
+
       console.log(`Import summary:
         Total offers: ${newOffers.length}
         Added: ${addedCount}
         Skipped: ${skippedCount}
       `);
-      
+
       if (addedCount > 0) {
         await batch.commit();
         console.log('Batch commit successful');
       } else {
         console.log('No new offers to commit');
       }
-      
+
       return addedCount;
     },
     onSuccess: (count) => {
@@ -477,7 +495,7 @@ export function useOpportunities() {
     },
     onError: (error) => {
       console.error('Import failed:', error);
-    }
+    },
   });
 
   // Approve opportunity mutation
@@ -502,7 +520,7 @@ export function useOpportunities() {
         }
 
         const apiData = await apiResponse.json();
-        
+
         // Then add to opportunities collection with the same ID
         const opportunityRef = doc(db, 'opportunities', apiData.id);
         await setDoc(opportunityRef, {
@@ -511,14 +529,14 @@ export function useOpportunities() {
           status: 'approved',
           updatedAt: new Date().toISOString(),
         });
-        
+
         // Remove from staged_offers
         await deleteDoc(doc(db, 'staged_offers', opportunityData.id));
         return apiData.id;
       } else {
         // Update existing opportunity
         const opportunityRef = doc(db, 'opportunities', opportunityData.id);
-        
+
         // Update both Firestore and API endpoint
         await Promise.all([
           updateDoc(opportunityRef, {
@@ -536,7 +554,7 @@ export function useOpportunities() {
             }),
           }),
         ]);
-        
+
         return opportunityData.id;
       }
     },
@@ -572,7 +590,7 @@ export function useOpportunities() {
   // Combine staged and Firebase opportunities for display
   const allOpportunities = [
     ...stagedOpportunities,
-    ...(paginatedData?.items || []).map(opp => ({
+    ...(paginatedData?.items || []).map((opp) => ({
       ...opp,
       isStaged: false,
     })),

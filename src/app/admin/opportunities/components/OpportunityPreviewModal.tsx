@@ -12,8 +12,8 @@ import {
   useTheme,
 } from '@mui/material';
 import { format } from 'date-fns';
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 import { Opportunity } from '../types/opportunity';
 
@@ -276,7 +276,12 @@ export const OpportunityPreviewModal = ({
         )}
         {opportunity.status === 'staged' && (
           <>
-            <Button onClick={handleReject} color="error" variant="outlined" disabled={isRejecting || isApproving}>
+            <Button
+              onClick={handleReject}
+              color="error"
+              variant="outlined"
+              disabled={isRejecting || isApproving}
+            >
               Reject
             </Button>
             <Button
