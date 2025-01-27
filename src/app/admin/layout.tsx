@@ -6,32 +6,24 @@ import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
-import { trpc } from '@/lib/trpc/client';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, hasRole } = useAuth();
   const router = useRouter();
-  const { data: userProfile, isLoading: profileLoading } = trpc.user.me.useQuery(
-    undefined,
-    {
-      enabled: !!user, // Only fetch profile when user is authenticated
-    }
-  );
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth/signin');
-      return;
+    // Only redirect if we're sure the user is not authenticated or not an admin
+    if (!authLoading) {
+      if (!user) {
+        router.push('/auth/signin');
+      } else if (!hasRole(UserRole.ADMIN) && !hasRole(UserRole.SUPERADMIN)) {
+        router.push('/unauthorized');
+      }
     }
+  }, [user, router, authLoading, hasRole]);
 
-    if (!profileLoading && userProfile?.role !== UserRole.ADMIN) {
-      router.push('/unauthorized');
-      return;
-    }
-  }, [user, router, userProfile, authLoading, profileLoading]);
-
-  // Show loading state while checking authentication and profile
-  if (authLoading || profileLoading) {
+  // Show loading state while checking authentication
+  if (authLoading) {
     return (
       <Box
         sx={{
@@ -46,13 +38,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // Show nothing if not authenticated
-  if (!user) {
-    return null;
-  }
-
-  // Show nothing if not admin
-  if (userProfile?.role !== UserRole.ADMIN) {
+  // Don't render anything if not authenticated or not admin
+  if (!user || (!hasRole(UserRole.ADMIN) && !hasRole(UserRole.SUPERADMIN))) {
     return null;
   }
 

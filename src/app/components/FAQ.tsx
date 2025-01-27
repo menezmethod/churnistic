@@ -1,6 +1,6 @@
 'use client';
 
-import { ExpandMore } from '@mui/icons-material';
+import { KeyboardArrowDown } from '@mui/icons-material';
 import {
   Accordion,
   AccordionDetails,
@@ -10,7 +10,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
+import { alpha, styled } from '@mui/material/styles';
 import { motion } from 'framer-motion';
 
 const FAQ_ITEMS = [
@@ -40,6 +40,26 @@ const FAQ_ITEMS = [
       'New bonuses are added daily as banks release new promotions. Our system automatically tracks and verifies new offers, ensuring you always have access to the latest opportunities.',
   },
 ];
+
+const StyledAccordionSummary = styled(AccordionSummary)(({ theme }) => ({
+  backgroundColor: theme.palette.background.paper,
+  padding: theme.spacing(2),
+  borderRadius: '8px',
+  '& .MuiAccordionSummary-content': {
+    margin: 0,
+  },
+  '& .MuiAccordionSummary-expandIconWrapper': {
+    color: theme.palette.primary.main,
+  },
+  '&:hover': {
+    backgroundColor: alpha(theme.palette.primary.main, 0.04),
+  },
+}));
+
+const StyledAccordionDetails = styled(AccordionDetails)(({ theme }) => ({
+  padding: theme.spacing(2),
+  borderTop: `1px solid ${theme.palette.divider}`,
+}));
 
 export function FAQ() {
   const theme = useTheme();
@@ -75,38 +95,37 @@ export function FAQ() {
               <Accordion
                 sx={{
                   mb: 2,
-                  bgcolor: 'background.paper',
-                  borderRadius: '8px !important',
+                  borderRadius: '8px',
                   '&:before': { display: 'none' },
-                  boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.08)}`,
+                  boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.08)}`,
                   border: `1px solid ${theme.palette.divider}`,
                   overflow: 'hidden',
                   '&.Mui-expanded': {
-                    boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.12)}`,
+                    boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.12)}`,
                   },
                 }}
               >
-                <AccordionSummary
-                  expandIcon={<ExpandMore />}
-                  sx={{
-                    '& .MuiAccordionSummary-content': {
-                      my: 2,
-                    },
-                  }}
+                <StyledAccordionSummary
+                  expandIcon={<KeyboardArrowDown />}
+                  aria-controls={`panel${index}-content`}
+                  id={`panel${index}-header`}
                 >
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: 600, color: 'text.primary' }}
+                  >
                     {item.question}
                   </Typography>
-                </AccordionSummary>
-                <AccordionDetails>
+                </StyledAccordionSummary>
+                <StyledAccordionDetails>
                   <Typography
                     variant="body1"
                     color="text.secondary"
-                    sx={{ mb: 2, lineHeight: 1.7 }}
+                    sx={{ lineHeight: 1.7 }}
                   >
                     {item.answer}
                   </Typography>
-                </AccordionDetails>
+                </StyledAccordionDetails>
               </Accordion>
             </motion.div>
           ))}

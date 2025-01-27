@@ -38,7 +38,7 @@ function HeroSection({ user }: { user: AuthUser }) {
       ref={ref}
       sx={{
         position: 'relative',
-        minHeight: user ? '50vh' : '70vh',
+        minHeight: '70vh',
         display: 'flex',
         alignItems: 'center',
         background: `linear-gradient(135deg, 
@@ -90,7 +90,7 @@ function HeroSection({ user }: { user: AuthUser }) {
       {/* Content */}
       <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
         <Grid container spacing={4} alignItems="center">
-          <Grid item xs={12} md={user ? 12 : 7}>
+          <Grid item xs={12} md={7}>
             <AnimatePresence>
               {inView && (
                 <>
@@ -107,10 +107,10 @@ function HeroSection({ user }: { user: AuthUser }) {
                         color: 'common.white',
                         mb: 2,
                         textShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                        textAlign: user ? 'center' : 'left',
+                        textAlign: 'left',
                       }}
                     >
-                      {user ? 'Welcome Back!' : 'Maximize Your Credit Card Rewards'}
+                      Maximize Your Credit Card Rewards
                     </Typography>
                   </motion.div>
 
@@ -125,77 +125,129 @@ function HeroSection({ user }: { user: AuthUser }) {
                         color: 'common.white',
                         mb: 4,
                         opacity: 0.9,
-                        maxWidth: user ? '800px' : '600px',
-                        textAlign: user ? 'center' : 'left',
-                        mx: user ? 'auto' : 0,
+                        maxWidth: '600px',
+                        textAlign: 'left',
                       }}
                     >
-                      {user
-                        ? "Check out today's top opportunities below"
-                        : 'Smart tracking for credit card sign-up bonuses. Never miss a reward.'}
+                      Smart tracking for credit card sign-up bonuses. Never miss a reward.
                     </Typography>
                   </motion.div>
 
-                  {!user && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 30 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.6, delay: 0.4 }}
-                    >
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                        <Button
-                          variant="contained"
-                          size="large"
-                          component={Link}
-                          href="/auth/signup"
-                          endIcon={<KeyboardArrowRight />}
-                          sx={{
-                            px: 4,
-                            py: 2,
-                            borderRadius: 3,
-                            textTransform: 'none',
-                            fontSize: '1.1rem',
-                            fontWeight: 600,
-                            bgcolor: 'common.white',
-                            color: 'primary.main',
-                            '&:hover': {
-                              bgcolor: alpha(theme.palette.common.white, 0.9),
-                              transform: 'translateY(-2px)',
-                              boxShadow: `0 8px 20px ${alpha(theme.palette.common.black, 0.25)}`,
-                            },
-                          }}
-                        >
-                          Start Free
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          size="large"
-                          component={Link}
-                          href="/auth/signin"
-                          sx={{
-                            px: 4,
-                            py: 2,
-                            borderRadius: 3,
-                            textTransform: 'none',
-                            fontSize: '1.1rem',
-                            fontWeight: 600,
+                  <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.4 }}
+                  >
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                      <Button
+                        variant="contained"
+                        size="large"
+                        component={Link}
+                        href="/auth/signup"
+                        endIcon={<KeyboardArrowRight />}
+                        sx={{
+                          px: 4,
+                          py: 2,
+                          borderRadius: 3,
+                          textTransform: 'none',
+                          fontSize: '1.1rem',
+                          fontWeight: 600,
+                          bgcolor: 'common.white',
+                          color: 'primary.main',
+                          '&:hover': {
+                            bgcolor: alpha(theme.palette.common.white, 0.9),
+                            transform: 'translateY(-2px)',
+                            boxShadow: `0 8px 20px ${alpha(theme.palette.common.black, 0.25)}`,
+                          },
+                        }}
+                      >
+                        Start Free
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="large"
+                        component={Link}
+                        href="/auth/signin"
+                        sx={{
+                          px: 4,
+                          py: 2,
+                          borderRadius: 3,
+                          textTransform: 'none',
+                          fontSize: '1.1rem',
+                          fontWeight: 600,
+                          borderColor: 'common.white',
+                          color: 'common.white',
+                          '&:hover': {
                             borderColor: 'common.white',
-                            color: 'common.white',
-                            '&:hover': {
-                              borderColor: 'common.white',
-                              bgcolor: alpha(theme.palette.common.white, 0.1),
-                            },
-                          }}
-                        >
-                          Sign In
-                        </Button>
-                      </Stack>
-                    </motion.div>
-                  )}
+                            bgcolor: alpha(theme.palette.common.white, 0.1),
+                          },
+                        }}
+                      >
+                        Sign In
+                      </Button>
+                    </Stack>
+                  </motion.div>
                 </>
               )}
             </AnimatePresence>
           </Grid>
+          {user && (
+            <Grid item xs={12} md={5} sx={{ display: 'flex', justifyContent: 'center' }}>
+              <AnimatePresence>
+                {inView && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                  >
+                    <Box
+                      sx={{
+                        p: 3,
+                        borderRadius: 2,
+                        bgcolor: alpha(theme.palette.common.white, 0.1),
+                        textAlign: 'center',
+                      }}
+                    >
+                      <Typography
+                        variant="h5"
+                        color="common.white"
+                        fontWeight={600}
+                        mb={1}
+                      >
+                        Welcome Back!
+                      </Typography>
+                      <Typography
+                        variant="body1"
+                        color="common.white"
+                        sx={{ opacity: 0.8 }}
+                        mb={2}
+                      >
+                        Check out today&apos;s top opportunities below.
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        component={Link}
+                        href="/dashboard"
+                        sx={{
+                          px: 3,
+                          py: 1,
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          bgcolor: theme.palette.secondary.main,
+                          '&:hover': {
+                            bgcolor: theme.palette.secondary.dark,
+                          },
+                        }}
+                      >
+                        Go to Dashboard
+                      </Button>
+                    </Box>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Grid>
+          )}
         </Grid>
       </Container>
     </Box>
@@ -307,120 +359,111 @@ export default function HomePage() {
   return (
     <Box component="main">
       <HeroSection user={user} />
-      {user ? (
-        // For authenticated users, show stats and opportunities
-        <>
-          <StatsSection stats={displayStats} />
-          <FeaturedOpportunities />
-        </>
-      ) : (
-        // For non-authenticated users, show full landing page
-        <>
-          <StatsSection stats={displayStats} />
-          <BankLogos />
-          <FeaturedOpportunities />
+      <StatsSection stats={displayStats} />
+      <BankLogos />
+      <FeaturedOpportunities />
+      <Box
+        component="section"
+        sx={{
+          position: 'relative',
+          bgcolor: theme.palette.mode === 'dark' ? 'background.paper' : 'grey.50',
+          py: { xs: 6, md: 8 },
+          borderTop: `1px solid ${theme.palette.divider}`,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+        }}
+      >
+        <FAQ />
+      </Box>
+      {!user && (
+        <Container maxWidth="lg" sx={{ my: { xs: 6, md: 8 } }}>
           <Box
-            component="section"
+            component={motion.div}
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.8 }}
             sx={{
+              p: { xs: 3, md: 6 },
+              borderRadius: 4,
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: theme.shadows[1],
               position: 'relative',
-              bgcolor: theme.palette.mode === 'dark' ? 'background.paper' : 'grey.50',
-              py: 8,
-              borderTop: `1px solid ${theme.palette.divider}`,
-              borderBottom: `1px solid ${theme.palette.divider}`,
+              overflow: 'hidden',
+              textAlign: 'center',
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: `radial-gradient(circle at top right, ${alpha(
+                  theme.palette.primary.main,
+                  0.1
+                )}, transparent 70%)`,
+                opacity: 0,
+                transition: 'opacity 0.3s',
+              },
+              '&:hover::after': {
+                opacity: 1,
+              },
             }}
           >
-            <FAQ /> WHERE IS FAQ?
-          </Box>
-          <Container maxWidth="lg" sx={{ mb: 8, mt: 8 }}>
-            <Box
-              component={motion.div}
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.8 }}
+            <Typography
+              variant="h3"
               sx={{
-                p: { xs: 4, md: 6 },
-                borderRadius: 4,
-                bgcolor: 'background.paper',
-                border: '1px solid',
-                borderColor: 'divider',
-                boxShadow: theme.shadows[1],
-                position: 'relative',
-                overflow: 'hidden',
-                textAlign: 'center',
-                '&::after': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: `radial-gradient(circle at top right, ${alpha(
-                    theme.palette.primary.main,
-                    0.1
-                  )}, transparent 70%)`,
-                  opacity: 0,
-                  transition: 'opacity 0.3s',
-                },
-                '&:hover::after': {
-                  opacity: 1,
+                mb: 2,
+                fontWeight: 800,
+                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
+              }}
+            >
+              Ready to Start Earning?
+            </Typography>
+            <Typography
+              variant="h6"
+              color="text.secondary"
+              sx={{
+                mb: 4,
+                maxWidth: '800px',
+                mx: 'auto',
+                lineHeight: 1.6,
+                fontWeight: 400,
+              }}
+            >
+              Join our community of reward maximizers and start tracking your bonuses
+              today.
+            </Typography>
+            <Button
+              variant="contained"
+              size="large"
+              component={Link}
+              href="/auth/signup"
+              endIcon={<KeyboardArrowRight />}
+              sx={{
+                px: 6,
+                py: 2,
+                borderRadius: 3,
+                textTransform: 'none',
+                fontSize: { xs: '1rem', sm: '1.1rem', md: '1.2rem' },
+                fontWeight: 600,
+                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.25)}`,
+                transition: 'all 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: `0 6px 12px ${alpha(theme.palette.primary.main, 0.35)}`,
+                  background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
                 },
               }}
             >
-              <Typography
-                variant="h3"
-                sx={{
-                  mb: 2,
-                  fontWeight: 800,
-                  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
-                }}
-              >
-                Ready to Start Earning?
-              </Typography>
-              <Typography
-                variant="h6"
-                color="text.secondary"
-                sx={{
-                  mb: 4,
-                  maxWidth: '800px',
-                  mx: 'auto',
-                  lineHeight: 1.6,
-                  fontWeight: 400,
-                }}
-              >
-                Join our community of reward maximizers and start tracking your bonuses
-                today.
-              </Typography>
-              <Button
-                variant="contained"
-                size="large"
-                component={Link}
-                href="/auth/signup"
-                endIcon={<KeyboardArrowRight />}
-                sx={{
-                  px: 6,
-                  py: 2,
-                  borderRadius: 3,
-                  textTransform: 'none',
-                  fontSize: { xs: '1rem', sm: '1.1rem', md: '1.2rem' },
-                  fontWeight: 600,
-                  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                  boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.25)}`,
-                  transition: 'all 0.3s',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: `0 6px 12px ${alpha(theme.palette.primary.main, 0.35)}`,
-                    background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
-                  },
-                }}
-              >
-                Create Free Account
-              </Button>
-            </Box>
-          </Container>
-        </>
+              Create Free Account
+            </Button>
+          </Box>
+        </Container>
       )}
     </Box>
   );

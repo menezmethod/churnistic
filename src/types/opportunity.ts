@@ -81,6 +81,10 @@ export interface FirestoreOpportunity {
     credit?: {
       inquiry?: 'soft_pull' | 'hard_pull';
     };
+    source?: {
+      name: string;
+      original_id: string;
+    };
   };
   bonus?: {
     title?: string;
@@ -98,6 +102,8 @@ export interface FirestoreOpportunity {
     };
     additional_info?: string;
     tiers?: Array<{
+      reward: string;
+      deposit: string;
       level: string;
       value: number;
       minimum_deposit: number;
@@ -294,6 +300,8 @@ export interface Opportunity {
   bank?: string;
   description?: string;
   title?: string;
+  processing_status?: string;
+  ai_insights?: string;
 }
 
 // Utility types for handling nested keys, including array indices

@@ -3,187 +3,284 @@
 import {
   CheckCircle as ApproveIcon,
   Cancel as RejectIcon,
-  Warning as WarningIcon,
   Search as SearchIcon,
-  FilterList as FilterIcon,
+  TrendingUp as TrendingUpIcon,
+  AccountBalance as BankIcon,
+  CreditCard as CardIcon,
+  PendingActions as PendingIcon,
+  Visibility as PreviewIcon,
+  ShowChart as BrokerageIcon,
+  AttachMoney as ValueIcon,
+  Speed as SpeedIcon,
+  CloudDownload as ImportIcon,
 } from '@mui/icons-material';
 import {
   Box,
-  Container,
-  Paper,
-  Typography,
-  Tabs,
-  Tab,
+  Button,
+  Card,
+  CardContent,
   Chip,
+  Container,
+  Grid,
   IconButton,
+  InputAdornment,
+  Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
-  TableRow,
   TablePagination,
-  Button,
-  Stack,
+  TableRow,
+  TableSortLabel,
   TextField,
-  InputAdornment,
-  Menu,
-  MenuItem,
-  Badge,
+  Typography,
+  useTheme,
 } from '@mui/material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-// Mock data based on the Core Opportunity Model
-const mockOpportunities = [
-  {
-    id: '1',
-    name: 'Chase Sapphire Preferred®',
-    type: 'credit_card',
-    bank: 'Chase',
-    value: 800,
-    status: 'pending',
-    source: {
-      name: 'Doctor of Credit',
-      collected_at: '2024-01-05T10:30:00Z',
-    },
-    bonus: {
-      title: '80,000 Points Bonus',
-      value: 800,
-      requirements: [
-        {
-          type: 'spend',
-          details: { amount: 4000, period: 90 },
-        },
-      ],
-    },
-    processing_status: {
-      source_validation: true,
-      ai_processed: true,
-      duplicate_checked: true,
-      needs_review: true,
-    },
-    ai_insights: {
-      confidence_score: 0.92,
-      validation_warnings: ['Bonus amount changed recently'],
-      potential_duplicates: ['chase-sapphire-preferred-75k'],
-    },
-  },
-  {
-    id: '2',
-    name: 'Citi Premier® Card',
-    type: 'credit_card',
-    bank: 'Citi',
-    value: 600,
-    status: 'pending',
-    source: {
-      name: 'BankRewards.io',
-      collected_at: '2024-01-05T09:15:00Z',
-    },
-    bonus: {
-      title: '60,000 Points Bonus',
-      value: 600,
-      requirements: [
-        {
-          type: 'spend',
-          details: { amount: 4000, period: 90 },
-        },
-      ],
-    },
-    processing_status: {
-      source_validation: true,
-      ai_processed: true,
-      duplicate_checked: true,
-      needs_review: true,
-    },
-    ai_insights: {
-      confidence_score: 0.88,
-      validation_warnings: [],
-      potential_duplicates: [],
-    },
-  },
-  {
-    id: '3',
-    name: 'Capital One Checking',
-    type: 'bank',
-    bank: 'Capital One',
-    value: 400,
-    status: 'pending',
-    source: {
-      name: 'Doctor of Credit',
-      collected_at: '2024-01-05T08:45:00Z',
-    },
-    bonus: {
-      title: '$400 Checking Bonus',
-      value: 400,
-      requirements: [
-        {
-          type: 'direct_deposit',
-          details: { amount: 2000, period: 60 },
-        },
-      ],
-    },
-    processing_status: {
-      source_validation: true,
-      ai_processed: true,
-      duplicate_checked: false,
-      needs_review: true,
-    },
-    ai_insights: {
-      confidence_score: 0.95,
-      validation_warnings: ['Similar to existing offer'],
-      potential_duplicates: ['capital-one-checking-300'],
-    },
-  },
-];
+import { OpportunityPreviewModal } from './components/OpportunityPreviewModal';
+import { useOpportunities } from './hooks/useOpportunities';
+import { Opportunity } from './types/opportunity';
 
-export default function OfferValidationPage() {
-  const [tab, setTab] = useState(0);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+const StatsCard = ({
+  title,
+  value,
+  icon,
+  color,
+  suffix,
+  prefix,
+}: {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  color: string;
+  suffix?: string;
+  prefix?: string;
+}) => (
+  <Card sx={{ height: '100%' }}>
+    <CardContent>
+      <Stack direction="row" alignItems="center" spacing={2}>
+        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: `${color}20` }}>{icon}</Box>
+        <Box>
+          <Typography variant="h4" fontWeight="bold">
+            {prefix && <span>{prefix}</span>}
+            {value}
+            {suffix && <span>{suffix}</span>}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {title}
+          </Typography>
+        </Box>
+      </Stack>
+    </CardContent>
+  </Card>
+);
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
+const OpportunitiesPage = () => {
+  const theme = useTheme();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(
+    null
+  );
+  const {
+    opportunities,
+    pagination,
+    updatePagination,
+    hasMore,
+    approveOpportunity,
+    rejectOpportunity,
+    stats,
+    importOpportunities,
+    isImporting,
+  } = useOpportunities();
+
+  useEffect(() => {
+    // Initial sync
+    importOpportunities();
+
+    // Set up interval for continuous sync
+    const syncInterval = setInterval(
+      () => {
+        importOpportunities();
+      },
+      5 * 60 * 1000
+    ); // Sync every 5 minutes
+
+    return () => clearInterval(syncInterval);
+  }, [importOpportunities]);
+
+  const handleSort = (field: string) => {
+    updatePagination({
+      sortBy: field,
+      sortDirection:
+        pagination.sortBy === field && pagination.sortDirection === 'asc'
+          ? 'desc'
+          : 'asc',
+    });
+  };
+
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    updatePagination({
+      filters: {
+        ...pagination.filters,
+        search: value || undefined,
+      },
+    });
+  };
+
+  const handleChangePage = (_: unknown, newPage: number) => {
+    updatePagination({ page: newPage + 1 });
   };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
+    updatePagination({
+      pageSize: parseInt(event.target.value, 10),
+    });
   };
 
-  const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
+  const handleSync = async () => {
+    try {
+      await importOpportunities();
+    } catch (error) {
+      console.error('Failed to sync opportunities:', error);
+    }
   };
 
-  const handleFilterClose = () => {
-    setAnchorEl(null);
+  const getStatusChip = (status: string) => {
+    switch (status) {
+      case 'staged':
+        return <Chip label="Staged" color="info" size="small" />;
+      case 'pending':
+        return <Chip label="Pending" color="warning" size="small" />;
+      case 'approved':
+        return <Chip label="Approved" color="success" size="small" />;
+      case 'rejected':
+        return <Chip label="Rejected" color="error" size="small" />;
+      default:
+        return null;
+    }
   };
+
+  const handlePreview = (opportunity: Opportunity & { isStaged?: boolean }) => {
+    setSelectedOpportunity(opportunity);
+  };
+
+  const handleApprove = async (opportunity: Opportunity & { isStaged?: boolean }) => {
+    if (opportunity.isStaged) {
+      await approveOpportunity(opportunity);
+    } else {
+      // Get the full opportunity data for non-staged opportunities
+      const fullOpportunity = {
+        ...opportunity,
+        isStaged: false,
+      };
+      await approveOpportunity(fullOpportunity);
+    }
+  };
+
+  const handleReject = async (opportunity: Opportunity & { isStaged?: boolean }) => {
+    if (opportunity.isStaged) {
+      await rejectOpportunity(opportunity);
+    } else {
+      // Get the full opportunity data for non-staged opportunities
+      const fullOpportunity = {
+        ...opportunity,
+        isStaged: false,
+      };
+      await rejectOpportunity(fullOpportunity);
+    }
+  };
+
+  const processingSpeed =
+    stats.total > 0
+      ? (((stats.approved + stats.rejected) / stats.total) * 100).toFixed(1)
+      : '0';
 
   return (
-    <Container maxWidth="xl">
-      <Box sx={{ width: '100%', mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Offer Validation
-        </Typography>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Grid container spacing={3}>
+        {/* Main Stats */}
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Total Opportunities"
+            value={stats.total}
+            icon={<TrendingUpIcon sx={{ color: theme.palette.primary.main }} />}
+            color={theme.palette.primary.main}
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Pending Review"
+            value={stats.pending}
+            icon={<PendingIcon sx={{ color: theme.palette.warning.main }} />}
+            color={theme.palette.warning.main}
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Processing Rate"
+            value={Number(processingSpeed)}
+            icon={<SpeedIcon sx={{ color: theme.palette.info.main }} />}
+            color={theme.palette.info.main}
+            suffix="%"
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Avg. Bonus Value"
+            value={stats.avgValue}
+            icon={<ValueIcon sx={{ color: theme.palette.success.main }} />}
+            color={theme.palette.success.main}
+            prefix="$"
+          />
+        </Grid>
 
-        {/* Tabs and Actions */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Tabs value={tab} onChange={(_e, v) => setTab(v)}>
-              <Tab
-                label={
-                  <Badge badgeContent={5} color="error">
-                    Pending Review
-                  </Badge>
-                }
-              />
-              <Tab label="Approved" />
-              <Tab label="Rejected" />
-            </Tabs>
+        {/* Offer Type Distribution */}
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Bank Offers"
+            value={stats.byType.bank}
+            icon={<BankIcon sx={{ color: theme.palette.success.main }} />}
+            color={theme.palette.success.main}
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Credit Card Offers"
+            value={stats.byType.credit_card}
+            icon={<CardIcon sx={{ color: theme.palette.info.main }} />}
+            color={theme.palette.info.main}
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="Brokerage Offers"
+            value={stats.byType.brokerage}
+            icon={<BrokerageIcon sx={{ color: theme.palette.secondary.main }} />}
+            color={theme.palette.secondary.main}
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <StatsCard
+            title="High Value ($500+)"
+            value={stats.highValue}
+            icon={<ValueIcon sx={{ color: theme.palette.error.main }} />}
+            color={theme.palette.error.main}
+          />
+        </Grid>
+
+        {/* Search and Sync */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2, mb: 3 }}>
             <Stack direction="row" spacing={2}>
               <TextField
-                size="small"
-                placeholder="Search offers..."
+                fullWidth
+                placeholder="Search opportunities..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -193,131 +290,139 @@ export default function OfferValidationPage() {
                 }}
               />
               <Button
-                variant="outlined"
-                startIcon={<FilterIcon />}
-                onClick={handleFilterClick}
+                variant="contained"
+                startIcon={<ImportIcon />}
+                onClick={handleSync}
+                disabled={isImporting}
               >
-                Filter
+                {isImporting ? 'Syncing...' : 'Sync Now'}
               </Button>
             </Stack>
-          </Stack>
-        </Box>
-
-        {/* Filter Menu */}
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleFilterClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-        >
-          <MenuItem>Credit Cards Only</MenuItem>
-          <MenuItem>Bank Accounts Only</MenuItem>
-          <MenuItem>High Value ($500+)</MenuItem>
-          <MenuItem>New Sources</MenuItem>
-          <MenuItem>Has Warnings</MenuItem>
-        </Menu>
+          </Paper>
+        </Grid>
 
         {/* Opportunities Table */}
-        <TableContainer component={Paper}>
-          <Table sx={{ minWidth: 800 }}>
-            <TableHead>
-              <TableRow>
-                <TableCell>Offer Details</TableCell>
-                <TableCell>Source</TableCell>
-                <TableCell>Requirements</TableCell>
-                <TableCell>AI Insights</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {mockOpportunities.map((opp) => (
-                <TableRow key={opp.id} hover>
+        <Grid item xs={12}>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
                   <TableCell>
-                    <Box>
-                      <Typography variant="subtitle2">{opp.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {opp.bonus.title}
-                      </Typography>
+                    <TableSortLabel
+                      active={pagination.sortBy === 'name'}
+                      direction={pagination.sortDirection}
+                      onClick={() => handleSort('name')}
+                    >
+                      Name
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>
+                    <TableSortLabel
+                      active={pagination.sortBy === 'value'}
+                      direction={pagination.sortDirection}
+                      onClick={() => handleSort('value')}
+                    >
+                      Value
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {opportunities.map((opportunity) => (
+                  <TableRow
+                    key={opportunity.id}
+                    hover
+                    sx={opportunity.isStaged ? { bgcolor: 'action.hover' } : undefined}
+                  >
+                    <TableCell>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        {opportunity.logo && (
+                          <Box
+                            component="img"
+                            src={opportunity.logo.url}
+                            alt={opportunity.name}
+                            sx={{ width: 24, height: 24, objectFit: 'contain' }}
+                          />
+                        )}
+                        <Typography>{opportunity.name}</Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
                       <Chip
+                        label={opportunity.type}
                         size="small"
-                        label={
-                          opp.type === 'credit_card' ? 'Credit Card' : 'Bank Account'
-                        }
-                        sx={{ mt: 1 }}
+                        color={opportunity.type === 'bank' ? 'success' : 'info'}
                       />
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{opp.source.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {new Date(opp.source.collected_at).toLocaleString()}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {opp.bonus.requirements.map((req, index) => (
-                      <Typography key={index} variant="body2">
-                        {req.type === 'spend'
-                          ? `Spend $${req.details.amount} in ${req.details.period} days`
-                          : `Direct deposit $${req.details.amount} in ${req.details.period} days`}
+                    </TableCell>
+                    <TableCell>
+                      <Typography color="success.main" fontWeight="bold">
+                        ${opportunity.value}
                       </Typography>
-                    ))}
-                  </TableCell>
-                  <TableCell>
-                    <Stack spacing={1}>
-                      <Typography variant="body2">
-                        Confidence: {(opp.ai_insights.confidence_score * 100).toFixed(0)}%
-                      </Typography>
-                      {opp.ai_insights.validation_warnings.map((warning, index) => (
-                        <Chip
-                          key={index}
-                          size="small"
-                          icon={<WarningIcon />}
-                          label={warning}
-                          color="warning"
-                        />
-                      ))}
-                      {opp.ai_insights.potential_duplicates.length > 0 && (
-                        <Chip
-                          size="small"
-                          icon={<WarningIcon />}
-                          label={`${opp.ai_insights.potential_duplicates.length} potential duplicate(s)`}
-                          color="warning"
-                        />
-                      )}
-                    </Stack>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <IconButton color="success" size="small">
+                    </TableCell>
+                    <TableCell>{getStatusChip(opportunity.status)}</TableCell>
+                    <TableCell align="right">
+                      <IconButton
+                        onClick={() => handlePreview(opportunity)}
+                        color="primary"
+                      >
+                        <PreviewIcon />
+                      </IconButton>
+                      <IconButton
+                        color="success"
+                        onClick={() => handleApprove(opportunity)}
+                        disabled={
+                          opportunity.status === 'approved' ||
+                          opportunity.status === 'rejected'
+                        }
+                      >
                         <ApproveIcon />
                       </IconButton>
-                      <IconButton color="error" size="small">
+                      <IconButton
+                        color="error"
+                        onClick={() => handleReject(opportunity)}
+                        disabled={
+                          opportunity.status === 'approved' ||
+                          opportunity.status === 'rejected'
+                        }
+                      >
                         <RejectIcon />
                       </IconButton>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={mockOpportunities.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </TableContainer>
-      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <TablePagination
+              component="div"
+              count={stats.total || 0}
+              page={pagination.page - 1}
+              rowsPerPage={pagination.pageSize}
+              rowsPerPageOptions={[10, 20, 50]}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              nextIconButtonProps={{
+                disabled: !hasMore,
+              }}
+            />
+          </TableContainer>
+        </Grid>
+      </Grid>
+
+      {/* Preview Modal */}
+      {selectedOpportunity && (
+        <OpportunityPreviewModal
+          opportunity={selectedOpportunity}
+          open={true}
+          onClose={() => setSelectedOpportunity(null)}
+          onApprove={() => handleApprove(selectedOpportunity)}
+          onReject={() => handleReject(selectedOpportunity)}
+        />
+      )}
     </Container>
   );
-}
+};
+
+export default OpportunitiesPage;

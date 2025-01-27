@@ -2,12 +2,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Development-only rules - DO NOT USE IN PRODUCTION
-    match /bankrewards/{offerId} {
-      allow read, write: if true;
-    }
-    
-    // Allow read/write access to all other collections in development
+    // Allow all operations in emulator mode
     match /{document=**} {
       allow read, write: if true;
     }

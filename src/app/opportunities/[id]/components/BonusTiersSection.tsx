@@ -91,7 +91,7 @@ export const BonusTiersSection = ({ opportunity }: BonusTiersSectionProps) => {
                     variant="h6"
                     sx={{ color: 'primary.main', fontWeight: 600 }}
                   >
-                    ${tier.value.toLocaleString()}
+                    {tier.reward}
                   </Typography>
                 </Box>
               </Grid>
@@ -101,7 +101,7 @@ export const BonusTiersSection = ({ opportunity }: BonusTiersSectionProps) => {
                     Minimum Deposit
                   </Typography>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    ${tier.minimum_deposit.toLocaleString()}
+                    {tier.deposit}
                   </Typography>
                 </Box>
               </Grid>
