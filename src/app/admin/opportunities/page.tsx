@@ -12,9 +12,11 @@ import {
   ShowChart as BrokerageIcon,
   AttachMoney as ValueIcon,
   Speed as SpeedIcon,
+  CloudDownload as ImportIcon,
 } from '@mui/icons-material';
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Chip,
@@ -36,7 +38,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import { OpportunityPreviewModal } from './components/OpportunityPreviewModal';
 import { useOpportunities } from './hooks/useOpportunities';
@@ -82,7 +84,6 @@ const OpportunitiesPage = () => {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(
     null
   );
-
   const {
     opportunities,
     pagination,
@@ -91,7 +92,21 @@ const OpportunitiesPage = () => {
     approveOpportunity,
     rejectOpportunity,
     stats,
+    importOpportunities,
+    isImporting,
   } = useOpportunities();
+
+  useEffect(() => {
+    // Initial sync
+    importOpportunities();
+
+    // Set up interval for continuous sync
+    const syncInterval = setInterval(() => {
+      importOpportunities();
+    }, 5 * 60 * 1000); // Sync every 5 minutes
+
+    return () => clearInterval(syncInterval);
+  }, [importOpportunities]);
 
   const handleSort = (field: string) => {
     updatePagination({
@@ -123,8 +138,18 @@ const OpportunitiesPage = () => {
     });
   };
 
+  const handleSync = async () => {
+    try {
+      await importOpportunities();
+    } catch (error) {
+      console.error('Failed to sync opportunities:', error);
+    }
+  };
+
   const getStatusChip = (status: string) => {
     switch (status) {
+      case 'staged':
+        return <Chip label="Staged" color="info" size="small" />;
       case 'pending':
         return <Chip label="Pending" color="warning" size="small" />;
       case 'approved':
@@ -133,6 +158,36 @@ const OpportunitiesPage = () => {
         return <Chip label="Rejected" color="error" size="small" />;
       default:
         return null;
+    }
+  };
+
+  const handlePreview = (opportunity: Opportunity & { isStaged?: boolean }) => {
+    setSelectedOpportunity(opportunity);
+  };
+
+  const handleApprove = async (opportunity: Opportunity & { isStaged?: boolean }) => {
+    if (opportunity.isStaged) {
+      await approveOpportunity(opportunity);
+    } else {
+      // Get the full opportunity data for non-staged opportunities
+      const fullOpportunity = {
+        ...opportunity,
+        isStaged: false,
+      };
+      await approveOpportunity(fullOpportunity);
+    }
+  };
+
+  const handleReject = async (opportunity: Opportunity & { isStaged?: boolean }) => {
+    if (opportunity.isStaged) {
+      await rejectOpportunity(opportunity);
+    } else {
+      // Get the full opportunity data for non-staged opportunities
+      const fullOpportunity = {
+        ...opportunity,
+        isStaged: false,
+      };
+      await rejectOpportunity(fullOpportunity);
     }
   };
 
@@ -214,7 +269,7 @@ const OpportunitiesPage = () => {
           />
         </Grid>
 
-        {/* Search and Table */}
+        {/* Search and Sync */}
         <Grid item xs={12}>
           <Paper sx={{ p: 2, mb: 3 }}>
             <Stack direction="row" spacing={2}>
@@ -231,6 +286,14 @@ const OpportunitiesPage = () => {
                   ),
                 }}
               />
+              <Button
+                variant="contained"
+                startIcon={<ImportIcon />}
+                onClick={handleSync}
+                disabled={isImporting}
+              >
+                {isImporting ? 'Syncing...' : 'Sync Now'}
+              </Button>
             </Stack>
           </Paper>
         </Grid>
@@ -265,8 +328,12 @@ const OpportunitiesPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {opportunities.map((opportunity: Opportunity) => (
-                  <TableRow key={opportunity.id} hover>
+                {opportunities.map((opportunity) => (
+                  <TableRow 
+                    key={opportunity.id} 
+                    hover
+                    sx={opportunity.isStaged ? { bgcolor: 'action.hover' } : undefined}
+                  >
                     <TableCell>
                       <Stack direction="row" alignItems="center" spacing={2}>
                         {opportunity.logo && (
@@ -295,22 +362,22 @@ const OpportunitiesPage = () => {
                     <TableCell>{getStatusChip(opportunity.status)}</TableCell>
                     <TableCell align="right">
                       <IconButton
-                        onClick={() => setSelectedOpportunity(opportunity)}
+                        onClick={() => handlePreview(opportunity)}
                         color="primary"
                       >
                         <PreviewIcon />
                       </IconButton>
                       <IconButton
                         color="success"
-                        onClick={() => approveOpportunity(opportunity.id)}
-                        disabled={opportunity.status !== 'pending'}
+                        onClick={() => handleApprove(opportunity)}
+                        disabled={opportunity.status === 'approved' || opportunity.status === 'rejected'}
                       >
                         <ApproveIcon />
                       </IconButton>
                       <IconButton
                         color="error"
-                        onClick={() => rejectOpportunity(opportunity.id)}
-                        disabled={opportunity.status !== 'pending'}
+                        onClick={() => handleReject(opportunity)}
+                        disabled={opportunity.status === 'approved' || opportunity.status === 'rejected'}
                       >
                         <RejectIcon />
                       </IconButton>
@@ -336,21 +403,15 @@ const OpportunitiesPage = () => {
       </Grid>
 
       {/* Preview Modal */}
-      <OpportunityPreviewModal
-        opportunity={selectedOpportunity}
-        open={!!selectedOpportunity}
-        onClose={() => setSelectedOpportunity(null)}
-        onApprove={
-          selectedOpportunity
-            ? () => approveOpportunity(selectedOpportunity.id)
-            : undefined
-        }
-        onReject={
-          selectedOpportunity
-            ? () => rejectOpportunity(selectedOpportunity.id)
-            : undefined
-        }
-      />
+      {selectedOpportunity && (
+        <OpportunityPreviewModal
+          opportunity={selectedOpportunity}
+          open={true}
+          onClose={() => setSelectedOpportunity(null)}
+          onApprove={() => handleApprove(selectedOpportunity)}
+          onReject={() => handleReject(selectedOpportunity)}
+        />
+      )}
     </Container>
   );
 };

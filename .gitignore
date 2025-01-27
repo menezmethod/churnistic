@@ -61,6 +61,10 @@ tsconfig.tsbuildinfo
 *.cache
 firebase-debug.log
 firestore-debug.log
+firebase-data/
+firebase-data/firebase-export-metadata.json
+firebase-data/auth_export/
+firebase-data/firestore_export/
 
 # Project specific
 /data/
@@ -86,3 +90,4 @@ firestore-debug.log
 # Vercel
 .vercel
 .now
+

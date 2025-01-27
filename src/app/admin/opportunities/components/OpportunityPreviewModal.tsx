@@ -13,11 +13,12 @@ import {
 } from '@mui/material';
 import { format } from 'date-fns';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Opportunity } from '../types/opportunity';
 
 interface OpportunityPreviewModalProps {
-  opportunity: Opportunity | null;
+  opportunity: Opportunity & { isStaged?: boolean };
   open: boolean;
   onClose: () => void;
   onApprove?: () => void;
@@ -32,6 +33,7 @@ export const OpportunityPreviewModal = ({
   onReject,
 }: OpportunityPreviewModalProps) => {
   const theme = useTheme();
+  const router = useRouter();
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
 
@@ -73,6 +75,14 @@ export const OpportunityPreviewModal = ({
     } finally {
       setIsRejecting(false);
     }
+  };
+
+  const handleViewDetails = () => {
+    if (opportunity.isStaged) {
+      // Don't route for staged opportunities
+      return;
+    }
+    router.push(`/opportunities/${opportunity.id}`);
   };
 
   return (
@@ -259,14 +269,14 @@ export const OpportunityPreviewModal = ({
         <Button onClick={onClose} color="inherit">
           Close
         </Button>
-        {opportunity.status === 'pending' && (
+        {!opportunity.isStaged && (
+          <Button onClick={handleViewDetails} color="primary">
+            View Details
+          </Button>
+        )}
+        {opportunity.status === 'staged' && (
           <>
-            <Button
-              onClick={handleReject}
-              color="error"
-              variant="outlined"
-              disabled={isRejecting || isApproving}
-            >
+            <Button onClick={handleReject} color="error" variant="outlined" disabled={isRejecting || isApproving}>
               Reject
             </Button>
             <Button

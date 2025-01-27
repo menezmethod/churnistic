@@ -4,7 +4,7 @@ export interface Opportunity {
   type: 'bank' | 'credit_card' | 'brokerage';
   bank: string;
   value: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'staged' | 'pending' | 'approved' | 'rejected';
   source: {
     name: string;
     collected_at: string;
