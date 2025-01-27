@@ -7,6 +7,7 @@ export enum UserRole {
   AGENT = 'agent',
   USER = 'user',
   FREE_USER = 'free_user',
+  SUPERADMIN = 'SUPERADMIN',
 }
 
 export enum Permission {
@@ -68,6 +69,10 @@ export enum Permission {
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  [UserRole.SUPERADMIN]: [
+    // Full access to all permissions
+    ...Object.values(Permission),
+  ],
   [UserRole.ADMIN]: [
     // Full access to all permissions
     ...Object.values(Permission),

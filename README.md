@@ -73,45 +73,217 @@ npm test
 npm run lint
 ```
 
-### Deployment
+## BankRewards Scraper
 
-### Vercel Integration
+A powerful web scraper for collecting and transforming bank reward offers. The scraper supports both local storage and Firestore integration, with automatic fallback mechanisms and comprehensive error handling.
 
-The project is configured for seamless deployment with Vercel:
+### Features
 
-1. **Preview Deployments**
+- Concurrent scraping with configurable limits
+- Rate limiting and retry mechanisms
+- Proxy support for distributed scraping
+- Local storage fallback
+- Firestore integration (production)
+- Emulator support for development
+- Automatic data transformation
+- Offer deduplication
+- Status tracking (active/expired)
 
-   - Automatic deployments for every PR
-   - Unique URL for testing changes
-   - Free tier optimized configuration
+### Configuration
 
-2. **Environment Setup**
-
-   - Connect your GitHub repository to Vercel
-   - Environment variables are automatically synced
-   - No additional configuration needed
-
-3. **Deployment Process**
-
-   - Push to `develop` branch for staging
-   - Merge to `main` for production
-   - Preview deployments for all PRs
-
-4. **Performance Optimizations**
-   - Automatic static asset caching
-   - Optimized serverless functions
-   - Memory limits: 256MB
-   - Function timeout: 5s
-
-### Deployment Commands
+Add these environment variables to your `.env.local`:
 
 ```bash
-# Deploy to Vercel
-vercel
-
-# Deploy to production
-vercel --prod
+# Scraping Configuration
+BANKREWARDS_MAX_CONCURRENCY=2           # Number of concurrent requests
+BANKREWARDS_MAX_REQUESTS_PER_MINUTE=20  # Rate limiting
+BANKREWARDS_MAX_RETRIES=3               # Failed request retry attempts
+BANKREWARDS_TIMEOUT_SECS=30             # Request timeout
+BANKREWARDS_PROXY_URLS=[]               # Optional proxy URLs array
+BANKREWARDS_USER_AGENT="Mozilla/5.0..." # Custom user agent
+BANKREWARDS_STORAGE_DIR="./storage/bankrewards" # Local storage path
+BANKREWARDS_LOG_LEVEL="info"            # Logging verbosity
 ```
+
+### Storage Architecture
+
+The scraper implements a dual-storage strategy:
+
+1. **Local Storage**
+
+   - JSON file-based storage
+   - Automatic backup on corruption
+   - Atomic write operations
+   - Default path: `./data/bankrewards.json`
+
+2. **Firestore Integration**
+   - Production-only storage
+   - Batch operations for performance
+   - Automatic timestamps
+   - Collection: `bankrewards`
+
+### API Endpoints
+
+1. **Collect Offers**
+
+   ```bash
+   POST /api/bankrewards/collect
+   ```
+
+   Starts the scraping process with configured parameters.
+
+2. **Get All Offers**
+
+   ```bash
+   GET /api/bankrewards?format=detailed|simple
+   ```
+
+   Returns all offers. Use `format=detailed` for transformed data.
+
+3. **Get Single Offer**
+
+   ```bash
+   GET /api/bankrewards/[id]
+   ```
+
+   Returns a specific offer by ID.
+
+4. **Get Detailed Offer**
+   ```bash
+   GET /api/bankrewards/detailed/[id]
+   ```
+   Returns a transformed offer with additional metadata.
+
+### Data Structures
+
+1. **Basic Offer**
+
+   ```typescript
+   {
+     id: string;
+     title: string;
+     type: 'CREDIT_CARD' | 'BANK_ACCOUNT';
+     offer_link: string;
+     value: number;
+     metadata: {
+       status: 'active' | 'expired';
+       lastChecked: Date;
+       lastUpdated: Date;
+     }
+   }
+   ```
+
+2. **Detailed Offer**
+   ```typescript
+   {
+     ...BasicOffer;
+     bonus: {
+       description: string;
+       requirements: string[];
+       tiers?: {
+         spend: number;
+         reward: number;
+       }[];
+     };
+     details: {
+       fees: string[];
+       availability: string[];
+       expiration?: string;
+     };
+     images?: {
+       logo?: string;
+       card?: string;
+     }
+   }
+   ```
+
+### Example Usage
+
+1. **Start Scraping**
+
+   ```bash
+   curl -X POST http://localhost:3000/api/bankrewards/collect
+   ```
+
+2. **Get All Offers (Simple)**
+
+   ```bash
+   curl http://localhost:3000/api/bankrewards
+   ```
+
+3. **Get All Offers (Detailed)**
+
+   ```bash
+   curl http://localhost:3000/api/bankrewards?format=detailed
+   ```
+
+4. **Get Single Offer**
+   ```bash
+   curl http://localhost:3000/api/bankrewards/[offer-id]
+   ```
+
+### Development Mode
+
+When running in development or using Firebase emulators:
+
+1. Start the emulators:
+
+   ```bash
+   npx firebase emulators:start --only firestore,auth --import=./firebase-data --export-on-exit
+   ```
+
+2. Set environment variables:
+
+   ```bash
+   NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true
+   ```
+
+3. The scraper will:
+   - Skip Firestore operations
+   - Use local storage exclusively
+   - Maintain data persistence between runs
+
+### Error Handling
+
+The scraper implements robust error handling:
+
+1. **Storage Failures**
+
+   - Automatic fallback to local storage
+   - Backup creation for corrupted files
+   - Atomic write operations
+
+2. **Scraping Errors**
+
+   - Automatic retries with exponential backoff
+   - Detailed error logging
+   - Rate limit compliance
+
+3. **Data Validation**
+   - Schema validation for all offers
+   - Automatic filtering of invalid data
+   - Detailed validation logs
+
+### Maintenance
+
+Regular maintenance tasks:
+
+1. **Clear Expired Offers**
+
+   ```bash
+   curl -X POST http://localhost:3000/api/bankrewards/expire
+   ```
+
+2. **Delete All Offers**
+
+   ```bash
+   curl -X DELETE http://localhost:3000/api/bankrewards
+   ```
+
+3. **Check Statistics**
+   ```bash
+   curl http://localhost:3000/api/bankrewards/stats
+   ```
 
 ## Architecture
 
@@ -139,23 +311,14 @@ vercel --prod
    - Security features
 
 3. **Dashboard**
+
    - Data visualization
    - Performance tracking
 
-### Infrastructure
-
-1. **Vercel Configuration**
-
-   - Preview deployments enabled
-   - Optimized for free tier
-   - Security headers configured
-   - Asset caching enabled
-   - Region: SFO1
-
-2. **Environment Management**
-   - Development: Local environment
-   - Staging: Preview deployments
-   - Production: Main branch deployments
+4. **BankRewards Scraper**
+   - Web scraping
+   - Data transformation
+   - Offer caching
 
 ## Development Workflow
 

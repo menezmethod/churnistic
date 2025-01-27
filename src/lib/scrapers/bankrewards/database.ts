@@ -1,14 +1,18 @@
+import { collection, doc, writeBatch, getDocs, Timestamp } from 'firebase/firestore';
 import fs from 'fs';
 import path from 'path';
 
+import { db } from '@/lib/firebase/config';
 import { BankRewardsOffer } from '@/types/scraper';
 
 export class BankRewardsDatabase {
   private offers: Map<string, BankRewardsOffer> = new Map();
   private readonly dbPath: string;
   private readonly dataDir: string;
+  private readonly useEmulator: boolean;
 
   constructor() {
+    this.useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
     this.dataDir = path.join(process.cwd(), 'data');
     this.dbPath = path.join(this.dataDir, 'bankrewards.json');
     this.ensureDataDirectory();
@@ -41,7 +45,7 @@ export class BankRewardsDatabase {
     return true;
   }
 
-  private loadFromDisk() {
+  private async loadFromDisk() {
     try {
       if (!fs.existsSync(this.dbPath)) {
         console.info(`[BankRewards] No existing database file at ${this.dbPath}`);
@@ -58,17 +62,7 @@ export class BankRewardsDatabase {
       let loadedCount = 0;
 
       if (Array.isArray(data)) {
-        // Handle array format
         data.forEach((offer) => {
-          if (this.validateOffer(offer)) {
-            const uniqueKey = `${offer.id}-${offer.title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-            this.offers.set(uniqueKey, offer);
-            loadedCount++;
-          }
-        });
-      } else if (typeof data === 'object' && data !== null) {
-        // Handle object format
-        Object.values(data).forEach((offer) => {
           if (this.validateOffer(offer)) {
             const uniqueKey = `${offer.id}-${offer.title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
             this.offers.set(uniqueKey, offer);
@@ -81,34 +75,66 @@ export class BankRewardsDatabase {
     } catch (error) {
       if (error instanceof SyntaxError) {
         console.error('[BankRewards] Invalid JSON in database file:', error);
-        // Backup corrupted file
         const backupPath = `${this.dbPath}.backup.${Date.now()}`;
         fs.copyFileSync(this.dbPath, backupPath);
         console.info(`[BankRewards] Backed up corrupted database to ${backupPath}`);
-        // Start fresh
         this.offers.clear();
       } else {
         console.error('[BankRewards] Error loading database from disk:', error);
-        throw error;
       }
     }
   }
 
   private async saveToDisk() {
     try {
-      // Convert Map to Array while preserving all offers
       const data = Array.from(this.offers.values());
       const tempPath = `${this.dbPath}.tmp`;
-
-      // Write to temporary file first
       await fs.promises.writeFile(tempPath, JSON.stringify(data, null, 2));
-
-      // Rename temporary file to actual file (atomic operation)
       await fs.promises.rename(tempPath, this.dbPath);
-
-      this.log(`Saved ${data.length} offers to disk`);
+      console.info(`[BankRewards] Saved ${data.length} offers to disk`);
     } catch (error) {
-      this.log('Error saving database to disk:', error);
+      console.error('[BankRewards] Error saving to disk:', error);
+      throw error; // Propagate error since disk storage is our fallback
+    }
+  }
+
+  private async saveToFirestore(offers: BankRewardsOffer[]) {
+    if (this.useEmulator) {
+      console.info('[BankRewards] In emulator mode, skipping Firestore save');
+      return;
+    }
+
+    try {
+      const offersRef = collection(db, 'bankrewards');
+      const batchSize = 500;
+      const batches = [];
+
+      for (let i = 0; i < offers.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const batchOffers = offers.slice(i, i + batchSize);
+
+        for (const offer of batchOffers) {
+          const docRef = doc(offersRef);
+          batch.set(docRef, {
+            ...offer,
+            metadata: {
+              ...offer.metadata,
+              lastChecked: Timestamp.fromDate(new Date()),
+              lastUpdated: Timestamp.fromDate(new Date()),
+            },
+          });
+        }
+
+        batches.push(batch);
+      }
+
+      console.info(`[BankRewards] Committing ${batches.length} batches to Firestore`);
+      await Promise.all(batches.map((batch) => batch.commit()));
+      console.info(
+        `[BankRewards] Successfully saved ${offers.length} offers to Firestore`
+      );
+    } catch (error) {
+      console.error('[BankRewards] Error saving to Firestore:', error);
       throw error;
     }
   }
@@ -118,13 +144,9 @@ export class BankRewardsDatabase {
       throw new Error('Invalid offer data');
     }
 
-    // Create a unique key using both the ID and title to handle duplicate IDs
     const uniqueKey = `${offer.id}-${offer.title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-
-    // Add or update the offer in memory
     this.offers.set(uniqueKey, {
       ...offer,
-      id: offer.id,
       metadata: {
         ...offer.metadata,
         status: 'active',
@@ -132,9 +154,20 @@ export class BankRewardsDatabase {
       },
     });
 
-    // Save all offers to disk
+    // Always save to disk first
     await this.saveToDisk();
-    this.log(`Saved/updated offer: ${uniqueKey} (Total offers: ${this.offers.size})`);
+
+    // Only try Firestore in production
+    if (!this.useEmulator) {
+      try {
+        await this.saveToFirestore([...this.offers.values()]);
+      } catch (error) {
+        console.error(
+          '[BankRewards] Firestore save failed, but disk save succeeded:',
+          error
+        );
+      }
+    }
   }
 
   public async markOffersAsExpired(): Promise<void> {
@@ -151,7 +184,20 @@ export class BankRewardsDatabase {
       });
     }
 
-    this.saveToDisk();
+    // Always save to disk first
+    await this.saveToDisk();
+
+    // Only try Firestore in production
+    if (!this.useEmulator) {
+      try {
+        await this.saveToFirestore([...this.offers.values()]);
+      } catch (error) {
+        console.error(
+          '[BankRewards] Firestore save failed, but disk save succeeded:',
+          error
+        );
+      }
+    }
   }
 
   public async getOffers(): Promise<BankRewardsOffer[]> {
@@ -175,17 +221,23 @@ export class BankRewardsDatabase {
     console.info(`[BankRewards] Deleting ${count} offers`);
 
     this.offers.clear();
-    this.saveToDisk();
+    await this.saveToDisk();
+
+    if (!this.useEmulator) {
+      try {
+        const offersRef = collection(db, 'bankrewards');
+        const snapshot = await getDocs(offersRef);
+        const batch = writeBatch(db);
+        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+      } catch (error) {
+        console.error(
+          '[BankRewards] Firestore delete failed, but disk delete succeeded:',
+          error
+        );
+      }
+    }
 
     return { deleted: count };
-  }
-
-  private log(message: string, error?: unknown) {
-    const timestamp = new Date().toISOString();
-    if (error) {
-      console.error(`[${timestamp}] [BankRewards] ${message}`, error);
-    } else {
-      console.info(`[${timestamp}] [BankRewards] ${message}`);
-    }
   }
 }
