@@ -193,7 +193,9 @@ export const OpportunityPreviewModal = ({
                     Monthly Fees
                   </Typography>
                   <Typography>
-                    {opportunity.details.monthly_fees.amount ? `$${opportunity.details.monthly_fees.amount}` : 'None'}
+                    {opportunity.details.monthly_fees.amount
+                      ? `$${opportunity.details.monthly_fees.amount}`
+                      : 'None'}
                   </Typography>
                 </Box>
               )}
@@ -204,7 +206,9 @@ export const OpportunityPreviewModal = ({
                     Annual Fees
                   </Typography>
                   <Typography>
-                    {opportunity.details.annual_fees.amount ? `$${opportunity.details.annual_fees.amount}` : 'None'}
+                    {opportunity.details.annual_fees.amount
+                      ? `$${opportunity.details.annual_fees.amount}`
+                      : 'None'}
                   </Typography>
                 </Box>
               )}
