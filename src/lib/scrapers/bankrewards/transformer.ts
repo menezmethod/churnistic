@@ -439,7 +439,8 @@ export class BankRewardsTransformer {
     // Extract 5/24 status for credit cards
     const under524Text = this.$('p:contains("Under 5/24:")').text();
     if (under524Text) {
-      details.under_5_24 = this.cleanText(under524Text.split(':')[1]);
+      const text = this.cleanText(under524Text.split(':')[1]).toLowerCase();
+      details.under_5_24 = text.includes('not be approved') ? 'Yes' : 'No';
     } else {
       // Try to find 5/24 info in general text
       const text = this.$('div').text().toLowerCase();
@@ -1123,8 +1124,11 @@ export class BankRewardsTransformer {
         expiration: details.expiration,
         under_5_24: details.under_5_24
           ? {
-              required: details.under_5_24.toLowerCase() === 'yes',
-              details: details.under_5_24,
+              required: details.under_5_24 === 'Yes',
+              details:
+                details.under_5_24 === 'Yes'
+                  ? 'If you have opened 5 or more new cards in the past 24 months, you will not be approved'
+                  : 'No 5/24 restriction',
             }
           : undefined,
         annual_fees: details.annual_fees
