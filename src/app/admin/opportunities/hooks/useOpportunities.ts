@@ -30,7 +30,10 @@ interface BankRewardsOffer {
     requirements: {
       title: string;
       description: string;
-      spending_requirement?: string;
+      spending_requirement?: {
+        amount: number;
+        timeframe: string;
+      };
     };
     tiers?: {
       reward: string;
@@ -42,7 +45,10 @@ interface BankRewardsOffer {
       amount: string;
       waiver_details?: string;
     };
-    annual_fees?: string;
+    annual_fees?: {
+      amount: string;
+      waived_first_year: boolean;
+    };
     account_type?: string;
     availability?: {
       type: string;
@@ -52,7 +58,10 @@ interface BankRewardsOffer {
     expiration?: string;
     credit_score?: string;
     under_5_24?: string;
-    foreign_transaction_fees?: string;
+    foreign_transaction_fees?: {
+      percentage: string;
+      waived: boolean;
+    };
     minimum_credit_limit?: string;
     rewards_structure?: string;
     household_limit?: string;
@@ -62,8 +71,13 @@ interface BankRewardsOffer {
     ira_accounts?: string;
   };
   metadata: {
-    created: string;
-    updated: string;
+    created_at: string;
+    updated_at: string;
+    created_by: string;
+    status: string;
+    source?: {
+      original_id: string;
+    };
   };
   logo: {
     type: string;
@@ -76,6 +90,9 @@ interface BankRewardsOffer {
     badge?: string;
   };
   offer_link: string;
+  description?: string;
+  isNew?: boolean;
+  expirationDate?: string;
 }
 
 interface BankRewardsResponse {
@@ -105,187 +122,91 @@ interface PaginationState {
 
 const ITEMS_PER_PAGE = 20;
 
-const extractRequirements = (description: string) => {
-  if (!description) return { type: 'other', details: { amount: 0, period: 0 } };
 
-  // Try to match spend requirements first
-  const spendMatch = description
-    .toLowerCase()
-    .match(
-      /(?:spend|purchase)\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:in|within|over|during)\s+(\d+)\s*(day|month|year)s?/i
-    );
-  if (spendMatch) {
-    const amount = parseFloat(spendMatch[1].replace(/,/g, ''));
-    const period = parseInt(spendMatch[2]);
-    const unit = spendMatch[3].toLowerCase();
+const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
+  const bank = offer.name?.split(' ')?.[0] || offer.name || '';
 
-    // Convert all periods to days for consistency
-    const periodInDays =
-      unit === 'month' ? period * 30 : unit === 'year' ? period * 365 : period;
+  // Convert timeframe to period (days)
+  const getSpendingPeriod = (timeframe: string) => {
+    const match = timeframe.match(/(\d+)/);
+    return match ? parseInt(match[1]) : 90; // default to 90 days
+  };
 
-    return {
-      type: 'spend',
-      details: {
-        amount,
-        period: periodInDays,
+  // Ensure no undefined values in details
+  const details = {
+    monthly_fees: offer.details.monthly_fees || {
+      amount: '0',
+      waiver_details: null,
+    },
+    annual_fees: offer.details.annual_fees?.amount || null,
+    account_type: offer.details.account_type || null,
+    availability: offer.details.availability || {
+      type: 'Nationwide',
+      states: [],
+    },
+    credit_inquiry: offer.details.credit_inquiry || null,
+    expiration: offer.details.expiration || null,
+  };
+
+  // Ensure no undefined values in bonus
+  const bonus = {
+    title: offer.bonus.title || '',
+    value: offer.value,
+    description: offer.bonus.description || '',
+    requirements: offer.bonus.requirements ? [
+      {
+        type: offer.bonus.requirements.spending_requirement ? 'spending' : 'other',
+        details: offer.bonus.requirements.spending_requirement ? {
+          amount: offer.bonus.requirements.spending_requirement.amount,
+          period: getSpendingPeriod(offer.bonus.requirements.spending_requirement.timeframe),
+        } : {
+          amount: offer.value,
+          period: 90,
+        },
       },
-    };
-  }
+    ] : [],
+    tiers: offer.bonus.tiers?.map(tier => ({
+      reward: tier.reward || '',
+      deposit: tier.deposit || '',
+    })) || [],
+  };
 
-  // Try to match deposit requirements
-  const depositMatch = description
-    .toLowerCase()
-    .match(/(?:deposit|transfer in|maintain|keep)\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/i);
-  if (depositMatch) {
-    return {
-      type: 'deposit',
-      details: {
-        amount: parseFloat(depositMatch[1].replace(/,/g, '')),
-        period: 0,
-      },
-    };
-  }
-
-  // Try to match direct deposit requirements
-  const ddMatch = description
-    .toLowerCase()
-    .match(/direct\s+deposit.*?\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/i);
-  if (ddMatch) {
-    return {
-      type: 'deposit',
-      details: {
-        amount: parseFloat(ddMatch[1].replace(/,/g, '')),
-        period: 0,
-      },
-    };
-  }
+  // Use original_id from metadata if available, otherwise use offer.id
+  const source_id = offer.metadata?.source?.original_id || offer.id;
 
   return {
-    type: 'other',
-    details: {
-      amount: 0,
-      period: 0,
-    },
-  };
-};
-
-const transformBankRewardsOffer = (offer: BankRewardsOffer): Omit<Opportunity, 'id'> => {
-  console.log('Starting transformation for offer:', offer.name);
-
-  const requirements = extractRequirements(offer.bonus.requirements.description);
-  const warnings: string[] = [];
-
-  // Validate and collect warnings
-  if (requirements.type === 'other') {
-    warnings.push('Unable to automatically extract requirements');
-    console.warn(
-      `Could not extract requirements for ${offer.name}:`,
-      offer.bonus.requirements.description
-    );
-  }
-  if (!offer.details?.expiration) {
-    warnings.push('No expiration date specified');
-  }
-  if (offer.value === 0) {
-    warnings.push('Zero bonus value detected');
-  }
-
-  console.log('Extracted requirements:', requirements);
-  console.log('Collected warnings:', warnings);
-
-  const transformed = {
+    id: source_id, // Use source_id as the document ID to prevent duplicates
     name: offer.name,
     type: offer.type,
-    bank: offer.name.split(' ')[0],
+    bank,
     value: offer.value,
-    offer_link: offer.offer_link,
-    description: offer.bonus.description,
-    title: offer.bonus.title,
-    status: 'pending' as const,
+    status: 'staged' as const,
     source: {
-      name: 'bankrewards',
+      name: 'Bank Rewards',
       collected_at: new Date().toISOString(),
     },
-    bonus: {
-      title: offer.bonus.title,
-      description: offer.bonus.description,
-      value: offer.value,
-      requirements: [
-        {
-          type: requirements.type,
-          details: requirements.details,
-        },
-      ],
-      tiers: offer.bonus.tiers
-        ? offer.bonus.tiers.map((tier) => ({
-            reward: tier.reward,
-            deposit: tier.deposit,
-          }))
-        : null,
+    source_id,
+    bonus,
+    details,
+    logo: offer.logo || {
+      type: '',
+      url: '',
     },
-    details: {
-      monthly_fees: offer.details.monthly_fees
-        ? {
-            amount: offer.details.monthly_fees.amount,
-            waiver_details: offer.details.monthly_fees.waiver_details || null,
-          }
-        : null,
-      account_type: offer.details.account_type || null,
-      availability: offer.details.availability || null,
-      credit_inquiry: offer.details.credit_inquiry || null,
-      credit_score: offer.details.credit_score
-        ? {
-            min: parseInt(offer.details.credit_score.replace(/.*?(\d+).*/, '$1')),
-            recommended: null,
-          }
-        : null,
-      household_limit: offer.details.household_limit || null,
-      early_closure_fee: offer.details.early_closure_fee || null,
-      chex_systems: offer.details.chex_systems || null,
-      expiration: offer.details.expiration || null,
-      under_5_24: offer.details.under_5_24
-        ? {
-            required: true,
-            details: offer.details.under_5_24,
-          }
-        : null,
-      annual_fees: offer.details.annual_fees || null,
-      foreign_transaction_fees: offer.details.foreign_transaction_fees || null,
-      minimum_credit_limit: offer.details.minimum_credit_limit || null,
-      rewards_structure: offer.details.rewards_structure
-        ? {
-            base_rewards: offer.details.rewards_structure,
-            bonus_categories: [],
-            welcome_bonus: null,
-          }
-        : null,
-      options_trading: offer.details.options_trading || null,
-      ira_accounts: offer.details.ira_accounts || null,
-    },
-    logo: offer.logo,
     card_image: offer.card_image || null,
-    metadata: {
-      created_at: offer.metadata.created,
-      updated_at: offer.metadata.updated,
-      created_by: 'bankrewards',
-      status: 'active',
-      warnings: warnings.length > 0 ? warnings : null,
-    },
     processing_status: {
-      source_validation: false,
+      source_validation: true,
       ai_processed: false,
       duplicate_checked: false,
       needs_review: true,
     },
     ai_insights: {
-      confidence_score: 0,
-      validation_warnings: warnings,
+      confidence_score: 0.8,
+      validation_warnings: [],
       potential_duplicates: [],
     },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
-
-  console.log('Transformed offer:', transformed);
-  return transformed;
 };
 
 const fetchBankRewardsOffers = async () => {
@@ -466,12 +387,9 @@ export function useOpportunities() {
           continue;
         }
 
-        // Add new offer to staged_offers collection
-        const docRef = doc(collection(db, 'staged_offers'));
-        batch.set(docRef, {
-          ...offer,
-          createdAt: new Date().toISOString(),
-        });
+        // Use source_id as document ID to prevent duplicates
+        const docRef = doc(collection(db, 'staged_offers'), offer.source_id);
+        batch.set(docRef, offer);
         addedCount++;
       }
 
@@ -500,69 +418,122 @@ export function useOpportunities() {
     },
   });
 
-  // Approve opportunity mutation
+  // Approve mutation
   const approveOpportunityMutation = useMutation({
-    mutationFn: async (opportunityData: Opportunity & { isStaged?: boolean }) => {
-      if (opportunityData.isStaged) {
-        // First create the API endpoint entry
-        const apiResponse = await fetch('/api/opportunities', {
+    mutationFn: async (opportunityData: Opportunity) => {
+      try {
+        // First, add to opportunities collection to ensure the ID exists
+        const approvedOpportunity = {
+          ...opportunityData,
+          status: 'approved' as const,
+          updatedAt: new Date().toISOString(),
+        };
+
+        await setDoc(doc(db, 'opportunities', opportunityData.id), approvedOpportunity);
+
+        // Transform to match API structure
+        const formData = {
+          id: opportunityData.id, // Ensure we use the same ID
+          name: opportunityData.name,
+          type: opportunityData.type,
+          value: opportunityData.value.toString(), // API expects string
+          description: opportunityData.bonus.description || '',
+          offer_link: `/api/opportunities/${opportunityData.id}/redirect`,
+          bonus: {
+            title: opportunityData.bonus.title || '',
+            description: opportunityData.bonus.description || '',
+            requirements: opportunityData.bonus.requirements?.[0] ? {
+              title: 'Bonus Requirements',
+              description: opportunityData.bonus.requirements[0].type === 'spending' 
+                ? `Spend $${opportunityData.bonus.requirements[0].details.amount} within ${opportunityData.bonus.requirements[0].details.period} days`
+                : 'Contact bank for specific requirements',
+            } : {
+              title: '',
+              description: '',
+            },
+            additional_info: null,
+            tiers: opportunityData.bonus.tiers?.map(tier => ({
+              reward: tier.reward || '',
+              deposit: tier.deposit || '',
+            })) || null,
+          },
+          details: {
+            monthly_fees: opportunityData.details?.monthly_fees || {
+              amount: '0',
+            },
+            account_type: opportunityData.details?.account_type || '',
+            availability: opportunityData.details?.availability || {
+              type: 'Nationwide',
+              states: [],
+            },
+            credit_inquiry: opportunityData.details?.credit_inquiry || null,
+            household_limit: null,
+            early_closure_fee: null,
+            chex_systems: null,
+            expiration: opportunityData.details?.expiration || null,
+          },
+          logo: opportunityData.logo || {
+            type: '',
+            url: '',
+          },
+          card_image: opportunityData.type === 'credit_card' ? opportunityData.card_image || {
+            url: '',
+            network: 'Unknown',
+            color: 'Unknown',
+            badge: null,
+          } : null,
+          metadata: {
+            created_at: opportunityData.createdAt || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            created_by: 'preview@example.com',
+            status: 'active',
+            environment: 'production',
+          },
+        };
+
+        console.log('Sending to API:', JSON.stringify(formData, null, 2));
+
+        // Create API endpoint entry
+        const response = await fetch('/api/opportunities', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            ...opportunityData,
-            status: 'approved',
-            updatedAt: new Date().toISOString(),
-          }),
+          body: JSON.stringify(formData),
         });
 
-        if (!apiResponse.ok) {
-          throw new Error('Failed to create API endpoint entry');
+        let errorMessage = 'Failed to create API endpoint entry';
+        if (!response.ok) {
+          const responseText = await response.text();
+          console.error('API Error Response Text:', responseText);
+          
+          let errorData;
+          try {
+            errorData = JSON.parse(responseText);
+            console.error('API Error Response:', errorData);
+            errorMessage = errorData.details || errorData.error || errorMessage;
+          } catch (parseError) {
+            console.error('Error parsing API response:', parseError);
+            errorMessage = `${errorMessage}: ${response.statusText} - ${responseText}`;
+          }
+          throw new Error(errorMessage);
         }
 
-        const apiData = await apiResponse.json();
+        const apiResponse = await response.json();
+        console.log('API Response:', apiResponse);
 
-        // Then add to opportunities collection with the same ID
-        const opportunityRef = doc(db, 'opportunities', apiData.id);
-        await setDoc(opportunityRef, {
-          ...opportunityData,
-          id: apiData.id,
-          status: 'approved',
-          updatedAt: new Date().toISOString(),
-        });
-
-        // Remove from staged_offers
+        // Remove from staged_offers collection
         await deleteDoc(doc(db, 'staged_offers', opportunityData.id));
-        return apiData.id;
-      } else {
-        // Update existing opportunity
-        const opportunityRef = doc(db, 'opportunities', opportunityData.id);
 
-        // Update both Firestore and API endpoint
-        await Promise.all([
-          updateDoc(opportunityRef, {
-            status: 'approved',
-            updatedAt: new Date().toISOString(),
-          }),
-          fetch(`/api/opportunities/${opportunityData.id}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              status: 'approved',
-              updatedAt: new Date().toISOString(),
-            }),
-          }),
-        ]);
-
-        return opportunityData.id;
+        return approvedOpportunity;
+      } catch (error) {
+        console.error('Error in approveOpportunityMutation:', error);
+        throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['opportunities']);
-      queryClient.invalidateQueries(['staged_offers']);
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['staged_offers'] });
     },
   });
 
