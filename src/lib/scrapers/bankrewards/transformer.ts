@@ -1049,15 +1049,15 @@ export class BankRewardsTransformer {
       isNew: true,
       expirationDate: details.expiration,
       metadata: {
-        created_at: offer.metadata.lastChecked 
-          ? (offer.metadata.lastChecked instanceof Date 
+        created_at: offer.metadata.lastChecked
+          ? offer.metadata.lastChecked instanceof Date
             ? offer.metadata.lastChecked.toISOString()
-            : new Date(offer.metadata.lastChecked).toISOString())
+            : new Date(offer.metadata.lastChecked).toISOString()
           : new Date().toISOString(),
-        updated_at: offer.metadata.lastChecked 
-          ? (offer.metadata.lastChecked instanceof Date 
+        updated_at: offer.metadata.lastChecked
+          ? offer.metadata.lastChecked instanceof Date
             ? offer.metadata.lastChecked.toISOString()
-            : new Date(offer.metadata.lastChecked).toISOString())
+            : new Date(offer.metadata.lastChecked).toISOString()
           : new Date().toISOString(),
         created_by: 'bankrewards_scraper',
         status: 'active',

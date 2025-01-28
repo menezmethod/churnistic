@@ -14,6 +14,7 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
+import { getAuth } from 'firebase/auth';
 
 import { db } from '@/lib/firebase/config';
 
@@ -122,7 +123,6 @@ interface PaginationState {
 
 const ITEMS_PER_PAGE = 20;
 
-
 const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   const bank = offer.name?.split(' ')?.[0] || offer.name || '';
 
@@ -153,22 +153,29 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     title: offer.bonus.title || '',
     value: offer.value,
     description: offer.bonus.description || '',
-    requirements: offer.bonus.requirements ? [
-      {
-        type: offer.bonus.requirements.spending_requirement ? 'spending' : 'other',
-        details: offer.bonus.requirements.spending_requirement ? {
-          amount: offer.bonus.requirements.spending_requirement.amount,
-          period: getSpendingPeriod(offer.bonus.requirements.spending_requirement.timeframe),
-        } : {
-          amount: offer.value,
-          period: 90,
-        },
-      },
-    ] : [],
-    tiers: offer.bonus.tiers?.map(tier => ({
-      reward: tier.reward || '',
-      deposit: tier.deposit || '',
-    })) || [],
+    requirements: offer.bonus.requirements
+      ? [
+          {
+            type: offer.bonus.requirements.spending_requirement ? 'spending' : 'other',
+            details: offer.bonus.requirements.spending_requirement
+              ? {
+                  amount: offer.bonus.requirements.spending_requirement.amount,
+                  period: getSpendingPeriod(
+                    offer.bonus.requirements.spending_requirement.timeframe
+                  ),
+                }
+              : {
+                  amount: offer.value,
+                  period: 90,
+                },
+          },
+        ]
+      : [],
+    tiers:
+      offer.bonus.tiers?.map((tier) => ({
+        reward: tier.reward || '',
+        deposit: tier.deposit || '',
+      })) || [],
   };
 
   // Use original_id from metadata if available, otherwise use offer.id
@@ -209,14 +216,20 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   };
 };
 
-const fetchBankRewardsOffers = async () => {
+const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
   const response = await fetch('http://localhost:3000/api/bankrewards?format=detailed');
   if (!response.ok) throw new Error('Failed to fetch from BankRewards API');
   const data = await response.json();
   return data as BankRewardsResponse;
 };
 
-const fetchPaginatedOpportunities = async (pagination: PaginationState) => {
+const fetchPaginatedOpportunities = async (
+  pagination: PaginationState
+): Promise<{
+  items: Opportunity[];
+  total: number;
+  hasMore: boolean;
+}> => {
   const { page, pageSize, sortBy, sortDirection, filters } = pagination;
   const opportunitiesRef = collection(db, 'opportunities');
 
@@ -260,7 +273,9 @@ const fetchPaginatedOpportunities = async (pagination: PaginationState) => {
   };
 };
 
-const fetchStagedOpportunities = async () => {
+const fetchStagedOpportunities = async (): Promise<
+  (Opportunity & { isStaged: boolean })[]
+> => {
   const snapshot = await getDocs(collection(db, 'staged_offers'));
   return snapshot.docs.map((doc) => ({
     ...doc.data(),
@@ -432,6 +447,9 @@ export function useOpportunities() {
         await setDoc(doc(db, 'opportunities', opportunityData.id), approvedOpportunity);
 
         // Transform to match API structure
+        const auth = getAuth();
+        const user = auth.currentUser;
+
         const formData = {
           id: opportunityData.id, // Ensure we use the same ID
           name: opportunityData.name,
@@ -442,20 +460,24 @@ export function useOpportunities() {
           bonus: {
             title: opportunityData.bonus.title || '',
             description: opportunityData.bonus.description || '',
-            requirements: opportunityData.bonus.requirements?.[0] ? {
-              title: 'Bonus Requirements',
-              description: opportunityData.bonus.requirements[0].type === 'spending' 
-                ? `Spend $${opportunityData.bonus.requirements[0].details.amount} within ${opportunityData.bonus.requirements[0].details.period} days`
-                : 'Contact bank for specific requirements',
-            } : {
-              title: '',
-              description: '',
-            },
+            requirements: opportunityData.bonus.requirements?.[0]
+              ? {
+                  title: 'Bonus Requirements',
+                  description:
+                    opportunityData.bonus.requirements[0].type === 'spending'
+                      ? `Spend $${opportunityData.bonus.requirements[0].details.amount} within ${opportunityData.bonus.requirements[0].details.period} days`
+                      : 'Contact bank for specific requirements',
+                }
+              : {
+                  title: '',
+                  description: '',
+                },
             additional_info: null,
-            tiers: opportunityData.bonus.tiers?.map(tier => ({
-              reward: tier.reward || '',
-              deposit: tier.deposit || '',
-            })) || null,
+            tiers:
+              opportunityData.bonus.tiers?.map((tier) => ({
+                reward: tier.reward || '',
+                deposit: tier.deposit || '',
+              })) || null,
           },
           details: {
             monthly_fees: opportunityData.details?.monthly_fees || {
@@ -476,18 +498,21 @@ export function useOpportunities() {
             type: '',
             url: '',
           },
-          card_image: opportunityData.type === 'credit_card' ? opportunityData.card_image || {
-            url: '',
-            network: 'Unknown',
-            color: 'Unknown',
-            badge: null,
-          } : null,
+          card_image:
+            opportunityData.type === 'credit_card'
+              ? opportunityData.card_image || {
+                  url: '',
+                  network: 'Unknown',
+                  color: 'Unknown',
+                  badge: null,
+                }
+              : null,
           metadata: {
             created_at: opportunityData.createdAt || new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            created_by: 'preview@example.com',
+            created_by: user?.email || 'unknown@example.com',
             status: 'active',
-            environment: 'production',
+            environment: process.env.NODE_ENV || 'development',
           },
         };
 
@@ -506,7 +531,7 @@ export function useOpportunities() {
         if (!response.ok) {
           const responseText = await response.text();
           console.error('API Error Response Text:', responseText);
-          
+
           let errorData;
           try {
             errorData = JSON.parse(responseText);

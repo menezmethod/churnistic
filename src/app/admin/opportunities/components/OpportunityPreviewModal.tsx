@@ -154,11 +154,11 @@ export const OpportunityPreviewModal = ({
                     Requirements
                   </Typography>
                   <Typography>
-                    {req.type === 'spend'
+                    {req.type === 'spending'
                       ? `Spend $${req.details.amount} within ${req.details.period} days`
                       : req.type === 'deposit'
                         ? `Deposit $${req.details.amount}`
-                        : req.description || 'Custom requirements'}
+                        : `$${req.details.amount} requirement`}
                   </Typography>
                 </Box>
               ))}
@@ -168,18 +168,17 @@ export const OpportunityPreviewModal = ({
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                     Bonus Tiers
                   </Typography>
-                  <Stack spacing={1}>
-                    {opportunity.bonus.tiers.map((tier, index) => (
-                      <Box key={index} sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
-                        <Typography variant="subtitle2">
-                          {tier.level} - {tier.reward}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Requires {tier.deposit}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Stack>
+                  {opportunity.bonus.tiers.map((tier, index) => (
+                    <Box
+                      key={index}
+                      sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}
+                    >
+                      <Typography variant="subtitle2">{tier.reward}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Requires {tier.deposit}
+                      </Typography>
+                    </Box>
+                  ))}
                 </Box>
               )}
             </Stack>
