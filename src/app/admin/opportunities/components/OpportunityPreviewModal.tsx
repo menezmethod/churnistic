@@ -192,7 +192,9 @@ export const OpportunityPreviewModal = ({
                   <Typography variant="subtitle2" color="text.secondary">
                     Monthly Fees
                   </Typography>
-                  <Typography>${opportunity.details.monthly_fees.amount}</Typography>
+                  <Typography>
+                    {opportunity.details.monthly_fees.amount ? `$${opportunity.details.monthly_fees.amount}` : 'None'}
+                  </Typography>
                 </Box>
               )}
 
@@ -201,7 +203,9 @@ export const OpportunityPreviewModal = ({
                   <Typography variant="subtitle2" color="text.secondary">
                     Annual Fees
                   </Typography>
-                  <Typography>${opportunity.details.annual_fees}</Typography>
+                  <Typography>
+                    {opportunity.details.annual_fees.amount ? `$${opportunity.details.annual_fees.amount}` : 'None'}
+                  </Typography>
                 </Box>
               )}
 

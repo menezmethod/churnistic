@@ -11,6 +11,7 @@ import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { useOpportunity } from '@/lib/hooks/useOpportunity';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
+import { AccountDetailsSection } from './components/AccountDetailsSection';
 import { BonusDetailsSection } from './components/BonusDetailsSection';
 import { BonusTiersSection } from './components/BonusTiersSection';
 import { EditDialog } from './components/EditDialog';
@@ -192,6 +193,7 @@ export default function OpportunityDetailsPage() {
           <Box sx={{ px: 3 }}>
             <BonusDetailsSection opportunity={opportunity} />
             <BonusTiersSection opportunity={opportunity} />
+            <AccountDetailsSection opportunity={opportunity} />
           </Box>
         </Grid>
 

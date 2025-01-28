@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getAuth } from 'firebase/auth';
 import {
   collection,
   getDocs,
@@ -14,7 +15,6 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { getAuth } from 'firebase/auth';
 
 import { db } from '@/lib/firebase/config';
 
@@ -35,11 +35,17 @@ interface BankRewardsOffer {
         amount: number;
         timeframe: string;
       };
+      minimum_deposit?: number;
     };
     tiers?: {
       reward: string;
       deposit: string;
+      level?: string;
+      value?: number;
+      minimum_deposit?: number;
+      requirements?: string;
     }[];
+    additional_info?: string;
   };
   details: {
     monthly_fees?: {
@@ -51,20 +57,32 @@ interface BankRewardsOffer {
       waived_first_year: boolean;
     };
     account_type?: string;
+    account_category?: string;
     availability?: {
       type: string;
       states?: string[];
+      is_nationwide?: boolean;
     };
     credit_inquiry?: string;
     expiration?: string;
     credit_score?: string;
-    under_5_24?: string;
+    under_5_24?: {
+      required: boolean;
+      details: string;
+    };
     foreign_transaction_fees?: {
       percentage: string;
       waived: boolean;
     };
     minimum_credit_limit?: string;
-    rewards_structure?: string;
+    rewards_structure?: {
+      base_rewards?: string;
+      bonus_categories?: {
+        category: string;
+        rate: string;
+      }[];
+      welcome_bonus?: string;
+    };
     household_limit?: string;
     early_closure_fee?: string;
     chex_systems?: string;
@@ -76,8 +94,19 @@ interface BankRewardsOffer {
     updated_at: string;
     created_by: string;
     status: string;
+    timing?: {
+      bonus_posting_time: string;
+    };
+    availability?: {
+      is_nationwide: boolean;
+      regions?: string[];
+    };
+    credit?: {
+      inquiry: string;
+    };
     source?: {
       original_id: string;
+      name?: string;
     };
   };
   logo: {
@@ -132,20 +161,52 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     return match ? parseInt(match[1]) : 90; // default to 90 days
   };
 
+  // Normalize household limit
+  const normalizeHouseholdLimit = (limit: string | undefined) => {
+    if (!limit) return null;
+    if (limit.toLowerCase().includes('none')) return 'None';
+    if (limit === '1' || limit.toLowerCase() === 'one') return '1';
+    return limit;
+  };
+
+  // Normalize early closure fee
+  const normalizeEarlyClosureFee = (fee: string | undefined) => {
+    if (!fee) return null;
+    // Remove markdown formatting if present
+    return fee.replace(/#/g, '').trim();
+  };
+
   // Ensure no undefined values in details
   const details = {
     monthly_fees: offer.details.monthly_fees || {
       amount: '0',
       waiver_details: null,
     },
-    annual_fees: offer.details.annual_fees?.amount || null,
+    annual_fees: offer.details.annual_fees
+      ? {
+          amount: offer.details.annual_fees.amount,
+          waived_first_year: offer.details.annual_fees.waived_first_year,
+        }
+      : null,
     account_type: offer.details.account_type || null,
+    account_category: offer.details.account_category || null,
     availability: offer.details.availability || {
       type: 'Nationwide',
       states: [],
+      is_nationwide: true,
     },
     credit_inquiry: offer.details.credit_inquiry || null,
     expiration: offer.details.expiration || null,
+    credit_score: offer.details.credit_score || null,
+    under_5_24: offer.details.under_5_24 || null,
+    foreign_transaction_fees: offer.details.foreign_transaction_fees || null,
+    minimum_credit_limit: offer.details.minimum_credit_limit || null,
+    rewards_structure: offer.details.rewards_structure || null,
+    household_limit: normalizeHouseholdLimit(offer.details.household_limit),
+    early_closure_fee: normalizeEarlyClosureFee(offer.details.early_closure_fee),
+    chex_systems: offer.details.chex_systems || null,
+    options_trading: offer.details.options_trading || null,
+    ira_accounts: offer.details.ira_accounts || null,
   };
 
   // Ensure no undefined values in bonus
@@ -168,6 +229,7 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
                   amount: offer.value,
                   period: 90,
                 },
+            minimum_deposit: offer.bonus.requirements.minimum_deposit || null,
           },
         ]
       : [],
@@ -175,7 +237,12 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
       offer.bonus.tiers?.map((tier) => ({
         reward: tier.reward || '',
         deposit: tier.deposit || '',
+        level: tier.level || null,
+        value: tier.value || null,
+        minimum_deposit: tier.minimum_deposit || null,
+        requirements: tier.requirements || null,
       })) || [],
+    additional_info: offer.bonus.additional_info || null,
   };
 
   // Use original_id from metadata if available, otherwise use offer.id
@@ -189,8 +256,12 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     value: offer.value,
     status: 'staged' as const,
     source: {
-      name: 'Bank Rewards',
+      name: offer.metadata?.source?.name || 'bankrewards.io',
       collected_at: new Date().toISOString(),
+      original_id: source_id,
+      timing: offer.metadata?.timing || null,
+      availability: offer.metadata?.availability || null,
+      credit: offer.metadata?.credit || null,
     },
     source_id,
     bonus,
@@ -472,7 +543,7 @@ export function useOpportunities() {
                   title: '',
                   description: '',
                 },
-            additional_info: null,
+            additional_info: opportunityData.bonus.additional_info || null,
             tiers:
               opportunityData.bonus.tiers?.map((tier) => ({
                 reward: tier.reward || '',
