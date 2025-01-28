@@ -401,7 +401,10 @@ export class BankRewardsTransformer {
     // Extract annual fees
     const annualFeesText = this.$('p:contains("Annual Fees:")').text();
     if (annualFeesText) {
-      details.annual_fees = this.cleanText(annualFeesText.split(':')[1]);
+      const amount = this.cleanText(annualFeesText.split(':')[1]);
+      details.annual_fees = amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
+        ? 'None'
+        : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount;
     }
 
     // Extract foreign transaction fees
