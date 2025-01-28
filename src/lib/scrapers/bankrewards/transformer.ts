@@ -1,17 +1,23 @@
 import * as cheerio from 'cheerio';
 
+import { FirestoreOpportunity } from '@/types/opportunity';
 import { BankRewardsOffer } from '@/types/scraper';
-import {
-  TransformedOffer,
-  BonusTier,
-  Details,
-  Logo,
-  Metadata,
-  Bonus,
-} from '@/types/transformed';
+import { BonusTier, Details, Logo } from '@/types/transformed';
 
-export interface EnhancedTransformedOffer extends TransformedOffer {
-  value: number;
+interface ExtractedRequirements {
+  minimum_deposit?: number;
+  trading_requirements?: string;
+  holding_period?: string;
+  spending_requirement?: {
+    amount: number;
+    timeframe: string;
+  };
+}
+
+interface BonusCategory {
+  category: string;
+  rate: string;
+  limit?: string;
 }
 
 export class BankRewardsTransformer {
@@ -269,7 +275,7 @@ export class BankRewardsTransformer {
     // If we can't find a dedicated requirements section, look in the bonus description
     const bonusDesc = this.extractBonusDescription();
     const spendMatch = bonusDesc.match(
-      /(?:spending|spend)\s+\$?([\d,]+)(?:\s+(?:within|in)\s+(\d+)\s+(days?|months?))?/i
+      /(?:spending|spend)\s+\$?([\d,]+)(?:\s+(?:within|in)\s+(\d+)\s+(days?|months?))/i
     );
     if (spendMatch) {
       const [, amount, period, unit] = spendMatch;
@@ -917,7 +923,7 @@ export class BankRewardsTransformer {
 
     // Get value from tiers if they exist
     const tiers = this.extractTableTiers();
-    const tiersValue = tiers.length > 0 ? this.estimateValueFromTiers(tiers) : 0;
+    const tiersValue = this.estimateValueFromTiers(tiers);
 
     // Get value from cash back section if it exists
     const cashBackSection = this.$('p:contains("Card Cash Back:")').next();
@@ -971,10 +977,27 @@ export class BankRewardsTransformer {
     return Math.max(...tierValues);
   }
 
-  public transform(offer: BankRewardsOffer): EnhancedTransformedOffer {
+  private transformTiers(tiers: BonusTier[]): Array<{
+    reward: string;
+    deposit: string;
+    level: string;
+    value: number;
+    minimum_deposit: number;
+    requirements: string;
+  }> {
+    return tiers.map((tier, index) => ({
+      reward: tier.reward,
+      deposit: tier.deposit || '$0', // Provide default value
+      level: `Tier ${index + 1}`,
+      value: this.extractValueFromTier(tier),
+      minimum_deposit: this.extractMinimumDeposit(tier.deposit || '0'),
+      requirements: `${tier.deposit || '$0'} deposit required`,
+    }));
+  }
+
+  public transform(offer: BankRewardsOffer): FirestoreOpportunity {
     this.initCheerio(offer.metadata.rawHtml);
 
-    // Set the type based on the offer type
     this.type =
       offer.type.toLowerCase() === 'credit_card'
         ? 'credit_card'
@@ -990,41 +1013,15 @@ export class BankRewardsTransformer {
 
     const bonusDescription = this.extractBonusDescription();
     const bonusRequirements = this.extractBonusRequirements();
+    const additionalInfo = this.extractAdditionalInfo();
 
-    // Helper function to estimate stock value based on historical data
-    const estimateStockValue = (numStocks: number, company?: string): number => {
-      // Historical average values for common stock rewards
-      const stockValues: { [key: string]: number } = {
-        moomoo: 15, // Futu Holdings stock ~$15
-        webull: 10, // Common stock rewards ~$10
-        robinhood: 12, // Common stock rewards ~$12
-        sofi: 8, // SoFi stock ~$8
-        public: 10, // Common stock rewards ~$10
-        tastyworks: 12, // Common stock rewards ~$12
-        firstrade: 10, // Common stock rewards ~$10
-        default: 12, // Default estimate for unknown brokers
-      };
-
-      // Try to find company-specific value
-      const companyValue = company
-        ? Object.entries(stockValues).find(([key]) =>
-            company.toLowerCase().includes(key)
-          )?.[1] || stockValues.default
-        : stockValues.default;
-
-      return Math.round(numStocks * companyValue * 100) / 100;
-    };
-
-    // Use metadata.bonus if available, otherwise fall back to extractValue
     let estimatedValue = 0;
     if (offer.metadata.bonus) {
-      // Check for stock format (e.g. "15 Stocks")
       const stockMatch = offer.metadata.bonus.match(/(\d+)\s*stocks?/i);
       if (stockMatch) {
         const numStocks = parseInt(stockMatch[1]);
-        estimatedValue = estimateStockValue(numStocks, offer.title);
+        estimatedValue = this.estimateStockValue(numStocks, offer.title);
       } else {
-        // Check for dollar amount format
         const match = offer.metadata.bonus.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/);
         if (match) {
           estimatedValue = parseFloat(this.normalizeAmount(match[1]));
@@ -1032,45 +1029,235 @@ export class BankRewardsTransformer {
       }
     }
 
-    // If no value from metadata.bonus, try extracting from HTML
     if (estimatedValue === 0) {
       const extractedValue = this.extractValue(offer.metadata.rawHtml);
       const tiersValue = this.estimateValueFromTiers(tiers);
       estimatedValue = Math.max(extractedValue, tiersValue);
     }
 
-    const additionalInfo = this.extractAdditionalInfo();
-
-    const bonus: Bonus = {
-      title: 'Bonus Details',
-      description: bonusDescription,
-      requirements: {
-        title: 'Bonus Requirements',
-        description: bonusRequirements,
-      },
-      tiers: tiers.length > 0 ? tiers : undefined,
-      additional_info: additionalInfo,
-    };
-
+    const transformedTiers = this.transformTiers(tiers);
     const details = this.extractDetails();
+    const rewards = this.extractRewards();
 
-    const metadata: Metadata = {
-      created: new Date(offer.metadata.lastChecked).toISOString(),
-      updated: new Date(offer.metadata.lastChecked).toISOString(),
-    };
-
-    return {
+    const transformedOffer: FirestoreOpportunity = {
       id: offer.id,
       name: offer.title,
       type: this.type,
       offer_link: offer.metadata.offerBaseUrl || '',
       value: estimatedValue,
-      bonus,
-      details,
-      metadata,
-      logo: this.getLogo(offer.title),
+      description: bonusDescription || '',
+      isNew: true,
+      expirationDate: details.expiration,
+      metadata: {
+        created_at: offer.metadata.lastChecked 
+          ? (offer.metadata.lastChecked instanceof Date 
+            ? offer.metadata.lastChecked.toISOString()
+            : new Date(offer.metadata.lastChecked).toISOString())
+          : new Date().toISOString(),
+        updated_at: offer.metadata.lastChecked 
+          ? (offer.metadata.lastChecked instanceof Date 
+            ? offer.metadata.lastChecked.toISOString()
+            : new Date(offer.metadata.lastChecked).toISOString())
+          : new Date().toISOString(),
+        created_by: 'bankrewards_scraper',
+        status: 'active',
+        timing: details.expiration
+          ? { bonus_posting_time: details.expiration }
+          : undefined,
+        availability: details.availability
+          ? {
+              is_nationwide: details.availability.type === 'Nationwide',
+              regions: details.availability.states,
+            }
+          : undefined,
+        credit: details.credit_inquiry
+          ? {
+              inquiry: details.credit_inquiry.toLowerCase().includes('hard')
+                ? 'hard_pull'
+                : 'soft_pull',
+            }
+          : undefined,
+        source: {
+          name: 'bankrewards.io',
+          original_id: offer.id,
+        },
+      },
+      bonus: {
+        title: 'Bonus Details',
+        description: bonusDescription || '',
+        requirements: {
+          title: 'Requirements',
+          description: bonusRequirements || '',
+          ...this.extractSpendingRequirement(bonusRequirements || ''),
+        },
+        additional_info: additionalInfo,
+        tiers: transformedTiers.length > 0 ? transformedTiers : undefined,
+      },
+      details: {
+        monthly_fees: details.monthly_fees
+          ? {
+              amount:
+                typeof details.monthly_fees === 'string'
+                  ? details.monthly_fees
+                  : details.monthly_fees?.amount || 'None',
+              waiver_details:
+                typeof details.monthly_fees === 'string'
+                  ? undefined
+                  : details.monthly_fees?.waiver_details,
+            }
+          : undefined,
+        account_type: details.account_type || 'Personal Bank Account',
+        account_category: 'personal',
+        availability: details.availability
+          ? {
+              type: details.availability.type === 'Nationwide' ? 'Nationwide' : 'State',
+              states: details.availability.states,
+              details: details.availability.details,
+            }
+          : undefined,
+        credit_inquiry: details.credit_inquiry,
+        credit_score: undefined,
+        household_limit: details.household_limit,
+        early_closure_fee: details.early_closure_fee,
+        chex_systems: details.chex_systems,
+        expiration: details.expiration,
+        under_5_24: details.under_5_24
+          ? {
+              required: details.under_5_24.toLowerCase() === 'yes',
+              details: details.under_5_24,
+            }
+          : undefined,
+        annual_fees: details.annual_fees
+          ? {
+              amount: details.annual_fees,
+              waived_first_year: details.annual_fees.toLowerCase().includes('waived'),
+            }
+          : undefined,
+        foreign_transaction_fees: details.foreign_transaction_fees
+          ? {
+              percentage: details.foreign_transaction_fees,
+              waived:
+                details.foreign_transaction_fees.toLowerCase().includes('none') ||
+                details.foreign_transaction_fees.toLowerCase().includes('0%'),
+            }
+          : undefined,
+        minimum_credit_limit: undefined,
+        rewards_structure:
+          rewards && rewards.cash_back
+            ? {
+                base_rewards: rewards.cash_back,
+                bonus_categories: this.extractBonusCategories(rewards.cash_back),
+                welcome_bonus: bonusDescription || undefined,
+              }
+            : undefined,
+        options_trading: details.options_trading,
+        ira_accounts: details.ira_accounts,
+      },
+      logo: {
+        type: 'icon',
+        url: this.getLogo(offer.title).url,
+      },
       ...(this.type === 'credit_card' && { card_image: this.getCardImage() }),
     };
+
+    return transformedOffer;
+  }
+
+  private extractSpendingRequirement(requirements: string): ExtractedRequirements {
+    if (!requirements) return {};
+
+    const result: ExtractedRequirements = {};
+
+    const spendMatch = requirements.match(
+      /spend\s+\$?(\d+(?:,\d+)?)\s+(?:within|in)\s+(\d+)\s+(days?|months?)/i
+    );
+    if (spendMatch) {
+      result.spending_requirement = {
+        amount: parseInt(this.normalizeAmount(spendMatch[1])),
+        timeframe: `${spendMatch[2]} ${spendMatch[3]}`,
+      };
+    }
+
+    const depositMatch = requirements.match(/deposit\s+\$?(\d+(?:,\d+)?)/i);
+    if (depositMatch) {
+      result.minimum_deposit = parseInt(this.normalizeAmount(depositMatch[1]));
+    }
+
+    const holdingMatch = requirements.match(/hold\s+(?:for\s+)?(\d+)\s+(days?|months?)/i);
+    if (holdingMatch) {
+      result.holding_period = `${holdingMatch[1]} ${holdingMatch[2]}`;
+    }
+
+    if (
+      requirements.toLowerCase().includes('trade') ||
+      requirements.toLowerCase().includes('trading')
+    ) {
+      result.trading_requirements = requirements;
+    }
+
+    return result;
+  }
+
+  private extractBonusCategories(cashBack: string): BonusCategory[] | undefined {
+    if (!cashBack) return undefined;
+
+    const categories: BonusCategory[] = [];
+
+    const categoryMatches = Array.from(
+      cashBack.matchAll(
+        /(\d+(?:\.\d+)?(?:x|%))\s+(?:on|for|in)\s+([^.]+?)(?:\s+up\s+to\s+\$?(\d+(?:,\d+)?)|(?=\.|$))/gi
+      )
+    );
+
+    for (const match of categoryMatches) {
+      categories.push({
+        category: match[2].trim(),
+        rate: match[1],
+        ...(match[3] && { limit: `$${this.normalizeAmount(match[3])}` }),
+      });
+    }
+
+    return categories.length > 0 ? categories : undefined;
+  }
+
+  private extractValueFromTier(tier: BonusTier): number {
+    const rewardMatch = tier.reward.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/);
+    if (rewardMatch) {
+      return parseFloat(this.normalizeAmount(rewardMatch[1]));
+    }
+
+    const sharesMatch = tier.reward.match(/(\d+)\s*(?:shares?|stocks?)/i);
+    if (sharesMatch) {
+      return parseInt(sharesMatch[1]) * 3; // Assume $3 per share
+    }
+
+    return 0;
+  }
+
+  private extractMinimumDeposit(deposit: string): number {
+    const match = deposit.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/);
+    return match ? parseFloat(this.normalizeAmount(match[1])) : 0;
+  }
+
+  private estimateStockValue(numStocks: number, company?: string): number {
+    const stockValues: { [key: string]: number } = {
+      moomoo: 15,
+      webull: 10,
+      robinhood: 12,
+      sofi: 8,
+      public: 10,
+      tastyworks: 12,
+      firstrade: 10,
+      default: 12,
+    };
+
+    const companyValue = company
+      ? Object.entries(stockValues).find(([key]) =>
+          company.toLowerCase().includes(key)
+        )?.[1] || stockValues.default
+      : stockValues.default;
+
+    return Math.round(numStocks * companyValue * 100) / 100;
   }
 
   private cleanText(text: string): string {

@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     let body;
     try {
       body = await req.json();
-      console.log('Received data:', body);
+      console.log('Received data:', JSON.stringify(body, null, 2));
     } catch (error) {
       console.error('Error parsing request body:', error);
       return NextResponse.json(
@@ -107,64 +107,59 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const data = body as FormData;
-
     // Validate required fields
-    if (!data.name || !data.type) {
+    if (!body.name || !body.type || !body.id) {
+      console.error('Missing required fields:', { name: body.name, type: body.type, id: body.id });
       return NextResponse.json(
-        { error: 'Name and type are required fields' },
+        { error: 'Name, type, and id are required fields' },
         { status: 400 }
       );
     }
 
+    // Create the opportunity object with proper type checking
     const opportunity = {
-      name: data.name.trim(),
-      type: data.type,
-      description: data.description || '',
-      offer_link: data.offer_link || '',
-      value: parseInt(data.value) || 0,
+      id: body.id,
+      name: body.name.trim(),
+      type: body.type,
+      description: body.description || '',
+      offer_link: body.offer_link || '',
+      value: parseInt(body.value) || 0,
       bonus: {
-        title: data.bonus?.title || '',
-        description: data.bonus?.description || '',
-        requirements: {
-          title: data.bonus?.requirements?.title || '',
-          description: data.bonus?.requirements?.description || '',
-          minimum_deposit: data.bonus?.requirements?.minimum_deposit || null,
-          trading_requirements: data.bonus?.requirements?.trading_requirements || null,
-          holding_period: data.bonus?.requirements?.holding_period || null,
+        title: body.bonus?.title || '',
+        description: body.bonus?.description || '',
+        requirements: body.bonus?.requirements || {
+          title: '',
+          description: '',
         },
-        additional_info: data.bonus?.additional_info || null,
-        tiers: data.bonus?.tiers || null,
+        additional_info: body.bonus?.additional_info || null,
+        tiers: body.bonus?.tiers || null,
       },
       details: {
-        monthly_fees: {
-          amount: data.details?.monthly_fees?.amount || '0',
+        monthly_fees: body.details?.monthly_fees || {
+          amount: '0',
         },
-        account_type: data.details?.account_type || '',
-        availability: data.details?.availability || {
+        account_type: body.details?.account_type || '',
+        availability: body.details?.availability || {
           type: 'Nationwide',
           states: [],
         },
-        credit_inquiry: data.details?.credit_inquiry || null,
-        household_limit: data.details?.household_limit || null,
-        early_closure_fee: data.details?.early_closure_fee || null,
-        chex_systems: data.details?.chex_systems || null,
-        expiration: data.details?.expiration || null,
+        credit_inquiry: body.details?.credit_inquiry || null,
+        household_limit: body.details?.household_limit || null,
+        early_closure_fee: body.details?.early_closure_fee || null,
+        chex_systems: body.details?.chex_systems || null,
+        expiration: body.details?.expiration || null,
       },
-      logo: {
-        type: data.logo?.type || '',
-        url: data.logo?.url || '',
+      logo: body.logo || {
+        type: '',
+        url: '',
       },
-      card_image:
-        data.type === 'credit_card'
-          ? {
-              url: data.card_image?.url || '',
-              network: data.card_image?.network || 'Unknown',
-              color: data.card_image?.color || 'Unknown',
-              badge: data.card_image?.badge,
-            }
-          : null,
-      metadata: {
+      card_image: body.type === 'credit_card' ? body.card_image || {
+        url: '',
+        network: 'Unknown',
+        color: 'Unknown',
+        badge: null,
+      } : null,
+      metadata: body.metadata || {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         created_by: userEmail,
@@ -173,15 +168,25 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    const db = getAdminDb();
-    const docRef = await db.collection('opportunities').add(opportunity);
+    console.log('Processed opportunity:', JSON.stringify(opportunity, null, 2));
 
-    console.log('Opportunity created with ID:', docRef.id);
+    try {
+      const db = getAdminDb();
+      // Use the provided ID instead of generating a new one
+      await db.collection('opportunities').doc(body.id).set(opportunity);
+      console.log('Opportunity created with ID:', body.id);
 
-    return NextResponse.json({
-      id: docRef.id,
-      message: 'Opportunity created successfully',
-    });
+      return NextResponse.json({
+        id: body.id,
+        message: 'Opportunity created successfully',
+      });
+    } catch (dbError) {
+      console.error('Database error:', dbError);
+      return NextResponse.json(
+        { error: 'Database error', details: dbError instanceof Error ? dbError.message : 'Unknown database error' },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Error creating opportunity:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
