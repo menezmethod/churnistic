@@ -8,6 +8,17 @@ export interface Opportunity {
   source: {
     name: string;
     collected_at: string;
+    original_id?: string;
+    timing?: {
+      bonus_posting_time: string;
+    } | null;
+    availability?: {
+      is_nationwide: boolean;
+      regions?: string[];
+    } | null;
+    credit?: {
+      inquiry: string;
+    } | null;
   };
   source_id?: string;
   bonus: {
@@ -20,26 +31,61 @@ export interface Opportunity {
         amount: number;
         period: number;
       };
+      minimum_deposit?: number | null;
     }[];
     tiers?:
       | {
           reward: string;
           deposit: string;
+          level?: string | null;
+          value?: number | null;
+          minimum_deposit?: number | null;
+          requirements?: string | null;
         }[]
       | null;
+    additional_info?: string | null;
   };
   details?: {
     monthly_fees?: {
       amount: string;
+      waiver_details?: string | null;
     } | null;
-    annual_fees?: string | null;
+    annual_fees?: {
+      amount: string;
+      waived_first_year: boolean;
+    } | null;
     account_type?: string | null;
+    account_category?: string | null;
     availability?: {
       type: string;
       states?: string[];
+      is_nationwide?: boolean;
     } | null;
     credit_inquiry?: string | null;
     expiration?: string | null;
+    credit_score?: string | null;
+    under_5_24?: {
+      required: boolean;
+      details: string;
+    } | null;
+    foreign_transaction_fees?: {
+      percentage: string;
+      waived: boolean;
+    } | null;
+    minimum_credit_limit?: string | null;
+    rewards_structure?: {
+      base_rewards?: string;
+      bonus_categories?: {
+        category: string;
+        rate: string;
+      }[];
+      welcome_bonus?: string;
+    } | null;
+    household_limit?: string | null;
+    early_closure_fee?: string | null;
+    chex_systems?: string | null;
+    options_trading?: string | null;
+    ira_accounts?: string | null;
     trading_requirements?: {
       min_trades?: number;
       period_days?: number;
