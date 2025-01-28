@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { getAdminDb } from '@/lib/firebase/admin';
-import { FormData, FirestoreOpportunity } from '@/types/opportunity';
+import type { FirestoreOpportunity } from '@/types/opportunity';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 const isPreviewEnvironment = process.env.VERCEL_ENV === 'preview';
@@ -109,7 +109,11 @@ export async function POST(req: NextRequest) {
 
     // Validate required fields
     if (!body.name || !body.type || !body.id) {
-      console.error('Missing required fields:', { name: body.name, type: body.type, id: body.id });
+      console.error('Missing required fields:', {
+        name: body.name,
+        type: body.type,
+        id: body.id,
+      });
       return NextResponse.json(
         { error: 'Name, type, and id are required fields' },
         { status: 400 }
@@ -153,12 +157,15 @@ export async function POST(req: NextRequest) {
         type: '',
         url: '',
       },
-      card_image: body.type === 'credit_card' ? body.card_image || {
-        url: '',
-        network: 'Unknown',
-        color: 'Unknown',
-        badge: null,
-      } : null,
+      card_image:
+        body.type === 'credit_card'
+          ? body.card_image || {
+              url: '',
+              network: 'Unknown',
+              color: 'Unknown',
+              badge: null,
+            }
+          : null,
       metadata: body.metadata || {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -183,7 +190,10 @@ export async function POST(req: NextRequest) {
     } catch (dbError) {
       console.error('Database error:', dbError);
       return NextResponse.json(
-        { error: 'Database error', details: dbError instanceof Error ? dbError.message : 'Unknown database error' },
+        {
+          error: 'Database error',
+          details: dbError instanceof Error ? dbError.message : 'Unknown database error',
+        },
         { status: 500 }
       );
     }

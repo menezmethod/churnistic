@@ -1,9 +1,6 @@
 'use client';
 
-import {
-  Link as LinkIcon,
-  ArrowForward as ArrowForwardIcon,
-} from '@mui/icons-material';
+import { Link as LinkIcon, ArrowForward as ArrowForwardIcon } from '@mui/icons-material';
 import {
   Box,
   Container,
@@ -189,7 +186,10 @@ const ValueDisplay = ({ value }: { value: string | number }) => {
 export default function OpportunityDetails({ opportunity }: OpportunityDetailsProps) {
   const theme = useTheme();
 
-  const formatRequirement = (req: { type: string; details: { amount: number; period: number } }) => {
+  const formatRequirement = (req: {
+    type: string;
+    details: { amount: number; period: number };
+  }) => {
     switch (req.type) {
       case 'spending':
         return `Spend $${req.details.amount} within ${req.details.period} days`;
@@ -237,8 +237,8 @@ export default function OpportunityDetails({ opportunity }: OpportunityDetailsPr
                   opportunity.type === 'credit_card'
                     ? 'primary'
                     : opportunity.type === 'bank'
-                    ? 'success'
-                    : 'info'
+                      ? 'success'
+                      : 'info'
                 }
               />
             </Box>
@@ -291,12 +291,10 @@ export default function OpportunityDetails({ opportunity }: OpportunityDetailsPr
           <Typography variant="h6" gutterBottom>
             Requirements
           </Typography>
-          
+
           {opportunity.bonus.requirements.map((req, index) => (
             <Box key={index} sx={{ mb: 2 }}>
-              <Typography variant="body1">
-                {formatRequirement(req)}
-              </Typography>
+              <Typography variant="body1">{formatRequirement(req)}</Typography>
             </Box>
           ))}
 
@@ -419,9 +417,13 @@ export default function OpportunityDetails({ opportunity }: OpportunityDetailsPr
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Credit Inquiry
                 </Typography>
-                <Chip 
+                <Chip
                   label={opportunity.details.credit_inquiry}
-                  color={opportunity.details.credit_inquiry.toLowerCase().includes('hard') ? 'warning' : 'success'}
+                  color={
+                    opportunity.details.credit_inquiry.toLowerCase().includes('hard')
+                      ? 'warning'
+                      : 'success'
+                  }
                 />
               </Grid>
             )}
@@ -431,9 +433,13 @@ export default function OpportunityDetails({ opportunity }: OpportunityDetailsPr
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Annual Fees
                 </Typography>
-                <Chip 
+                <Chip
                   label={opportunity.details.annual_fees}
-                  color={opportunity.details.annual_fees.toLowerCase().includes('no') ? 'success' : 'warning'}
+                  color={
+                    opportunity.details.annual_fees.toLowerCase().includes('no')
+                      ? 'success'
+                      : 'warning'
+                  }
                 />
               </Grid>
             )}
@@ -443,9 +449,13 @@ export default function OpportunityDetails({ opportunity }: OpportunityDetailsPr
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Monthly Fees
                 </Typography>
-                <Chip 
+                <Chip
                   label={opportunity.details.monthly_fees.amount}
-                  color={opportunity.details.monthly_fees.amount.toLowerCase().includes('none') ? 'success' : 'warning'}
+                  color={
+                    opportunity.details.monthly_fees.amount.toLowerCase().includes('none')
+                      ? 'success'
+                      : 'warning'
+                  }
                 />
               </Grid>
             )}
