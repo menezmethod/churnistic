@@ -1,367 +1,54 @@
-import {
-  CreditScore,
-  Warning,
-  Receipt,
-  Security,
-  AccountBalance,
-  Schedule,
-  Rule,
-  CreditCard,
-  Stars,
-  TrendingUp,
-  Assignment,
-  Apps,
-} from '@mui/icons-material';
-import { Box, Typography, Paper, Stack, alpha, useTheme, Chip } from '@mui/material';
+import { Check as CheckIcon, Close as CloseIcon } from '@mui/icons-material';
+import { Box, Typography, Paper, alpha, useTheme, Chip, Grid } from '@mui/material';
 import { motion } from 'framer-motion';
 
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 interface AccountDetailsSectionProps {
-  opportunity: FirestoreOpportunity;
+  details?: FirestoreOpportunity['details'];
+  type: FirestoreOpportunity['type'];
 }
 
-export const AccountDetailsSection = ({ opportunity }: AccountDetailsSectionProps) => {
+export default function AccountDetailsSection({ details, type }: AccountDetailsSectionProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
   const hasDetails =
-    opportunity.details?.monthly_fees?.waiver_details ||
-    opportunity.details?.credit_inquiry ||
-    opportunity.details?.household_limit ||
-    opportunity.details?.early_closure_fee ||
-    opportunity.details?.chex_systems ||
-    opportunity.bonus?.requirements?.minimum_deposit ||
-    opportunity.bonus?.requirements?.holding_period ||
-    opportunity.details?.under_5_24 ||
-    opportunity.details?.minimum_credit_limit ||
-    opportunity.details?.rewards_structure ||
-    opportunity.details?.options_trading ||
-    opportunity.details?.ira_accounts ||
-    opportunity.bonus?.requirements?.trading_requirements;
+    details?.monthly_fees?.waiver_details ||
+    details?.credit_inquiry ||
+    details?.household_limit ||
+    details?.early_closure_fee ||
+    details?.chex_systems ||
+    details?.under_5_24 ||
+    details?.minimum_credit_limit ||
+    details?.rewards_structure ||
+    details?.options_trading ||
+    details?.ira_accounts;
 
-  if (!hasDetails) {
+  if (!hasDetails || !details) {
     return null;
   }
 
-  const renderBankDetails = () => (
-    <>
-      {opportunity.bonus?.requirements?.minimum_deposit && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(theme.palette.success.main, 0.1),
-            }}
-          >
-            <AccountBalance sx={{ color: 'success.main' }} />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Minimum Deposit
-            </Typography>
-            <Typography>${opportunity.bonus.requirements.minimum_deposit}</Typography>
-          </Box>
-        </Box>
-      )}
+  const renderFeatureChip = (
+    label: string,
+    value: boolean | string | null | undefined
+  ) => {
+    if (value === null || value === undefined) return null;
 
-      {opportunity.bonus?.requirements?.holding_period && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(theme.palette.info.main, 0.1),
-            }}
-          >
-            <Schedule sx={{ color: 'info.main' }} />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Holding Period
-            </Typography>
-            <Typography>{opportunity.bonus.requirements.holding_period}</Typography>
-          </Box>
-        </Box>
-      )}
+    const isBoolean = typeof value === 'boolean';
+    const isEnabled = isBoolean ? value : value === 'Yes';
 
-      {opportunity.details?.early_closure_fee && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(theme.palette.error.main, 0.1),
-            }}
-          >
-            <Warning sx={{ color: 'error.main' }} />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Early Closure Fee
-            </Typography>
-            <Typography>{opportunity.details.early_closure_fee}</Typography>
-          </Box>
-        </Box>
-      )}
-
-      {opportunity.details?.chex_systems && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-            }}
-          >
-            <Security sx={{ color: 'primary.main' }} />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              ChexSystems
-            </Typography>
-            <Typography>{opportunity.details.chex_systems}</Typography>
-          </Box>
-        </Box>
-      )}
-    </>
-  );
-
-  const renderCreditCardDetails = () => (
-    <>
-      {opportunity.details?.under_5_24 && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(theme.palette.warning.main, 0.1),
-            }}
-          >
-            <Rule sx={{ color: 'warning.main' }} />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Chase 5/24 Rule
-            </Typography>
-            <Typography>
-              {opportunity.details.under_5_24.required ? 'Required' : 'Not Required'}
-              {opportunity.details.under_5_24.details && (
-                <Typography variant="body2" color="text.secondary">
-                  {opportunity.details.under_5_24.details}
-                </Typography>
-              )}
-            </Typography>
-          </Box>
-        </Box>
-      )}
-
-      {opportunity.details?.minimum_credit_limit && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(theme.palette.success.main, 0.1),
-            }}
-          >
-            <CreditCard sx={{ color: 'success.main' }} />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Minimum Credit Limit
-            </Typography>
-            <Typography>{opportunity.details.minimum_credit_limit}</Typography>
-          </Box>
-        </Box>
-      )}
-
-      {opportunity.details?.rewards_structure && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(theme.palette.info.main, 0.1),
-            }}
-          >
-            <Stars sx={{ color: 'info.main' }} />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Rewards Structure
-            </Typography>
-            {opportunity.details.rewards_structure.base_rewards && (
-              <Typography variant="body2">
-                Base: {opportunity.details.rewards_structure.base_rewards}
-              </Typography>
-            )}
-            {opportunity.details.rewards_structure.welcome_bonus && (
-              <Typography variant="body2">
-                Welcome: {opportunity.details.rewards_structure.welcome_bonus}
-              </Typography>
-            )}
-            {opportunity.details.rewards_structure.bonus_categories && (
-              <Box sx={{ mt: 1 }}>
-                <Typography variant="subtitle2">Bonus Categories:</Typography>
-                {opportunity.details.rewards_structure.bonus_categories.map(
-                  (category, index) => (
-                    <Chip
-                      key={index}
-                      label={`${category.category}: ${category.rate}${
-                        category.limit ? ` (up to $${category.limit})` : ''
-                      }`}
-                      size="small"
-                      sx={{ mr: 1, mb: 1 }}
-                    />
-                  )
-                )}
-              </Box>
-            )}
-          </Box>
-        </Box>
-      )}
-    </>
-  );
-
-  const renderBrokerageDetails = () => (
-    <>
-      {opportunity.details?.options_trading && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(theme.palette.success.main, 0.1),
-            }}
-          >
-            <TrendingUp sx={{ color: 'success.main' }} />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Options Trading
-            </Typography>
-            <Typography>{opportunity.details.options_trading}</Typography>
-          </Box>
-        </Box>
-      )}
-
-      {opportunity.details?.ira_accounts && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(theme.palette.info.main, 0.1),
-            }}
-          >
-            <AccountBalance sx={{ color: 'info.main' }} />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              IRA Accounts
-            </Typography>
-            <Typography>{opportunity.details.ira_accounts}</Typography>
-          </Box>
-        </Box>
-      )}
-
-      {opportunity.bonus?.requirements?.trading_requirements && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(theme.palette.warning.main, 0.1),
-            }}
-          >
-            <Assignment sx={{ color: 'warning.main' }} />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Trading Requirements
-            </Typography>
-            <Typography>{opportunity.bonus.requirements.trading_requirements}</Typography>
-          </Box>
-        </Box>
-      )}
-
-      {opportunity.details?.platform_features &&
-        Array.isArray(opportunity.details.platform_features) && (
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: alpha(theme.palette.primary.main, 0.1),
-              }}
-            >
-              <Apps sx={{ color: 'primary.main' }} />
-            </Box>
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">
-                Platform Features
-              </Typography>
-              {opportunity.details.platform_features.map(
-                (feature: { name: string; description: string }, index: number) => (
-                  <Box key={index} sx={{ mt: 1 }}>
-                    <Typography variant="body2" fontWeight="bold">
-                      {feature.name}
-                    </Typography>
-                    <Typography variant="body2">{feature.description}</Typography>
-                  </Box>
-                )
-              )}
-            </Box>
-          </Box>
-        )}
-    </>
-  );
+    return (
+      <Chip
+        icon={isEnabled ? <CheckIcon /> : <CloseIcon />}
+        label={label}
+        color={isEnabled ? 'success' : 'error'}
+        variant="outlined"
+        size="small"
+        sx={{ m: 0.5 }}
+      />
+    );
+  };
 
   return (
     <Paper
@@ -400,61 +87,269 @@ export const AccountDetailsSection = ({ opportunity }: AccountDetailsSectionProp
         Account Details
       </Typography>
 
-      <Stack spacing={2.5}>
-        {/* Common fields */}
-        {opportunity.details?.monthly_fees?.waiver_details && (
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: alpha(theme.palette.success.main, 0.1),
-              }}
-            >
-              <Receipt sx={{ color: 'success.main' }} />
-            </Box>
-            <Box>
+      <Grid container spacing={3}>
+        {/* Basic Account Information */}
+        <Grid item xs={12} md={6}>
+          {details.account_type && (
+            <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" color="text.secondary">
-                Monthly Fee Waiver
+                Account Type
               </Typography>
-              <Typography>{opportunity.details.monthly_fees.waiver_details}</Typography>
+              <Typography>{details.account_type}</Typography>
             </Box>
-          </Box>
+          )}
+
+          {details.account_category && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Account Category
+              </Typography>
+              <Typography>{details.account_category}</Typography>
+            </Box>
+          )}
+
+          {details.expiration && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Expiration
+              </Typography>
+              <Typography>{details.expiration}</Typography>
+            </Box>
+          )}
+        </Grid>
+
+        {/* Fees Section */}
+        <Grid item xs={12} md={6}>
+          {details.monthly_fees && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Monthly Fees
+              </Typography>
+              <Typography>{details.monthly_fees.amount}</Typography>
+              {details.monthly_fees.waiver_details && (
+                <Typography variant="body2" color="text.secondary">
+                  Waiver: {details.monthly_fees.waiver_details}
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          {details.annual_fees && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Annual Fees
+              </Typography>
+              <Typography>{details.annual_fees.amount}</Typography>
+              {details.annual_fees.waived_first_year && (
+                <Typography variant="body2" color="success.main">
+                  First Year Waived
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          {details.early_closure_fee && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Early Closure Fee
+              </Typography>
+              <Typography>{details.early_closure_fee}</Typography>
+            </Box>
+          )}
+        </Grid>
+
+        {/* Credit Card Specific Details */}
+        {type === 'credit_card' && (
+          <>
+            <Grid item xs={12}>
+              <Typography variant="subtitle1" gutterBottom>
+                Credit Requirements
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              {details.credit_inquiry && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Credit Inquiry
+                  </Typography>
+                  <Typography>{details.credit_inquiry}</Typography>
+                </Box>
+              )}
+
+              {details.credit_score && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Credit Score
+                  </Typography>
+                  {details.credit_score.min && (
+                    <Typography>Minimum: {details.credit_score.min}</Typography>
+                  )}
+                  {details.credit_score.recommended && (
+                    <Typography>
+                      Recommended: {details.credit_score.recommended}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
+              {details.under_5_24 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    5/24 Rule
+                  </Typography>
+                  <Typography>
+                    {details.under_5_24.required ? 'Required' : 'Not Required'}
+                  </Typography>
+                  {details.under_5_24.details && (
+                    <Typography variant="body2" color="text.secondary">
+                      {details.under_5_24.details}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              {details.minimum_credit_limit && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Minimum Credit Limit
+                  </Typography>
+                  <Typography>{details.minimum_credit_limit}</Typography>
+                </Box>
+              )}
+
+              {details.foreign_transaction_fees && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Foreign Transaction Fees
+                  </Typography>
+                  <Typography>
+                    {details.foreign_transaction_fees.percentage}
+                    {details.foreign_transaction_fees.waived && ' (Waived)'}
+                  </Typography>
+                </Box>
+              )}
+            </Grid>
+          </>
         )}
 
-        {opportunity.details?.credit_inquiry && (
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: alpha(theme.palette.warning.main, 0.1),
-              }}
-            >
-              <CreditScore sx={{ color: 'warning.main' }} />
-            </Box>
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">
-                Credit Check Type
-              </Typography>
-              <Typography>{opportunity.details.credit_inquiry}</Typography>
-            </Box>
-          </Box>
+        {/* Rewards Structure */}
+        {details.rewards_structure && (
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              Rewards Structure
+            </Typography>
+
+            {details.rewards_structure.base_rewards && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Base Rewards
+                </Typography>
+                <Typography>{details.rewards_structure.base_rewards}</Typography>
+              </Box>
+            )}
+
+            {details.rewards_structure.welcome_bonus && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Welcome Bonus
+                </Typography>
+                <Typography>{details.rewards_structure.welcome_bonus}</Typography>
+              </Box>
+            )}
+
+            {details.rewards_structure.bonus_categories && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Bonus Categories
+                </Typography>
+                <Grid container spacing={2}>
+                  {details.rewards_structure.bonus_categories.map((category, index) => (
+                    <Grid item xs={12} sm={6} md={4} key={index}>
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          border: '1px solid',
+                          borderColor: alpha(theme.palette.primary.main, 0.2),
+                        }}
+                      >
+                        <Typography variant="subtitle2">{category.category}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Rate: {category.rate}
+                        </Typography>
+                        {category.limit && (
+                          <Typography variant="body2" color="text.secondary">
+                            Limit: {category.limit}
+                          </Typography>
+                        )}
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
+            )}
+          </Grid>
         )}
 
-        {/* Type-specific fields */}
-        {opportunity.type === 'bank' && renderBankDetails()}
-        {opportunity.type === 'credit_card' && renderCreditCardDetails()}
-        {opportunity.type === 'brokerage' && renderBrokerageDetails()}
-      </Stack>
+        {/* Brokerage Specific Features */}
+        {type === 'brokerage' && details.options_trading && (
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              Platform Features
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {renderFeatureChip('Options Trading', details.options_trading)}
+              {renderFeatureChip('IRA Accounts', details.ira_accounts)}
+            </Box>
+            {details.platform_features && (
+              <Grid container spacing={2} sx={{ mt: 2 }}>
+                {details.platform_features.map((feature, index) => (
+                  <Grid item xs={12} sm={6} md={4} key={index}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: alpha(theme.palette.primary.main, 0.2),
+                      }}
+                    >
+                      <Typography variant="subtitle2">{feature.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {feature.description}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+          </Grid>
+        )}
+
+        {/* Additional Information */}
+        <Grid item xs={12}>
+          {details.household_limit && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Household Limit
+              </Typography>
+              <Typography>{details.household_limit}</Typography>
+            </Box>
+          )}
+
+          {details.chex_systems && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                ChexSystems
+              </Typography>
+              <Typography>{details.chex_systems}</Typography>
+            </Box>
+          )}
+        </Grid>
+      </Grid>
     </Paper>
   );
-};
+}

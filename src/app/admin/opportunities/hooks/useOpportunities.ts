@@ -694,14 +694,15 @@ export function useOpportunities() {
                 .join(' AND '),
             },
             additional_info: opportunityData.bonus.additional_info || null,
-            tiers: opportunityData.bonus.tiers?.map(tier => ({
-              reward: tier.reward || '',
-              deposit: tier.deposit || '',
-              level: tier.level || null,
-              value: tier.value || null,
-              minimum_deposit: tier.minimum_deposit || null,
-              requirements: tier.requirements || null
-            })) || null,
+            tiers:
+              opportunityData.bonus.tiers?.map((tier) => ({
+                reward: tier.reward || '',
+                deposit: tier.deposit || '',
+                level: tier.level || null,
+                value: tier.value || null,
+                minimum_deposit: tier.minimum_deposit || null,
+                requirements: tier.requirements || null,
+              })) || null,
           },
           details: {
             monthly_fees: opportunityData.details?.monthly_fees || {
