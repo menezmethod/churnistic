@@ -52,35 +52,35 @@ export default function OpportunityCard({
       return;
     }
     onDeleteOpportunityAction(opportunity);
-  };
+};
 
   const displayValue = (value: string | number) => {
     if (typeof value === 'number') return formatCurrency(value);
     const numericValue = parseFloat(value.replace(/[$,]/g, ''));
     return isNaN(numericValue) ? '$0' : formatCurrency(numericValue);
-  };
+};
 
   if (viewMode === 'list') {
-    return (
-      <Paper
-        component={motion.div}
+  return (
+    <Paper
+      component={motion.div}
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5, delay: index * 0.1 }}
         elevation={0}
-        sx={{
+      sx={{
           p: 3,
           borderRadius: 2,
           bgcolor: isDark
             ? alpha(theme.palette.background.paper, 0.6)
             : 'background.paper',
-          border: '1px solid',
+        border: '1px solid',
           borderColor: isDark ? alpha(theme.palette.divider, 0.1) : 'divider',
           position: 'relative',
           transition: 'all 0.2s ease-out',
-          overflow: 'hidden',
+        overflow: 'hidden',
           backdropFilter: 'blur(8px)',
-          '&:hover': {
+        '&:hover': {
             transform: 'translateY(-2px)',
             boxShadow: `0 4px 12px ${alpha(theme.palette.divider, 0.2)}`,
             '& .delete-button': {
@@ -105,31 +105,31 @@ export default function OpportunityCard({
             transition: 'transform 0.2s ease-out',
             pointerEvents: 'none',
             zIndex: 0,
-          },
+        },
           ...sx,
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
             justifyContent: 'space-between',
             mb: 2,
             position: 'relative',
             zIndex: 1,
-          }}
-        >
+        }}
+      >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box
+        <Box
               className="list-icon"
-              sx={{
+          sx={{
                 width: 56,
                 height: 56,
                 p: 1,
                 borderRadius: 2,
                 bgcolor: colors.alpha,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
                 transition: 'transform 0.3s',
                 overflow: 'hidden',
                 position: 'relative',
@@ -150,44 +150,44 @@ export default function OpportunityCard({
                 '&:hover::after': {
                   opacity: 1,
                 },
-              }}
-            >
+          }}
+        >
               <LogoImage
                 logo={opportunity.logo}
                 name={opportunity.name}
                 colors={colors}
               />
-            </Box>
+        </Box>
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                {opportunity.name}
-              </Typography>
+            {opportunity.name}
+          </Typography>
               <Typography variant="body2" color="text.secondary">
                 {opportunity.type.replace('_', ' ').toUpperCase()}
-              </Typography>
-            </Box>
-          </Box>
+          </Typography>
+        </Box>
+      </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{ textAlign: 'right' }}>
               <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 600 }}>
                 {displayValue(opportunity.value)}
-              </Typography>
+          </Typography>
               <Typography variant="caption" color="text.secondary">
                 Bonus Value
-              </Typography>
-            </Box>
+          </Typography>
+        </Box>
             <Tooltip title="Delete opportunity">
               <IconButton
                 className="delete-button"
                 onClick={handleDeleteClick}
                 disabled={isDeleting}
-                sx={{
+            sx={{
                   color: 'text.secondary',
                   '&:hover': {
                     color: 'error.main',
                   },
-                }}
-              >
+            }}
+          >
                 {isDeleting ? (
                   <CircularProgress size={20} color="error" />
                 ) : (
@@ -199,32 +199,32 @@ export default function OpportunityCard({
         </Box>
 
         {opportunity.description && (
-          <Typography
+            <Typography
             variant="body2"
             color="text.secondary"
-            sx={{
+              sx={{
               mb: 2,
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
-            }}
-          >
+              }}
+            >
             {opportunity.description}
-          </Typography>
+            </Typography>
         )}
 
         {opportunity.bonus?.description && (
           <Box
-            sx={{
+              sx={{
               p: 2,
               mb: 2,
               borderRadius: 2,
               bgcolor: alpha(theme.palette.primary.main, 0.05),
               border: '1px solid',
               borderColor: alpha(theme.palette.primary.main, 0.1),
-            }}
-          >
+              }}
+            >
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               {opportunity.bonus.description}
             </Typography>
@@ -278,7 +278,7 @@ export default function OpportunityCard({
               href={opportunity.offer_link}
               target="_blank"
               rel="noopener noreferrer"
-              sx={{
+                    sx={{
                 borderRadius: 1.5,
                 textTransform: 'none',
                 fontWeight: 500,
@@ -317,7 +317,7 @@ export default function OpportunityCard({
         transition: 'all 0.3s',
         overflow: 'hidden',
         backdropFilter: 'blur(8px)',
-        display: 'flex',
+                      display: 'flex',
         flexDirection: 'column',
         '&:hover': {
           transform: 'translateY(-4px)',
@@ -365,10 +365,10 @@ export default function OpportunityCard({
           zIndex: 0,
         },
         ...sx,
-      }}
-    >
+                    }}
+                  >
       <Box sx={{ position: 'relative', mb: 2, zIndex: 1 }}>
-        <Box
+                    <Box
           className="card-icon"
           sx={{
             p: 2,
@@ -409,7 +409,7 @@ export default function OpportunityCard({
             className="delete-button"
             onClick={handleDeleteClick}
             disabled={isDeleting}
-            sx={{
+                      sx={{
               position: 'absolute',
               top: 0,
               right: 0,
@@ -419,7 +419,7 @@ export default function OpportunityCard({
               '&:hover': {
                 backgroundColor: alpha(theme.palette.error.main, 0.1),
               },
-            }}
+                      }}
           >
             {isDeleting ? <CircularProgress size={20} color="error" /> : <DeleteIcon />}
           </IconButton>
@@ -428,7 +428,7 @@ export default function OpportunityCard({
 
       <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
         {opportunity.name}
-      </Typography>
+                  </Typography>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         {opportunity.type.replace('_', ' ').toUpperCase()}
@@ -439,8 +439,8 @@ export default function OpportunityCard({
       </Typography>
 
       {opportunity.description && (
-        <Typography
-          variant="body2"
+                  <Typography
+                    variant="body2"
           color="text.secondary"
           sx={{
             mb: 2,
@@ -449,26 +449,26 @@ export default function OpportunityCard({
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
           }}
-        >
+                  >
           {opportunity.description}
         </Typography>
       )}
 
       {opportunity.bonus?.description && (
-        <Box
-          sx={{
+                    <Box
+                      sx={{
             p: 2,
             mb: 2,
             borderRadius: 2,
             bgcolor: alpha(theme.palette.primary.main, 0.05),
             border: '1px solid',
             borderColor: alpha(theme.palette.primary.main, 0.1),
-          }}
+                      }}
         >
           <Typography variant="body2" sx={{ fontWeight: 500 }}>
             {opportunity.bonus.description}
-          </Typography>
-        </Box>
+                  </Typography>
+              </Box>
       )}
 
       <Box sx={{ mt: 'auto', display: 'flex', gap: 1 }}>
@@ -499,7 +499,7 @@ export default function OpportunityCard({
                 transform: 'skewX(-15deg)',
                 transition: 'all 0.6s',
                 filter: 'blur(5px)',
-              },
+                  },
               '&:hover': {
                 background: `linear-gradient(135deg, ${colors.dark}, ${colors.primary})`,
                 transform: 'translateY(-1px)',
@@ -514,12 +514,12 @@ export default function OpportunityCard({
           </Button>
         </Link>
         {opportunity.offer_link && (
-          <Button
-            variant="outlined"
+            <Button
+              variant="outlined"
             href={opportunity.offer_link}
             target="_blank"
             rel="noopener noreferrer"
-            sx={{
+              sx={{
               borderRadius: 1.5,
               textTransform: 'none',
               fontWeight: 500,
@@ -530,16 +530,15 @@ export default function OpportunityCard({
                 bgcolor: alpha(colors.primary, 0.04),
                 transform: 'translateY(-1px)',
               },
-            }}
-          >
+              }}
+            >
             View Offer
-          </Button>
+            </Button>
         )}
       </Box>
     </Paper>
   );
 }
-
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -547,3 +546,4 @@ function formatCurrency(value: number): string {
     maximumFractionDigits: 0,
   }).format(value);
 }
+

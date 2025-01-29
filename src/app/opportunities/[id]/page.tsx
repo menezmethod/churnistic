@@ -2,6 +2,8 @@
 
 import { ArrowBack } from '@mui/icons-material';
 import { Box, Button, Container, Grid, Link } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useState } from 'react';
@@ -12,6 +14,7 @@ import { useOpportunity } from '@/lib/hooks/useOpportunity';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 import AccountDetailsSection from './components/AccountDetailsSection';
+import AvailabilitySection from './components/AvailabilitySection';
 import BonusDetailsSection from './components/BonusDetailsSection';
 import { BonusTiersSection } from './components/BonusTiersSection';
 import { EditDialog } from './components/EditDialog';
@@ -34,6 +37,7 @@ export default function OpportunityDetailsPage() {
   const [editData, setEditData] = useState<Partial<FirestoreOpportunity>>({});
   const [originalData, setOriginalData] = useState<FirestoreOpportunity | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const theme = useTheme();
 
   // Check if user can edit/delete this opportunity
   const canModify = Boolean(
@@ -175,8 +179,10 @@ export default function OpportunityDetailsPage() {
               borderRadius: 2,
               textTransform: 'none',
               fontWeight: 600,
+              transition: 'all 0.3s ease',
               '&:hover': {
                 transform: 'translateX(-4px)',
+                bgcolor: alpha(theme.palette.primary.main, 0.05),
               },
             }}
           >
@@ -188,23 +194,29 @@ export default function OpportunityDetailsPage() {
       </Box>
 
       {/* Main Content */}
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <Box sx={{ px: 3 }}>
+      <Grid container spacing={4}>
+        {/* Left Column - Main Content */}
+        <Grid item xs={12} lg={8}>
+          <Box>
             <BonusDetailsSection bonus={opportunity.bonus} />
-            <BonusTiersSection opportunity={opportunity} />
-            <AccountDetailsSection details={opportunity.details} type={opportunity.type} />
+            <AccountDetailsSection
+              details={opportunity.details}
+              type={opportunity.type}
+            />
+            <AvailabilitySection availability={opportunity.details?.availability} />
           </Box>
         </Grid>
 
-        {/* Right Sidebar */}
-        <Grid item xs={12} md={4}>
-          <QuickActionsSection
-            opportunity={opportunity}
-            canModify={canModify}
-            onEditClick={handleEditClick}
-            onDeleteClick={handleDeleteClick}
-          />
+        {/* Right Column - Quick Actions */}
+        <Grid item xs={12} lg={4}>
+          <Box sx={{ position: 'sticky', top: 24 }}>
+            <QuickActionsSection
+              opportunity={opportunity}
+              canModify={canModify}
+              onEditClick={handleEditClick}
+              onDeleteClick={handleDeleteClick}
+            />
+          </Box>
         </Grid>
       </Grid>
 
