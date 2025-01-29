@@ -182,10 +182,10 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
       amount: '0',
       waiver_details: null,
     },
-    annual_fees: offer.details.annual_fees
+    annual_fees: offer.details.annual_fees && offer.details.annual_fees.amount
       ? {
           amount: offer.details.annual_fees.amount,
-          waived_first_year: offer.details.annual_fees.waived_first_year,
+          waived_first_year: offer.details.annual_fees.waived_first_year || false,
         }
       : null,
     account_type: offer.details.account_type || null,
