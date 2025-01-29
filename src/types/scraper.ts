@@ -35,6 +35,7 @@ export interface BankRewardsOffer {
     lastChecked: Date | string;
     status: 'active' | 'expired';
     offerBaseUrl?: string;
+    under_5_24?: boolean;
   };
 }
 
