@@ -181,16 +181,35 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     return fee.replace(/#/g, '').trim();
   };
 
-  // Parse spending requirements
-  const spendingReq = offer.bonus.requirements.description ? 
-    parseSpendingRequirement(offer.bonus.requirements.description) : null;
+  // Parse requirements based on offer type
+  let requirements;
+  if (offer.type === 'brokerage') {
+    // For brokerage offers, use minimum deposit if available
+    requirements = offer.bonus.requirements.minimum_deposit ? [
+      {
+        type: 'deposit',
+        details: {
+          amount: offer.bonus.requirements.minimum_deposit,
+          period: 90, // Default period for deposits
+        },
+        minimum_deposit: offer.bonus.requirements.minimum_deposit,
+      }
+    ] : [
+      {
+        type: 'other',
+        details: {
+          amount: offer.value,
+          period: 90,
+        },
+        minimum_deposit: null,
+      }
+    ];
+  } else {
+    // For other offers, use spending requirements if available
+    const spendingReq = offer.bonus.requirements.description ? 
+      parseSpendingRequirement(offer.bonus.requirements.description) : null;
 
-  // Ensure no undefined values in bonus
-  const bonus = {
-    title: offer.bonus.title || '',
-    value: offer.value,
-    description: offer.bonus.description || '',
-    requirements: spendingReq ? [
+    requirements = spendingReq ? [
       {
         type: 'spending',
         details: {
@@ -208,7 +227,15 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
         },
         minimum_deposit: null,
       }
-    ],
+    ];
+  }
+
+  // Ensure no undefined values in bonus
+  const bonus = {
+    title: offer.bonus.title || '',
+    value: offer.value,
+    description: offer.bonus.description || '',
+    requirements,
     tiers: offer.bonus.tiers?.map((tier) => ({
       reward: tier.reward || '',
       deposit: tier.deposit || '',
@@ -537,6 +564,9 @@ export function useOpportunities() {
           value: opportunityData.value.toString(),
           description: opportunityData.bonus.description || '',
           offer_link: opportunityData.offer_link,
+          source_id: opportunityData.source_id,
+          status: 'approved',
+          createdAt: opportunityData.createdAt,
           bonus: {
             title: opportunityData.bonus.title || '',
             description: opportunityData.bonus.description || '',
@@ -557,6 +587,10 @@ export function useOpportunities() {
               opportunityData.bonus.tiers?.map((tier) => ({
                 reward: tier.reward || '',
                 deposit: tier.deposit || '',
+                level: tier.level || null,
+                value: tier.value || null,
+                minimum_deposit: tier.minimum_deposit || null,
+                requirements: tier.requirements || null,
               })) || null,
           },
           details: {
@@ -569,10 +603,12 @@ export function useOpportunities() {
               states: [],
             },
             credit_inquiry: opportunityData.details?.credit_inquiry || null,
-            household_limit: null,
-            early_closure_fee: null,
-            chex_systems: null,
+            household_limit: opportunityData.details?.household_limit || null,
+            early_closure_fee: opportunityData.details?.early_closure_fee || null,
+            chex_systems: opportunityData.details?.chex_systems || null,
             expiration: opportunityData.details?.expiration || null,
+            options_trading: opportunityData.details?.options_trading || null,
+            ira_accounts: opportunityData.details?.ira_accounts || null,
           },
           logo: opportunityData.logo || {
             type: '',
