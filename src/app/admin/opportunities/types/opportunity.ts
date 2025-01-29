@@ -5,6 +5,7 @@ export interface Opportunity {
   bank: string;
   value: number;
   status: 'staged' | 'pending' | 'approved' | 'rejected';
+  offer_link: string;
   source: {
     name: string;
     collected_at: string;

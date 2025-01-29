@@ -155,10 +155,16 @@ const ITEMS_PER_PAGE = 20;
 const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   const bank = offer.name?.split(' ')?.[0] || offer.name || '';
 
-  // Convert timeframe to period (days)
-  const getSpendingPeriod = (timeframe: string) => {
-    const match = timeframe.match(/(\d+)/);
-    return match ? parseInt(match[1]) : 90; // default to 90 days
+  // Parse spending requirement from description
+  const parseSpendingRequirement = (description: string) => {
+    const spendMatch = description.match(/Spend \$([0-9,]+) in (\d+)/i);
+    if (spendMatch) {
+      return {
+        amount: parseInt(spendMatch[1].replace(',', '')),
+        period: parseInt(spendMatch[2]) * 30 // Convert months to days
+      };
+    }
+    return null;
   };
 
   // Normalize household limit
@@ -172,8 +178,46 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   // Normalize early closure fee
   const normalizeEarlyClosureFee = (fee: string | undefined) => {
     if (!fee) return null;
-    // Remove markdown formatting if present
     return fee.replace(/#/g, '').trim();
+  };
+
+  // Parse spending requirements
+  const spendingReq = offer.bonus.requirements.description ? 
+    parseSpendingRequirement(offer.bonus.requirements.description) : null;
+
+  // Ensure no undefined values in bonus
+  const bonus = {
+    title: offer.bonus.title || '',
+    value: offer.value,
+    description: offer.bonus.description || '',
+    requirements: spendingReq ? [
+      {
+        type: 'spending',
+        details: {
+          amount: spendingReq.amount,
+          period: spendingReq.period,
+        },
+        minimum_deposit: offer.bonus.requirements.minimum_deposit || null,
+      }
+    ] : [
+      {
+        type: 'other',
+        details: {
+          amount: offer.value,
+          period: 90,
+        },
+        minimum_deposit: null,
+      }
+    ],
+    tiers: offer.bonus.tiers?.map((tier) => ({
+      reward: tier.reward || '',
+      deposit: tier.deposit || '',
+      level: tier.level || null,
+      value: tier.value || null,
+      minimum_deposit: tier.minimum_deposit || null,
+      requirements: tier.requirements || null,
+    })) || [],
+    additional_info: offer.bonus.additional_info || null,
   };
 
   // Ensure no undefined values in details
@@ -209,47 +253,11 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     ira_accounts: offer.details.ira_accounts || null,
   };
 
-  // Ensure no undefined values in bonus
-  const bonus = {
-    title: offer.bonus.title || '',
-    value: offer.value,
-    description: offer.bonus.description || '',
-    requirements: offer.bonus.requirements
-      ? [
-          {
-            type: offer.bonus.requirements.spending_requirement ? 'spending' : 'other',
-            details: offer.bonus.requirements.spending_requirement
-              ? {
-                  amount: offer.bonus.requirements.spending_requirement.amount,
-                  period: getSpendingPeriod(
-                    offer.bonus.requirements.spending_requirement.timeframe
-                  ),
-                }
-              : {
-                  amount: offer.value,
-                  period: 90,
-                },
-            minimum_deposit: offer.bonus.requirements.minimum_deposit || null,
-          },
-        ]
-      : [],
-    tiers:
-      offer.bonus.tiers?.map((tier) => ({
-        reward: tier.reward || '',
-        deposit: tier.deposit || '',
-        level: tier.level || null,
-        value: tier.value || null,
-        minimum_deposit: tier.minimum_deposit || null,
-        requirements: tier.requirements || null,
-      })) || [],
-    additional_info: offer.bonus.additional_info || null,
-  };
-
   // Use original_id from metadata if available, otherwise use offer.id
   const source_id = offer.metadata?.source?.original_id || offer.id;
 
   return {
-    id: source_id, // Use source_id as the document ID to prevent duplicates
+    id: source_id,
     name: offer.name,
     type: offer.type,
     bank,
@@ -271,6 +279,7 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
       url: '',
     },
     card_image: offer.card_image || null,
+    offer_link: offer.offer_link || '',
     processing_status: {
       source_validation: true,
       ai_processed: false,
@@ -522,12 +531,12 @@ export function useOpportunities() {
         const user = auth.currentUser;
 
         const formData = {
-          id: opportunityData.id, // Ensure we use the same ID
+          id: opportunityData.id,
           name: opportunityData.name,
           type: opportunityData.type,
-          value: opportunityData.value.toString(), // API expects string
+          value: opportunityData.value.toString(),
           description: opportunityData.bonus.description || '',
-          offer_link: `/api/opportunities/${opportunityData.id}/redirect`,
+          offer_link: opportunityData.offer_link,
           bonus: {
             title: opportunityData.bonus.title || '',
             description: opportunityData.bonus.description || '',
