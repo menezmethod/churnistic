@@ -26,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ToastProvider>
             <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
               <AppNavbar />
-              <Box component="main" sx={{ flexGrow: 1 }}>
+              <Box component="main" sx={{ flexGrow: 1, pt: { xs: '64px', md: '72px' } }}>
                 {children}
               </Box>
             </Box>
