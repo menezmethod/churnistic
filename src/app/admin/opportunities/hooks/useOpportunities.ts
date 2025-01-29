@@ -13,6 +13,8 @@ import {
   where,
   deleteDoc,
   setDoc,
+  DocumentData,
+  QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 
@@ -170,111 +172,114 @@ interface DebitTransactionRequirement extends BaseRequirement {
 const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   const bank = offer.name?.split(' ')?.[0] || offer.name || '';
 
-  // Ensure requirements are properly structured with no undefined values
-  const requirements = [
+  // Transform requirements to match the expected structure
+  const requirements = offer.bonus?.requirements ? [
     {
-      type: 'api_requirements',
+      type: 'direct_deposit',
       details: {
-        amount: offer.value || 0,
-        period: 60,
+        amount: offer.bonus.requirements.minimum_deposit || offer.value || 0,
+        period: 60, // Default period
       },
-      description: offer.bonus?.requirements?.description || '',
-      title: offer.bonus?.requirements?.title || '',
-      spending_requirement: null,
-      minimum_deposit: null,
+      minimum_deposit: offer.bonus.requirements.minimum_deposit || null,
+      description: offer.bonus.requirements.description || '',
+      title: offer.bonus.requirements.title || '',
     },
-  ];
+    ...(offer.bonus.requirements.spending_requirement ? [{
+      type: 'spending',
+      details: {
+        amount: offer.bonus.requirements.spending_requirement.amount,
+        period: parseInt(offer.bonus.requirements.spending_requirement.timeframe) || 90,
+      },
+      description: `Spend $${offer.bonus.requirements.spending_requirement.amount.toLocaleString()} within ${offer.bonus.requirements.spending_requirement.timeframe}`,
+    }] : []),
+  ] : [];
 
-  // Ensure bonus has no undefined values
+  // Transform bonus tiers
+  const tiers = offer.bonus?.tiers?.map(tier => ({
+    reward: tier.reward || '',
+    deposit: tier.deposit || '',
+    level: tier.level || null,
+    value: tier.value || null,
+    minimum_deposit: tier.minimum_deposit || null,
+    requirements: tier.requirements || null,
+  })) || [];
+
+  // Transform bonus
   const bonus = {
     title: offer.bonus?.title || '',
     value: offer.value || 0,
     description: offer.bonus?.description || '',
     requirements,
-    tiers: [],
-    additional_info: null,
+    tiers,
+    additional_info: offer.bonus?.additional_info || null,
   };
 
-  // Normalize household limit
-  const normalizeHouseholdLimit = (limit: string | undefined) => {
-    if (!limit) return null;
-    if (limit.toLowerCase().includes('none')) return 'None';
-    if (limit === '1' || limit.toLowerCase() === 'one') return '1';
-    return limit;
-  };
-
-  // Normalize early closure fee
-  const normalizeEarlyClosureFee = (fee: string | undefined) => {
-    if (!fee) return null;
-    return fee.replace(/#/g, '').trim();
-  };
-
-  // Ensure no undefined values in details
+  // Transform details
   const details = {
-    monthly_fees: offer.details.monthly_fees || {
-      amount: '0',
-      waiver_details: null,
-    },
-    annual_fees:
-      offer.details.annual_fees && offer.details.annual_fees.amount
-        ? {
-            amount: offer.details.annual_fees.amount,
-            waived_first_year: offer.details.annual_fees.waived_first_year || false,
-          }
-        : null,
-    account_type: offer.details.account_type || null,
-    account_category: offer.details.account_category || null,
-    availability: offer.details.availability || {
+    monthly_fees: offer.details?.monthly_fees ? {
+      amount: offer.details.monthly_fees.amount || '0',
+      waiver_details: offer.details.monthly_fees.waiver_details || null,
+    } : null,
+    annual_fees: offer.details?.annual_fees ? {
+      amount: offer.details.annual_fees.amount || '0',
+      waived_first_year: offer.details.annual_fees.waived_first_year || false,
+    } : null,
+    account_type: offer.details?.account_type || null,
+    account_category: offer.details?.account_category || null,
+    availability: offer.details?.availability ? {
+      type: offer.details.availability.type || 'Nationwide',
+      states: offer.details.availability.states || [],
+      is_nationwide: offer.details.availability.is_nationwide || true,
+    } : {
       type: 'Nationwide',
       states: [],
       is_nationwide: true,
     },
-    credit_inquiry: offer.details.credit_inquiry || null,
-    expiration: offer.details.expiration || null,
-    credit_score: offer.details.credit_score || null,
-    under_5_24:
-      offer.details.under_5_24 !== undefined
-        ? {
-            required: offer.details.under_5_24,
-            details: offer.details.under_5_24
-              ? 'This offer is available for accounts subject to the 5/24 rule'
-              : "This offer is available even if you've opened 5+ accounts in the last 24 months",
-          }
-        : null,
-    foreign_transaction_fees: offer.details.foreign_transaction_fees
-      ? {
-          percentage: offer.details.foreign_transaction_fees.percentage || '0%',
-          waived: offer.details.foreign_transaction_fees.waived || false,
-        }
-      : null,
-    minimum_credit_limit: offer.details.minimum_credit_limit || null,
-    rewards_structure: offer.details.rewards_structure || null,
-    household_limit: normalizeHouseholdLimit(offer.details.household_limit),
-    early_closure_fee: normalizeEarlyClosureFee(offer.details.early_closure_fee),
-    chex_systems: offer.details.chex_systems || null,
-    options_trading: offer.details.options_trading || null,
-    ira_accounts: offer.details.ira_accounts || null,
+    credit_inquiry: offer.details?.credit_inquiry || null,
+    expiration: offer.details?.expiration || null,
+    credit_score: offer.details?.credit_score || null,
+    under_5_24: offer.details?.under_5_24 !== undefined ? {
+      required: offer.details.under_5_24,
+      details: offer.details.under_5_24 ? 
+        'This offer is available for accounts subject to the 5/24 rule' : 
+        "This offer is available even if you've opened 5+ accounts in the last 24 months",
+    } : null,
+    foreign_transaction_fees: offer.details?.foreign_transaction_fees ? {
+      percentage: offer.details.foreign_transaction_fees.percentage || '0%',
+      waived: offer.details.foreign_transaction_fees.waived || false,
+    } : null,
+    minimum_credit_limit: offer.details?.minimum_credit_limit || null,
+    rewards_structure: offer.details?.rewards_structure ? {
+      base_rewards: offer.details.rewards_structure.base_rewards || '',
+      bonus_categories: offer.details.rewards_structure.bonus_categories || [],
+      welcome_bonus: offer.details.rewards_structure.welcome_bonus || '',
+    } : null,
+    household_limit: offer.details?.household_limit || null,
+    early_closure_fee: offer.details?.early_closure_fee || null,
+    chex_systems: offer.details?.chex_systems || null,
+    options_trading: offer.details?.options_trading || null,
+    ira_accounts: offer.details?.ira_accounts || null,
   };
 
-  // Use original_id from metadata if available, otherwise use offer.id
-  const source_id = offer.metadata?.source?.original_id || offer.id;
+  // Transform source metadata
+  const source = {
+    name: offer.metadata?.source?.name || 'bankrewards.io',
+    collected_at: new Date().toISOString(),
+    original_id: offer.metadata?.source?.original_id || offer.id,
+    timing: offer.metadata?.timing || null,
+    availability: offer.metadata?.availability || null,
+    credit: offer.metadata?.credit || null,
+  };
 
   return {
-    id: source_id,
+    id: offer.id,
     name: offer.name,
     type: offer.type,
     bank,
     value: offer.value,
     status: 'staged' as const,
-    source: {
-      name: offer.metadata?.source?.name || 'bankrewards.io',
-      collected_at: new Date().toISOString(),
-      original_id: source_id,
-      timing: offer.metadata?.timing || null,
-      availability: offer.metadata?.availability || null,
-      credit: offer.metadata?.credit || null,
-    },
-    source_id,
+    source,
+    source_id: offer.metadata?.source?.original_id || offer.id,
     bonus,
     details,
     logo: offer.logo || {
@@ -283,6 +288,7 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     },
     card_image: offer.card_image || null,
     offer_link: offer.offer_link || '',
+    description: offer.description || offer.bonus?.description || '',
     processing_status: {
       source_validation: true,
       ai_processed: false,
@@ -294,8 +300,8 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
       validation_warnings: [],
       potential_duplicates: [],
     },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: offer.metadata?.created_at || new Date().toISOString(),
+    updatedAt: offer.metadata?.updated_at || new Date().toISOString(),
   };
 };
 
@@ -350,7 +356,10 @@ const fetchPaginatedOpportunities = async (
 
   const snapshot = await getDocs(q);
   return {
-    items: snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Opportunity[],
+    items: snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({ 
+      id: doc.id, 
+      ...doc.data() 
+    })) as Opportunity[],
     total,
     hasMore: snapshot.docs.length === pageSize && snapshot.docs.length < total,
   };
@@ -360,7 +369,7 @@ const fetchStagedOpportunities = async (): Promise<
   (Opportunity & { isStaged: boolean })[]
 > => {
   const snapshot = await getDocs(collection(db, 'staged_offers'));
-  return snapshot.docs.map((doc) => ({
+  return snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
     ...doc.data(),
     id: doc.id,
     status: 'staged' as const,
@@ -378,7 +387,19 @@ export function useOpportunities() {
     filters: {},
   });
 
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<{
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+    avgValue: number;
+    highValue: number;
+    byType: {
+      bank: number;
+      credit_card: number;
+      brokerage: number;
+    };
+  }>({
     total: 0,
     pending: 0,
     approved: 0,
@@ -710,7 +731,7 @@ export function useOpportunities() {
   }, [totalStats, stagedOpportunities]);
 
   const updatePagination = (updates: Partial<PaginationState>) => {
-    setPagination((prev) => ({
+    setPagination((prev: PaginationState) => ({
       ...prev,
       ...updates,
       page: 'page' in updates ? updates.page! : 1,
@@ -725,8 +746,8 @@ export function useOpportunities() {
         opportunities.length,
         'opportunities'
       );
-      const results = [];
-      const errors = [];
+      const results: string[] = [];
+      const errors: Array<{ id: string; error: unknown }> = [];
 
       for (const opportunity of opportunities) {
         try {
@@ -744,7 +765,7 @@ export function useOpportunities() {
         total: opportunities.length,
       };
     },
-    onSuccess: (result) => {
+    onSuccess: (result: { successful: string[]; failed: Array<{ id: string; error: unknown }>; total: number }) => {
       console.log('Bulk approval completed:', result);
       queryClient.invalidateQueries(['opportunities']);
       queryClient.invalidateQueries(['staged_offers']);

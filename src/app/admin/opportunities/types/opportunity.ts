@@ -6,6 +6,7 @@ export interface Opportunity {
   value: number;
   status: 'staged' | 'pending' | 'approved' | 'rejected';
   offer_link: string;
+  description?: string;
   source: {
     name: string;
     collected_at: string;
@@ -28,7 +29,7 @@ export interface Opportunity {
     description?: string;
     requirements: {
       type: string;
-      details: {
+  details: {
         amount: number;
         period: number;
       };
