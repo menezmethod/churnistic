@@ -332,72 +332,73 @@ const OpportunitiesPage = () => {
               </TableHead>
               <TableBody>
                 {opportunities
-                  .filter((opp, index, self) => 
-                    // Only keep the first occurrence of each ID
-                    index === self.findIndex((o) => o.id === opp.id)
+                  .filter(
+                    (opp, index, self) =>
+                      // Only keep the first occurrence of each ID
+                      index === self.findIndex((o) => o.id === opp.id)
                   )
                   .map((opportunity) => (
-                  <TableRow
-                    key={opportunity.id}
-                    hover
-                    sx={opportunity.isStaged ? { bgcolor: 'action.hover' } : undefined}
-                  >
-                    <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={2}>
-                        {opportunity.logo && (
-                          <Box
-                            component="img"
-                            src={opportunity.logo.url}
-                            alt={opportunity.name}
-                            sx={{ width: 24, height: 24, objectFit: 'contain' }}
-                          />
-                        )}
-                        <Typography>{opportunity.name}</Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={opportunity.type}
-                        size="small"
-                        color={opportunity.type === 'bank' ? 'success' : 'info'}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography color="success.main" fontWeight="bold">
-                        ${opportunity.value}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{getStatusChip(opportunity.status)}</TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        onClick={() => handlePreview(opportunity)}
-                        color="primary"
-                      >
-                        <PreviewIcon />
-                      </IconButton>
-                      <IconButton
-                        color="success"
-                        onClick={() => handleApprove(opportunity)}
-                        disabled={
-                          opportunity.status === 'approved' ||
-                          opportunity.status === 'rejected'
-                        }
-                      >
-                        <ApproveIcon />
-                      </IconButton>
-                      <IconButton
-                        color="error"
-                        onClick={() => handleReject(opportunity)}
-                        disabled={
-                          opportunity.status === 'approved' ||
-                          opportunity.status === 'rejected'
-                        }
-                      >
-                        <RejectIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                    <TableRow
+                      key={opportunity.id}
+                      hover
+                      sx={opportunity.isStaged ? { bgcolor: 'action.hover' } : undefined}
+                    >
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                          {opportunity.logo && (
+                            <Box
+                              component="img"
+                              src={opportunity.logo.url}
+                              alt={opportunity.name}
+                              sx={{ width: 24, height: 24, objectFit: 'contain' }}
+                            />
+                          )}
+                          <Typography>{opportunity.name}</Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={opportunity.type}
+                          size="small"
+                          color={opportunity.type === 'bank' ? 'success' : 'info'}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography color="success.main" fontWeight="bold">
+                          ${opportunity.value}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{getStatusChip(opportunity.status)}</TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          onClick={() => handlePreview(opportunity)}
+                          color="primary"
+                        >
+                          <PreviewIcon />
+                        </IconButton>
+                        <IconButton
+                          color="success"
+                          onClick={() => handleApprove(opportunity)}
+                          disabled={
+                            opportunity.status === 'approved' ||
+                            opportunity.status === 'rejected'
+                          }
+                        >
+                          <ApproveIcon />
+                        </IconButton>
+                        <IconButton
+                          color="error"
+                          onClick={() => handleReject(opportunity)}
+                          disabled={
+                            opportunity.status === 'approved' ||
+                            opportunity.status === 'rejected'
+                          }
+                        >
+                          <RejectIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
             <TablePagination

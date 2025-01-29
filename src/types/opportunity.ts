@@ -155,6 +155,10 @@ export interface FirestoreOpportunity {
     };
     options_trading?: 'Yes' | 'No' | string;
     ira_accounts?: 'Yes' | 'No' | string;
+    platform_features?: Array<{
+      name: string;
+      description: string;
+    }>;
   };
   logo?: {
     type?: 'icon' | 'url';
@@ -280,6 +284,10 @@ export interface Opportunity {
     };
     options_trading?: 'Yes' | 'No' | string;
     ira_accounts?: 'Yes' | 'No' | string;
+    platform_features?: Array<{
+      name: string;
+      description: string;
+    }>;
   };
   logo?: {
     type?: 'icon' | 'url';

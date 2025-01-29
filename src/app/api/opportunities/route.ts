@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     console.log('Query params:', { type, limitNum });
 
     const db = getAdminDb();
-    const opportunitiesRef = db.collection('opportunities');
+    const opportunitiesRef = db.collection('opportunities') as FirebaseFirestore.CollectionReference;
 
     // Skip auth check in emulator or preview environment
     if (!useEmulator && !isPreviewEnvironment) {
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Building Firestore query...');
-    let queryRef = opportunitiesRef;
+    let queryRef: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = opportunitiesRef;
 
     if (type) {
       queryRef = queryRef.where('type', '==', type);

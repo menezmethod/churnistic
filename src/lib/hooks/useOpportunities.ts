@@ -105,9 +105,12 @@ export function useOpportunities(limit?: number) {
     mutationFn: createOpportunity,
     onSuccess: (newOpportunity) => {
       // Optimistically update the cache
-      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities', limit], (old) => {
-        return old ? [newOpportunity, ...old] : [newOpportunity];
-      });
+      queryClient.setQueryData<FirestoreOpportunity[]>(
+        ['opportunities', limit],
+        (old) => {
+          return old ? [newOpportunity, ...old] : [newOpportunity];
+        }
+      );
       // Then invalidate to ensure we have the latest data
       queryClient.invalidateQueries({ queryKey: ['opportunities', limit] });
     },
@@ -117,13 +120,16 @@ export function useOpportunities(limit?: number) {
     mutationFn: updateOpportunity,
     onSuccess: (updatedOpportunity) => {
       if (!isFirestoreOpportunity(updatedOpportunity)) return;
-      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities', limit], (old) => {
-        return old
-          ? old.map((opp) =>
-              opp.id === updatedOpportunity.id ? updatedOpportunity : opp
-            )
-          : [];
-      });
+      queryClient.setQueryData<FirestoreOpportunity[]>(
+        ['opportunities', limit],
+        (old) => {
+          return old
+            ? old.map((opp) =>
+                opp.id === updatedOpportunity.id ? updatedOpportunity : opp
+              )
+            : [];
+        }
+      );
       // Then invalidate to ensure we have the latest data
       queryClient.invalidateQueries({ queryKey: ['opportunities', limit] });
       queryClient.invalidateQueries({
@@ -146,9 +152,12 @@ export function useOpportunities(limit?: number) {
       ]);
 
       // Optimistically remove the opportunity from the cache
-      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities', limit], (old) => {
-        return old ? old.filter((opp) => opp.id !== deletedId) : [];
-      });
+      queryClient.setQueryData<FirestoreOpportunity[]>(
+        ['opportunities', limit],
+        (old) => {
+          return old ? old.filter((opp) => opp.id !== deletedId) : [];
+        }
+      );
 
       // Remove the individual opportunity from cache
       queryClient.setQueryData(['opportunity', deletedId], null);

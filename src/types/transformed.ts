@@ -59,7 +59,7 @@ export interface Details {
   availability?: Availability;
   account_type?: string;
   expiration?: string;
-  
+
   // Bank Account specific fields
   minimum_deposit?: string;
   holding_period?: string;
