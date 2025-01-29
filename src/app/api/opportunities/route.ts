@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
         original_id: body.source_id || body.id,
         timing: null,
         availability: null,
-        credit: null
+        credit: null,
       },
       bonus: {
         title: body.bonus?.title || '',
@@ -172,7 +172,8 @@ export async function POST(req: NextRequest) {
         expiration: body.details?.expiration || null,
         options_trading: body.details?.options_trading || null,
         ira_accounts: body.details?.ira_accounts || null,
-        under_5_24: body.details?.under_5_24 !== undefined ? body.details.under_5_24 : null,
+        under_5_24:
+          body.details?.under_5_24 !== undefined ? body.details.under_5_24 : null,
         foreign_transaction_fees: body.details?.foreign_transaction_fees || null,
         annual_fees: body.details?.annual_fees || null,
       },

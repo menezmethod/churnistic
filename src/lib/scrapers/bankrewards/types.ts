@@ -88,4 +88,4 @@ export interface BankRewardsTransformerConfig {
     requirements?: string;
     additionalInfo?: string;
   };
-} 
+}
