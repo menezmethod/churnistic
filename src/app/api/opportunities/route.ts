@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
         created_by: userEmail,
         status: body.metadata?.status || 'active',
-        environment: isPreviewEnvironment ? 'preview' : 'production',
+        environment: process.env.NODE_ENV || 'development',
       },
       status: body.status || 'approved',
       createdAt: body.createdAt || new Date().toISOString(),
