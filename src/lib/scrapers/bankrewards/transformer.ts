@@ -1,7 +1,14 @@
 import * as cheerio from 'cheerio';
 
 import { BankRewardsOffer } from '@/types/scraper';
-import { TransformedOffer, BonusTier, Details, Logo, Bonus, Metadata } from '@/types/transformed';
+import {
+  TransformedOffer,
+  BonusTier,
+  Details,
+  Logo,
+  Bonus,
+  Metadata,
+} from '@/types/transformed';
 
 export interface EnhancedTransformedOffer extends TransformedOffer {
   value: number;
@@ -1555,23 +1562,26 @@ export class BankRewardsTransformer {
         title: 'Bonus Requirements',
         description: bonusRequirements,
       },
-      tiers: tiers.length > 0 ? tiers.map(tier => {
-        // Extract numeric value from reward (e.g. "6 shares" -> 6)
-        const rewardValue = parseFloat(tier.reward.replace(/[^0-9.]/g, '')) || 0;
-        
-        // Extract numeric value from deposit (e.g. "$100" -> 100)
-        const depositStr = tier.deposit || '0';
-        const depositValue = parseFloat(depositStr.replace(/[^0-9.]/g, '')) || 0;
-        
-        return {
-          reward: tier.reward,
-          deposit: tier.deposit || '',
-          level: tier.reward,
-          value: rewardValue,
-          minimum_deposit: depositValue,
-          requirements: tier.requirement || tier.deposit || ''
-        };
-      }) : undefined,
+      tiers:
+        tiers.length > 0
+          ? tiers.map((tier) => {
+              // Extract numeric value from reward (e.g. "6 shares" -> 6)
+              const rewardValue = parseFloat(tier.reward.replace(/[^0-9.]/g, '')) || 0;
+
+              // Extract numeric value from deposit (e.g. "$100" -> 100)
+              const depositStr = tier.deposit || '0';
+              const depositValue = parseFloat(depositStr.replace(/[^0-9.]/g, '')) || 0;
+
+              return {
+                reward: tier.reward,
+                deposit: tier.deposit || '',
+                level: tier.reward,
+                value: rewardValue,
+                minimum_deposit: depositValue,
+                requirements: tier.requirement || tier.deposit || '',
+              };
+            })
+          : undefined,
       additional_info: additionalInfo,
     };
 
