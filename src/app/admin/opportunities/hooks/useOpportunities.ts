@@ -170,156 +170,29 @@ interface DebitTransactionRequirement extends BaseRequirement {
 const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   const bank = offer.name?.split(' ')?.[0] || offer.name || '';
 
-  // Helper function to extract requirements based on offer type
-  const extractRequirements = (offer: BankRewardsOffer): BaseRequirement[] => {
-    const requirements: BaseRequirement[] = [];
-    const description = offer.bonus.requirements.description || '';
+  // Ensure requirements are properly structured with no undefined values
+  const requirements = [
+    {
+      type: 'api_requirements',
+      details: {
+        amount: offer.value || 0,
+        period: 60,
+      },
+      description: offer.bonus?.requirements?.description || '',
+      title: offer.bonus?.requirements?.title || '',
+      spending_requirement: null,
+      minimum_deposit: null,
+    },
+  ];
 
-    if (offer.type === 'brokerage') {
-      // Handle brokerage-specific patterns
-      const transferMatch = description.match(
-        /transfer\s+\$?(\d+(?:,\d+)?)\s+(?:to|into)\s+(?:your|the)\s+account\s+within\s+(\d+)\s+days/i
-      );
-      const linkMatch = description.match(/link\s+(?:a|your)\s+bank\s+account/i);
-
-      if (transferMatch) {
-        requirements.push({
-          type: 'transfer',
-          details: {
-            amount: parseInt(transferMatch[1].replace(/,/g, '')),
-            period: parseInt(transferMatch[2]),
-          },
-        });
-      }
-
-      if (linkMatch) {
-        requirements.push({
-          type: 'link_account',
-          details: {
-            amount: 0,
-            period: 30, // Default period for linking
-          },
-        });
-      }
-
-      // Add minimum deposit if available
-      if (offer.bonus.requirements.minimum_deposit) {
-        requirements.push({
-          type: 'minimum_deposit',
-          details: {
-            amount: offer.bonus.requirements.minimum_deposit,
-            period: 60, // Default period
-          },
-          minimum_deposit: offer.bonus.requirements.minimum_deposit,
-        });
-      }
-    } else if (offer.type === 'credit_card') {
-      // Handle credit card spending requirements
-      const spendMatch = description.match(
-        /spend\s+\$?(\d+(?:,\d+)?)\s+(?:within|in)\s+(\d+)\s+(?:days?|months?)/i
-      );
-
-      if (spendMatch) {
-        const period = description.toLowerCase().includes('month')
-          ? parseInt(spendMatch[2]) * 30
-          : parseInt(spendMatch[2]);
-
-        requirements.push({
-          type: 'spending',
-          details: {
-            amount: parseInt(spendMatch[1].replace(/,/g, '')),
-            period,
-          },
-        });
-      }
-    } else if (offer.type === 'bank') {
-      // Handle direct deposit requirements
-      const ddMatch = description.match(
-        /direct\s+deposits?\s+(?:of|totaling)\s+\$?(\d+(?:,\d+)?)\s+(?:within|in)\s+(\d+)\s+days/i
-      );
-      const debitMatch = description.match(
-        /make\s+(\d+)\s+(?:debit\s+card\s+)?(?:purchases?|transactions?)/i
-      );
-
-      if (ddMatch) {
-        requirements.push({
-          type: 'direct_deposit',
-          details: {
-            amount: parseInt(ddMatch[1].replace(/,/g, '')),
-            period: parseInt(ddMatch[2]),
-          },
-        });
-      }
-
-      if (debitMatch) {
-        const transactionCount = parseInt(debitMatch[1]);
-        requirements.push({
-          type: 'debit_transactions',
-          details: {
-            amount: 0, // No specific amount required
-            period: 30, // Default period
-            count: transactionCount,
-          },
-        });
-      }
-
-      // Add minimum deposit if available
-      if (offer.bonus.requirements.minimum_deposit) {
-        requirements.push({
-          type: 'minimum_deposit',
-          details: {
-            amount: offer.bonus.requirements.minimum_deposit,
-            period: 60,
-          },
-          minimum_deposit: offer.bonus.requirements.minimum_deposit,
-        });
-      }
-    }
-
-    // If no specific requirements found but we have a description
-    if (requirements.length === 0 && description) {
-      requirements.push({
-        type: 'other',
-        details: {
-          amount: 0,
-          period: 90, // Default period
-        },
-      });
-    }
-
-    // If still no requirements, add generic message
-    if (requirements.length === 0) {
-      requirements.push({
-        type: 'other',
-        details: {
-          amount: 0,
-          period: 90, // Default period
-        },
-      });
-    }
-
-    return requirements;
-  };
-
-  // Extract requirements using the new helper function
-  const requirements = extractRequirements(offer);
-
-  // Ensure no undefined values in bonus
+  // Ensure bonus has no undefined values
   const bonus = {
-    title: offer.bonus.title || '',
-    value: offer.value,
-    description: offer.bonus.description || '',
+    title: offer.bonus?.title || '',
+    value: offer.value || 0,
+    description: offer.bonus?.description || '',
     requirements,
-    tiers:
-      offer.bonus.tiers?.map((tier) => ({
-        reward: tier.reward || '',
-        deposit: tier.deposit || '',
-        level: tier.level || null,
-        value: tier.value || null,
-        minimum_deposit: tier.minimum_deposit || null,
-        requirements: tier.requirements || null,
-      })) || [],
-    additional_info: offer.bonus.additional_info || null,
+    tiers: [],
+    additional_info: null,
   };
 
   // Normalize household limit
@@ -844,6 +717,40 @@ export function useOpportunities() {
     }));
   };
 
+  // Bulk approve mutation
+  const bulkApproveOpportunitiesMutation = useMutation({
+    mutationFn: async (opportunities: Opportunity[]) => {
+      console.log(
+        'Starting bulk approval process for',
+        opportunities.length,
+        'opportunities'
+      );
+      const results = [];
+      const errors = [];
+
+      for (const opportunity of opportunities) {
+        try {
+          await approveOpportunityMutation.mutateAsync(opportunity);
+          results.push(opportunity.id);
+        } catch (error) {
+          console.error('Error approving opportunity:', opportunity.id, error);
+          errors.push({ id: opportunity.id, error });
+        }
+      }
+
+      return {
+        successful: results,
+        failed: errors,
+        total: opportunities.length,
+      };
+    },
+    onSuccess: (result) => {
+      console.log('Bulk approval completed:', result);
+      queryClient.invalidateQueries(['opportunities']);
+      queryClient.invalidateQueries(['staged_offers']);
+    },
+  });
+
   return {
     opportunities: allOpportunities,
     pagination,
@@ -853,6 +760,8 @@ export function useOpportunities() {
     loading: isPaginationLoading,
     approveOpportunity: approveOpportunityMutation.mutate,
     rejectOpportunity: rejectOpportunityMutation.mutate,
+    bulkApproveOpportunities: bulkApproveOpportunitiesMutation.mutate,
+    isBulkApproving: bulkApproveOpportunitiesMutation.isLoading,
     stats,
     importOpportunities: importMutation.mutate,
     isImporting: importMutation.isLoading,
