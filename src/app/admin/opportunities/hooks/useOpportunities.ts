@@ -88,11 +88,12 @@ interface BankRewardsOffer {
     options_trading?: string;
     ira_accounts?: string;
   };
-  metadata: {
-    created_at: string;
-    updated_at: string;
-    created_by: string;
-    status: string;
+  metadata?: {
+    created_at?: string;
+    updated_at?: string;
+    created_by?: string;
+    updated_by?: string;
+    status?: string;
     timing?: {
       bonus_posting_time: string;
     };
@@ -331,6 +332,14 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     bank,
     value: offer.value,
     status: 'staged' as const,
+    metadata: {
+      created_at: offer.metadata?.created_at || new Date().toISOString(),
+      updated_at: offer.metadata?.updated_at || new Date().toISOString(),
+      created_by: offer.metadata?.created_by || '',
+      updated_by: offer.metadata?.updated_by || '',
+      status: offer.metadata?.status || 'active',
+      environment: process.env.NODE_ENV || 'development',
+    },
     source,
     source_id: offer.metadata?.source?.original_id || offer.id,
     bonus,
@@ -594,19 +603,30 @@ export function useOpportunities() {
   const approveOpportunityMutation = useMutation({
     mutationFn: async (opportunityData: Opportunity) => {
       try {
+        // Get user first to ensure we have authentication
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user?.email) {
+          throw new Error('No authenticated user found');
+        }
+
         // First, add to opportunities collection to ensure the ID exists
         const approvedOpportunity = {
           ...opportunityData,
           status: 'approved' as const,
           updatedAt: new Date().toISOString(),
+          metadata: {
+            ...(opportunityData.metadata || {}),
+            created_by: user.email,
+            updated_by: user.email,
+            updated_at: new Date().toISOString(),
+            status: 'active',
+          },
         };
 
         await setDoc(doc(db, 'opportunities', opportunityData.id), approvedOpportunity);
 
         // Transform to match API structure
-        const auth = getAuth();
-        const user = auth.currentUser;
-
         const formData = {
           id: opportunityData.id,
           name: opportunityData.name,
@@ -688,7 +708,8 @@ export function useOpportunities() {
           metadata: {
             created_at: opportunityData.createdAt || new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            created_by: user?.email || 'unknown@example.com',
+            created_by: user.email,
+            updated_by: user.email,
             status: 'active',
             environment: process.env.NODE_ENV || 'development',
           },
