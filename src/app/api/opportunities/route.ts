@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
-    const limitNum = Number(searchParams.get('limit')) || 10;
+    const limitParam = searchParams.get('limit');
+    const limitNum = limitParam ? Number(limitParam) : undefined;
 
     console.log('Query params:', { type, limitNum });
 
@@ -35,10 +36,15 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Building Firestore query...');
-    let queryRef = opportunitiesRef.limit(limitNum);
+    let queryRef = opportunitiesRef;
 
     if (type) {
       queryRef = queryRef.where('type', '==', type);
+    }
+
+    // Only apply limit if explicitly requested
+    if (limitNum) {
+      queryRef = queryRef.limit(limitNum);
     }
 
     const snapshot = await queryRef.get();

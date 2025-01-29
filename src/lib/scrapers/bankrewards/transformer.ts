@@ -6,8 +6,6 @@ import {
   BonusTier,
   Details,
   Logo,
-  Metadata,
-  Bonus,
 } from '@/types/transformed';
 
 export interface EnhancedTransformedOffer extends TransformedOffer {
@@ -249,7 +247,7 @@ export class BankRewardsTransformer {
     // If we can't find a dedicated requirements section, look in the bonus description
     const bonusDesc = this.extractBonusDescription();
     const spendMatch = bonusDesc.match(
-      /(?:spending|spend)\s+\$?([\d,]+)(?:\s+(?:within|in)\s+(\d+)\s+(days?|months?))?/i
+      /(?:spending|spend)\s+\$?([\d,]+)(?:\s+(?:within|in)\s+(\d+)\s+(days?|months?))/i
     );
     if (spendMatch) {
       const [, amount, period, unit] = spendMatch;
@@ -397,6 +395,79 @@ export class BankRewardsTransformer {
     return Object.keys(rewards).length > 0 ? rewards : undefined;
   }
 
+  private extract524Status(): { required: boolean; details: string } | undefined {
+    // Common patterns for 5/24 mentions
+    const patterns = [
+      /(?:chase\s+)?5\/24(?:\s+rule)?:?\s*([^.]+)/i,
+      /(?:subject\s+to|under|affected\s+by)\s+(?:chase\s+)?5\/24(?:\s+rule)?:?\s*([^.]+)/i,
+      /(?:chase\s+)?5\/24(?:\s+rule)?\s+(?:status|requirement):?\s*([^.]+)/i,
+      /opened\s+(?:more\s+than\s+)?(\d+)\s+cards?\s+in\s+(?:the\s+)?(?:last\s+)?24\s+months/i,
+      /five\s+cards?\s+in\s+(?:the\s+)?(?:last\s+)?24\s+months/i
+    ];
+
+    // First try to find explicit 5/24 sections
+    const under524Text = this.$(
+      'p:contains("5/24"), p:contains("Chase 5/24"), p:contains("Under 5/24"), p:contains("five cards in 24 months")'
+    ).text();
+
+    if (under524Text) {
+      for (const pattern of patterns) {
+        const match = under524Text.match(pattern);
+        if (match) {
+          const details = match[1] ? this.cleanText(match[1]) : under524Text;
+          return {
+            required: details.toLowerCase().includes('yes') || 
+                     details.toLowerCase().includes('required') || 
+                     details.toLowerCase().includes('subject to') ||
+                     !details.toLowerCase().includes('no') ||
+                     !details.toLowerCase().includes('not'),
+            details: details
+          };
+        }
+      }
+    }
+
+    // If no explicit section, search in general content
+    const generalText = this.$('div').text();
+    for (const pattern of patterns) {
+      const match = generalText.match(pattern);
+      if (match) {
+        const details = match[1] ? this.cleanText(match[1]) : 
+                       match[0] ? this.cleanText(match[0]) : 
+                       'Subject to Chase 5/24 rule';
+        return {
+          required: details.toLowerCase().includes('yes') || 
+                   details.toLowerCase().includes('required') || 
+                   details.toLowerCase().includes('subject to') ||
+                   !details.toLowerCase().includes('no') ||
+                   !details.toLowerCase().includes('not'),
+          details: details
+        };
+      }
+    }
+
+    // Look for related terms that might indicate 5/24 status
+    const relatedTerms = [
+      'chase application rules',
+      'new card applications',
+      'credit card history',
+      'application restrictions',
+      'chase restrictions'
+    ];
+
+    for (const term of relatedTerms) {
+      const termText = this.$(`p:contains("${term}")`).text();
+      if (termText && (termText.includes('24') || termText.toLowerCase().includes('months'))) {
+        return {
+          required: true,
+          details: this.cleanText(termText)
+        };
+      }
+    }
+
+    return undefined;
+  }
+
   private extractCardDetails(details: Details): void {
     // Extract annual fees
     const annualFeesText = this.$('p:contains("Annual Fees:")').text();
@@ -420,25 +491,10 @@ export class BankRewardsTransformer {
       };
     }
 
-    // Extract 5/24 status for credit cards
-    const under524Text = this.$('p:contains("Under 5/24:")').text();
-    if (under524Text) {
-      const text = this.cleanText(under524Text.split(':')[1]);
-      details.under_5_24 = {
-        required: text.toLowerCase().includes('yes') || text.toLowerCase().includes('required'),
-        details: text
-      };
-    } else {
-      // Try to find 5/24 info in general text
-      const text = this.$('div').text().toLowerCase();
-      if (text.includes('5/24') || text.includes('five cards in 24 months')) {
-        details.under_5_24 = {
-          required: text.includes('not be approved'),
-          details: text.includes('not be approved') 
-            ? 'Subject to Chase 5/24 rule'
-            : 'Not subject to Chase 5/24 rule'
-        };
-      }
+    // Extract 5/24 status using the new comprehensive method
+    const status524 = this.extract524Status();
+    if (status524) {
+      details.under_5_24 = status524;
     }
   }
 
@@ -483,16 +539,18 @@ export class BankRewardsTransformer {
       };
     }
 
-    // Extract credit inquiry with consistent casing
-    const creditInquiryText = this.$('p:contains("Credit Inquiry:")').text();
-    if (creditInquiryText) {
-      const inquiry = this.cleanText(creditInquiryText.split(':')[1]).toLowerCase();
-      if (inquiry.includes('hard')) {
-        details.credit_inquiry = 'Hard Pull';
-      } else if (inquiry.includes('soft')) {
-        details.credit_inquiry = 'Soft Pull';
-      } else {
-        details.credit_inquiry = inquiry;
+    // Credit inquiry only for credit cards
+    if (this.type === 'credit_card') {
+      const creditInquiryText = this.$('p:contains("Credit Inquiry:")').text();
+      if (creditInquiryText) {
+        const inquiry = this.cleanText(creditInquiryText.split(':')[1]).toLowerCase();
+        if (inquiry.includes('hard')) {
+          details.credit_inquiry = 'Hard Pull';
+        } else if (inquiry.includes('soft')) {
+          details.credit_inquiry = 'Soft Pull';
+        } else {
+          details.credit_inquiry = inquiry;
+        }
       }
     }
 
@@ -501,7 +559,10 @@ export class BankRewardsTransformer {
       // Extract minimum deposit
       const minDepositText = this.$('p:contains("Minimum Deposit:")').text();
       if (minDepositText) {
-        details.minimum_deposit = this.cleanText(minDepositText.split(':')[1]);
+        const amount = this.cleanText(minDepositText.split(':')[1]);
+        details.minimum_deposit = amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
+          ? 'None'
+          : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount;
       }
 
       // Extract holding period
@@ -519,7 +580,10 @@ export class BankRewardsTransformer {
       // Extract early closure fee
       const earlyClosureFeeText = this.$('p:contains("Early Account Closure Fee:")').text();
       if (earlyClosureFeeText) {
-        details.early_closure_fee = this.cleanText(earlyClosureFeeText.split(':')[1]);
+        const amount = this.cleanText(earlyClosureFeeText.split(':')[1]);
+        details.early_closure_fee = amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
+          ? 'None'
+          : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount;
       }
 
       // Extract ChexSystems
@@ -531,40 +595,17 @@ export class BankRewardsTransformer {
 
     // Credit Card specific fields
     if (this.type === 'credit_card') {
-      // Extract under 5/24
-      const under524Text = this.$('p:contains("Chase 5/24 Rule:")').text();
-      if (under524Text) {
-        const text = this.cleanText(under524Text.split(':')[1]);
-        details.under_5_24 = {
-          required: text.toLowerCase().includes('yes') || text.toLowerCase().includes('required'),
-          details: text,
-        };
-      }
-
-      // Extract annual fees
-      const annualFeesText = this.$('p:contains("Annual Fees:")').text();
-      if (annualFeesText) {
-        const text = this.cleanText(annualFeesText.split(':')[1]);
-        details.annual_fees = {
-          amount: text.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || text,
-          waived_first_year: text.toLowerCase().includes('waived') || text.toLowerCase().includes('first year free'),
-        };
-      }
-
-      // Extract foreign transaction fees
-      const ftfText = this.$('p:contains("Foreign Transaction Fees:")').text();
-      if (ftfText) {
-        const text = this.cleanText(ftfText.split(':')[1]);
-        details.foreign_transaction_fees = {
-          percentage: text.match(/(\d+(?:\.\d+)?%)/)?.[0] || text,
-          waived: text.toLowerCase().includes('none') || text.toLowerCase().includes('no fee'),
-        };
+      // Extract 5/24 status using comprehensive method
+      const status524 = this.extract524Status();
+      if (status524) {
+        details.under_5_24 = status524;
       }
 
       // Extract minimum credit limit
       const minCreditLimitText = this.$('p:contains("Minimum Credit Limit:")').text();
       if (minCreditLimitText) {
-        details.minimum_credit_limit = this.cleanText(minCreditLimitText.split(':')[1]);
+        const amount = this.cleanText(minCreditLimitText.split(':')[1]);
+        details.minimum_credit_limit = amount.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/)?.[0] || amount;
       }
 
       // Extract rewards structure
@@ -576,21 +617,25 @@ export class BankRewardsTransformer {
 
         details.rewards_structure = {
           base_rewards: this.cleanText(baseRewardsText.split(':')[1]) || '',
-          welcome_bonus: this.cleanText(welcomeBonusText.split(':')[1]),
+          welcome_bonus: welcomeBonusText ? this.cleanText(welcomeBonusText.split(':')[1]) : undefined,
           bonus_categories: bonusCategoriesText
             ? this.cleanText(bonusCategoriesText.split(':')[1])
                 .split(',')
                 .map((category) => {
                   const [cat, rate] = category.split('@').map((s) => s.trim());
+                  const limitMatch = category.match(/up to \$([\d,]+)/);
                   return {
                     category: cat,
                     rate: rate || '',
-                    limit: category.match(/up to \$([\d,]+)/)?.[1],
+                    limit: limitMatch ? limitMatch[1] : undefined,
                   };
                 })
             : undefined,
         };
       }
+
+      // Extract card-specific details (annual fees, foreign transaction fees)
+      this.extractCardDetails(details);
     }
 
     // Brokerage specific fields
@@ -620,9 +665,12 @@ export class BankRewardsTransformer {
         if (features.length) {
           details.platform_features = features
             .map((_, el) => {
-              const text = this.$(el).text();
-              const [name, description] = text.split(':').map((s) => s.trim());
-              return { name, description: description || name };
+              const featureText = this.$(el).text();
+              const [name, description] = featureText.split(':').map((s) => s.trim());
+              return { 
+                name, 
+                description: description || name 
+              };
             })
             .get();
         }
@@ -1011,7 +1059,7 @@ export class BankRewardsTransformer {
 
     // Get value from tiers if they exist
     const tiers = this.extractTableTiers();
-    const tiersValue = tiers.length > 0 ? this.estimateValueFromTiers(tiers) : 0;
+    const tiersValue = this.estimateValueFromTiers(tiers);
 
     // Get value from cash back section if it exists
     const cashBackSection = this.$('p:contains("Card Cash Back:")').next();
@@ -1066,105 +1114,221 @@ export class BankRewardsTransformer {
   }
 
   public transform(offer: BankRewardsOffer): EnhancedTransformedOffer {
-    this.initCheerio(offer.metadata.rawHtml);
+    try {
+      console.log(`Starting transformation for offer ${offer?.id} (${offer?.title})`);
 
-    // Set the type based on the offer type
-    this.type =
-      offer.type.toLowerCase() === 'credit_card'
-        ? 'credit_card'
-        : offer.type.toLowerCase() === 'brokerage'
-          ? 'brokerage'
-          : 'bank';
+      // Input validation with detailed logging
+      if (!offer) {
+        throw new Error('Offer object is null or undefined');
+      }
 
-    const tiers = this.extractTableTiers();
-    if (tiers.length === 0) {
-      const textTiers = this.extractTextTiers(this.$('div').text());
-      tiers.push(...textTiers);
-    }
+      if (!offer.metadata) {
+        throw new Error(`Offer ${offer.id} is missing metadata`);
+      }
 
-    const bonusDescription = this.extractBonusDescription();
-    const bonusRequirements = this.extractBonusRequirements();
+      if (!offer.metadata.rawHtml) {
+        console.warn(`Offer ${offer.id} has no HTML content to parse`);
+        throw new Error(`Missing raw HTML in offer metadata for ${offer.id}`);
+      }
 
-    // Helper function to estimate stock value based on historical data
-    const estimateStockValue = (numStocks: number, company?: string): number => {
-      // Historical average values for common stock rewards
-      const stockValues: { [key: string]: number } = {
-        moomoo: 15, // Futu Holdings stock ~$15
-        webull: 10, // Common stock rewards ~$10
-        robinhood: 12, // Common stock rewards ~$12
-        sofi: 8, // SoFi stock ~$8
-        public: 10, // Common stock rewards ~$10
-        tastyworks: 12, // Common stock rewards ~$12
-        firstrade: 10, // Common stock rewards ~$10
-        default: 12, // Default estimate for unknown brokers
+      this.initCheerio(offer.metadata.rawHtml);
+
+      // Validate and log offer type
+      if (!offer.type) {
+        throw new Error(`Offer ${offer.id} is missing type`);
+      }
+
+      // Normalize offer types
+      const typeMap: { [key: string]: 'credit_card' | 'brokerage' | 'bank' } = {
+        'credit_card': 'credit_card',
+        'CREDIT_CARD': 'credit_card',
+        'brokerage': 'brokerage',
+        'BROKERAGE': 'brokerage',
+        'bank': 'bank',
+        'BANK': 'bank',
+        'bank_account': 'bank',
+        'BANK_ACCOUNT': 'bank'
       };
 
-      // Try to find company-specific value
-      const companyValue = company
-        ? Object.entries(stockValues).find(([key]) =>
-            company.toLowerCase().includes(key)
-          )?.[1] || stockValues.default
-        : stockValues.default;
+      const normalizedType = typeMap[offer.type];
+      if (!normalizedType) {
+        throw new Error(`Invalid offer type ${offer.type} for offer ${offer.id}. Valid types are: ${Object.keys(typeMap).join(', ')}`);
+      }
 
-      return Math.round(numStocks * companyValue * 100) / 100;
-    };
+      this.type = normalizedType;
+      console.log(`Processing ${this.type} offer: ${offer.id}`);
 
-    // Use metadata.bonus if available, otherwise fall back to extractValue
-    let estimatedValue = 0;
-    if (offer.metadata.bonus) {
-      // Check for stock format (e.g. "15 Stocks")
-      const stockMatch = offer.metadata.bonus.match(/(\d+)\s*stocks?/i);
-      if (stockMatch) {
-        const numStocks = parseInt(stockMatch[1]);
-        estimatedValue = estimateStockValue(numStocks, offer.title);
+      // Extract and validate all components with detailed logging
+      const tiers = this.extractTableTiers();
+      console.log(`Found ${tiers.length} tiers in tables for offer ${offer.id}`);
+      
+      if (tiers.length === 0) {
+        const textTiers = this.extractTextTiers(this.$('div').text());
+        console.log(`Found ${textTiers.length} tiers in text for offer ${offer.id}`);
+        tiers.push(...textTiers);
+      }
+
+      const bonusDescription = this.extractBonusDescription();
+      if (!bonusDescription) {
+        console.warn(`No bonus description found for offer ${offer.id}. HTML content length: ${offer.metadata.rawHtml.length}`);
       } else {
-        // Check for dollar amount format
-        const match = offer.metadata.bonus.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/);
-        if (match) {
-          estimatedValue = parseFloat(this.normalizeAmount(match[1]));
+        console.log(`Extracted bonus description for offer ${offer.id}`);
+      }
+
+      const bonusRequirements = this.extractBonusRequirements();
+      if (!bonusRequirements) {
+        console.warn(`No bonus requirements found for offer ${offer.id}. HTML content length: ${offer.metadata.rawHtml.length}`);
+      } else {
+        console.log(`Extracted bonus requirements for offer ${offer.id}`);
+      }
+
+      // Calculate value with detailed logging
+      let estimatedValue = 0;
+      if (offer.metadata.bonus) {
+        console.log(`Processing metadata bonus for offer ${offer.id}: ${offer.metadata.bonus}`);
+        const stockMatch = offer.metadata.bonus.match(/(\d+)\s*stocks?/i);
+        if (stockMatch) {
+          const numStocks = parseInt(stockMatch[1]);
+          estimatedValue = this.estimateStockValue(numStocks, offer.title);
+          console.log(`Estimated stock value for offer ${offer.id}: $${estimatedValue}`);
+        } else {
+          const match = offer.metadata.bonus.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/);
+          if (match) {
+            estimatedValue = parseFloat(this.normalizeAmount(match[1]));
+            console.log(`Extracted bonus value for offer ${offer.id}: $${estimatedValue}`);
+          }
         }
+      }
+
+      if (estimatedValue === 0) {
+        const extractedValue = this.extractValue(offer.metadata.rawHtml);
+        const tiersValue = this.estimateValueFromTiers(tiers);
+        estimatedValue = Math.max(extractedValue, tiersValue);
+        console.log(`Calculated value for offer ${offer.id}: $${estimatedValue} (extracted: $${extractedValue}, tiers: $${tiersValue})`);
+      }
+
+      if (estimatedValue === 0) {
+        console.warn(`Could not estimate value for offer ${offer.id}. Using fallback value of $200`);
+        estimatedValue = 200; // Fallback value instead of failing
+      }
+
+      const additionalInfo = this.extractAdditionalInfo();
+      const details = this.extractDetails();
+      console.log(`Extracted details for offer ${offer.id}:`, JSON.stringify(details, null, 2));
+
+      // Validate required fields with detailed errors
+      if (!offer.id) {
+        throw new Error('Missing offer ID');
+      }
+      if (!offer.title) {
+        throw new Error(`Missing title for offer ${offer.id}`);
+      }
+
+      // Create metadata with validation
+      const metadata = {
+        created: new Date(offer.metadata.lastChecked || Date.now()).toISOString(),
+        updated: new Date(offer.metadata.lastChecked || Date.now()).toISOString(),
+      };
+
+      // Construct the final offer
+      const transformedOffer: EnhancedTransformedOffer = {
+        id: offer.id,
+        name: offer.title,
+        type: this.type,
+        offer_link: offer.metadata.offerBaseUrl || '',
+        value: estimatedValue,
+        bonus: {
+          title: 'Bonus Details',
+          description: bonusDescription || 'Contact bank for bonus details',
+          requirements: {
+            title: 'Bonus Requirements',
+            description: bonusRequirements || 'Contact bank for specific requirements',
+          },
+          tiers: tiers.length > 0 ? tiers : undefined,
+          additional_info: additionalInfo,
+        },
+        details,
+        metadata,
+        logo: this.getLogo(offer.title),
+        ...(this.type === 'credit_card' && { card_image: this.getCardImage() }),
+      };
+
+      // Final validation
+      this.validateTransformedOffer(transformedOffer);
+      console.log(`Successfully transformed offer ${offer.id}`);
+
+      return transformedOffer;
+    } catch (error: unknown) {
+      // Type guard for Error objects
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      console.error(`Error transforming offer ${offer?.id}:`, {
+        error: errorMessage,
+        stack: errorStack,
+        offerType: offer?.type,
+        offerTitle: offer?.title,
+        htmlLength: offer?.metadata?.rawHtml?.length,
+      });
+      throw error;
+    }
+  }
+
+  private validateTransformedOffer(offer: EnhancedTransformedOffer): void {
+    // Validate required fields
+    if (!offer.id) throw new Error('Missing ID in transformed offer');
+    if (!offer.name) throw new Error('Missing name in transformed offer');
+    if (!offer.type) throw new Error('Missing type in transformed offer');
+    if (!offer.bonus) throw new Error('Missing bonus in transformed offer');
+    if (!offer.details) throw new Error('Missing details in transformed offer');
+    if (!offer.metadata) throw new Error('Missing metadata in transformed offer');
+
+    // Validate type-specific fields
+    if (offer.type === 'credit_card') {
+      if (!offer.details.annual_fees) {
+        console.warn(`Missing annual fees for credit card offer ${offer.id}`);
+      }
+      if (!offer.details.foreign_transaction_fees) {
+        console.warn(`Missing foreign transaction fees for credit card offer ${offer.id}`);
+      }
+      if (!offer.details.under_5_24) {
+        console.warn(`Missing 5/24 status for credit card offer ${offer.id}`);
       }
     }
 
-    // If no value from metadata.bonus, try extracting from HTML
-    if (estimatedValue === 0) {
-      const extractedValue = this.extractValue(offer.metadata.rawHtml);
-      const tiersValue = this.estimateValueFromTiers(tiers);
-      estimatedValue = Math.max(extractedValue, tiersValue);
+    if (offer.type === 'bank') {
+      if (!offer.details.minimum_deposit) {
+        console.warn(`Missing minimum deposit for bank offer ${offer.id}`);
+      }
+      if (!offer.details.early_closure_fee) {
+        console.warn(`Missing early closure fee for bank offer ${offer.id}`);
+      }
+      if (!offer.details.chex_systems) {
+        console.warn(`Missing ChexSystems status for bank offer ${offer.id}`);
+      }
     }
 
-    const additionalInfo = this.extractAdditionalInfo();
+    if (offer.type === 'brokerage') {
+      if (!offer.details.options_trading) {
+        console.warn(`Missing options trading info for brokerage offer ${offer.id}`);
+      }
+      if (!offer.details.trading_requirements) {
+        console.warn(`Missing trading requirements for brokerage offer ${offer.id}`);
+      }
+    }
 
-    const bonus: Bonus = {
-      title: 'Bonus Details',
-      description: bonusDescription,
-      requirements: {
-        title: 'Bonus Requirements',
-        description: bonusRequirements,
-      },
-      tiers: tiers.length > 0 ? tiers : undefined,
-      additional_info: additionalInfo,
-    };
+    // Validate bonus structure
+    if (!offer.bonus.description) {
+      console.warn(`Missing bonus description for offer ${offer.id}`);
+    }
+    if (!offer.bonus.requirements?.description) {
+      console.warn(`Missing bonus requirements for offer ${offer.id}`);
+    }
 
-    const details = this.extractDetails();
-
-    const metadata: Metadata = {
-      created: new Date(offer.metadata.lastChecked).toISOString(),
-      updated: new Date(offer.metadata.lastChecked).toISOString(),
-    };
-
-    return {
-      id: offer.id,
-      name: offer.title,
-      type: this.type,
-      offer_link: offer.metadata.offerBaseUrl || '',
-      value: estimatedValue,
-      bonus,
-      details,
-      metadata,
-      logo: this.getLogo(offer.title),
-      ...(this.type === 'credit_card' && { card_image: this.getCardImage() }),
-    };
+    // Validate value
+    if (offer.value === 0) {
+      console.warn(`Zero value for offer ${offer.id}`);
+    }
   }
 
   private cleanText(text: string): string {
@@ -1269,5 +1433,27 @@ export class BankRewardsTransformer {
       return new Date(date).toISOString();
     }
     return date.toISOString();
+  }
+
+  private estimateStockValue(numStocks: number, company?: string): number {
+    // Historical average values for common stock rewards
+    const stockValues: { [key: string]: number } = {
+      moomoo: 15,
+      webull: 10,
+      robinhood: 12,
+      sofi: 8,
+      public: 10,
+      tastyworks: 12,
+      firstrade: 10,
+      default: 12,
+    };
+
+    const companyValue = company
+      ? Object.entries(stockValues).find(([key]) =>
+          company.toLowerCase().includes(key)
+        )?.[1] || stockValues.default
+      : stockValues.default;
+
+    return Math.round(numStocks * companyValue * 100) / 100;
   }
 }
