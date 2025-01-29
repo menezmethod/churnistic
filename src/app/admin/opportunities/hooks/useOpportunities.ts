@@ -66,10 +66,7 @@ interface BankRewardsOffer {
     credit_inquiry?: string;
     expiration?: string;
     credit_score?: string;
-    under_5_24?: {
-      required: boolean;
-      details: string;
-    };
+    under_5_24?: boolean;
     foreign_transaction_fees?: {
       percentage: string;
       waived: boolean;
@@ -259,13 +256,12 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
       amount: '0',
       waiver_details: null,
     },
-    annual_fees:
-      offer.details.annual_fees && offer.details.annual_fees.amount
-        ? {
-            amount: offer.details.annual_fees.amount,
-            waived_first_year: offer.details.annual_fees.waived_first_year || false,
-          }
-        : null,
+    annual_fees: offer.details.annual_fees && offer.details.annual_fees.amount
+      ? {
+          amount: offer.details.annual_fees.amount,
+          waived_first_year: offer.details.annual_fees.waived_first_year || false,
+        }
+      : null,
     account_type: offer.details.account_type || null,
     account_category: offer.details.account_category || null,
     availability: offer.details.availability || {
@@ -276,8 +272,16 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     credit_inquiry: offer.details.credit_inquiry || null,
     expiration: offer.details.expiration || null,
     credit_score: offer.details.credit_score || null,
-    under_5_24: offer.details.under_5_24 || null,
-    foreign_transaction_fees: offer.details.foreign_transaction_fees || null,
+    under_5_24: offer.details.under_5_24 !== undefined ? {
+      required: offer.details.under_5_24,
+      details: offer.details.under_5_24 ? 'This offer is available for accounts subject to the 5/24 rule' : 'This offer is available even if you\'ve opened 5+ accounts in the last 24 months'
+    } : null,
+    foreign_transaction_fees: offer.details.foreign_transaction_fees
+      ? {
+          percentage: offer.details.foreign_transaction_fees.percentage || '0%',
+          waived: offer.details.foreign_transaction_fees.waived || false,
+        }
+      : null,
     minimum_credit_limit: offer.details.minimum_credit_limit || null,
     rewards_structure: offer.details.rewards_structure || null,
     household_limit: normalizeHouseholdLimit(offer.details.household_limit),
@@ -572,6 +576,7 @@ export function useOpportunities() {
           description: opportunityData.bonus.description || '',
           offer_link: opportunityData.offer_link,
           source_id: opportunityData.source_id,
+          source: opportunityData.source,
           status: 'approved',
           createdAt: opportunityData.createdAt,
           bonus: {
@@ -616,6 +621,9 @@ export function useOpportunities() {
             expiration: opportunityData.details?.expiration || null,
             options_trading: opportunityData.details?.options_trading || null,
             ira_accounts: opportunityData.details?.ira_accounts || null,
+            under_5_24: opportunityData.details?.under_5_24 !== undefined ? opportunityData.details.under_5_24 : null,
+            foreign_transaction_fees: opportunityData.details?.foreign_transaction_fees || null,
+            annual_fees: opportunityData.details?.annual_fees || null,
           },
           logo: opportunityData.logo || {
             type: '',

@@ -68,10 +68,7 @@ export interface Details {
   household_limit?: string;
 
   // Credit Card specific fields
-  under_5_24?: {
-    required: boolean;
-    details: string;
-  };
+  under_5_24?: boolean;
   minimum_credit_limit?: string;
   rewards_structure?: {
     base_rewards: string;

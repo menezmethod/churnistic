@@ -138,6 +138,14 @@ export async function POST(req: NextRequest) {
       offer_link: body.offer_link || '',
       value: parseInt(body.value) || 0,
       source_id: body.source_id || body.id,
+      source: body.source || {
+        name: 'bankrewards.io',
+        collected_at: new Date().toISOString(),
+        original_id: body.source_id || body.id,
+        timing: null,
+        availability: null,
+        credit: null
+      },
       bonus: {
         title: body.bonus?.title || '',
         description: body.bonus?.description || '',
@@ -164,6 +172,9 @@ export async function POST(req: NextRequest) {
         expiration: body.details?.expiration || null,
         options_trading: body.details?.options_trading || null,
         ira_accounts: body.details?.ira_accounts || null,
+        under_5_24: body.details?.under_5_24 !== undefined ? body.details.under_5_24 : null,
+        foreign_transaction_fees: body.details?.foreign_transaction_fees || null,
+        annual_fees: body.details?.annual_fees || null,
       },
       logo: body.logo || {
         type: '',
