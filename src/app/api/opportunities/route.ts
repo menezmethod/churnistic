@@ -88,15 +88,12 @@ export async function POST(req: NextRequest) {
       vercelEnv: process.env.VERCEL_ENV,
     });
 
-    let userEmail = 'preview@example.com';
-
-    // Skip auth check in emulator or preview environment
-    if (!useEmulator && !isPreviewEnvironment) {
-      const { session } = await createAuthContext(req);
-      if (!session?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      userEmail = session.email;
+    // Always get the auth context
+    const { session } = await createAuthContext(req);
+    
+    // In production, require authentication
+    if (!useEmulator && !isPreviewEnvironment && !session?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Parse and validate request body
@@ -117,15 +114,24 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate required fields
-    if (!body.name || !body.type || !body.id) {
+    if (!body.name || !body.type || !body.id || !body.metadata?.created_by) {
       console.error('Missing required fields:', {
         name: body.name,
         type: body.type,
         id: body.id,
+        created_by: body.metadata?.created_by,
       });
       return NextResponse.json(
-        { error: 'Name, type, and id are required fields' },
+        { error: 'Name, type, id, and metadata.created_by are required fields' },
         { status: 400 }
+      );
+    }
+
+    // In production, ensure the user can only use their own email
+    if (!useEmulator && !isPreviewEnvironment && session?.email !== body.metadata.created_by) {
+      return NextResponse.json(
+        { error: 'Cannot create opportunities on behalf of other users' },
+        { status: 403 }
       );
     }
 
@@ -194,7 +200,8 @@ export async function POST(req: NextRequest) {
         ...(body.metadata || {}),
         created_at: body.metadata?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        created_by: userEmail,
+        created_by: body.metadata.created_by,
+        updated_by: body.metadata.created_by,
         status: body.metadata?.status || 'active',
         environment: process.env.NODE_ENV || 'development',
       },

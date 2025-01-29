@@ -46,6 +46,14 @@ export interface Opportunity {
   bank: string;
   value: number;
   status: 'staged' | 'pending' | 'approved' | 'rejected';
+  metadata: {
+    created_at?: string;
+    updated_at?: string;
+    created_by?: string;
+    updated_by?: string;
+    status?: string;
+    environment?: string;
+  };
   source: {
     name: string;
     collected_at: string;
