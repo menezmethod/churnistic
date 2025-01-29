@@ -402,26 +402,42 @@ export class BankRewardsTransformer {
     const annualFeesText = this.$('p:contains("Annual Fees:")').text();
     if (annualFeesText) {
       const amount = this.cleanText(annualFeesText.split(':')[1]);
-      details.annual_fees = amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
-        ? 'None'
-        : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount;
+      details.annual_fees = {
+        amount: amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
+          ? 'None'
+          : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount,
+        waived_first_year: amount.toLowerCase().includes('waived') || amount.toLowerCase().includes('first year free')
+      };
     }
 
     // Extract foreign transaction fees
     const foreignFeesText = this.$('p:contains("Foreign Transaction Fees:")').text();
     if (foreignFeesText) {
-      details.foreign_transaction_fees = this.cleanText(foreignFeesText.split(':')[1]);
+      const text = this.cleanText(foreignFeesText.split(':')[1]);
+      details.foreign_transaction_fees = {
+        percentage: text.match(/(\d+(?:\.\d+)?%)/)?.[0] || text,
+        waived: text.toLowerCase().includes('none') || text.toLowerCase().includes('no fee')
+      };
     }
 
     // Extract 5/24 status for credit cards
     const under524Text = this.$('p:contains("Under 5/24:")').text();
     if (under524Text) {
-      details.under_5_24 = this.cleanText(under524Text.split(':')[1]);
+      const text = this.cleanText(under524Text.split(':')[1]);
+      details.under_5_24 = {
+        required: text.toLowerCase().includes('yes') || text.toLowerCase().includes('required'),
+        details: text
+      };
     } else {
       // Try to find 5/24 info in general text
       const text = this.$('div').text().toLowerCase();
       if (text.includes('5/24') || text.includes('five cards in 24 months')) {
-        details.under_5_24 = text.includes('not be approved') ? 'Yes' : 'No';
+        details.under_5_24 = {
+          required: text.includes('not be approved'),
+          details: text.includes('not be approved') 
+            ? 'Subject to Chase 5/24 rule'
+            : 'Not subject to Chase 5/24 rule'
+        };
       }
     }
   }
@@ -463,7 +479,7 @@ export class BankRewardsTransformer {
       details.availability = {
         type: isNationwide ? 'Nationwide' : states.length > 0 ? 'State' : undefined,
         states: states.length > 0 ? states : undefined,
-        details: undefined, // Removed redundant details
+        details: undefined,
       };
     }
 
@@ -480,31 +496,104 @@ export class BankRewardsTransformer {
       }
     }
 
-    // Extract household limit
-    const householdLimitText = this.$('p:contains("Household Limit:")').text();
-    if (householdLimitText) {
-      details.household_limit = this.cleanText(householdLimitText.split(':')[1]);
+    // Bank Account specific fields
+    if (this.type === 'bank') {
+      // Extract minimum deposit
+      const minDepositText = this.$('p:contains("Minimum Deposit:")').text();
+      if (minDepositText) {
+        details.minimum_deposit = this.cleanText(minDepositText.split(':')[1]);
+      }
+
+      // Extract holding period
+      const holdingPeriodText = this.$('p:contains("Holding Period:")').text();
+      if (holdingPeriodText) {
+        details.holding_period = this.cleanText(holdingPeriodText.split(':')[1]);
+      }
+
+      // Extract household limit
+      const householdLimitText = this.$('p:contains("Household Limit:")').text();
+      if (householdLimitText) {
+        details.household_limit = this.cleanText(householdLimitText.split(':')[1]);
+      }
+
+      // Extract early closure fee
+      const earlyClosureFeeText = this.$('p:contains("Early Account Closure Fee:")').text();
+      if (earlyClosureFeeText) {
+        details.early_closure_fee = this.cleanText(earlyClosureFeeText.split(':')[1]);
+      }
+
+      // Extract ChexSystems
+      const chexSystemsText = this.$('p:contains("ChexSystems:")').text();
+      if (chexSystemsText) {
+        details.chex_systems = this.cleanText(chexSystemsText.split(':')[1]);
+      }
     }
 
-    // Extract early closure fee
-    const earlyClosureFeeText = this.$('p:contains("Early Account Closure Fee:")').text();
-    if (earlyClosureFeeText) {
-      details.early_closure_fee = this.cleanText(earlyClosureFeeText.split(':')[1]);
+    // Credit Card specific fields
+    if (this.type === 'credit_card') {
+      // Extract under 5/24
+      const under524Text = this.$('p:contains("Chase 5/24 Rule:")').text();
+      if (under524Text) {
+        const text = this.cleanText(under524Text.split(':')[1]);
+        details.under_5_24 = {
+          required: text.toLowerCase().includes('yes') || text.toLowerCase().includes('required'),
+          details: text,
+        };
+      }
+
+      // Extract annual fees
+      const annualFeesText = this.$('p:contains("Annual Fees:")').text();
+      if (annualFeesText) {
+        const text = this.cleanText(annualFeesText.split(':')[1]);
+        details.annual_fees = {
+          amount: text.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || text,
+          waived_first_year: text.toLowerCase().includes('waived') || text.toLowerCase().includes('first year free'),
+        };
+      }
+
+      // Extract foreign transaction fees
+      const ftfText = this.$('p:contains("Foreign Transaction Fees:")').text();
+      if (ftfText) {
+        const text = this.cleanText(ftfText.split(':')[1]);
+        details.foreign_transaction_fees = {
+          percentage: text.match(/(\d+(?:\.\d+)?%)/)?.[0] || text,
+          waived: text.toLowerCase().includes('none') || text.toLowerCase().includes('no fee'),
+        };
+      }
+
+      // Extract minimum credit limit
+      const minCreditLimitText = this.$('p:contains("Minimum Credit Limit:")').text();
+      if (minCreditLimitText) {
+        details.minimum_credit_limit = this.cleanText(minCreditLimitText.split(':')[1]);
+      }
+
+      // Extract rewards structure
+      const rewardsText = this.$('p:contains("Rewards Structure:")').text();
+      if (rewardsText) {
+        const baseRewardsText = this.$('p:contains("Base Rewards:")').text();
+        const welcomeBonusText = this.$('p:contains("Welcome Bonus:")').text();
+        const bonusCategoriesText = this.$('p:contains("Bonus Categories:")').text();
+
+        details.rewards_structure = {
+          base_rewards: this.cleanText(baseRewardsText.split(':')[1]) || '',
+          welcome_bonus: this.cleanText(welcomeBonusText.split(':')[1]),
+          bonus_categories: bonusCategoriesText
+            ? this.cleanText(bonusCategoriesText.split(':')[1])
+                .split(',')
+                .map((category) => {
+                  const [cat, rate] = category.split('@').map((s) => s.trim());
+                  return {
+                    category: cat,
+                    rate: rate || '',
+                    limit: category.match(/up to \$([\d,]+)/)?.[1],
+                  };
+                })
+            : undefined,
+        };
+      }
     }
 
-    // Extract ChexSystems
-    const chexSystemsText = this.$('p:contains("ChexSystems:")').text();
-    if (chexSystemsText) {
-      details.chex_systems = this.cleanText(chexSystemsText.split(':')[1]);
-    }
-
-    // Extract expiration
-    const expirationText = this.$('p:contains("Expiration:")').text();
-    if (expirationText) {
-      details.expiration = this.cleanText(expirationText.split(':')[1]) || 'None Listed';
-    }
-
-    // Extract brokerage-specific details
+    // Brokerage specific fields
     if (this.type === 'brokerage') {
       // Extract options trading
       const optionsTradingText = this.$('p:contains("Options Trading:")').text();
@@ -517,11 +606,33 @@ export class BankRewardsTransformer {
       if (iraAccountsText) {
         details.ira_accounts = this.cleanText(iraAccountsText.split(':')[1]);
       }
+
+      // Extract trading requirements
+      const tradingReqText = this.$('p:contains("Trading Requirements:")').text();
+      if (tradingReqText) {
+        details.trading_requirements = this.cleanText(tradingReqText.split(':')[1]);
+      }
+
+      // Extract platform features
+      const platformFeaturesText = this.$('p:contains("Platform Features:")').text();
+      if (platformFeaturesText) {
+        const features = this.$('p:contains("Platform Features:")').nextAll('ul').first().find('li');
+        if (features.length) {
+          details.platform_features = features
+            .map((_, el) => {
+              const text = this.$(el).text();
+              const [name, description] = text.split(':').map((s) => s.trim());
+              return { name, description: description || name };
+            })
+            .get();
+        }
+      }
     }
 
-    // Extract credit card specific details if this is a credit card
-    if (this.type === 'credit_card') {
-      this.extractCardDetails(details);
+    // Extract expiration
+    const expirationText = this.$('p:contains("Expiration:")').text();
+    if (expirationText) {
+      details.expiration = this.cleanText(expirationText.split(':')[1]) || 'None Listed';
     }
 
     return details;

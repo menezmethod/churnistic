@@ -47,18 +47,50 @@ export interface Availability {
 
 export interface Details {
   monthly_fees?: MonthlyFees | string;
-  annual_fees?: string;
-  foreign_transaction_fees?: string;
+  annual_fees?: {
+    amount: string;
+    waived_first_year: boolean;
+  };
+  foreign_transaction_fees?: {
+    percentage: string;
+    waived: boolean;
+  };
   credit_inquiry?: string;
   availability?: Availability;
   account_type?: string;
   expiration?: string;
-  household_limit?: string;
+  
+  // Bank Account specific fields
+  minimum_deposit?: string;
+  holding_period?: string;
   early_closure_fee?: string;
   chex_systems?: string;
-  under_5_24?: string;
+  household_limit?: string;
+
+  // Credit Card specific fields
+  under_5_24?: {
+    required: boolean;
+    details: string;
+  };
+  minimum_credit_limit?: string;
+  rewards_structure?: {
+    base_rewards: string;
+    bonus_categories?: Array<{
+      category: string;
+      rate: string;
+      limit?: string;
+    }>;
+    welcome_bonus?: string;
+  };
+
+  // Brokerage specific fields
   options_trading?: string;
   ira_accounts?: string;
+  trading_requirements?: string;
+  platform_features?: {
+    name: string;
+    description: string;
+  }[];
 }
 
 export interface Metadata {
