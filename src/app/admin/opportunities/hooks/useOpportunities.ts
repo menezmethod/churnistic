@@ -289,23 +289,16 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     availability: offer.details?.availability ? {
       type: offer.details.availability.type || 'Nationwide',
       states: offer.details.availability.states || [],
-      is_nationwide: offer.details.availability.is_nationwide || true,
-    } : {
-      type: 'Nationwide',
-      states: [],
-      is_nationwide: true,
-    },
+      is_nationwide: offer.details.availability.is_nationwide ?? true,
+    } : null,
     credit_inquiry: offer.details?.credit_inquiry || null,
     expiration: offer.details?.expiration || null,
     credit_score: offer.details?.credit_score || null,
-    under_5_24: offer.details?.under_5_24 !== undefined ? {
-      required: offer.details.under_5_24,
-      details: offer.details.under_5_24 ? 
-        'This offer is available for accounts subject to the 5/24 rule' : 
-        "This offer is available even if you've opened 5+ accounts in the last 24 months",
-    } : null,
+    under_5_24: offer.type === 'credit_card' && typeof offer.details?.under_5_24 === 'boolean' 
+      ? offer.details.under_5_24 
+      : null,
     foreign_transaction_fees: offer.details?.foreign_transaction_fees ? {
-      percentage: offer.details.foreign_transaction_fees.percentage || '0%',
+      percentage: offer.details.foreign_transaction_fees.percentage || '0',
       waived: offer.details.foreign_transaction_fees.waived || false,
     } : null,
     minimum_credit_limit: offer.details?.minimum_credit_limit || null,

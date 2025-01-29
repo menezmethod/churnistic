@@ -82,10 +82,7 @@ export interface Opportunity {
     credit_inquiry?: string | null;
     expiration?: string | null;
     credit_score?: string | null;
-    under_5_24?: {
-      required: boolean;
-      details: string;
-    } | null;
+    under_5_24?: boolean | null;
     foreign_transaction_fees?: {
       percentage: string;
       waived: boolean;
