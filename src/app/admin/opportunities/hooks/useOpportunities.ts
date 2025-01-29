@@ -149,88 +149,160 @@ interface PaginationState {
 
 const ITEMS_PER_PAGE = 20;
 
+// Update the interfaces to match Opportunity type
+interface RequirementDetails {
+  amount: number;
+  period: number;
+  count?: number; // Add optional count property
+}
+
+interface BaseRequirement {
+  type: string;
+  details: RequirementDetails;
+  minimum_deposit?: number | null;
+}
+
+interface DebitTransactionRequirement extends BaseRequirement {
+  type: 'debit_transactions';
+  details: { amount: number; period: number; count: number };
+}
+
 const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   const bank = offer.name?.split(' ')?.[0] || offer.name || '';
 
-  // Parse spending requirement from description
-  const parseSpendingRequirement = (description: string) => {
-    const spendMatch = description.match(/Spend \$([0-9,]+) in (\d+)/i);
-    if (spendMatch) {
-      return {
-        amount: parseInt(spendMatch[1].replace(',', '')),
-        period: parseInt(spendMatch[2]) * 30, // Convert months to days
-      };
+  // Helper function to extract requirements based on offer type
+  const extractRequirements = (offer: BankRewardsOffer): BaseRequirement[] => {
+    const requirements: BaseRequirement[] = [];
+    const description = offer.bonus.requirements.description || '';
+
+    if (offer.type === 'brokerage') {
+      // Handle brokerage-specific patterns
+      const transferMatch = description.match(
+        /transfer\s+\$?(\d+(?:,\d+)?)\s+(?:to|into)\s+(?:your|the)\s+account\s+within\s+(\d+)\s+days/i
+      );
+      const linkMatch = description.match(/link\s+(?:a|your)\s+bank\s+account/i);
+
+      if (transferMatch) {
+        requirements.push({
+          type: 'transfer',
+          details: {
+            amount: parseInt(transferMatch[1].replace(/,/g, '')),
+            period: parseInt(transferMatch[2]),
+          },
+        });
+      }
+
+      if (linkMatch) {
+        requirements.push({
+          type: 'link_account',
+          details: {
+            amount: 0,
+            period: 30, // Default period for linking
+          },
+        });
+      }
+
+      // Add minimum deposit if available
+      if (offer.bonus.requirements.minimum_deposit) {
+        requirements.push({
+          type: 'minimum_deposit',
+          details: {
+            amount: offer.bonus.requirements.minimum_deposit,
+            period: 60, // Default period
+          },
+          minimum_deposit: offer.bonus.requirements.minimum_deposit,
+        });
+      }
+    } else if (offer.type === 'credit_card') {
+      // Handle credit card spending requirements
+      const spendMatch = description.match(
+        /spend\s+\$?(\d+(?:,\d+)?)\s+(?:within|in)\s+(\d+)\s+(?:days?|months?)/i
+      );
+
+      if (spendMatch) {
+        const period = description.toLowerCase().includes('month')
+          ? parseInt(spendMatch[2]) * 30
+          : parseInt(spendMatch[2]);
+
+        requirements.push({
+          type: 'spending',
+          details: {
+            amount: parseInt(spendMatch[1].replace(/,/g, '')),
+            period,
+          },
+        });
+      }
+    } else if (offer.type === 'bank') {
+      // Handle direct deposit requirements
+      const ddMatch = description.match(
+        /direct\s+deposits?\s+(?:of|totaling)\s+\$?(\d+(?:,\d+)?)\s+(?:within|in)\s+(\d+)\s+days/i
+      );
+      const debitMatch = description.match(
+        /make\s+(\d+)\s+(?:debit\s+card\s+)?(?:purchases?|transactions?)/i
+      );
+
+      if (ddMatch) {
+        requirements.push({
+          type: 'direct_deposit',
+          details: {
+            amount: parseInt(ddMatch[1].replace(/,/g, '')),
+            period: parseInt(ddMatch[2]),
+          },
+        });
+      }
+
+      if (debitMatch) {
+        const transactionCount = parseInt(debitMatch[1]);
+        requirements.push({
+          type: 'debit_transactions',
+          details: {
+            amount: 0, // No specific amount required
+            period: 30, // Default period
+            count: transactionCount,
+          },
+        });
+      }
+
+      // Add minimum deposit if available
+      if (offer.bonus.requirements.minimum_deposit) {
+        requirements.push({
+          type: 'minimum_deposit',
+          details: {
+            amount: offer.bonus.requirements.minimum_deposit,
+            period: 60,
+          },
+          minimum_deposit: offer.bonus.requirements.minimum_deposit,
+        });
+      }
     }
-    return null;
+
+    // If no specific requirements found but we have a description
+    if (requirements.length === 0 && description) {
+      requirements.push({
+        type: 'other',
+        details: {
+          amount: 0,
+          period: 90, // Default period
+        },
+      });
+    }
+
+    // If still no requirements, add generic message
+    if (requirements.length === 0) {
+      requirements.push({
+        type: 'other',
+        details: {
+          amount: 0,
+          period: 90, // Default period
+        },
+      });
+    }
+
+    return requirements;
   };
 
-  // Normalize household limit
-  const normalizeHouseholdLimit = (limit: string | undefined) => {
-    if (!limit) return null;
-    if (limit.toLowerCase().includes('none')) return 'None';
-    if (limit === '1' || limit.toLowerCase() === 'one') return '1';
-    return limit;
-  };
-
-  // Normalize early closure fee
-  const normalizeEarlyClosureFee = (fee: string | undefined) => {
-    if (!fee) return null;
-    return fee.replace(/#/g, '').trim();
-  };
-
-  // Parse requirements based on offer type
-  let requirements;
-  if (offer.type === 'brokerage') {
-    // For brokerage offers, use minimum deposit if available
-    requirements = offer.bonus.requirements.minimum_deposit
-      ? [
-          {
-            type: 'deposit',
-            details: {
-              amount: offer.bonus.requirements.minimum_deposit,
-              period: 90, // Default period for deposits
-            },
-            minimum_deposit: offer.bonus.requirements.minimum_deposit,
-          },
-        ]
-      : [
-          {
-            type: 'other',
-            details: {
-              amount: offer.value,
-              period: 90,
-            },
-            minimum_deposit: null,
-          },
-        ];
-  } else {
-    // For other offers, use spending requirements if available
-    const spendingReq = offer.bonus.requirements.description
-      ? parseSpendingRequirement(offer.bonus.requirements.description)
-      : null;
-
-    requirements = spendingReq
-      ? [
-          {
-            type: 'spending',
-            details: {
-              amount: spendingReq.amount,
-              period: spendingReq.period,
-            },
-            minimum_deposit: offer.bonus.requirements.minimum_deposit || null,
-          },
-        ]
-      : [
-          {
-            type: 'other',
-            details: {
-              amount: offer.value,
-              period: 90,
-            },
-            minimum_deposit: null,
-          },
-        ];
-  }
+  // Extract requirements using the new helper function
+  const requirements = extractRequirements(offer);
 
   // Ensure no undefined values in bonus
   const bonus = {
@@ -248,6 +320,20 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
         requirements: tier.requirements || null,
       })) || [],
     additional_info: offer.bonus.additional_info || null,
+  };
+
+  // Normalize household limit
+  const normalizeHouseholdLimit = (limit: string | undefined) => {
+    if (!limit) return null;
+    if (limit.toLowerCase().includes('none')) return 'None';
+    if (limit === '1' || limit.toLowerCase() === 'one') return '1';
+    return limit;
+  };
+
+  // Normalize early closure fee
+  const normalizeEarlyClosureFee = (fee: string | undefined) => {
+    if (!fee) return null;
+    return fee.replace(/#/g, '').trim();
   };
 
   // Ensure no undefined values in details
@@ -588,28 +674,32 @@ export function useOpportunities() {
           bonus: {
             title: opportunityData.bonus.title || '',
             description: opportunityData.bonus.description || '',
-            requirements: opportunityData.bonus.requirements?.[0]
-              ? {
-                  title: 'Bonus Requirements',
-                  description:
-                    opportunityData.bonus.requirements[0].type === 'spending'
-                      ? `Spend $${opportunityData.bonus.requirements[0].details.amount} within ${opportunityData.bonus.requirements[0].details.period} days`
-                      : 'Contact bank for specific requirements',
-                }
-              : {
-                  title: '',
-                  description: '',
-                },
+            requirements: {
+              title: 'Bonus Requirements',
+              description: opportunityData.bonus.requirements
+                .map((req: BaseRequirement) => {
+                  switch (req.type) {
+                    case 'spending':
+                      return `Spend $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
+                    case 'direct_deposit':
+                      return `Receive direct deposits totaling $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
+                    case 'debit_transactions':
+                      const debitReq = req as DebitTransactionRequirement;
+                      return `Make ${debitReq.details.count} debit card purchases`;
+                    case 'transfer':
+                      return `Transfer $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
+                    case 'link_account':
+                      return 'Link a bank account';
+                    case 'minimum_deposit':
+                      return `Maintain a minimum deposit of $${req.details.amount.toLocaleString()} for ${req.details.period} days`;
+                    default:
+                      return 'Contact bank for specific requirements';
+                  }
+                })
+                .join(' AND '),
+            },
             additional_info: opportunityData.bonus.additional_info || null,
-            tiers:
-              opportunityData.bonus.tiers?.map((tier) => ({
-                reward: tier.reward || '',
-                deposit: tier.deposit || '',
-                level: tier.level || null,
-                value: tier.value || null,
-                minimum_deposit: tier.minimum_deposit || null,
-                requirements: tier.requirements || null,
-              })) || null,
+            tiers: opportunityData.bonus.tiers || null,
           },
           details: {
             monthly_fees: opportunityData.details?.monthly_fees || {
