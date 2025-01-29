@@ -1,12 +1,7 @@
 import * as cheerio from 'cheerio';
 
 import { BankRewardsOffer } from '@/types/scraper';
-import {
-  TransformedOffer,
-  BonusTier,
-  Details,
-  Logo,
-} from '@/types/transformed';
+import { TransformedOffer, BonusTier, Details, Logo } from '@/types/transformed';
 
 export interface EnhancedTransformedOffer extends TransformedOffer {
   value: number;
@@ -402,7 +397,7 @@ export class BankRewardsTransformer {
       /(?:subject\s+to|under|affected\s+by)\s+(?:chase\s+)?5\/24(?:\s+rule)?:?\s*([^.]+)/i,
       /(?:chase\s+)?5\/24(?:\s+rule)?\s+(?:status|requirement):?\s*([^.]+)/i,
       /opened\s+(?:more\s+than\s+)?(\d+)\s+cards?\s+in\s+(?:the\s+)?(?:last\s+)?24\s+months/i,
-      /five\s+cards?\s+in\s+(?:the\s+)?(?:last\s+)?24\s+months/i
+      /five\s+cards?\s+in\s+(?:the\s+)?(?:last\s+)?24\s+months/i,
     ];
 
     // First try to find explicit 5/24 sections
@@ -416,12 +411,13 @@ export class BankRewardsTransformer {
         if (match) {
           const details = match[1] ? this.cleanText(match[1]) : under524Text;
           return {
-            required: details.toLowerCase().includes('yes') || 
-                     details.toLowerCase().includes('required') || 
-                     details.toLowerCase().includes('subject to') ||
-                     !details.toLowerCase().includes('no') ||
-                     !details.toLowerCase().includes('not'),
-            details: details
+            required:
+              details.toLowerCase().includes('yes') ||
+              details.toLowerCase().includes('required') ||
+              details.toLowerCase().includes('subject to') ||
+              !details.toLowerCase().includes('no') ||
+              !details.toLowerCase().includes('not'),
+            details: details,
           };
         }
       }
@@ -432,16 +428,19 @@ export class BankRewardsTransformer {
     for (const pattern of patterns) {
       const match = generalText.match(pattern);
       if (match) {
-        const details = match[1] ? this.cleanText(match[1]) : 
-                       match[0] ? this.cleanText(match[0]) : 
-                       'Subject to Chase 5/24 rule';
+        const details = match[1]
+          ? this.cleanText(match[1])
+          : match[0]
+            ? this.cleanText(match[0])
+            : 'Subject to Chase 5/24 rule';
         return {
-          required: details.toLowerCase().includes('yes') || 
-                   details.toLowerCase().includes('required') || 
-                   details.toLowerCase().includes('subject to') ||
-                   !details.toLowerCase().includes('no') ||
-                   !details.toLowerCase().includes('not'),
-          details: details
+          required:
+            details.toLowerCase().includes('yes') ||
+            details.toLowerCase().includes('required') ||
+            details.toLowerCase().includes('subject to') ||
+            !details.toLowerCase().includes('no') ||
+            !details.toLowerCase().includes('not'),
+          details: details,
         };
       }
     }
@@ -452,15 +451,18 @@ export class BankRewardsTransformer {
       'new card applications',
       'credit card history',
       'application restrictions',
-      'chase restrictions'
+      'chase restrictions',
     ];
 
     for (const term of relatedTerms) {
       const termText = this.$(`p:contains("${term}")`).text();
-      if (termText && (termText.includes('24') || termText.toLowerCase().includes('months'))) {
+      if (
+        termText &&
+        (termText.includes('24') || termText.toLowerCase().includes('months'))
+      ) {
         return {
           required: true,
-          details: this.cleanText(termText)
+          details: this.cleanText(termText),
         };
       }
     }
@@ -474,10 +476,13 @@ export class BankRewardsTransformer {
     if (annualFeesText) {
       const amount = this.cleanText(annualFeesText.split(':')[1]);
       details.annual_fees = {
-        amount: amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
-          ? 'None'
-          : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount,
-        waived_first_year: amount.toLowerCase().includes('waived') || amount.toLowerCase().includes('first year free')
+        amount:
+          amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
+            ? 'None'
+            : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount,
+        waived_first_year:
+          amount.toLowerCase().includes('waived') ||
+          amount.toLowerCase().includes('first year free'),
       };
     }
 
@@ -487,7 +492,8 @@ export class BankRewardsTransformer {
       const text = this.cleanText(foreignFeesText.split(':')[1]);
       details.foreign_transaction_fees = {
         percentage: text.match(/(\d+(?:\.\d+)?%)/)?.[0] || text,
-        waived: text.toLowerCase().includes('none') || text.toLowerCase().includes('no fee')
+        waived:
+          text.toLowerCase().includes('none') || text.toLowerCase().includes('no fee'),
       };
     }
 
@@ -560,9 +566,10 @@ export class BankRewardsTransformer {
       const minDepositText = this.$('p:contains("Minimum Deposit:")').text();
       if (minDepositText) {
         const amount = this.cleanText(minDepositText.split(':')[1]);
-        details.minimum_deposit = amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
-          ? 'None'
-          : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount;
+        details.minimum_deposit =
+          amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
+            ? 'None'
+            : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount;
       }
 
       // Extract holding period
@@ -578,12 +585,15 @@ export class BankRewardsTransformer {
       }
 
       // Extract early closure fee
-      const earlyClosureFeeText = this.$('p:contains("Early Account Closure Fee:")').text();
+      const earlyClosureFeeText = this.$(
+        'p:contains("Early Account Closure Fee:")'
+      ).text();
       if (earlyClosureFeeText) {
         const amount = this.cleanText(earlyClosureFeeText.split(':')[1]);
-        details.early_closure_fee = amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
-          ? 'None'
-          : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount;
+        details.early_closure_fee =
+          amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
+            ? 'None'
+            : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount;
       }
 
       // Extract ChexSystems
@@ -605,7 +615,8 @@ export class BankRewardsTransformer {
       const minCreditLimitText = this.$('p:contains("Minimum Credit Limit:")').text();
       if (minCreditLimitText) {
         const amount = this.cleanText(minCreditLimitText.split(':')[1]);
-        details.minimum_credit_limit = amount.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/)?.[0] || amount;
+        details.minimum_credit_limit =
+          amount.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/)?.[0] || amount;
       }
 
       // Extract rewards structure
@@ -617,7 +628,9 @@ export class BankRewardsTransformer {
 
         details.rewards_structure = {
           base_rewards: this.cleanText(baseRewardsText.split(':')[1]) || '',
-          welcome_bonus: welcomeBonusText ? this.cleanText(welcomeBonusText.split(':')[1]) : undefined,
+          welcome_bonus: welcomeBonusText
+            ? this.cleanText(welcomeBonusText.split(':')[1])
+            : undefined,
           bonus_categories: bonusCategoriesText
             ? this.cleanText(bonusCategoriesText.split(':')[1])
                 .split(',')
@@ -661,15 +674,18 @@ export class BankRewardsTransformer {
       // Extract platform features
       const platformFeaturesText = this.$('p:contains("Platform Features:")').text();
       if (platformFeaturesText) {
-        const features = this.$('p:contains("Platform Features:")').nextAll('ul').first().find('li');
+        const features = this.$('p:contains("Platform Features:")')
+          .nextAll('ul')
+          .first()
+          .find('li');
         if (features.length) {
           details.platform_features = features
             .map((_, el) => {
               const featureText = this.$(el).text();
               const [name, description] = featureText.split(':').map((s) => s.trim());
-              return { 
-                name, 
-                description: description || name 
+              return {
+                name,
+                description: description || name,
               };
             })
             .get();
@@ -1140,19 +1156,21 @@ export class BankRewardsTransformer {
 
       // Normalize offer types
       const typeMap: { [key: string]: 'credit_card' | 'brokerage' | 'bank' } = {
-        'credit_card': 'credit_card',
-        'CREDIT_CARD': 'credit_card',
-        'brokerage': 'brokerage',
-        'BROKERAGE': 'brokerage',
-        'bank': 'bank',
-        'BANK': 'bank',
-        'bank_account': 'bank',
-        'BANK_ACCOUNT': 'bank'
+        credit_card: 'credit_card',
+        CREDIT_CARD: 'credit_card',
+        brokerage: 'brokerage',
+        BROKERAGE: 'brokerage',
+        bank: 'bank',
+        BANK: 'bank',
+        bank_account: 'bank',
+        BANK_ACCOUNT: 'bank',
       };
 
       const normalizedType = typeMap[offer.type];
       if (!normalizedType) {
-        throw new Error(`Invalid offer type ${offer.type} for offer ${offer.id}. Valid types are: ${Object.keys(typeMap).join(', ')}`);
+        throw new Error(
+          `Invalid offer type ${offer.type} for offer ${offer.id}. Valid types are: ${Object.keys(typeMap).join(', ')}`
+        );
       }
 
       this.type = normalizedType;
@@ -1161,7 +1179,7 @@ export class BankRewardsTransformer {
       // Extract and validate all components with detailed logging
       const tiers = this.extractTableTiers();
       console.log(`Found ${tiers.length} tiers in tables for offer ${offer.id}`);
-      
+
       if (tiers.length === 0) {
         const textTiers = this.extractTextTiers(this.$('div').text());
         console.log(`Found ${textTiers.length} tiers in text for offer ${offer.id}`);
@@ -1170,14 +1188,18 @@ export class BankRewardsTransformer {
 
       const bonusDescription = this.extractBonusDescription();
       if (!bonusDescription) {
-        console.warn(`No bonus description found for offer ${offer.id}. HTML content length: ${offer.metadata.rawHtml.length}`);
+        console.warn(
+          `No bonus description found for offer ${offer.id}. HTML content length: ${offer.metadata.rawHtml.length}`
+        );
       } else {
         console.log(`Extracted bonus description for offer ${offer.id}`);
       }
 
       const bonusRequirements = this.extractBonusRequirements();
       if (!bonusRequirements) {
-        console.warn(`No bonus requirements found for offer ${offer.id}. HTML content length: ${offer.metadata.rawHtml.length}`);
+        console.warn(
+          `No bonus requirements found for offer ${offer.id}. HTML content length: ${offer.metadata.rawHtml.length}`
+        );
       } else {
         console.log(`Extracted bonus requirements for offer ${offer.id}`);
       }
@@ -1185,7 +1207,9 @@ export class BankRewardsTransformer {
       // Calculate value with detailed logging
       let estimatedValue = 0;
       if (offer.metadata.bonus) {
-        console.log(`Processing metadata bonus for offer ${offer.id}: ${offer.metadata.bonus}`);
+        console.log(
+          `Processing metadata bonus for offer ${offer.id}: ${offer.metadata.bonus}`
+        );
         const stockMatch = offer.metadata.bonus.match(/(\d+)\s*stocks?/i);
         if (stockMatch) {
           const numStocks = parseInt(stockMatch[1]);
@@ -1195,7 +1219,9 @@ export class BankRewardsTransformer {
           const match = offer.metadata.bonus.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/);
           if (match) {
             estimatedValue = parseFloat(this.normalizeAmount(match[1]));
-            console.log(`Extracted bonus value for offer ${offer.id}: $${estimatedValue}`);
+            console.log(
+              `Extracted bonus value for offer ${offer.id}: $${estimatedValue}`
+            );
           }
         }
       }
@@ -1204,17 +1230,24 @@ export class BankRewardsTransformer {
         const extractedValue = this.extractValue(offer.metadata.rawHtml);
         const tiersValue = this.estimateValueFromTiers(tiers);
         estimatedValue = Math.max(extractedValue, tiersValue);
-        console.log(`Calculated value for offer ${offer.id}: $${estimatedValue} (extracted: $${extractedValue}, tiers: $${tiersValue})`);
+        console.log(
+          `Calculated value for offer ${offer.id}: $${estimatedValue} (extracted: $${extractedValue}, tiers: $${tiersValue})`
+        );
       }
 
       if (estimatedValue === 0) {
-        console.warn(`Could not estimate value for offer ${offer.id}. Using fallback value of $200`);
+        console.warn(
+          `Could not estimate value for offer ${offer.id}. Using fallback value of $200`
+        );
         estimatedValue = 200; // Fallback value instead of failing
       }
 
       const additionalInfo = this.extractAdditionalInfo();
       const details = this.extractDetails();
-      console.log(`Extracted details for offer ${offer.id}:`, JSON.stringify(details, null, 2));
+      console.log(
+        `Extracted details for offer ${offer.id}:`,
+        JSON.stringify(details, null, 2)
+      );
 
       // Validate required fields with detailed errors
       if (!offer.id) {
@@ -1260,7 +1293,8 @@ export class BankRewardsTransformer {
       return transformedOffer;
     } catch (error: unknown) {
       // Type guard for Error objects
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
       const errorStack = error instanceof Error ? error.stack : undefined;
 
       console.error(`Error transforming offer ${offer?.id}:`, {
@@ -1289,7 +1323,9 @@ export class BankRewardsTransformer {
         console.warn(`Missing annual fees for credit card offer ${offer.id}`);
       }
       if (!offer.details.foreign_transaction_fees) {
-        console.warn(`Missing foreign transaction fees for credit card offer ${offer.id}`);
+        console.warn(
+          `Missing foreign transaction fees for credit card offer ${offer.id}`
+        );
       }
       if (!offer.details.under_5_24) {
         console.warn(`Missing 5/24 status for credit card offer ${offer.id}`);

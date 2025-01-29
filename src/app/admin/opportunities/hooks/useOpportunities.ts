@@ -161,7 +161,7 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     if (spendMatch) {
       return {
         amount: parseInt(spendMatch[1].replace(',', '')),
-        period: parseInt(spendMatch[2]) * 30 // Convert months to days
+        period: parseInt(spendMatch[2]) * 30, // Convert months to days
       };
     }
     return null;
@@ -185,49 +185,54 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   let requirements;
   if (offer.type === 'brokerage') {
     // For brokerage offers, use minimum deposit if available
-    requirements = offer.bonus.requirements.minimum_deposit ? [
-      {
-        type: 'deposit',
-        details: {
-          amount: offer.bonus.requirements.minimum_deposit,
-          period: 90, // Default period for deposits
-        },
-        minimum_deposit: offer.bonus.requirements.minimum_deposit,
-      }
-    ] : [
-      {
-        type: 'other',
-        details: {
-          amount: offer.value,
-          period: 90,
-        },
-        minimum_deposit: null,
-      }
-    ];
+    requirements = offer.bonus.requirements.minimum_deposit
+      ? [
+          {
+            type: 'deposit',
+            details: {
+              amount: offer.bonus.requirements.minimum_deposit,
+              period: 90, // Default period for deposits
+            },
+            minimum_deposit: offer.bonus.requirements.minimum_deposit,
+          },
+        ]
+      : [
+          {
+            type: 'other',
+            details: {
+              amount: offer.value,
+              period: 90,
+            },
+            minimum_deposit: null,
+          },
+        ];
   } else {
     // For other offers, use spending requirements if available
-    const spendingReq = offer.bonus.requirements.description ? 
-      parseSpendingRequirement(offer.bonus.requirements.description) : null;
+    const spendingReq = offer.bonus.requirements.description
+      ? parseSpendingRequirement(offer.bonus.requirements.description)
+      : null;
 
-    requirements = spendingReq ? [
-      {
-        type: 'spending',
-        details: {
-          amount: spendingReq.amount,
-          period: spendingReq.period,
-        },
-        minimum_deposit: offer.bonus.requirements.minimum_deposit || null,
-      }
-    ] : [
-      {
-        type: 'other',
-        details: {
-          amount: offer.value,
-          period: 90,
-        },
-        minimum_deposit: null,
-      }
-    ];
+    requirements = spendingReq
+      ? [
+          {
+            type: 'spending',
+            details: {
+              amount: spendingReq.amount,
+              period: spendingReq.period,
+            },
+            minimum_deposit: offer.bonus.requirements.minimum_deposit || null,
+          },
+        ]
+      : [
+          {
+            type: 'other',
+            details: {
+              amount: offer.value,
+              period: 90,
+            },
+            minimum_deposit: null,
+          },
+        ];
   }
 
   // Ensure no undefined values in bonus
@@ -236,14 +241,15 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     value: offer.value,
     description: offer.bonus.description || '',
     requirements,
-    tiers: offer.bonus.tiers?.map((tier) => ({
-      reward: tier.reward || '',
-      deposit: tier.deposit || '',
-      level: tier.level || null,
-      value: tier.value || null,
-      minimum_deposit: tier.minimum_deposit || null,
-      requirements: tier.requirements || null,
-    })) || [],
+    tiers:
+      offer.bonus.tiers?.map((tier) => ({
+        reward: tier.reward || '',
+        deposit: tier.deposit || '',
+        level: tier.level || null,
+        value: tier.value || null,
+        minimum_deposit: tier.minimum_deposit || null,
+        requirements: tier.requirements || null,
+      })) || [],
     additional_info: offer.bonus.additional_info || null,
   };
 
@@ -253,12 +259,13 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
       amount: '0',
       waiver_details: null,
     },
-    annual_fees: offer.details.annual_fees && offer.details.annual_fees.amount
-      ? {
-          amount: offer.details.annual_fees.amount,
-          waived_first_year: offer.details.annual_fees.waived_first_year || false,
-        }
-      : null,
+    annual_fees:
+      offer.details.annual_fees && offer.details.annual_fees.amount
+        ? {
+            amount: offer.details.annual_fees.amount,
+            waived_first_year: offer.details.annual_fees.waived_first_year || false,
+          }
+        : null,
     account_type: offer.details.account_type || null,
     account_category: offer.details.account_category || null,
     availability: offer.details.availability || {

@@ -1,4 +1,17 @@
-import { CreditScore, Warning, Home, Receipt, Security, AccountBalance, Schedule, Rule, CreditCard, Stars, TrendingUp, Assignment, Apps } from '@mui/icons-material';
+import {
+  CreditScore,
+  Warning,
+  Receipt,
+  Security,
+  AccountBalance,
+  Schedule,
+  Rule,
+  CreditCard,
+  Stars,
+  TrendingUp,
+  Assignment,
+  Apps,
+} from '@mui/icons-material';
 import { Box, Typography, Paper, Stack, alpha, useTheme, Chip } from '@mui/material';
 import { motion } from 'framer-motion';
 
@@ -18,15 +31,14 @@ export const AccountDetailsSection = ({ opportunity }: AccountDetailsSectionProp
     opportunity.details?.household_limit ||
     opportunity.details?.early_closure_fee ||
     opportunity.details?.chex_systems ||
-    opportunity.details?.minimum_deposit ||
-    opportunity.details?.holding_period ||
+    opportunity.bonus?.requirements?.minimum_deposit ||
+    opportunity.bonus?.requirements?.holding_period ||
     opportunity.details?.under_5_24 ||
     opportunity.details?.minimum_credit_limit ||
     opportunity.details?.rewards_structure ||
     opportunity.details?.options_trading ||
     opportunity.details?.ira_accounts ||
-    opportunity.details?.trading_requirements ||
-    opportunity.details?.platform_features;
+    opportunity.bonus?.requirements?.trading_requirements;
 
   if (!hasDetails) {
     return null;
@@ -34,7 +46,7 @@ export const AccountDetailsSection = ({ opportunity }: AccountDetailsSectionProp
 
   const renderBankDetails = () => (
     <>
-      {opportunity.details?.minimum_deposit && (
+      {opportunity.bonus?.requirements?.minimum_deposit && (
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
           <Box
             sx={{
@@ -53,12 +65,12 @@ export const AccountDetailsSection = ({ opportunity }: AccountDetailsSectionProp
             <Typography variant="subtitle2" color="text.secondary">
               Minimum Deposit
             </Typography>
-            <Typography>{opportunity.details.minimum_deposit}</Typography>
+            <Typography>${opportunity.bonus.requirements.minimum_deposit}</Typography>
           </Box>
         </Box>
       )}
 
-      {opportunity.details?.holding_period && (
+      {opportunity.bonus?.requirements?.holding_period && (
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
           <Box
             sx={{
@@ -77,7 +89,7 @@ export const AccountDetailsSection = ({ opportunity }: AccountDetailsSectionProp
             <Typography variant="subtitle2" color="text.secondary">
               Holding Period
             </Typography>
-            <Typography>{opportunity.details.holding_period}</Typography>
+            <Typography>{opportunity.bonus.requirements.holding_period}</Typography>
           </Box>
         </Box>
       )}
@@ -221,16 +233,18 @@ export const AccountDetailsSection = ({ opportunity }: AccountDetailsSectionProp
             {opportunity.details.rewards_structure.bonus_categories && (
               <Box sx={{ mt: 1 }}>
                 <Typography variant="subtitle2">Bonus Categories:</Typography>
-                {opportunity.details.rewards_structure.bonus_categories.map((category, index) => (
-                  <Chip
-                    key={index}
-                    label={`${category.category}: ${category.rate}${
-                      category.limit ? ` (up to $${category.limit})` : ''
-                    }`}
-                    size="small"
-                    sx={{ mr: 1, mb: 1 }}
-                  />
-                ))}
+                {opportunity.details.rewards_structure.bonus_categories.map(
+                  (category, index) => (
+                    <Chip
+                      key={index}
+                      label={`${category.category}: ${category.rate}${
+                        category.limit ? ` (up to $${category.limit})` : ''
+                      }`}
+                      size="small"
+                      sx={{ mr: 1, mb: 1 }}
+                    />
+                  )
+                )}
               </Box>
             )}
           </Box>
@@ -289,7 +303,7 @@ export const AccountDetailsSection = ({ opportunity }: AccountDetailsSectionProp
         </Box>
       )}
 
-      {opportunity.details?.trading_requirements && (
+      {opportunity.bonus?.requirements?.trading_requirements && (
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
           <Box
             sx={{
@@ -308,12 +322,12 @@ export const AccountDetailsSection = ({ opportunity }: AccountDetailsSectionProp
             <Typography variant="subtitle2" color="text.secondary">
               Trading Requirements
             </Typography>
-            <Typography>{opportunity.details.trading_requirements}</Typography>
+            <Typography>{opportunity.bonus.requirements.trading_requirements}</Typography>
           </Box>
         </Box>
       )}
 
-      {opportunity.details?.platform_features && (
+      {opportunity.details?.platform_features && Array.isArray(opportunity.details.platform_features) && (
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
           <Box
             sx={{
@@ -332,7 +346,7 @@ export const AccountDetailsSection = ({ opportunity }: AccountDetailsSectionProp
             <Typography variant="subtitle2" color="text.secondary">
               Platform Features
             </Typography>
-            {opportunity.details.platform_features.map((feature, index) => (
+            {opportunity.details.platform_features.map((feature: { name: string; description: string }, index: number) => (
               <Box key={index} sx={{ mt: 1 }}>
                 <Typography variant="body2" fontWeight="bold">
                   {feature.name}
