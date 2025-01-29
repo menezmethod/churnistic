@@ -5,7 +5,7 @@ export interface RequirementDetails {
   hold_period?: number;
 }
 
-export type RequirementType = 
+export type RequirementType =
   | 'spending'
   | 'direct_deposit'
   | 'deposit'
