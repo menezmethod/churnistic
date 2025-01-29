@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react';
 
 import { db } from '@/lib/firebase/config';
 
-import { Opportunity } from '../types/opportunity';
+import { Opportunity, Requirement, RequirementType } from '../types/opportunity';
 
 interface BankRewardsOffer {
   id: string;
@@ -172,35 +172,95 @@ interface DebitTransactionRequirement extends BaseRequirement {
 const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   const bank = offer.name?.split(' ')?.[0] || offer.name || '';
 
-  // Transform requirements to match the expected structure
-  const requirements = offer.bonus?.requirements ? [
-    {
-      type: 'direct_deposit',
-      details: {
-        amount: offer.bonus.requirements.minimum_deposit || offer.value || 0,
-        period: 60, // Default period
-      },
-      minimum_deposit: offer.bonus.requirements.minimum_deposit || null,
-      description: offer.bonus.requirements.description || '',
-      title: offer.bonus.requirements.title || '',
-    },
-    ...(offer.bonus.requirements.spending_requirement ? [{
-      type: 'spending',
-      details: {
-        amount: offer.bonus.requirements.spending_requirement.amount,
-        period: parseInt(offer.bonus.requirements.spending_requirement.timeframe) || 90,
-      },
-      description: `Spend $${offer.bonus.requirements.spending_requirement.amount.toLocaleString()} within ${offer.bonus.requirements.spending_requirement.timeframe}`,
-    }] : []),
-  ] : [];
+  // Parse requirements from description
+  const parseRequirements = (description: string = '', type: 'bank' | 'credit_card' | 'brokerage'): Requirement[] => {
+    const requirements: Requirement[] = [];
 
-  // Transform bonus tiers
+    // Spending requirement pattern
+    const spendMatch = description.match(/spend\s*\$?(\d+[,\d]*)\s*(?:in|within)?\s*(\d+)\s*(month|months|day|days)/i);
+    if (spendMatch && type === 'credit_card') {
+      const amount = parseInt(spendMatch[1].replace(/,/g, ''));
+      const period = parseInt(spendMatch[2]) * (spendMatch[3].toLowerCase().startsWith('month') ? 30 : 1);
+      requirements.push({
+        type: 'spending' as RequirementType,
+        details: { amount, period },
+        description: `Spend $${amount.toLocaleString()} within ${period} days`,
+        title: 'Spending Requirement',
+      });
+    }
+
+    // Direct deposit pattern
+    const ddMatch = description.match(/(?:direct )?deposit\s*(?:of)?\s*\$?(\d+[,\d]*(?:\.\d+)?)/i);
+    if (ddMatch && type === 'bank') {
+      const amount = parseFloat(ddMatch[1].replace(/,/g, ''));
+      requirements.push({
+        type: 'direct_deposit' as RequirementType,
+        details: { amount, period: 60 }, // Default to 60 days if not specified
+        description: `Make a direct deposit of $${amount.toLocaleString()}`,
+        title: 'Direct Deposit Requirement',
+      });
+    }
+
+    // Deposit and hold pattern
+    const depositHoldMatch = description.match(/\$?(\d+[,\d]*(?:\.\d+)?)\s*deposit.*?(?:held|hold|maintain).*?(\d+)\s*(day|days)/i);
+    if (depositHoldMatch && (type === 'bank' || type === 'brokerage')) {
+      const amount = parseFloat(depositHoldMatch[1].replace(/,/g, ''));
+      const holdPeriod = parseInt(depositHoldMatch[2]);
+      requirements.push({
+        type: 'deposit' as RequirementType,
+        details: { 
+          amount,
+          period: 30, // Default deposit period
+          hold_period: holdPeriod,
+        },
+        description: `Deposit $${amount.toLocaleString()} and maintain for ${holdPeriod} days`,
+        title: 'Deposit Requirement',
+      });
+    }
+
+    // Account closure requirement
+    const closureMatch = description.match(/(?:not|don't|do not)\s*close.*?(\d+)\s*(day|days)/i);
+    if (closureMatch) {
+      const period = parseInt(closureMatch[1]);
+      requirements.push({
+        type: 'account_closure' as RequirementType,
+        details: { amount: 0, period },
+        description: `Keep account open for ${period} days`,
+        title: 'Account Duration Requirement',
+      });
+    }
+
+    // If no specific requirements found but we have a description
+    if (requirements.length === 0 && description.trim()) {
+      // Default requirement based on type
+      const defaultReq: Requirement = {
+        type: (type === 'credit_card' ? 'spending' : 
+               type === 'bank' ? 'direct_deposit' : 'deposit') as RequirementType,
+        details: {
+          amount: offer.value || 0,
+          period: 60,
+        },
+        description: description.trim(),
+        title: 'Bonus Requirements',
+      };
+      requirements.push(defaultReq);
+    }
+
+    return requirements;
+  };
+
+  // Transform requirements based on offer type and description
+  const requirements = offer.bonus?.requirements?.description 
+    ? parseRequirements(offer.bonus.requirements.description, offer.type)
+    : [];
+
+  // Transform bonus tiers with proper null handling
   const tiers = offer.bonus?.tiers?.map(tier => ({
     reward: tier.reward || '',
     deposit: tier.deposit || '',
     level: tier.level || null,
-    value: tier.value || null,
-    minimum_deposit: tier.minimum_deposit || null,
+    value: tier.value ?? null,
+    minimum_deposit: tier.minimum_deposit ?? null,
     requirements: tier.requirements || null,
   })) || [];
 
@@ -210,7 +270,7 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     value: offer.value || 0,
     description: offer.bonus?.description || '',
     requirements,
-    tiers,
+    tiers: tiers.length > 0 ? tiers : null,
     additional_info: offer.bonus?.additional_info || null,
   };
 

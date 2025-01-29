@@ -128,16 +128,26 @@ export const OpportunitiesTable = ({
                 <TableCell>
                   {opportunity.bonus.requirements.map((req, index) => (
                     <Typography key={index} variant="body2">
-                      {req.type === 'spend' && (
+                      {req.type === 'spending' && (
                         <>
                           Spend ${req.details.amount.toLocaleString()} in{' '}
                           {req.details.period} days
                         </>
                       )}
-                      {req.type === 'deposit' && (
-                        <>Deposit ${req.details.amount.toLocaleString()}</>
+                      {req.type === 'direct_deposit' && (
+                        <>
+                          Direct deposit of ${req.details.amount.toLocaleString()}
+                        </>
                       )}
-                      {req.type === 'other' && 'Custom requirement'}
+                      {req.type === 'deposit' && (
+                        <>
+                          Deposit ${req.details.amount.toLocaleString()}
+                          {req.details.hold_period && ` and maintain for ${req.details.hold_period} days`}
+                        </>
+                      )}
+                      {req.type === 'account_closure' && (
+                        <>Keep account open for {req.details.period} days</>
+                      )}
                     </Typography>
                   ))}
                   {opportunity.details?.expiration && (
