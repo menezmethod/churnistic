@@ -174,14 +174,21 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   const bank = offer.name?.split(' ')?.[0] || offer.name || '';
 
   // Parse requirements from description
-  const parseRequirements = (description: string = '', type: 'bank' | 'credit_card' | 'brokerage'): Requirement[] => {
+  const parseRequirements = (
+    description: string = '',
+    type: 'bank' | 'credit_card' | 'brokerage'
+  ): Requirement[] => {
     const requirements: Requirement[] = [];
 
     // Spending requirement pattern
-    const spendMatch = description.match(/spend\s*\$?(\d+[,\d]*)\s*(?:in|within)?\s*(\d+)\s*(month|months|day|days)/i);
+    const spendMatch = description.match(
+      /spend\s*\$?(\d+[,\d]*)\s*(?:in|within)?\s*(\d+)\s*(month|months|day|days)/i
+    );
     if (spendMatch && type === 'credit_card') {
       const amount = parseInt(spendMatch[1].replace(/,/g, ''));
-      const period = parseInt(spendMatch[2]) * (spendMatch[3].toLowerCase().startsWith('month') ? 30 : 1);
+      const period =
+        parseInt(spendMatch[2]) *
+        (spendMatch[3].toLowerCase().startsWith('month') ? 30 : 1);
       requirements.push({
         type: 'spending' as RequirementType,
         details: { amount, period },
@@ -191,7 +198,9 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     }
 
     // Direct deposit pattern
-    const ddMatch = description.match(/(?:direct )?deposit\s*(?:of)?\s*\$?(\d+[,\d]*(?:\.\d+)?)/i);
+    const ddMatch = description.match(
+      /(?:direct )?deposit\s*(?:of)?\s*\$?(\d+[,\d]*(?:\.\d+)?)/i
+    );
     if (ddMatch && type === 'bank') {
       const amount = parseFloat(ddMatch[1].replace(/,/g, ''));
       requirements.push({
@@ -203,13 +212,15 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     }
 
     // Deposit and hold pattern
-    const depositHoldMatch = description.match(/\$?(\d+[,\d]*(?:\.\d+)?)\s*deposit.*?(?:held|hold|maintain).*?(\d+)\s*(day|days)/i);
+    const depositHoldMatch = description.match(
+      /\$?(\d+[,\d]*(?:\.\d+)?)\s*deposit.*?(?:held|hold|maintain).*?(\d+)\s*(day|days)/i
+    );
     if (depositHoldMatch && (type === 'bank' || type === 'brokerage')) {
       const amount = parseFloat(depositHoldMatch[1].replace(/,/g, ''));
       const holdPeriod = parseInt(depositHoldMatch[2]);
       requirements.push({
         type: 'deposit' as RequirementType,
-        details: { 
+        details: {
           amount,
           period: 30, // Default deposit period
           hold_period: holdPeriod,
@@ -220,7 +231,9 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     }
 
     // Account closure requirement
-    const closureMatch = description.match(/(?:not|don't|do not)\s*close.*?(\d+)\s*(day|days)/i);
+    const closureMatch = description.match(
+      /(?:not|don't|do not)\s*close.*?(\d+)\s*(day|days)/i
+    );
     if (closureMatch) {
       const period = parseInt(closureMatch[1]);
       requirements.push({
@@ -235,8 +248,11 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     if (requirements.length === 0 && description.trim()) {
       // Default requirement based on type
       const defaultReq: Requirement = {
-        type: (type === 'credit_card' ? 'spending' : 
-               type === 'bank' ? 'direct_deposit' : 'deposit') as RequirementType,
+        type: (type === 'credit_card'
+          ? 'spending'
+          : type === 'bank'
+            ? 'direct_deposit'
+            : 'deposit') as RequirementType,
         details: {
           amount: offer.value || 0,
           period: 60,
@@ -251,19 +267,20 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   };
 
   // Transform requirements based on offer type and description
-  const requirements = offer.bonus?.requirements?.description 
+  const requirements = offer.bonus?.requirements?.description
     ? parseRequirements(offer.bonus.requirements.description, offer.type)
     : [];
 
   // Transform bonus tiers with proper null handling
-  const tiers = offer.bonus?.tiers?.map(tier => ({
-    reward: tier.reward || '',
-    deposit: tier.deposit || '',
-    level: tier.level || null,
-    value: tier.value ?? null,
-    minimum_deposit: tier.minimum_deposit ?? null,
-    requirements: tier.requirements || null,
-  })) || [];
+  const tiers =
+    offer.bonus?.tiers?.map((tier) => ({
+      reward: tier.reward || '',
+      deposit: tier.deposit || '',
+      level: tier.level || null,
+      value: tier.value ?? null,
+      minimum_deposit: tier.minimum_deposit ?? null,
+      requirements: tier.requirements || null,
+    })) || [];
 
   // Transform bonus
   const bonus = {
@@ -277,37 +294,48 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
 
   // Transform details
   const details = {
-    monthly_fees: offer.details?.monthly_fees ? {
-      amount: offer.details.monthly_fees.amount || '0',
-      waiver_details: offer.details.monthly_fees.waiver_details || null,
-    } : null,
-    annual_fees: offer.details?.annual_fees ? {
-      amount: offer.details.annual_fees.amount || '0',
-      waived_first_year: offer.details.annual_fees.waived_first_year || false,
-    } : null,
+    monthly_fees: offer.details?.monthly_fees
+      ? {
+          amount: offer.details.monthly_fees.amount || '0',
+          waiver_details: offer.details.monthly_fees.waiver_details || null,
+        }
+      : null,
+    annual_fees: offer.details?.annual_fees
+      ? {
+          amount: offer.details.annual_fees.amount || '0',
+          waived_first_year: offer.details.annual_fees.waived_first_year || false,
+        }
+      : null,
     account_type: offer.details?.account_type || null,
     account_category: offer.details?.account_category || null,
-    availability: offer.details?.availability ? {
-      type: offer.details.availability.type || 'Nationwide',
-      states: offer.details.availability.states || [],
-      is_nationwide: offer.details.availability.is_nationwide ?? true,
-    } : null,
+    availability: offer.details?.availability
+      ? {
+          type: offer.details.availability.type || 'Nationwide',
+          states: offer.details.availability.states || [],
+          is_nationwide: offer.details.availability.is_nationwide ?? true,
+        }
+      : null,
     credit_inquiry: offer.details?.credit_inquiry || null,
     expiration: offer.details?.expiration || null,
     credit_score: offer.details?.credit_score || null,
-    under_5_24: offer.type === 'credit_card' && typeof offer.details?.under_5_24 === 'boolean' 
-      ? offer.details.under_5_24 
+    under_5_24:
+      offer.type === 'credit_card' && typeof offer.details?.under_5_24 === 'boolean'
+        ? offer.details.under_5_24
+        : null,
+    foreign_transaction_fees: offer.details?.foreign_transaction_fees
+      ? {
+          percentage: offer.details.foreign_transaction_fees.percentage || '0',
+          waived: offer.details.foreign_transaction_fees.waived || false,
+        }
       : null,
-    foreign_transaction_fees: offer.details?.foreign_transaction_fees ? {
-      percentage: offer.details.foreign_transaction_fees.percentage || '0',
-      waived: offer.details.foreign_transaction_fees.waived || false,
-    } : null,
     minimum_credit_limit: offer.details?.minimum_credit_limit || null,
-    rewards_structure: offer.details?.rewards_structure ? {
-      base_rewards: offer.details.rewards_structure.base_rewards || '',
-      bonus_categories: offer.details.rewards_structure.bonus_categories || [],
-      welcome_bonus: offer.details.rewards_structure.welcome_bonus || '',
-    } : null,
+    rewards_structure: offer.details?.rewards_structure
+      ? {
+          base_rewards: offer.details.rewards_structure.base_rewards || '',
+          bonus_categories: offer.details.rewards_structure.bonus_categories || [],
+          welcome_bonus: offer.details.rewards_structure.welcome_bonus || '',
+        }
+      : null,
     household_limit: offer.details?.household_limit || null,
     early_closure_fee: offer.details?.early_closure_fee || null,
     chex_systems: offer.details?.chex_systems || null,
@@ -418,9 +446,9 @@ const fetchPaginatedOpportunities = async (
 
   const snapshot = await getDocs(q);
   return {
-    items: snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({ 
-      id: doc.id, 
-      ...doc.data() 
+    items: snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+      id: doc.id,
+      ...doc.data(),
     })) as Opportunity[],
     total,
     hasMore: snapshot.docs.length === pageSize && snapshot.docs.length < total,
@@ -666,7 +694,14 @@ export function useOpportunities() {
                 .join(' AND '),
             },
             additional_info: opportunityData.bonus.additional_info || null,
-            tiers: opportunityData.bonus.tiers || null,
+            tiers: opportunityData.bonus.tiers?.map(tier => ({
+              reward: tier.reward || '',
+              deposit: tier.deposit || '',
+              level: tier.level || null,
+              value: tier.value || null,
+              minimum_deposit: tier.minimum_deposit || null,
+              requirements: tier.requirements || null
+            })) || null,
           },
           details: {
             monthly_fees: opportunityData.details?.monthly_fees || {
@@ -839,7 +874,11 @@ export function useOpportunities() {
         total: opportunities.length,
       };
     },
-    onSuccess: (result: { successful: string[]; failed: Array<{ id: string; error: unknown }>; total: number }) => {
+    onSuccess: (result: {
+      successful: string[];
+      failed: Array<{ id: string; error: unknown }>;
+      total: number;
+    }) => {
       console.log('Bulk approval completed:', result);
       queryClient.invalidateQueries(['opportunities']);
       queryClient.invalidateQueries(['staged_offers']);

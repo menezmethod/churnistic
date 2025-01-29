@@ -135,14 +135,13 @@ export const OpportunitiesTable = ({
                         </>
                       )}
                       {req.type === 'direct_deposit' && (
-                        <>
-                          Direct deposit of ${req.details.amount.toLocaleString()}
-                        </>
+                        <>Direct deposit of ${req.details.amount.toLocaleString()}</>
                       )}
                       {req.type === 'deposit' && (
                         <>
                           Deposit ${req.details.amount.toLocaleString()}
-                          {req.details.hold_period && ` and maintain for ${req.details.hold_period} days`}
+                          {req.details.hold_period &&
+                            ` and maintain for ${req.details.hold_period} days`}
                         </>
                       )}
                       {req.type === 'account_closure' && (

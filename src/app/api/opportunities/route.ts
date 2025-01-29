@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
     // Always get the auth context
     const { session } = await createAuthContext(req);
-    
+
     // In production, require authentication
     if (!useEmulator && !isPreviewEnvironment && !session?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -128,7 +128,11 @@ export async function POST(req: NextRequest) {
     }
 
     // In production, ensure the user can only use their own email
-    if (!useEmulator && !isPreviewEnvironment && session?.email !== body.metadata.created_by) {
+    if (
+      !useEmulator &&
+      !isPreviewEnvironment &&
+      session?.email !== body.metadata.created_by
+    ) {
       return NextResponse.json(
         { error: 'Cannot create opportunities on behalf of other users' },
         { status: 403 }

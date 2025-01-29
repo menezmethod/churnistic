@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 
 import { BankRewardsOffer } from '@/types/scraper';
-import { TransformedOffer, BonusTier, Details, Logo } from '@/types/transformed';
+import { TransformedOffer, BonusTier, Details, Logo, Bonus, Metadata } from '@/types/transformed';
 
 export interface EnhancedTransformedOffer extends TransformedOffer {
   value: number;
@@ -1479,193 +1479,121 @@ export class BankRewardsTransformer {
   }
 
   public transform(offer: BankRewardsOffer): EnhancedTransformedOffer {
-    try {
-      console.log(`Starting transformation for offer ${offer?.id} (${offer?.title})`);
+    this.initCheerio(offer.metadata.rawHtml);
 
-      // Input validation with detailed logging
-      if (!offer) {
-        throw new Error('Offer object is null or undefined');
-      }
+    // Set the type based on the offer type
+    this.type =
+      offer.type.toLowerCase() === 'credit_card'
+        ? 'credit_card'
+        : offer.type.toLowerCase() === 'brokerage'
+          ? 'brokerage'
+          : 'bank';
 
-      if (!offer.metadata) {
-        throw new Error(`Offer ${offer.id} is missing metadata`);
-      }
+    const tiers = this.extractTableTiers();
+    if (tiers.length === 0) {
+      const textTiers = this.extractTextTiers(this.$('div').text());
+      tiers.push(...textTiers);
+    }
 
-      if (!offer.metadata.rawHtml) {
-        console.warn(`Offer ${offer.id} has no HTML content to parse`);
-        throw new Error(`Missing raw HTML in offer metadata for ${offer.id}`);
-      }
+    const bonusDescription = this.extractBonusDescription();
+    const bonusRequirements = this.extractBonusRequirements();
 
-      this.initCheerio(offer.metadata.rawHtml);
-
-      // Validate and normalize offer type
-      if (!offer.type) {
-        throw new Error(`Offer ${offer.id} is missing type`);
-      }
-
-      const typeMap: { [key: string]: 'credit_card' | 'brokerage' | 'bank' } = {
-        credit_card: 'credit_card',
-        CREDIT_CARD: 'credit_card',
-        brokerage: 'brokerage',
-        BROKERAGE: 'brokerage',
-        bank: 'bank',
-        BANK: 'bank',
-        bank_account: 'bank',
-        BANK_ACCOUNT: 'bank',
+    // Helper function to estimate stock value based on historical data
+    const estimateStockValue = (numStocks: number, company?: string): number => {
+      // Historical average values for common stock rewards
+      const stockValues: { [key: string]: number } = {
+        moomoo: 15, // Futu Holdings stock ~$15
+        webull: 10, // Common stock rewards ~$10
+        robinhood: 12, // Common stock rewards ~$12
+        sofi: 8, // SoFi stock ~$8
+        public: 10, // Common stock rewards ~$10
+        tastyworks: 12, // Common stock rewards ~$12
+        firstrade: 10, // Common stock rewards ~$10
+        default: 12, // Default estimate for unknown brokers
       };
 
-      const normalizedType = typeMap[offer.type];
-      if (!normalizedType) {
-        throw new Error(
-          `Invalid offer type ${offer.type} for offer ${offer.id}. Valid types are: ${Object.keys(typeMap).join(', ')}`
-        );
-      }
+      // Try to find company-specific value
+      const companyValue = company
+        ? Object.entries(stockValues).find(([key]) =>
+            company.toLowerCase().includes(key)
+          )?.[1] || stockValues.default
+        : stockValues.default;
 
-      this.type = normalizedType;
-      console.log(`Processing ${this.type} offer: ${offer.id}`);
+      return Math.round(numStocks * companyValue * 100) / 100;
+    };
 
-      // Extract and validate all components with detailed logging
-      const tiers = this.extractTableTiers();
-      console.log(`Found ${tiers.length} tiers in tables for offer ${offer.id}`);
-
-      if (tiers.length === 0) {
-        const textTiers = this.extractTextTiers(this.$('div').text());
-        console.log(`Found ${textTiers.length} tiers in text for offer ${offer.id}`);
-        tiers.push(...textTiers);
-      }
-
-      // Extract tiered requirements if they exist
-      const tieredRequirements = this.extractTieredRequirements();
-      if (tieredRequirements.length > 0) {
-        console.log(
-          `Found ${tieredRequirements.length} tiered requirements for offer ${offer.id}`
-        );
-        // If we have tiered requirements, use them to enhance or replace the tiers
-        tieredRequirements.forEach(({ tier, requirements }) => {
-          const existingTier = tiers.find((t) => t.reward === tier);
-          if (existingTier) {
-            existingTier.deposit = requirements;
-          } else {
-            tiers.push({ reward: tier, deposit: requirements });
-          }
-        });
-      }
-
-      const bonusDescription = this.extractBonusDescription();
-      if (!bonusDescription) {
-        console.warn(
-          `No bonus description found for offer ${offer.id}. HTML content length: ${offer.metadata.rawHtml.length}`
-        );
+    // Use metadata.bonus if available, otherwise fall back to extractValue
+    let estimatedValue = 0;
+    if (offer.metadata.bonus) {
+      // Check for stock format (e.g. "15 Stocks")
+      const stockMatch = offer.metadata.bonus.match(/(\d+)\s*stocks?/i);
+      if (stockMatch) {
+        const numStocks = parseInt(stockMatch[1]);
+        estimatedValue = estimateStockValue(numStocks, offer.title);
       } else {
-        console.log(`Extracted bonus description for offer ${offer.id}`);
-      }
-
-      // Extract requirements with improved handling
-      const bonusRequirements = this.extractBonusRequirements();
-      if (bonusRequirements === 'Contact bank for specific requirements') {
-        console.warn(
-          `Falling back to generic requirements message for offer ${offer.id}. This might indicate parsing issues.`
-        );
-      } else {
-        console.log(`Successfully extracted specific requirements for offer ${offer.id}`);
-      }
-
-      // Calculate value with detailed logging
-      let estimatedValue = 0;
-      if (offer.metadata.bonus) {
-        console.log(
-          `Processing metadata bonus for offer ${offer.id}: ${offer.metadata.bonus}`
-        );
-        const stockPattern = /(\d+)\s*stocks?/i;
-        const stockMatch = stockPattern.exec(offer.metadata.bonus);
-        if (stockMatch) {
-          const numStocks = parseInt(stockMatch[1]);
-          estimatedValue = this.estimateStockValue(numStocks, offer.title);
-          console.log(`Estimated stock value for offer ${offer.id}: $${estimatedValue}`);
-        } else {
-          const valuePattern = /\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i;
-          const match = valuePattern.exec(offer.metadata.bonus);
-          if (match) {
-            estimatedValue = parseFloat(this.normalizeAmount(match[1]));
-            console.log(
-              `Extracted bonus value for offer ${offer.id}: $${estimatedValue}`
-            );
-          }
+        // Check for dollar amount format
+        const match = offer.metadata.bonus.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/);
+        if (match) {
+          estimatedValue = parseFloat(this.normalizeAmount(match[1]));
         }
       }
-
-      if (estimatedValue === 0) {
-        const extractedValue = this.extractValue(offer.metadata.rawHtml);
-        const tiersValue = this.estimateValueFromTiers(tiers);
-        estimatedValue = Math.max(extractedValue, tiersValue);
-        console.log(
-          `Calculated value for offer ${offer.id}: $${estimatedValue} (extracted: $${extractedValue}, tiers: $${tiersValue})`
-        );
-      }
-
-      if (estimatedValue === 0) {
-        console.warn(
-          `Could not estimate value for offer ${offer.id}. Using fallback value of $200`
-        );
-        estimatedValue = 200; // Fallback value instead of failing
-      }
-
-      const additionalInfo = this.extractAdditionalInfo();
-      const details = this.extractDetails();
-      console.log(
-        `Extracted details for offer ${offer.id}:`,
-        JSON.stringify(details, null, 2)
-      );
-
-      // Validate required fields with detailed errors
-      if (!offer.id) {
-        throw new Error('Missing offer ID');
-      }
-      if (!offer.title) {
-        throw new Error(`Missing title for offer ${offer.id}`);
-      }
-
-      // Create metadata with validation
-      const metadata = {
-        created: new Date(offer.metadata.lastChecked || Date.now()).toISOString(),
-        updated: new Date(offer.metadata.lastChecked || Date.now()).toISOString(),
-      };
-
-      // Construct the final offer with improved structure
-      const transformedOffer: EnhancedTransformedOffer = {
-        id: offer.id,
-        name: offer.title,
-        type: this.type,
-        offer_link: offer.metadata.offerBaseUrl || '',
-        value: estimatedValue,
-        bonus: {
-          title: 'Bonus Details',
-          description: bonusDescription || 'Contact bank for bonus details',
-          requirements: {
-            title: 'Bonus Requirements',
-            description: bonusRequirements,
-            ...(tieredRequirements.length > 0 && { tiers: tieredRequirements }),
-          },
-          ...(tiers.length > 0 && { bonus_tiers: tiers }),
-          additional_info: additionalInfo,
-        },
-        details: {
-          ...details,
-          under_5_24: this.type === 'credit_card' ? this.extract524Status() : undefined,
-        },
-        metadata,
-        logo: this.getLogo(offer.title),
-        ...(this.type === 'credit_card' && { card_image: this.getCardImage() }),
-      };
-
-      // Validate the transformed offer
-      this.validateTransformedOffer(transformedOffer);
-
-      return transformedOffer;
-    } catch (error) {
-      console.error(`Error transforming offer ${offer?.id}:`, error);
-      throw error;
     }
+
+    // If no value from metadata.bonus, try extracting from HTML
+    if (estimatedValue === 0) {
+      const extractedValue = this.extractValue(offer.metadata.rawHtml);
+      const tiersValue = this.estimateValueFromTiers(tiers);
+      estimatedValue = Math.max(extractedValue, tiersValue);
+    }
+
+    const additionalInfo = this.extractAdditionalInfo();
+
+    const bonus: Bonus = {
+      title: 'Bonus Details',
+      description: bonusDescription,
+      requirements: {
+        title: 'Bonus Requirements',
+        description: bonusRequirements,
+      },
+      tiers: tiers.length > 0 ? tiers.map(tier => {
+        // Extract numeric value from reward (e.g. "6 shares" -> 6)
+        const rewardValue = parseFloat(tier.reward.replace(/[^0-9.]/g, '')) || 0;
+        
+        // Extract numeric value from deposit (e.g. "$100" -> 100)
+        const depositStr = tier.deposit || '0';
+        const depositValue = parseFloat(depositStr.replace(/[^0-9.]/g, '')) || 0;
+        
+        return {
+          reward: tier.reward,
+          deposit: tier.deposit || '',
+          level: tier.reward,
+          value: rewardValue,
+          minimum_deposit: depositValue,
+          requirements: tier.requirement || tier.deposit || ''
+        };
+      }) : undefined,
+      additional_info: additionalInfo,
+    };
+
+    const details = this.extractDetails();
+
+    const metadata: Metadata = {
+      created: new Date(offer.metadata.lastChecked).toISOString(),
+      updated: new Date(offer.metadata.lastChecked).toISOString(),
+    };
+
+    return {
+      id: offer.id,
+      name: offer.title,
+      type: this.type,
+      offer_link: offer.metadata.offerBaseUrl || '',
+      value: estimatedValue,
+      bonus,
+      details,
+      metadata,
+      logo: this.getLogo(offer.title),
+      ...(this.type === 'credit_card' && { card_image: this.getCardImage() }),
+    };
   }
 
   private validateTransformedOffer(offer: EnhancedTransformedOffer): void {
