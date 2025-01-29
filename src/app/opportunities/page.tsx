@@ -8,19 +8,27 @@ import { useEffect, useState, Suspense } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { AuthUser } from '@/lib/auth/authService';
 import { FirestoreOpportunity } from '@/types/opportunity';
+import { useOpportunities } from '@/lib/opportunities/useOpportunities';
 
 import OpportunitiesSection from './components/OpportunitiesSection';
 
 const API_BASE_URL = '/api/opportunities';
 
 export default function OpportunitiesPage() {
-  const [opportunities, setOpportunities] = useState<FirestoreOpportunity[]>(
-    [] as FirestoreOpportunity[]
-  );
+  const [opportunities, setOpportunities] = useState<FirestoreOpportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const { data: fetchedOpportunities, isLoading } = useOpportunities(100);
+
+  useEffect(() => {
+    if (fetchedOpportunities) {
+      setOpportunities(fetchedOpportunities);
+      setLoading(false);
+    }
+  }, [fetchedOpportunities]);
 
   return (
     <Suspense
@@ -79,25 +87,6 @@ function OpportunitiesPageContent({
     }
     router.push('/opportunities/add');
   };
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch(API_BASE_URL);
-        if (!response.ok) {
-          throw new Error('Failed to fetch opportunities');
-        }
-        const data = await response.json();
-        setOpportunities(data);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to load opportunities'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [setError, setLoading, setOpportunities]);
 
   const handleDelete = async (id: string) => {
     if (!user) {
