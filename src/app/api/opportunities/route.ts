@@ -128,6 +128,7 @@ export async function POST(req: NextRequest) {
       description: body.description || '',
       offer_link: body.offer_link || '',
       value: parseInt(body.value) || 0,
+      source_id: body.source_id || body.id,
       bonus: {
         title: body.bonus?.title || '',
         description: body.bonus?.description || '',
@@ -152,6 +153,8 @@ export async function POST(req: NextRequest) {
         early_closure_fee: body.details?.early_closure_fee || null,
         chex_systems: body.details?.chex_systems || null,
         expiration: body.details?.expiration || null,
+        options_trading: body.details?.options_trading || null,
+        ira_accounts: body.details?.ira_accounts || null,
       },
       logo: body.logo || {
         type: '',
@@ -166,13 +169,17 @@ export async function POST(req: NextRequest) {
               badge: null,
             }
           : null,
-      metadata: body.metadata || {
-        created_at: new Date().toISOString(),
+      metadata: {
+        ...(body.metadata || {}),
+        created_at: body.metadata?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
         created_by: userEmail,
-        status: 'active',
+        status: body.metadata?.status || 'active',
         environment: isPreviewEnvironment ? 'preview' : 'production',
       },
+      status: body.status || 'approved',
+      createdAt: body.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     console.log('Processed opportunity:', JSON.stringify(opportunity, null, 2));

@@ -331,7 +331,12 @@ const OpportunitiesPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {opportunities.map((opportunity) => (
+                {opportunities
+                  .filter((opp, index, self) => 
+                    // Only keep the first occurrence of each ID
+                    index === self.findIndex((o) => o.id === opp.id)
+                  )
+                  .map((opportunity) => (
                   <TableRow
                     key={opportunity.id}
                     hover
