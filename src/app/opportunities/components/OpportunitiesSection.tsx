@@ -9,6 +9,18 @@ import {
   GridView as GridViewIcon,
   ViewList as ViewListIcon,
   Sort as SortIcon,
+  CreditCard,
+  AccountBalance,
+  AccountBalanceWallet,
+  Timer,
+  Public,
+  Diamond,
+  AttachMoney,
+  ShoppingCart,
+  Payments,
+  Block,
+  CheckCircle,
+  CreditScore,
 } from '@mui/icons-material';
 import {
   Box,
@@ -62,6 +74,138 @@ const REVERSE_CATEGORY_MAP = {
   brokerage: 'brokerages',
 } as const;
 
+const QUICK_FILTERS = [
+  {
+    id: 'premium_offers',
+    label: 'Premium ($500+)',
+    icon: MonetizationOn,
+    color: '#9c27b0',
+    filter: (opp: FirestoreOpportunity) => opp.value >= 500,
+  },
+  {
+    id: 'credit_card',
+    label: 'Credit Cards',
+    icon: CreditCard,
+    color: '#1976d2',
+    filter: (opp: FirestoreOpportunity) => opp.type === 'credit_card',
+  },
+  {
+    id: 'bank',
+    label: 'Bank Accounts',
+    icon: AccountBalance,
+    color: '#2e7d32',
+    filter: (opp: FirestoreOpportunity) => opp.type === 'bank',
+  },
+  {
+    id: 'brokerage',
+    label: 'Brokerage',
+    icon: AccountBalanceWallet,
+    color: '#ed6c02',
+    filter: (opp: FirestoreOpportunity) => opp.type === 'brokerage',
+  },
+  {
+    id: 'quick_bonus',
+    label: 'Quick Win',
+    icon: Timer,
+    color: '#0288d1',
+    filter: (opp: FirestoreOpportunity) =>
+      opp.requirements?.some(
+        (req) =>
+          req.toLowerCase().includes('single') ||
+          req.toLowerCase().includes('one time') ||
+          req.toLowerCase().includes('first')
+      ) ?? false,
+  },
+  {
+    id: 'nationwide',
+    label: 'Nationwide',
+    icon: Public,
+    color: '#388e3c',
+    filter: (opp: FirestoreOpportunity) => opp.metadata?.availability?.is_nationwide === true,
+  },
+];
+
+const FILTER_GROUPS = [
+  {
+    label: 'Value Tiers',
+    filters: [
+      {
+        id: 'ultra_premium',
+        label: 'Ultra ($1000+)',
+        icon: Diamond,
+        color: '#9c27b0',
+        filter: (opp: FirestoreOpportunity) => opp.value >= 1000,
+      },
+      {
+        id: 'premium',
+        label: 'Premium ($500+)',
+        icon: MonetizationOn,
+        color: '#2e7d32',
+        filter: (opp: FirestoreOpportunity) => opp.value >= 500 && opp.value < 1000,
+      },
+      {
+        id: 'standard',
+        label: 'Standard ($200+)',
+        icon: AttachMoney,
+        color: '#1976d2',
+        filter: (opp: FirestoreOpportunity) => opp.value >= 200 && opp.value < 500,
+      },
+    ],
+  },
+  {
+    label: 'Requirements',
+    filters: [
+      {
+        id: 'direct_deposit',
+        label: 'Direct Deposit',
+        icon: Payments,
+        color: '#0288d1',
+        filter: (opp: FirestoreOpportunity) =>
+          opp.requirements?.some((req) => req.toLowerCase().includes('direct deposit')) ?? false,
+      },
+      {
+        id: 'no_direct_deposit',
+        label: 'No DD Required',
+        icon: Block,
+        color: '#d32f2f',
+        filter: (opp: FirestoreOpportunity) =>
+          !opp.requirements?.some((req) => req.toLowerCase().includes('direct deposit')) ?? true,
+      },
+      {
+        id: 'low_spend',
+        label: 'Low Spend',
+        icon: ShoppingCart,
+        color: '#388e3c',
+        filter: (opp: FirestoreOpportunity) => {
+          const spendMatch = opp.requirements?.join(' ').match(/\$(\d+)/);
+          if (!spendMatch) return false;
+          return parseInt(spendMatch[1]) <= 500;
+        },
+      },
+    ],
+  },
+  {
+    label: 'Credit Impact',
+    filters: [
+      {
+        id: 'soft_pull',
+        label: 'Soft Pull Only',
+        icon: CreditScore,
+        color: '#2e7d32',
+        filter: (opp: FirestoreOpportunity) => opp.metadata?.credit?.inquiry === 'soft_pull',
+      },
+      {
+        id: 'no_524',
+        label: 'No 5/24 Impact',
+        icon: CheckCircle,
+        color: '#1976d2',
+        filter: (opp: FirestoreOpportunity) =>
+          opp.type === 'credit_card' && !opp.details?.under_5_24?.required,
+      },
+    ],
+  },
+];
+
 export default function OpportunitiesSection({
   opportunities: initialOpportunities,
   loading,
@@ -76,16 +220,11 @@ export default function OpportunitiesSection({
   const [opportunities, setOpportunities] =
     useState<FirestoreOpportunity[]>(initialOpportunities);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Initialize selected type from URL parameter
-  const [selectedType, setSelectedType] = useState<string | null>(() => {
-    const category = searchParams.get('category');
-    if (!category) return null;
-    return CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null;
-  });
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [selectedSmartFilters, setSelectedSmartFilters] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [sortBy, setSortBy] = useState<string>('name');
+  const [sortBy, setSortBy] = useState<'value' | 'regions' | 'date'>('value');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -96,6 +235,20 @@ export default function OpportunitiesSection({
     opportunity: null,
   });
   const { user } = useAuth();
+
+  // Initialize selected type from URL parameter
+  const [selectedType, setSelectedType] = useState<string | null>(() => {
+    const category = searchParams.get('category');
+    if (!category) return null;
+    return CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null;
+  });
+
+  // Get unique banks for filtering
+  const availableBanks = Array.from(
+    new Set(opportunities.filter((opp) => opp.bank).map((opp) => opp.bank!))
+  ).sort();
+
+  const [selectedBank, setSelectedBank] = useState<string | null>(null);
 
   // Update URL when filter changes
   const updateUrl = (newType: string | null) => {
@@ -191,19 +344,90 @@ export default function OpportunitiesSection({
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       // If selecting a new sort type, default to ascending
-      setSortBy(type);
+      setSortBy(type as 'value' | 'regions' | 'date');
       setSortDirection('asc');
     }
     handleSortClose();
   };
 
-  const filteredAndSortedOpportunities = sortAndFilterOpportunities(
-    opportunities || [],
-    searchTerm,
-    selectedType,
-    sortBy as 'name' | 'value' | 'type' | 'date' | null,
-    sortDirection
-  );
+  // Enhanced filtering logic
+  const getFilteredAndSortedOpportunities = () => {
+    let filtered = opportunities;
+
+    // Apply search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (opp) =>
+          opp.name.toLowerCase().includes(searchLower) ||
+          (opp.bank || '').toLowerCase().includes(searchLower) ||
+          (opp.description || '').toLowerCase().includes(searchLower) ||
+          opp.requirements?.some((req) => req.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Apply bank filter
+    if (selectedBank) {
+      filtered = filtered.filter((opp) => opp.bank === selectedBank);
+    }
+
+    // Apply quick filters
+    if (activeFilter) {
+      const quickFilter = QUICK_FILTERS.find((f) => f.id === activeFilter);
+      if (quickFilter?.filter) {
+        filtered = filtered.filter(quickFilter.filter);
+      }
+    }
+
+    // Apply smart filters
+    if (selectedSmartFilters.length > 0) {
+      const activeFilters = FILTER_GROUPS.flatMap((group) => group.filters).filter(
+        (filter) => selectedSmartFilters.includes(filter.id)
+      );
+
+      filtered = filtered.filter((opp) =>
+        activeFilters.every((filter) => filter.filter(opp))
+      );
+    }
+
+    // Apply sorting
+    return filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'value':
+          return b.value - a.value;
+        case 'regions':
+          const aRegions = a.metadata?.availability?.regions || [];
+          const bRegions = b.metadata?.availability?.regions || [];
+          return bRegions.length - aRegions.length;
+        case 'date':
+          return (
+            new Date(b.metadata.created_at).getTime() -
+            new Date(a.metadata.created_at).getTime()
+          );
+        default:
+          return 0;
+      }
+    });
+  };
+
+  const filteredOpportunities = getFilteredAndSortedOpportunities();
+
+  // Calculate statistics
+  const stats = {
+    total: filteredOpportunities.length,
+    averageValue: Math.round(
+      filteredOpportunities.reduce((sum, opp) => sum + opp.value, 0) /
+        filteredOpportunities.length
+    ),
+    byType: {
+      credit_card: filteredOpportunities.filter((opp) => opp.type === 'credit_card')
+        .length,
+      bank: filteredOpportunities.filter((opp) => opp.type === 'bank').length,
+      brokerage: filteredOpportunities.filter((opp) => opp.type === 'brokerage')
+        .length,
+    },
+    highValue: filteredOpportunities.filter((opp) => opp.value >= 500).length,
+  };
 
   if (loading) {
     return (
@@ -585,18 +809,18 @@ export default function OpportunitiesSection({
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
               >
                 <MenuItem
-                  onClick={() => handleSortSelect('name')}
-                  selected={sortBy === 'name'}
+                  onClick={() => handleSortSelect('value')}
+                  selected={sortBy === 'value'}
                 >
                   <SortByAlpha />
-                  Name
+                  Value
                 </MenuItem>
                 <MenuItem
-                  onClick={() => handleSortSelect('type')}
-                  selected={sortBy === 'type'}
+                  onClick={() => handleSortSelect('regions')}
+                  selected={sortBy === 'regions'}
                 >
                   <Category />
-                  Type
+                  Regions
                 </MenuItem>
                 <MenuItem
                   onClick={() => handleSortSelect('date')}
@@ -638,13 +862,13 @@ export default function OpportunitiesSection({
           {/* Opportunities List/Grid */}
           {viewMode === 'grid' ? (
             <OpportunityGrid
-              opportunities={filteredAndSortedOpportunities}
+              opportunities={filteredOpportunities}
               onDeleteClick={handleDeleteClick}
               isDeleting={isDeleting ? deleteDialog.opportunity?.id || null : null}
             />
           ) : (
             <OpportunityList
-              opportunities={filteredAndSortedOpportunities}
+              opportunities={filteredOpportunities}
               onDeleteClick={handleDeleteClick}
               isDeleting={isDeleting ? deleteDialog.opportunity?.id || null : null}
             />
