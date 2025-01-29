@@ -9,7 +9,6 @@ import {
 } from '@mui/icons-material';
 import { alpha, Box, Button, Typography, useTheme } from '@mui/material';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 
 export const QuickActions = () => {
   const theme = useTheme();

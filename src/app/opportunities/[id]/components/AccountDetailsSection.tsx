@@ -327,36 +327,39 @@ export const AccountDetailsSection = ({ opportunity }: AccountDetailsSectionProp
         </Box>
       )}
 
-      {opportunity.details?.platform_features && Array.isArray(opportunity.details.platform_features) && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-            }}
-          >
-            <Apps sx={{ color: 'primary.main' }} />
+      {opportunity.details?.platform_features &&
+        Array.isArray(opportunity.details.platform_features) && (
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
+              }}
+            >
+              <Apps sx={{ color: 'primary.main' }} />
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                Platform Features
+              </Typography>
+              {opportunity.details.platform_features.map(
+                (feature: { name: string; description: string }, index: number) => (
+                  <Box key={index} sx={{ mt: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">
+                      {feature.name}
+                    </Typography>
+                    <Typography variant="body2">{feature.description}</Typography>
+                  </Box>
+                )
+              )}
+            </Box>
           </Box>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Platform Features
-            </Typography>
-            {opportunity.details.platform_features.map((feature: { name: string; description: string }, index: number) => (
-              <Box key={index} sx={{ mt: 1 }}>
-                <Typography variant="body2" fontWeight="bold">
-                  {feature.name}
-                </Typography>
-                <Typography variant="body2">{feature.description}</Typography>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      )}
+        )}
     </>
   );
 
