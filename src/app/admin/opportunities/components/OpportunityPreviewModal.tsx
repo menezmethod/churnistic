@@ -151,14 +151,15 @@ export const OpportunityPreviewModal = ({
               {opportunity.bonus.requirements?.map((req, index) => (
                 <Box key={index}>
                   <Typography variant="subtitle2" color="text.secondary">
-                    Requirements
+                    {req.title}
                   </Typography>
                   <Typography>
-                    {req.type === 'spending'
-                      ? `Spend $${req.details.amount} within ${req.details.period} days`
-                      : req.type === 'deposit'
-                        ? `Deposit $${req.details.amount}`
-                        : `$${req.details.amount} requirement`}
+                    {req.description}
+                    {req.type === 'deposit' && req.details.hold_period && (
+                      <Typography variant="body2" color="text.secondary">
+                        Must maintain balance for {req.details.hold_period} days
+                      </Typography>
+                    )}
                   </Typography>
                 </Box>
               ))}
