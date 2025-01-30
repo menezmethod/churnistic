@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { UserRole } from '@/lib/auth/types';
 import { getAdminAuth } from '@/lib/firebase/admin';
 
 // Add OPTIONS handler for CORS preflight
@@ -95,31 +96,29 @@ export async function POST(request: NextRequest) {
         const userRole = decodedClaims.role;
         const isSuperAdmin =
           decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL;
+        const isAdmin = userRole === UserRole.ADMIN || userRole === UserRole.SUPERADMIN;
 
         console.log('Admin access check:', {
           email: decodedClaims.email,
           role: userRole,
           isSuperAdmin,
+          isAdmin,
           superAdminEmail: process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL?.slice(0, 3) + '...',
-          hasAccess: isSuperAdmin || userRole === 'admin',
+          hasAccess: isSuperAdmin || isAdmin,
           reason: isSuperAdmin
-            ? 'Super Admin'
-            : userRole === 'admin'
+            ? 'Super Admin Email'
+            : isAdmin
               ? 'Admin Role'
               : 'No Access',
         });
 
-        // If user is Super Admin, grant access regardless of role
-        if (isSuperAdmin) {
-          console.log('Granting access to Super Admin');
-          // Continue with access granted
-        } else if (userRole !== 'admin') {
-          // Only check role if not Super Admin
+        if (!isSuperAdmin && !isAdmin) {
           console.log('User lacks required privileges:', {
             email: decodedClaims.email,
             role: userRole,
             requiredRole,
             isSuperAdmin,
+            isAdmin,
             reason: 'Not Super Admin and no Admin role',
           });
           return NextResponse.json(
@@ -139,8 +138,8 @@ export async function POST(request: NextRequest) {
           role:
             decodedClaims.role ||
             (decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
-              ? 'admin'
-              : 'user'),
+              ? UserRole.SUPERADMIN
+              : UserRole.USER),
         },
       });
 

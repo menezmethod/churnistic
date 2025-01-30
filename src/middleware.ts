@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+import { UserRole } from '@/lib/auth/types';
+
 // Paths that require authentication
 const protectedPaths = ['/dashboard', '/admin', '/api/users'];
 
@@ -90,7 +92,7 @@ export async function middleware(request: NextRequest) {
       headers,
       body: JSON.stringify({
         sessionCookie,
-        requiredRole: isAdminPath ? 'admin' : undefined,
+        requiredRole: isAdminPath ? UserRole.ADMIN : undefined,
       }),
       credentials: 'include',
     });
