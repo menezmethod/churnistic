@@ -38,12 +38,16 @@ export async function middleware(request: NextRequest) {
 
     // Construct the absolute URL for the verify endpoint
     const verifyUrl = `${protocol}//${host}/api/auth/verify`;
-    console.log(
-      'Verifying session at:',
-      verifyUrl,
-      'with cookie length:',
-      sessionCookie.length
-    );
+    console.log('Debug - Full request details:', {
+      url: verifyUrl,
+      sessionCookiePresent: !!sessionCookie,
+      sessionCookieLength: sessionCookie?.length,
+      host,
+      protocol,
+      path,
+      isAdminPath,
+      cookies: request.cookies.getAll(),
+    });
 
     // Forward all cookies and headers
     const headers = new Headers({
@@ -99,7 +103,21 @@ export async function middleware(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Error in middleware:', error);
+    console.error('Error in middleware - Full details:', {
+      errorType: error instanceof Error ? 'Error' : typeof error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      path,
+      isAdminPath,
+      sessionCookiePresent: !!sessionCookie,
+    });
+
+    // Try to parse the response if it's a fetch error
+    if (error instanceof Error && error.message.includes('JSON')) {
+      console.log('Possible HTML response received instead of JSON');
+      return NextResponse.redirect(new URL('/auth/signin', request.url));
+    }
+
     return NextResponse.redirect(new URL('/auth/signin', request.url));
   }
 }

@@ -4,8 +4,48 @@ import { getAdminAuth } from '@/lib/firebase/admin';
 
 export async function POST(request: NextRequest) {
   try {
-    const { sessionCookie, requiredRole } = await request.json();
-    console.log('Verify endpoint called with role requirement:', requiredRole);
+    // Log request details
+    const headers = Object.fromEntries(request.headers.entries());
+    console.log('Verify endpoint - Headers:', {
+      ...headers,
+      cookie: headers.cookie ? 'present' : 'missing',
+    });
+
+    // Ensure the request is JSON
+    const contentType = request.headers.get('content-type');
+    if (!contentType?.includes('application/json')) {
+      console.error('Invalid content type:', contentType);
+      return NextResponse.json(
+        { isValid: false, error: 'Invalid content type' },
+        { status: 400 }
+      );
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      console.error('Failed to parse request body:', e);
+      return NextResponse.json(
+        { isValid: false, error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
+    const { sessionCookie, requiredRole } = body;
+
+    // Log environment and request state
+    console.log('Verify endpoint - Request state:', {
+      sessionCookiePresent: !!sessionCookie,
+      sessionCookieLength: sessionCookie?.length,
+      requiredRole,
+      env: {
+        hasProjectId: !!process.env.FIREBASE_PROJECT_ID,
+        hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+        hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+        hasSuperAdmin: !!process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL,
+      },
+    });
 
     if (!sessionCookie) {
       console.log('No session cookie in request body');
@@ -17,6 +57,14 @@ export async function POST(request: NextRequest) {
 
     // Get the auth instance
     const auth = getAdminAuth();
+    if (!auth) {
+      console.error('Failed to initialize Firebase Admin');
+      return NextResponse.json(
+        { isValid: false, error: 'Auth initialization failed' },
+        { status: 500 }
+      );
+    }
+
     console.log('Attempting to verify session cookie...');
 
     try {
@@ -29,11 +77,17 @@ export async function POST(request: NextRequest) {
         const isSuperAdmin =
           decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL;
 
-        console.log('Admin check:', {
+        console.log('Admin access check:', {
           email: decodedClaims.email,
           role: userRole,
           isSuperAdmin,
-          superAdminEmail: process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL,
+          superAdminEmail: process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL?.slice(0, 3) + '...',
+          hasAccess: isSuperAdmin || userRole === 'admin',
+          reason: isSuperAdmin
+            ? 'Super Admin'
+            : userRole === 'admin'
+              ? 'Admin Role'
+              : 'No Access',
         });
 
         if (!isSuperAdmin && userRole !== 'admin') {
@@ -41,6 +95,8 @@ export async function POST(request: NextRequest) {
             email: decodedClaims.email,
             role: userRole,
             requiredRole,
+            isSuperAdmin,
+            reason: 'Neither Super Admin nor Admin role',
           });
           return NextResponse.json(
             { isValid: false, error: 'Insufficient privileges' },
@@ -49,13 +105,20 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return NextResponse.json({
+      // Set CORS headers
+      const response = NextResponse.json({
         isValid: true,
         user: {
           ...decodedClaims,
           isSuperAdmin: decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL,
         },
       });
+
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+
+      return response;
     } catch (verifyError) {
       console.error('Session verification failed:', verifyError);
       return NextResponse.json(
