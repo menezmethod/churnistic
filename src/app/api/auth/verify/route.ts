@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       console.log('Session verified successfully for:', decodedClaims.email);
 
       // Check for admin/superadmin role if required
-      if (requiredRole === 'admin') {
+      if (requiredRole === UserRole.ADMIN) {
         const userRole = decodedClaims.role;
         const isSuperAdmin =
           decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL;
@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
               : 'No Access',
         });
 
+        // If not super admin and not admin role, deny access
         if (!isSuperAdmin && !isAdmin) {
           console.log('User lacks required privileges:', {
             email: decodedClaims.email,
@@ -126,6 +127,21 @@ export async function POST(request: NextRequest) {
             { status: 403 }
           );
         }
+
+        // If super admin, ensure they have the admin role set
+        if (isSuperAdmin && !userRole) {
+          // Set admin role for super admin if not set
+          try {
+            await getAdminAuth().setCustomUserClaims(decodedClaims.uid, {
+              ...decodedClaims,
+              role: UserRole.SUPERADMIN,
+            });
+            console.log('Set SUPERADMIN role for super admin user');
+          } catch (error) {
+            console.error('Failed to set super admin role:', error);
+            // Continue anyway since they're still super admin by email
+          }
+        }
       }
 
       // Set security headers
@@ -134,7 +150,7 @@ export async function POST(request: NextRequest) {
         user: {
           ...decodedClaims,
           isSuperAdmin: decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL,
-          // Ensure role is set for consistency
+          // Ensure role is set for consistency, prioritizing existing role
           role:
             decodedClaims.role ||
             (decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL

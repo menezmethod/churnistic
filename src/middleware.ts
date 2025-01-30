@@ -116,6 +116,13 @@ export async function middleware(request: NextRequest) {
       });
 
       if (verifyResponse.status === 403) {
+        // Add debug logging for unauthorized case
+        console.log('Access denied:', {
+          path,
+          isAdminPath,
+          error: responseData.error,
+          status: verifyResponse.status,
+        });
         return NextResponse.redirect(new URL('/unauthorized', request.url));
       }
 
@@ -127,6 +134,8 @@ export async function middleware(request: NextRequest) {
     const { user } = await verifyResponse.json();
     console.log('Session verified for user:', {
       email: user?.email,
+      role: user?.role,
+      isSuperAdmin: user?.isSuperAdmin,
       path,
       isAdminPath,
       isRsc,
