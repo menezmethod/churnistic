@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { UserRole } from '@/lib/auth/types';
+import { getAdminAuth } from '@/lib/firebase/admin';
 import { BankRewardsCollector } from '@/lib/scrapers/bankrewards/collector';
 import { BankRewardsDatabase } from '@/lib/scrapers/bankrewards/database';
 import { BankRewardsTransformer } from '@/lib/scrapers/bankrewards/transformer';
@@ -13,8 +15,33 @@ const getQuerySchema = z.object({
   type: z.enum(['credit_card', 'bank', 'brokerage']).optional().nullable(),
 });
 
-export async function POST() {
+async function verifyAdminAccess(request: NextRequest) {
+  const sessionCookie = request.cookies.get('session')?.value;
+  if (!sessionCookie) {
+    return false;
+  }
+
   try {
+    const decodedClaims = await getAdminAuth().verifySessionCookie(sessionCookie, true);
+    return (
+      decodedClaims.role === UserRole.ADMIN ||
+      decodedClaims.role === UserRole.SUPERADMIN ||
+      decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
+    );
+  } catch (error) {
+    console.error('Admin verification failed:', error);
+    return false;
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    // Verify admin access
+    const isAdmin = await verifyAdminAccess(request);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     const config = getBankRewardsConfig();
     const collector = new BankRewardsCollector(config);
     const result = await collector.collect();

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { UserRole } from '@/lib/auth/types';
+import { UserRole, ROLE_PERMISSIONS } from '@/lib/auth/types';
 import { getAdminAuth } from '@/lib/firebase/admin';
 
 // Add OPTIONS handler for CORS preflight
@@ -132,9 +132,11 @@ export async function POST(request: NextRequest) {
         if (isSuperAdmin && !userRole) {
           // Set admin role for super admin if not set
           try {
+            // Only set the allowed custom claims
             await getAdminAuth().setCustomUserClaims(decodedClaims.uid, {
-              ...decodedClaims,
               role: UserRole.SUPERADMIN,
+              isSuperAdmin: true,
+              permissions: ROLE_PERMISSIONS[UserRole.SUPERADMIN],
             });
             console.log('Set SUPERADMIN role for super admin user');
           } catch (error) {
@@ -148,7 +150,8 @@ export async function POST(request: NextRequest) {
       const response = NextResponse.json({
         isValid: true,
         user: {
-          ...decodedClaims,
+          uid: decodedClaims.uid,
+          email: decodedClaims.email,
           isSuperAdmin: decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL,
           // Ensure role is set for consistency, prioritizing existing role
           role:
@@ -156,6 +159,9 @@ export async function POST(request: NextRequest) {
             (decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
               ? UserRole.SUPERADMIN
               : UserRole.USER),
+          permissions:
+            decodedClaims.permissions ||
+            ROLE_PERMISSIONS[(decodedClaims.role as UserRole) || UserRole.USER],
         },
       });
 

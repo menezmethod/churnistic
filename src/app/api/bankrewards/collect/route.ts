@@ -1,18 +1,43 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
+import { UserRole } from '@/lib/auth/types';
+import { getAdminAuth } from '@/lib/firebase/admin';
 import { BankRewardsCollector } from '@/lib/scrapers/bankrewards/collector';
 import { BankRewardsDatabase } from '@/lib/scrapers/bankrewards/database';
 
 import { getBankRewardsConfig } from '../config';
 
-// Start collection
-export async function POST() {
+async function verifyAdminAccess(request: NextRequest) {
+  const sessionCookie = request.cookies.get('session')?.value;
+  if (!sessionCookie) {
+    return false;
+  }
+
   try {
+    const decodedClaims = await getAdminAuth().verifySessionCookie(sessionCookie, true);
+    return (
+      decodedClaims.role === UserRole.ADMIN ||
+      decodedClaims.role === UserRole.SUPERADMIN ||
+      decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
+    );
+  } catch (error) {
+    console.error('Admin verification failed:', error);
+    return false;
+  }
+}
+
+// Start collection
+export async function POST(request: NextRequest) {
+  try {
+    // Verify admin access
+    const isAdmin = await verifyAdminAccess(request);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     const config = getBankRewardsConfig();
     const collector = new BankRewardsCollector(config);
-
     const result = await collector.collect();
-
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error running BankRewards collector:', error);
@@ -27,8 +52,14 @@ export async function POST() {
 }
 
 // Get collection stats
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Verify admin access
+    const isAdmin = await verifyAdminAccess(request);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     const database = new BankRewardsDatabase();
     const stats = await database.getStats();
     return NextResponse.json(stats);
@@ -45,8 +76,14 @@ export async function GET() {
 }
 
 // Delete all offers
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
+    // Verify admin access
+    const isAdmin = await verifyAdminAccess(request);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     const database = new BankRewardsDatabase();
     const result = await database.deleteAllOffers();
     return NextResponse.json(result);
