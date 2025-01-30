@@ -22,8 +22,6 @@ import {
   useTheme,
 } from '@mui/material';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
 import { OpportunityCard, OpportunityCardSkeleton } from './components/OpportunityCard';
 import { ProgressCard, ProgressCardSkeleton } from './components/ProgressCard';
@@ -35,15 +33,8 @@ import { useDashboardData } from './hooks/useDashboardData';
 
 export default function DashboardPage() {
   const theme = useTheme();
-  const router = useRouter();
   const { user, profile, stats, quickOpportunities, trackedOpportunities, loading } =
     useDashboardData();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/auth/signin');
-    }
-  }, [user, loading, router]);
 
   if (loading) {
     return (
