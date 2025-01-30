@@ -90,13 +90,18 @@ export async function POST(request: NextRequest) {
               : 'No Access',
         });
 
-        if (!isSuperAdmin && userRole !== 'admin') {
+        // If user is Super Admin, grant access regardless of role
+        if (isSuperAdmin) {
+          console.log('Granting access to Super Admin');
+          // Continue with access granted
+        } else if (userRole !== 'admin') {
+          // Only check role if not Super Admin
           console.log('User lacks required privileges:', {
             email: decodedClaims.email,
             role: userRole,
             requiredRole,
             isSuperAdmin,
-            reason: 'Neither Super Admin nor Admin role',
+            reason: 'Not Super Admin and no Admin role',
           });
           return NextResponse.json(
             { isValid: false, error: 'Insufficient privileges' },
@@ -111,6 +116,12 @@ export async function POST(request: NextRequest) {
         user: {
           ...decodedClaims,
           isSuperAdmin: decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL,
+          // Ensure role is set for consistency
+          role:
+            decodedClaims.role ||
+            (decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
+              ? 'admin'
+              : 'user'),
         },
       });
 
