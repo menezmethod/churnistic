@@ -8,17 +8,37 @@ const protectedPaths = ['/dashboard', '/admin', '/api/users'];
 const adminPaths = ['/admin'];
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/auth/verify).*)'],
+  matcher: [
+    // Match all paths except static files, images, and the verify endpoint
+    '/((?!_next/static|_next/image|favicon.ico|api/auth/verify).*)',
+    // Match RSC routes
+    '/admin/:path*',
+    '/dashboard/:path*',
+    '/api/users/:path*',
+  ],
 };
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  console.log('Middleware - Processing request for path:', path);
+  const isRsc = request.headers.get('RSC') === '1';
+
+  console.log('Middleware - Full request details:', {
+    path,
+    isRsc,
+    url: request.url,
+    method: request.method,
+    headers: Object.fromEntries(request.headers.entries()),
+  });
 
   // Check if path is protected
   const isProtectedPath = protectedPaths.some((prefix) => path.startsWith(prefix));
   const isAdminPath = adminPaths.some((prefix) => path.startsWith(prefix));
-  console.log('Protected path match:', isProtectedPath ? path : 'none');
+  console.log('Path analysis:', {
+    path,
+    isProtectedPath,
+    isAdminPath,
+    isRsc,
+  });
 
   if (!isProtectedPath) {
     return NextResponse.next();
@@ -27,8 +47,10 @@ export async function middleware(request: NextRequest) {
   // Check for session cookie
   const sessionCookie = request.cookies.get('session')?.value;
   if (!sessionCookie) {
-    console.log('No session cookie found');
-    return NextResponse.redirect(new URL('/auth/signin', request.url));
+    console.log('No session cookie found, redirecting to signin');
+    const signinUrl = new URL('/auth/signin', request.url);
+    signinUrl.searchParams.set('callbackUrl', request.url);
+    return NextResponse.redirect(signinUrl);
   }
 
   try {
@@ -38,7 +60,7 @@ export async function middleware(request: NextRequest) {
 
     // Construct the absolute URL for the verify endpoint
     const verifyUrl = `${protocol}//${host}/api/auth/verify`;
-    console.log('Debug - Full request details:', {
+    console.log('Verify request details:', {
       url: verifyUrl,
       sessionCookiePresent: !!sessionCookie,
       sessionCookieLength: sessionCookie?.length,
@@ -47,6 +69,7 @@ export async function middleware(request: NextRequest) {
       path,
       isAdminPath,
       cookies: request.cookies.getAll(),
+      isRsc,
     });
 
     // Forward all cookies and headers
@@ -58,6 +81,7 @@ export async function middleware(request: NextRequest) {
       Accept: request.headers.get('accept') || '',
       'Accept-Language': request.headers.get('accept-language') || '',
       'X-Requested-With': request.headers.get('x-requested-with') || '',
+      Origin: request.headers.get('origin') || request.url,
     });
 
     // Verify session using the API route
@@ -71,7 +95,13 @@ export async function middleware(request: NextRequest) {
       credentials: 'include',
     });
 
-    console.log('Verify response status:', verifyResponse.status);
+    console.log('Verify response:', {
+      status: verifyResponse.status,
+      ok: verifyResponse.ok,
+      path,
+      isAdminPath,
+      isRsc,
+    });
 
     if (!verifyResponse.ok) {
       const responseData = await verifyResponse.json();
@@ -80,44 +110,67 @@ export async function middleware(request: NextRequest) {
         error: responseData.error,
         path,
         isAdminPath,
+        isRsc,
       });
 
       if (verifyResponse.status === 403) {
         return NextResponse.redirect(new URL('/unauthorized', request.url));
       }
-      return NextResponse.redirect(new URL('/auth/signin', request.url));
+
+      const signinUrl = new URL('/auth/signin', request.url);
+      signinUrl.searchParams.set('callbackUrl', request.url);
+      return NextResponse.redirect(signinUrl);
     }
 
     const { user } = await verifyResponse.json();
-    console.log('Session verified for user:', user?.email);
+    console.log('Session verified for user:', {
+      email: user?.email,
+      path,
+      isAdminPath,
+      isRsc,
+    });
 
     // Clone the request headers and add the verified user info
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-verified-user', JSON.stringify(user));
 
-    const response = NextResponse.next({
+    // For RSC requests, we need to handle them differently
+    if (isRsc) {
+      const response = NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      });
+      response.headers.set('RSC', '1');
+      return response;
+    }
+
+    return NextResponse.next({
       request: {
         headers: requestHeaders,
       },
     });
-
-    return response;
   } catch (error) {
-    console.error('Error in middleware - Full details:', {
+    console.error('Middleware error:', {
       errorType: error instanceof Error ? 'Error' : typeof error,
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       path,
       isAdminPath,
+      isRsc,
       sessionCookiePresent: !!sessionCookie,
     });
 
     // Try to parse the response if it's a fetch error
     if (error instanceof Error && error.message.includes('JSON')) {
       console.log('Possible HTML response received instead of JSON');
-      return NextResponse.redirect(new URL('/auth/signin', request.url));
+      const signinUrl = new URL('/auth/signin', request.url);
+      signinUrl.searchParams.set('callbackUrl', request.url);
+      return NextResponse.redirect(signinUrl);
     }
 
-    return NextResponse.redirect(new URL('/auth/signin', request.url));
+    const signinUrl = new URL('/auth/signin', request.url);
+    signinUrl.searchParams.set('callbackUrl', request.url);
+    return NextResponse.redirect(signinUrl);
   }
 }

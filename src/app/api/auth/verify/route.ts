@@ -2,13 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getAdminAuth } from '@/lib/firebase/admin';
 
+// Add OPTIONS handler for CORS preflight
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin') || '';
+
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const origin = request.headers.get('origin') || '';
+
     // Log request details
-    const headers = Object.fromEntries(request.headers.entries());
+    const headersList = Object.fromEntries(request.headers.entries());
     console.log('Verify endpoint - Headers:', {
-      ...headers,
-      cookie: headers.cookie ? 'present' : 'missing',
+      ...headersList,
+      cookie: headersList.cookie ? 'present' : 'missing',
+      origin,
     });
 
     // Ensure the request is JSON
@@ -110,7 +129,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Set CORS headers
+      // Set security headers
       const response = NextResponse.json({
         isValid: true,
         user: {
@@ -125,9 +144,13 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      response.headers.set('Access-Control-Allow-Origin', '*');
+      // Set security headers
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
       response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      response.headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+      response.headers.set('Cross-Origin-Resource-Policy', 'same-site');
 
       return response;
     } catch (verifyError) {
