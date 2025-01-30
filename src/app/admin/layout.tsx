@@ -8,19 +8,45 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading, hasRole } = useAuth();
+  const { user, loading: authLoading, hasRole, isSuperAdmin } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Only redirect if we're sure the user is not authenticated or not an admin
+    // Debug log the current auth state
+    console.log('AdminLayout - Auth State:', {
+      user: user?.email,
+      role: user?.role,
+      isSuperAdmin: user?.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL,
+      hasAdminRole: hasRole?.(UserRole.ADMIN),
+      hasSuperAdminRole: hasRole?.(UserRole.SUPERADMIN),
+      loading: authLoading,
+    });
+
+    // Only redirect if we're sure about the authentication state
     if (!authLoading) {
       if (!user) {
+        console.log('AdminLayout - No user, redirecting to signin');
         router.push('/auth/signin');
-      } else if (!hasRole(UserRole.ADMIN) && !hasRole(UserRole.SUPERADMIN)) {
+        return;
+      }
+
+      // Check for admin access
+      const hasAdminAccess =
+        isSuperAdmin() || hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPERADMIN);
+      console.log('AdminLayout - Access Check:', {
+        email: user.email,
+        isSuperAdmin: isSuperAdmin(),
+        hasAdminRole: hasRole(UserRole.ADMIN),
+        hasSuperAdminRole: hasRole(UserRole.SUPERADMIN),
+        hasAccess: hasAdminAccess,
+      });
+
+      if (!hasAdminAccess) {
+        console.log('AdminLayout - No admin access, redirecting to unauthorized');
         router.push('/unauthorized');
       }
     }
-  }, [user, router, authLoading, hasRole]);
+  }, [user, router, authLoading, hasRole, isSuperAdmin]);
 
   // Show loading state while checking authentication
   if (authLoading) {
@@ -38,8 +64,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // Don't render anything if not authenticated or not admin
-  if (!user || (!hasRole(UserRole.ADMIN) && !hasRole(UserRole.SUPERADMIN))) {
+  // Check for admin access before rendering
+  const hasAdminAccess =
+    user && (isSuperAdmin() || hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPERADMIN));
+
+  // Don't render anything if not authenticated or no admin access
+  if (!hasAdminAccess) {
     return null;
   }
 

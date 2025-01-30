@@ -64,10 +64,21 @@ async function handleUserProfile(user: User): Promise<void> {
 // Function to check if a user is a super admin
 export const isSuperAdmin = (user: AuthUser | null): boolean => {
   if (!user || !user.email) return false;
+
+  // Check if user's email matches the super admin email
   const superAdminEmail = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL;
-  return superAdminEmail
+  const isEmailMatch = superAdminEmail
     ? user.email.toLowerCase() === superAdminEmail.toLowerCase()
     : false;
+
+  // Check if user has SUPERADMIN role in custom claims or direct role
+  const hasSuperAdminRole =
+    user.customClaims?.role === UserRole.SUPERADMIN || user.role === UserRole.SUPERADMIN;
+
+  // Check if user has super admin flag in custom claims
+  const hasCustomClaimFlag = user.customClaims?.isSuperAdmin === true;
+
+  return isEmailMatch || hasSuperAdminRole || hasCustomClaimFlag;
 };
 
 // Get the currently logged-in user

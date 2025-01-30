@@ -3,8 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 
-import type { Permission, UserRole } from '@/lib/auth/types';
-import { ROLE_PERMISSIONS } from '@/lib/auth/types';
+import { Permission, UserRole, ROLE_PERMISSIONS } from '@/lib/auth/types';
 
 import { useUser, useLogin, useRegister, useLogout } from './authConfig';
 import {
@@ -86,7 +85,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasRole = useCallback(
     (role: UserRole) => {
       if (!user) return false;
-      return user.customClaims?.role === role;
+
+      // Check if user is super admin first
+      if (checkIsSuperAdmin(user)) return true;
+
+      // Check both custom claims and direct role property
+      const userRole = user.customClaims?.role || user.role;
+
+      // If checking for admin access, allow both ADMIN and SUPERADMIN roles
+      if (role === UserRole.ADMIN) {
+        return userRole === UserRole.ADMIN || userRole === UserRole.SUPERADMIN;
+      }
+
+      return userRole === role;
     },
     [user]
   );
