@@ -71,7 +71,9 @@ function getDomain(host: string): string | undefined {
 
   // For localhost or Vercel preview URLs, return undefined to let the browser handle it
   if (domain.includes('localhost') || domain.includes('vercel.app')) {
-    console.log('Development/Preview environment detected, using default domain handling');
+    console.log(
+      'Development/Preview environment detected, using default domain handling'
+    );
     return undefined;
   }
 
