@@ -148,25 +148,39 @@ export const getAuthSettings = () => ({
   ],
 });
 
+// Determine if we should use emulators
+const shouldUseEmulator = () => {
+  const isVercelEnv = !!process.env.VERCEL_ENV;
+  const isDevOrPreview =
+    process.env.VERCEL_ENV === 'development' || process.env.VERCEL_ENV === 'preview';
+  return (
+    process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' &&
+    (!isVercelEnv || isDevOrPreview)
+  );
+};
+
 // In your session cookie config, add production settings
 const sessionCookieConfig = {
   name: 'session',
   maxAge: 60 * 60 * 24 * 5 * 1000, // 5 days
   httpOnly: true,
-  secure: false, // Allow non-HTTPS in development
-  sameSite: 'lax' as const,
+  secure: process.env.VERCEL_ENV !== 'development', // Secure in preview/production
+  sameSite: 'lax' as 'none' | 'strict' | 'lax',
   path: '/',
 };
 
 export const getSessionCookieOptions = () => {
   const isProduction = process.env.VERCEL_ENV === 'production';
-  const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+  const isPreview = process.env.VERCEL_ENV === 'preview';
+  const useEmulator = shouldUseEmulator();
+
+  const sameSite = useEmulator ? 'lax' : 'none';
 
   return {
     ...sessionCookieConfig,
     domain: isProduction ? '.churnistic.com' : undefined,
-    secure: isProduction && !useEmulator,
-    sameSite: useEmulator ? 'lax' : ((isProduction ? 'lax' : 'none') as 'lax' | 'none'),
+    secure: (isProduction || isPreview) && !useEmulator,
+    sameSite: sameSite as 'none' | 'strict' | 'lax',
   };
 };
 
