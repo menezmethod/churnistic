@@ -6,7 +6,6 @@ import {
   RestartAlt as RestartAltIcon,
 } from '@mui/icons-material';
 import {
-  Alert,
   Autocomplete,
   Box,
   Button,
@@ -99,8 +98,7 @@ export default function AddOpportunityPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [activeStep, setActiveStep] = useState(0);
   const [debugOpen, setDebugOpen] = useState(false);
-  const { formData, errors, isSubmitting, submitError, handleChange, handleSubmit } =
-    useOpportunityForm();
+  const { formData, errors, isSubmitting, handleChange, handleSubmit } = useOpportunityForm();
   const { isSuperAdmin } = useAuth();
 
   const handleNext = () => {
@@ -1254,21 +1252,6 @@ export default function AddOpportunityPage() {
           }}
         >
           {renderStepContent(activeStep)}
-
-          {submitError && (
-            <Alert
-              severity="error"
-              sx={{
-                mt: 2,
-                borderRadius: 2,
-                '& .MuiAlert-message': {
-                  color: theme.palette.error.main,
-                },
-              }}
-            >
-              {submitError}
-            </Alert>
-          )}
 
           <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-between' }}>
             <Button

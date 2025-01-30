@@ -20,10 +20,8 @@ export async function POST(request: Request) {
     if (useEmulator) {
       console.log('Setting emulator mode session cookie');
       const cookieStore = await cookies();
-      cookieStore.set({
-        value: idToken,
-        ...getSessionCookieOptions(),
-      });
+      const options = getSessionCookieOptions();
+      cookieStore.set('session', idToken, options);
       return NextResponse.json({ status: 'success', mode: 'emulator' });
     }
 
@@ -40,10 +38,8 @@ export async function POST(request: Request) {
     console.log('Setting cookie with domain:', domain);
 
     const cookieStore = await cookies();
-    cookieStore.set({
-      value: sessionCookie,
-      ...getSessionCookieOptions(),
-    });
+    const options = getSessionCookieOptions();
+    cookieStore.set('session', sessionCookie, options);
 
     return NextResponse.json({
       status: 'success',

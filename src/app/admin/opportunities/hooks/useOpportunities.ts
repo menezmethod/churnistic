@@ -492,14 +492,41 @@ const fetchStagedOpportunities = async (): Promise<
 type OpportunityWithValue = Opportunity & { value: number };
 
 export function useOpportunities() {
-  const queryClient = useQueryClient();
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     pageSize: ITEMS_PER_PAGE,
-    sortBy: 'createdAt',
+    sortBy: 'value',
     sortDirection: 'desc',
     filters: {},
   });
+
+  // Query for paginated opportunities
+  const {
+    data: paginatedData,
+    isLoading: isPaginatedLoading,
+    error: paginatedError,
+  } = useQuery({
+    queryKey: ['opportunities', pagination],
+    queryFn: () => fetchPaginatedOpportunities(pagination),
+  });
+
+  // Query for staged opportunities
+  const {
+    data: stagedData,
+  } = useQuery({
+    queryKey: ['staged-opportunities'],
+    queryFn: fetchStagedOpportunities,
+  });
+
+  // Query for bank rewards offers
+  const {
+    refetch: refetchBankRewards,
+  } = useQuery({
+    queryKey: ['bank-rewards'],
+    queryFn: fetchBankRewardsOffers,
+  });
+
+  const queryClient = useQueryClient();
 
   const [stats, setStats] = useState<{
     total: number;
@@ -527,24 +554,6 @@ export function useOpportunities() {
       credit_card: 0,
       brokerage: 0,
     },
-  });
-
-  // Fetch staged opportunities
-  const { data: stagedOpportunities = [] } = useQuery({
-    queryKey: ['opportunities', 'staged'],
-    queryFn: fetchStagedOpportunities,
-    staleTime: 1000 * 30, // 30 seconds
-  });
-
-  // Fetch paginated opportunities
-  const {
-    data: paginatedData,
-    error: paginationError,
-    isLoading: isPaginationLoading,
-  } = useQuery({
-    queryKey: ['opportunities', 'paginated', pagination],
-    queryFn: () => fetchPaginatedOpportunities(pagination),
-    staleTime: 1000 * 30, // 30 seconds
   });
 
   // Fetch total stats with detailed metrics - this is the single source of truth for stats
@@ -629,13 +638,13 @@ export function useOpportunities() {
 
   // Combine opportunities ensuring no duplicates by source_id
   const allOpportunities = useMemo(() => {
-    if (!paginatedData?.items || !stagedOpportunities) return [];
+    if (!paginatedData?.items || !stagedData) return [];
 
     const mainOpportunities = new Map(
       paginatedData.items.map((opp) => [opp.source_id, { ...opp, isStaged: false }])
     );
     const stagedOppMap = new Map(
-      stagedOpportunities.map((opp) => [opp.source_id, { ...opp, isStaged: true }])
+      stagedData.map((opp) => [opp.source_id, { ...opp, isStaged: true }])
     );
 
     // Only add staged opportunities that don't exist in main collection
@@ -646,7 +655,7 @@ export function useOpportunities() {
     });
 
     return Array.from(mainOpportunities.values());
-  }, [stagedOpportunities, paginatedData?.items]);
+  }, [stagedData, paginatedData?.items]);
 
   const updatePagination = (updates: Partial<PaginationState>) => {
     setPagination((prev: PaginationState) => ({
@@ -656,19 +665,246 @@ export function useOpportunities() {
     }));
   };
 
-  // Manual bank rewards query - disabled by default
-  const { refetch: refetchBankRewards } = useQuery({
-    queryKey: ['bankRewards', 'offers'],
-    queryFn: fetchBankRewardsOffers,
-    enabled: false,
-    staleTime: Infinity,
-    gcTime: Infinity,
+  // Approve opportunity mutation
+  const approveMutation = useMutation({
+    mutationKey: ['approve-opportunity'],
+    mutationFn: async (opportunity: Opportunity & { isStaged?: boolean }) => {
+      try {
+        // Get user first to ensure we have authentication
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user?.email) {
+          throw new Error('No authenticated user found');
+        }
+
+        // First, add to opportunities collection to ensure the ID exists
+        const approvedOpportunity = {
+          ...opportunity,
+          status: 'approved' as const,
+          updatedAt: new Date().toISOString(),
+          metadata: {
+            ...(opportunity.metadata || {}),
+            created_by: user.email,
+            updated_by: user.email,
+            updated_at: new Date().toISOString(),
+            status: 'active',
+          },
+        };
+
+        await setDoc(doc(db, 'opportunities', opportunity.id), approvedOpportunity);
+
+        // Transform to match API structure
+        const formData = {
+          id: opportunity.id,
+          name: opportunity.name,
+          type: opportunity.type,
+          value: opportunity.value.toString(),
+          description: opportunity.bonus.description || '',
+          offer_link: opportunity.offer_link,
+          source_id: opportunity.source_id,
+          source: opportunity.source,
+          status: 'approved',
+          createdAt: opportunity.createdAt,
+          bonus: {
+            title: opportunity.bonus.title || '',
+            description: opportunity.bonus.description || '',
+            requirements: {
+              title: 'Bonus Requirements',
+              description: opportunity.bonus.requirements
+                .map((req: BaseRequirement) => {
+                  switch (req.type) {
+                    case 'spending':
+                      return `Spend $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
+                    case 'direct_deposit':
+                      return `Receive direct deposits totaling $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
+                    case 'debit_transactions':
+                      const debitReq = req as DebitTransactionRequirement;
+                      return `Make ${debitReq.details.count} debit card purchases`;
+                    case 'transfer':
+                      return `Transfer $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
+                    case 'link_account':
+                      return 'Link a bank account';
+                    case 'minimum_deposit':
+                      return `Maintain a minimum deposit of $${req.details.amount.toLocaleString()} for ${req.details.period} days`;
+                    default:
+                      return 'Contact bank for specific requirements';
+                  }
+                })
+                .join(' AND '),
+            },
+            additional_info: opportunity.bonus.additional_info || null,
+            tiers:
+              opportunity.bonus.tiers?.map((tier) => ({
+                reward: tier.reward || '',
+                deposit: tier.deposit || '',
+                level: tier.level || null,
+                value: tier.value || null,
+                minimum_deposit: tier.minimum_deposit || null,
+                requirements: tier.requirements || null,
+              })) || null,
+          },
+          details: {
+            monthly_fees: opportunity.details?.monthly_fees || {
+              amount: '0',
+            },
+            account_type: opportunity.details?.account_type || '',
+            availability: opportunity.details?.availability || {
+              type: 'Nationwide',
+              states: [],
+            },
+            credit_inquiry: opportunity.details?.credit_inquiry || null,
+            household_limit: opportunity.details?.household_limit || null,
+            early_closure_fee: opportunity.details?.early_closure_fee || null,
+            chex_systems: opportunity.details?.chex_systems || null,
+            expiration: opportunity.details?.expiration || null,
+            options_trading: opportunity.details?.options_trading || null,
+            ira_accounts: opportunity.details?.ira_accounts || null,
+            under_5_24:
+              opportunity.details?.under_5_24 !== undefined
+                ? opportunity.details.under_5_24
+                : null,
+            foreign_transaction_fees:
+              opportunity.details?.foreign_transaction_fees || null,
+            annual_fees: opportunity.details?.annual_fees || null,
+          },
+          logo: opportunity.logo || {
+            type: '',
+            url: '',
+          },
+          card_image:
+            opportunity.type === 'credit_card'
+              ? opportunity.card_image || {
+                  url: '',
+                  network: 'Unknown',
+                  color: 'Unknown',
+                  badge: null,
+                }
+              : null,
+          metadata: {
+            created_at: opportunity.createdAt || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            created_by: user.email,
+            updated_by: user.email,
+            status: 'active',
+            environment: process.env.NODE_ENV || 'development',
+          },
+        };
+
+        console.log('Sending to API:', JSON.stringify(formData, null, 2));
+
+        // Create API endpoint entry
+        const response = await fetch('/api/opportunities', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+
+        let errorMessage = 'Failed to create API endpoint entry';
+        if (!response.ok) {
+          const responseText = await response.text();
+          console.error('API Error Response Text:', responseText);
+
+          let errorData;
+          try {
+            errorData = JSON.parse(responseText);
+            console.error('API Error Response:', errorData);
+            errorMessage = errorData.details || errorData.error || errorMessage;
+          } catch (parseError) {
+            console.error('Error parsing API response:', parseError);
+            errorMessage = `${errorMessage}: ${response.statusText} - ${responseText}`;
+          }
+          throw new Error(errorMessage);
+        }
+
+        const apiResponse = await response.json();
+        console.log('API Response:', apiResponse);
+
+        // Remove from staged_offers collection
+        await deleteDoc(doc(db, 'staged_offers', opportunity.id));
+
+        return approvedOpportunity;
+      } catch (error) {
+        console.error('Error in approveOpportunityMutation:', error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['staged-opportunities'] });
+    },
   });
 
-  // Import mutation
+  // Reject opportunity mutation
+  const rejectMutation = useMutation({
+    mutationKey: ['reject-opportunity'],
+    mutationFn: async (opportunity: Opportunity & { isStaged?: boolean }) => {
+      if (opportunity.isStaged) {
+        // Just remove from staged_offers
+        await deleteDoc(doc(db, 'staged_offers', opportunity.id));
+        return null;
+      } else {
+        // Update existing opportunity
+        const opportunityRef = doc(db, 'opportunities', opportunity.id);
+        await updateDoc(opportunityRef, {
+          status: 'rejected',
+          updatedAt: new Date().toISOString(),
+        });
+        return opportunity.id;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['staged-opportunities'] });
+    },
+  });
+
+  // Bulk approve mutation
+  const bulkApproveMutation = useMutation({
+    mutationKey: ['bulk-approve-opportunities'],
+    mutationFn: async (opportunities: (Opportunity & { isStaged?: boolean })[]) => {
+      console.log(
+        'Starting bulk approval process for',
+        opportunities.length,
+        'opportunities'
+      );
+      const results: string[] = [];
+      const errors: Array<{ id: string; error: unknown }> = [];
+
+      for (const opportunity of opportunities) {
+        try {
+          await approveMutation.mutateAsync(opportunity);
+          results.push(opportunity.id);
+        } catch (error) {
+          console.error('Error approving opportunity:', opportunity.id, error);
+          errors.push({ id: opportunity.id, error });
+        }
+      }
+
+      return {
+        successful: results,
+        failed: errors,
+        total: opportunities.length,
+      };
+    },
+    onSuccess: (result: {
+      successful: string[];
+      failed: Array<{ id: string; error: unknown }>;
+      total: number;
+    }) => {
+      console.log('Bulk approval completed:', result);
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['staged-opportunities'] });
+    },
+  });
+
+  // Import opportunities mutation
   const importMutation = useMutation({
+    mutationKey: ['import-opportunities'],
     mutationFn: async () => {
       console.log('Starting atomic import process');
+      
       const { data: response } = await refetchBankRewards();
 
       if (!response?.data?.offers) {
@@ -762,249 +998,15 @@ export function useOpportunities() {
       );
       return addedFingerprints.size;
     },
-    onSuccess: (count) => {
-      console.log(`Import completed successfully. Added ${count} new offers.`);
-      queryClient.invalidateQueries({
-        queryKey: ['opportunities'],
-        exact: false,
-        refetchType: 'all',
-      });
-    },
-  });
-
-  // Approve mutation
-  const approveOpportunityMutation = useMutation({
-    mutationFn: async (opportunityData: Opportunity) => {
-      try {
-        // Get user first to ensure we have authentication
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (!user?.email) {
-          throw new Error('No authenticated user found');
-        }
-
-        // First, add to opportunities collection to ensure the ID exists
-        const approvedOpportunity = {
-          ...opportunityData,
-          status: 'approved' as const,
-          updatedAt: new Date().toISOString(),
-          metadata: {
-            ...(opportunityData.metadata || {}),
-            created_by: user.email,
-            updated_by: user.email,
-            updated_at: new Date().toISOString(),
-            status: 'active',
-          },
-        };
-
-        await setDoc(doc(db, 'opportunities', opportunityData.id), approvedOpportunity);
-
-        // Transform to match API structure
-        const formData = {
-          id: opportunityData.id,
-          name: opportunityData.name,
-          type: opportunityData.type,
-          value: opportunityData.value.toString(),
-          description: opportunityData.bonus.description || '',
-          offer_link: opportunityData.offer_link,
-          source_id: opportunityData.source_id,
-          source: opportunityData.source,
-          status: 'approved',
-          createdAt: opportunityData.createdAt,
-          bonus: {
-            title: opportunityData.bonus.title || '',
-            description: opportunityData.bonus.description || '',
-            requirements: {
-              title: 'Bonus Requirements',
-              description: opportunityData.bonus.requirements
-                .map((req: BaseRequirement) => {
-                  switch (req.type) {
-                    case 'spending':
-                      return `Spend $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
-                    case 'direct_deposit':
-                      return `Receive direct deposits totaling $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
-                    case 'debit_transactions':
-                      const debitReq = req as DebitTransactionRequirement;
-                      return `Make ${debitReq.details.count} debit card purchases`;
-                    case 'transfer':
-                      return `Transfer $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
-                    case 'link_account':
-                      return 'Link a bank account';
-                    case 'minimum_deposit':
-                      return `Maintain a minimum deposit of $${req.details.amount.toLocaleString()} for ${req.details.period} days`;
-                    default:
-                      return 'Contact bank for specific requirements';
-                  }
-                })
-                .join(' AND '),
-            },
-            additional_info: opportunityData.bonus.additional_info || null,
-            tiers:
-              opportunityData.bonus.tiers?.map((tier) => ({
-                reward: tier.reward || '',
-                deposit: tier.deposit || '',
-                level: tier.level || null,
-                value: tier.value || null,
-                minimum_deposit: tier.minimum_deposit || null,
-                requirements: tier.requirements || null,
-              })) || null,
-          },
-          details: {
-            monthly_fees: opportunityData.details?.monthly_fees || {
-              amount: '0',
-            },
-            account_type: opportunityData.details?.account_type || '',
-            availability: opportunityData.details?.availability || {
-              type: 'Nationwide',
-              states: [],
-            },
-            credit_inquiry: opportunityData.details?.credit_inquiry || null,
-            household_limit: opportunityData.details?.household_limit || null,
-            early_closure_fee: opportunityData.details?.early_closure_fee || null,
-            chex_systems: opportunityData.details?.chex_systems || null,
-            expiration: opportunityData.details?.expiration || null,
-            options_trading: opportunityData.details?.options_trading || null,
-            ira_accounts: opportunityData.details?.ira_accounts || null,
-            under_5_24:
-              opportunityData.details?.under_5_24 !== undefined
-                ? opportunityData.details.under_5_24
-                : null,
-            foreign_transaction_fees:
-              opportunityData.details?.foreign_transaction_fees || null,
-            annual_fees: opportunityData.details?.annual_fees || null,
-          },
-          logo: opportunityData.logo || {
-            type: '',
-            url: '',
-          },
-          card_image:
-            opportunityData.type === 'credit_card'
-              ? opportunityData.card_image || {
-                  url: '',
-                  network: 'Unknown',
-                  color: 'Unknown',
-                  badge: null,
-                }
-              : null,
-          metadata: {
-            created_at: opportunityData.createdAt || new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            created_by: user.email,
-            updated_by: user.email,
-            status: 'active',
-            environment: process.env.NODE_ENV || 'development',
-          },
-        };
-
-        console.log('Sending to API:', JSON.stringify(formData, null, 2));
-
-        // Create API endpoint entry
-        const response = await fetch('/api/opportunities', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-
-        let errorMessage = 'Failed to create API endpoint entry';
-        if (!response.ok) {
-          const responseText = await response.text();
-          console.error('API Error Response Text:', responseText);
-
-          let errorData;
-          try {
-            errorData = JSON.parse(responseText);
-            console.error('API Error Response:', errorData);
-            errorMessage = errorData.details || errorData.error || errorMessage;
-          } catch (parseError) {
-            console.error('Error parsing API response:', parseError);
-            errorMessage = `${errorMessage}: ${response.statusText} - ${responseText}`;
-          }
-          throw new Error(errorMessage);
-        }
-
-        const apiResponse = await response.json();
-        console.log('API Response:', apiResponse);
-
-        // Remove from staged_offers collection
-        await deleteDoc(doc(db, 'staged_offers', opportunityData.id));
-
-        return approvedOpportunity;
-      } catch (error) {
-        console.error('Error in approveOpportunityMutation:', error);
-        throw error;
-      }
-    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-      queryClient.invalidateQueries({ queryKey: ['staged_offers'] });
+      queryClient.invalidateQueries({ queryKey: ['staged-opportunities'] });
     },
   });
 
-  // Reject opportunity mutation
-  const rejectOpportunityMutation = useMutation({
-    mutationFn: async (opportunityData: Opportunity & { isStaged?: boolean }) => {
-      if (opportunityData.isStaged) {
-        // Just remove from staged_offers
-        await deleteDoc(doc(db, 'staged_offers', opportunityData.id));
-        return null;
-      } else {
-        // Update existing opportunity
-        const opportunityRef = doc(db, 'opportunities', opportunityData.id);
-        await updateDoc(opportunityRef, {
-          status: 'rejected',
-          updatedAt: new Date().toISOString(),
-        });
-        return opportunityData.id;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-      queryClient.invalidateQueries({ queryKey: ['staged_offers'] });
-    },
-  });
-
-  // Bulk approve opportunities mutation
-  const bulkApproveOpportunitiesMutation = useMutation({
-    mutationFn: async (opportunities: Opportunity[]) => {
-      console.log(
-        'Starting bulk approval process for',
-        opportunities.length,
-        'opportunities'
-      );
-      const results: string[] = [];
-      const errors: Array<{ id: string; error: unknown }> = [];
-
-      for (const opportunity of opportunities) {
-        try {
-          await approveOpportunityMutation.mutateAsync(opportunity);
-          results.push(opportunity.id);
-        } catch (error) {
-          console.error('Error approving opportunity:', opportunity.id, error);
-          errors.push({ id: opportunity.id, error });
-        }
-      }
-
-      return {
-        successful: results,
-        failed: errors,
-        total: opportunities.length,
-      };
-    },
-    onSuccess: (result: {
-      successful: string[];
-      failed: Array<{ id: string; error: unknown }>;
-      total: number;
-    }) => {
-      console.log('Bulk approval completed:', result);
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-      queryClient.invalidateQueries({ queryKey: ['staged_offers'] });
-    },
-  });
-
-  // Add the purge mutation
+  // Purge data mutation
   const purgeMutation = useMutation({
+    mutationKey: ['purge-opportunities'],
     mutationFn: async () => {
       const [stagedSnapshot, mainSnapshot] = await Promise.all([
         getDocs(collection(db, 'staged_offers')),
@@ -1043,7 +1045,7 @@ export function useOpportunities() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staged-opportunities'] });
     },
   });
 
@@ -1056,16 +1058,16 @@ export function useOpportunities() {
     pagination,
     updatePagination,
     hasMore: paginatedData?.hasMore || false,
-    error: paginationError ? (paginationError as Error).message : null,
-    loading: isPaginationLoading,
-    approveOpportunity: approveOpportunityMutation.mutate,
-    rejectOpportunity: rejectOpportunityMutation.mutate,
-    bulkApproveOpportunities: bulkApproveOpportunitiesMutation.mutate,
-    isBulkApproving: bulkApproveOpportunitiesMutation.isPending,
+    error: paginatedError ? (paginatedError as Error).message : null,
+    loading: isPaginatedLoading,
+    approveOpportunity: approveMutation.mutate,
+    rejectOpportunity: rejectMutation.mutate,
+    bulkApproveOpportunities: bulkApproveMutation.mutate,
+    isBulkApproving: bulkApproveMutation.isPending,
     stats,
     importOpportunities: importMutation.mutate,
     isImporting: importMutation.isPending,
-    hasStagedOpportunities: stagedOpportunities.length > 0,
+    hasStagedOpportunities: Array.isArray(stagedData) && stagedData.length > 0,
     purgeAllData,
     isPurging,
   };

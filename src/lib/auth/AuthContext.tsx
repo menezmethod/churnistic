@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
-    await logoutMutation({});
+    await logoutMutation();
     router.replace('/auth/signin');
   }, [logoutMutation, router]);
 

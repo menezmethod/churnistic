@@ -24,7 +24,7 @@ export function AuthDebug() {
     <div>
       <h2>Auth Debug</h2>
       <pre>{JSON.stringify(user, null, 2)}</pre>
-      <button onClick={() => logout({})} disabled={isLoggingOut}>
+      <button onClick={() => logout()} disabled={isLoggingOut}>
         {isLoggingOut ? 'Logging out...' : 'Logout'}
       </button>
     </div>

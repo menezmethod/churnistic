@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { z } from 'zod';
@@ -54,6 +55,7 @@ function updateNestedValue(obj: Record<string, unknown>, path: string, value: un
 
 export function useOpportunityForm(initialData?: Partial<Opportunity>) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState<Opportunity>({
     id: '',
     fingerprint: '',
@@ -127,8 +129,6 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
   });
 
   const [errors, setErrors] = useState<ValidationErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const [notification, setNotification] = useState<NotificationState>({
     open: false,
     message: '',
@@ -208,55 +208,52 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
     }
   };
 
-  const handleSubmit = async () => {
-    setSubmitError(null);
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
+  const submitMutation = useMutation({
+    mutationKey: ['submit-opportunity'],
+    mutationFn: async (data: Opportunity) => {
       const response = await fetch('/api/opportunities', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
         throw new Error('Failed to create opportunity');
       }
 
-      const result = await response.json();
+      return response.json();
+    },
+    onSuccess: (result) => {
       showNotification('Opportunity created successfully!', 'success');
-
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
       // Redirect to the individual opportunity page after a short delay
       setTimeout(() => {
         router.push(`/opportunities/${result.id}`);
       }, 1500);
-    } catch (error) {
-      console.error('Error:', error);
+    },
+    onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-      setSubmitError(errorMessage);
       showNotification(errorMessage, 'error');
-    } finally {
-      setIsSubmitting(false);
+    },
+  });
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      return;
     }
+
+    submitMutation.mutate(formData);
   };
 
   return {
     formData,
-    errors,
-    isSubmitting,
-    submitError,
-    notification,
     handleChange,
     handleSubmit,
-    validateField,
-    validateForm,
+    errors,
+    isSubmitting: submitMutation.isPending,
+    notification,
     hideNotification,
   };
 }
