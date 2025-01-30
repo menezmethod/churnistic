@@ -45,6 +45,7 @@ import { useState, useEffect } from 'react';
 import { OpportunityPreviewModal } from './components/OpportunityPreviewModal';
 import { useOpportunities } from './hooks/useOpportunities';
 import { Opportunity } from './types/opportunity';
+import AdminProtectedRoute from '../components/AdminProtectedRoute';
 
 const StatsCard = ({
   title,
@@ -577,4 +578,10 @@ const OpportunitiesPage = () => {
   );
 };
 
-export default OpportunitiesPage;
+export default function WrappedOpportunitiesPage() {
+  return (
+    <AdminProtectedRoute>
+      <OpportunitiesPage />
+    </AdminProtectedRoute>
+  );
+}
