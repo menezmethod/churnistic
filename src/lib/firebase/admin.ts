@@ -47,7 +47,12 @@ function getAdminConfig(): AppOptions {
   }
 
   try {
-    const serviceAccount = JSON.parse(serviceAccountKey);
+    // Handle both JSON string and already parsed JSON object
+    const serviceAccount =
+      typeof serviceAccountKey === 'string'
+        ? JSON.parse(serviceAccountKey.replace(/\\n/g, '\n')) // Handle newline characters
+        : serviceAccountKey;
+
     console.log('Service account parsed successfully:', {
       projectId: serviceAccount.project_id,
       clientEmail: serviceAccount.client_email ? 'present' : 'missing',
@@ -159,5 +164,6 @@ async function initializeAdmin() {
 // Initialize on module load
 void initializeAdmin();
 
-export { adminApp as app, adminAuth as auth, adminDb as db };
-export type { App, Auth, Firestore };
+// Remove the automatic initialization at module load
+// export { adminApp as app, adminAuth as auth, adminDb as db };
+// export type { App, Auth, Firestore };

@@ -11,9 +11,18 @@ const adminPaths = ['/admin'];
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-    '/((?!api/auth/verify|api/auth/session).*)',
-    '/((?!auth/signin|auth/signup|unauthorized).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - api/auth/verify (auth verification endpoint)
+     * - api/auth/session (session endpoint)
+     * - auth/signin (signin page)
+     * - auth/signup (signup page)
+     * - unauthorized (unauthorized page)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|api/auth/verify|api/auth/session|auth/signin|auth/signup|unauthorized).*)',
   ],
 };
 
