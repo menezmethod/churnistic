@@ -98,7 +98,8 @@ export default function AddOpportunityPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [activeStep, setActiveStep] = useState(0);
   const [debugOpen, setDebugOpen] = useState(false);
-  const { formData, errors, isSubmitting, handleChange, handleSubmit } = useOpportunityForm();
+  const { formData, errors, isSubmitting, handleChange, handleSubmit } =
+    useOpportunityForm();
   const { isSuperAdmin } = useAuth();
 
   const handleNext = () => {

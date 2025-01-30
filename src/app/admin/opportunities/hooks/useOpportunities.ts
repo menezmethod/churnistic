@@ -511,17 +511,13 @@ export function useOpportunities() {
   });
 
   // Query for staged opportunities
-  const {
-    data: stagedData,
-  } = useQuery({
+  const { data: stagedData } = useQuery({
     queryKey: ['staged-opportunities'],
     queryFn: fetchStagedOpportunities,
   });
 
   // Query for bank rewards offers
-  const {
-    refetch: refetchBankRewards,
-  } = useQuery({
+  const { refetch: refetchBankRewards } = useQuery({
     queryKey: ['bank-rewards'],
     queryFn: fetchBankRewardsOffers,
   });
@@ -904,7 +900,7 @@ export function useOpportunities() {
     mutationKey: ['import-opportunities'],
     mutationFn: async () => {
       console.log('Starting atomic import process');
-      
+
       const { data: response } = await refetchBankRewards();
 
       if (!response?.data?.offers) {

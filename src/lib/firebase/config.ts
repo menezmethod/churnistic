@@ -1,11 +1,10 @@
-import { getApps, initializeApp } from 'firebase/app';
+import { getApps, initializeApp, getApp } from 'firebase/app';
 import {
   type User,
   connectAuthEmulator,
   browserLocalPersistence,
   setPersistence,
-  browserSessionPersistence,
-  initializeAuth,
+  getAuth,
 } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
@@ -15,33 +14,23 @@ const USE_EMULATOR = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
 // In emulator mode, we can use any placeholder values
 export const firebaseConfig = {
-  apiKey: USE_EMULATOR ? 'fake-api-key' : process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: USE_EMULATOR ? 'localhost' : process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: USE_EMULATOR
-    ? 'demo-churnistic-local'
-    : process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: USE_EMULATOR
-    ? 'demo-churnistic-local'
-    : process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: USE_EMULATOR
-    ? '000000000000'
-    : process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: USE_EMULATOR
-    ? '1:000000000000:web:0000000000000000000000'
-    : process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase - ensure single instance
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-export const auth = initializeAuth(app, {
-  persistence: browserSessionPersistence,
-});
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const functions = getFunctions(app);
+// Initialize Firebase
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const functions = getFunctions(app);
 
-// Connect to emulators if enabled
+// Emulator connection should only happen in development
 if (USE_EMULATOR) {
   try {
     console.log('🔧 Using Firebase Emulator Suite');
@@ -175,3 +164,5 @@ export const getSessionCookieOptions = () => {
     sameSite: (isProduction ? 'lax' : 'none') as 'lax' | 'none',
   };
 };
+
+export { auth, db, storage, functions };
