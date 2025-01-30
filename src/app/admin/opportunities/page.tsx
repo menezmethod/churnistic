@@ -45,6 +45,7 @@ import { useState, useEffect } from 'react';
 import { OpportunityPreviewModal } from './components/OpportunityPreviewModal';
 import { useOpportunities } from './hooks/useOpportunities';
 import { Opportunity } from './types/opportunity';
+import { ScraperControlPanel } from './components/ScraperControlPanel';
 
 const StatsCard = ({
   title,
@@ -371,6 +372,11 @@ const OpportunitiesPage = () => {
               />
             </div>
           </Fade>
+        </Grid>
+
+        {/* Scraper Control Panel */}
+        <Grid item xs={12}>
+          <ScraperControlPanel />
         </Grid>
 
         {/* Search and Actions */}
