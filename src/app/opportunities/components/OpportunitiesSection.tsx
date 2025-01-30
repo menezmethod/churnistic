@@ -9,18 +9,6 @@ import {
   GridView as GridViewIcon,
   ViewList as ViewListIcon,
   Sort as SortIcon,
-  CreditCard,
-  AccountBalance,
-  AccountBalanceWallet,
-  Timer,
-  Public,
-  Diamond,
-  AttachMoney,
-  ShoppingCart,
-  Payments,
-  Block,
-  CheckCircle,
-  CreditScore,
 } from '@mui/icons-material';
 import {
   Box,
@@ -40,9 +28,10 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 import FloatingAddButton from './FloatingAddButton';
@@ -51,7 +40,6 @@ import OpportunityDeleteDialog from './OpportunityDeleteDialog';
 import OpportunityGrid from './OpportunityGrid';
 import OpportunityList from './OpportunityList';
 import { getTypeColors } from '../utils/colorUtils';
-import { sortAndFilterOpportunities } from '../utils/filterUtils';
 
 interface OpportunitiesSectionProps {
   opportunities: FirestoreOpportunity[];
@@ -59,7 +47,7 @@ interface OpportunitiesSectionProps {
   error: Error | null;
   onDeleteAction: (id: string) => Promise<void>;
   onAddOpportunityAction: () => void;
-  initialCategory?: string | null;
+  initialCategory: string | null;
 }
 
 const CATEGORY_MAP = {
@@ -74,159 +62,23 @@ const REVERSE_CATEGORY_MAP = {
   brokerage: 'brokerages',
 } as const;
 
-const QUICK_FILTERS = [
-  {
-    id: 'premium_offers',
-    label: 'Premium ($500+)',
-    icon: MonetizationOn,
-    color: '#9c27b0',
-    filter: (opp: FirestoreOpportunity) => opp.value >= 500,
-  },
-  {
-    id: 'credit_card',
-    label: 'Credit Cards',
-    icon: CreditCard,
-    color: '#1976d2',
-    filter: (opp: FirestoreOpportunity) => opp.type === 'credit_card',
-  },
-  {
-    id: 'bank',
-    label: 'Bank Accounts',
-    icon: AccountBalance,
-    color: '#2e7d32',
-    filter: (opp: FirestoreOpportunity) => opp.type === 'bank',
-  },
-  {
-    id: 'brokerage',
-    label: 'Brokerage',
-    icon: AccountBalanceWallet,
-    color: '#ed6c02',
-    filter: (opp: FirestoreOpportunity) => opp.type === 'brokerage',
-  },
-  {
-    id: 'quick_bonus',
-    label: 'Quick Win',
-    icon: Timer,
-    color: '#0288d1',
-    filter: (opp: FirestoreOpportunity) =>
-      opp.requirements?.some(
-        (req) =>
-          req.toLowerCase().includes('single') ||
-          req.toLowerCase().includes('one time') ||
-          req.toLowerCase().includes('first')
-      ) ?? false,
-  },
-  {
-    id: 'nationwide',
-    label: 'Nationwide',
-    icon: Public,
-    color: '#388e3c',
-    filter: (opp: FirestoreOpportunity) => opp.metadata?.availability?.is_nationwide === true,
-  },
-];
-
-const FILTER_GROUPS = [
-  {
-    label: 'Value Tiers',
-    filters: [
-      {
-        id: 'ultra_premium',
-        label: 'Ultra ($1000+)',
-        icon: Diamond,
-        color: '#9c27b0',
-        filter: (opp: FirestoreOpportunity) => opp.value >= 1000,
-      },
-      {
-        id: 'premium',
-        label: 'Premium ($500+)',
-        icon: MonetizationOn,
-        color: '#2e7d32',
-        filter: (opp: FirestoreOpportunity) => opp.value >= 500 && opp.value < 1000,
-      },
-      {
-        id: 'standard',
-        label: 'Standard ($200+)',
-        icon: AttachMoney,
-        color: '#1976d2',
-        filter: (opp: FirestoreOpportunity) => opp.value >= 200 && opp.value < 500,
-      },
-    ],
-  },
-  {
-    label: 'Requirements',
-    filters: [
-      {
-        id: 'direct_deposit',
-        label: 'Direct Deposit',
-        icon: Payments,
-        color: '#0288d1',
-        filter: (opp: FirestoreOpportunity) =>
-          opp.requirements?.some((req) => req.toLowerCase().includes('direct deposit')) ?? false,
-      },
-      {
-        id: 'no_direct_deposit',
-        label: 'No DD Required',
-        icon: Block,
-        color: '#d32f2f',
-        filter: (opp: FirestoreOpportunity) =>
-          !opp.requirements?.some((req) => req.toLowerCase().includes('direct deposit')) ?? true,
-      },
-      {
-        id: 'low_spend',
-        label: 'Low Spend',
-        icon: ShoppingCart,
-        color: '#388e3c',
-        filter: (opp: FirestoreOpportunity) => {
-          const spendMatch = opp.requirements?.join(' ').match(/\$(\d+)/);
-          if (!spendMatch) return false;
-          return parseInt(spendMatch[1]) <= 500;
-        },
-      },
-    ],
-  },
-  {
-    label: 'Credit Impact',
-    filters: [
-      {
-        id: 'soft_pull',
-        label: 'Soft Pull Only',
-        icon: CreditScore,
-        color: '#2e7d32',
-        filter: (opp: FirestoreOpportunity) => opp.metadata?.credit?.inquiry === 'soft_pull',
-      },
-      {
-        id: 'no_524',
-        label: 'No 5/24 Impact',
-        icon: CheckCircle,
-        color: '#1976d2',
-        filter: (opp: FirestoreOpportunity) =>
-          opp.type === 'credit_card' && !opp.details?.under_5_24?.required,
-      },
-    ],
-  },
-];
-
 export default function OpportunitiesSection({
-  opportunities: initialOpportunities,
-  loading,
-  error,
   onDeleteAction,
   onAddOpportunityAction,
 }: OpportunitiesSectionProps) {
   const theme = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const isDark = theme.palette.mode === 'dark';
-  const [opportunities, setOpportunities] =
-    useState<FirestoreOpportunity[]>(initialOpportunities);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [selectedSmartFilters, setSelectedSmartFilters] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [sortBy, setSortBy] = useState<'value' | 'regions' | 'date'>('value');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [sortBy, setSortBy] = useState<'value' | 'name' | 'type' | 'date' | null>(
+    'value'
+  );
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     opportunity: FirestoreOpportunity | null;
@@ -234,7 +86,6 @@ export default function OpportunitiesSection({
     open: false,
     opportunity: null,
   });
-  const { user } = useAuth();
 
   // Initialize selected type from URL parameter
   const [selectedType, setSelectedType] = useState<string | null>(() => {
@@ -243,12 +94,25 @@ export default function OpportunitiesSection({
     return CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null;
   });
 
-  // Get unique banks for filtering
-  const availableBanks = Array.from(
-    new Set(opportunities.filter((opp) => opp.bank).map((opp) => opp.bank!))
-  ).sort();
+  // Use the enhanced useOpportunities hook
+  const {
+    opportunities: filteredOpportunities,
+    isLoading,
+    isError,
+    error: useOpportunitiesError,
+    refetch,
+  } = useOpportunities({
+    searchTerm,
+    type: selectedType,
+    sortBy,
+    sortDirection,
+  });
 
-  const [selectedBank, setSelectedBank] = useState<string | null>(null);
+  // Handle type selection
+  const handleTypeClick = (type: string | null) => {
+    setSelectedType(type);
+    updateUrl(type);
+  };
 
   // Update URL when filter changes
   const updateUrl = (newType: string | null) => {
@@ -269,24 +133,6 @@ export default function OpportunitiesSection({
     router.push(newUrl, { scroll: false });
   };
 
-  // Handle type selection
-  const handleTypeClick = (type: string | null) => {
-    setSelectedType(type);
-    updateUrl(type);
-  };
-
-  // Sync state with URL when URL changes
-  useEffect(() => {
-    const category = searchParams.get('category');
-    const newType = category
-      ? CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null
-      : null;
-
-    if (newType !== selectedType) {
-      setSelectedType(newType);
-    }
-  }, [searchParams, selectedType]);
-
   const handleDeleteClick = (opportunity: FirestoreOpportunity) => {
     if (!user) {
       router.push('/auth/signin?redirect=/opportunities');
@@ -297,7 +143,7 @@ export default function OpportunitiesSection({
 
   const handleDeleteCancel = () => {
     setDeleteDialog({ open: false, opportunity: null });
-    setIsDeleting(false);
+    setIsDeleting(null);
   };
 
   const handleDeleteConfirm = async () => {
@@ -307,17 +153,16 @@ export default function OpportunitiesSection({
       return;
     }
 
-    setIsDeleting(true);
+    setIsDeleting(id);
     try {
       await onDeleteAction(id);
       // Remove the opportunity from the local state
-      const updatedOpportunities = opportunities.filter((opp) => opp.id !== id);
-      setOpportunities(updatedOpportunities);
+      refetch();
       setDeleteDialog({ open: false, opportunity: null });
     } catch (error) {
       console.error('Failed to delete opportunity:', error);
     } finally {
-      setIsDeleting(false);
+      setIsDeleting(null);
     }
   };
 
@@ -344,92 +189,13 @@ export default function OpportunitiesSection({
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       // If selecting a new sort type, default to ascending
-      setSortBy(type as 'value' | 'regions' | 'date');
+      setSortBy(type as 'value' | 'name' | 'type' | 'date' | null);
       setSortDirection('asc');
     }
     handleSortClose();
   };
 
-  // Enhanced filtering logic
-  const getFilteredAndSortedOpportunities = () => {
-    let filtered = opportunities;
-
-    // Apply search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (opp) =>
-          opp.name.toLowerCase().includes(searchLower) ||
-          (opp.bank || '').toLowerCase().includes(searchLower) ||
-          (opp.description || '').toLowerCase().includes(searchLower) ||
-          opp.requirements?.some((req) => req.toLowerCase().includes(searchLower))
-      );
-    }
-
-    // Apply bank filter
-    if (selectedBank) {
-      filtered = filtered.filter((opp) => opp.bank === selectedBank);
-    }
-
-    // Apply quick filters
-    if (activeFilter) {
-      const quickFilter = QUICK_FILTERS.find((f) => f.id === activeFilter);
-      if (quickFilter?.filter) {
-        filtered = filtered.filter(quickFilter.filter);
-      }
-    }
-
-    // Apply smart filters
-    if (selectedSmartFilters.length > 0) {
-      const activeFilters = FILTER_GROUPS.flatMap((group) => group.filters).filter(
-        (filter) => selectedSmartFilters.includes(filter.id)
-      );
-
-      filtered = filtered.filter((opp) =>
-        activeFilters.every((filter) => filter.filter(opp))
-      );
-    }
-
-    // Apply sorting
-    return filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'value':
-          return b.value - a.value;
-        case 'regions':
-          const aRegions = a.metadata?.availability?.regions || [];
-          const bRegions = b.metadata?.availability?.regions || [];
-          return bRegions.length - aRegions.length;
-        case 'date':
-          return (
-            new Date(b.metadata.created_at).getTime() -
-            new Date(a.metadata.created_at).getTime()
-          );
-        default:
-          return 0;
-      }
-    });
-  };
-
-  const filteredOpportunities = getFilteredAndSortedOpportunities();
-
-  // Calculate statistics
-  const stats = {
-    total: filteredOpportunities.length,
-    averageValue: Math.round(
-      filteredOpportunities.reduce((sum, opp) => sum + opp.value, 0) /
-        filteredOpportunities.length
-    ),
-    byType: {
-      credit_card: filteredOpportunities.filter((opp) => opp.type === 'credit_card')
-        .length,
-      bank: filteredOpportunities.filter((opp) => opp.type === 'bank').length,
-      brokerage: filteredOpportunities.filter((opp) => opp.type === 'brokerage')
-        .length,
-    },
-    highValue: filteredOpportunities.filter((opp) => opp.value >= 500).length,
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <Box
         sx={{
@@ -482,7 +248,7 @@ export default function OpportunitiesSection({
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <Container
         maxWidth="lg"
@@ -515,7 +281,9 @@ export default function OpportunitiesSection({
               </Typography>
             </Box>
             <Typography color="text.secondary">
-              {error instanceof Error ? error.message : 'Unknown error'}
+              {useOpportunitiesError instanceof Error
+                ? useOpportunitiesError.message
+                : 'Unknown error'}
             </Typography>
           </Paper>
         </motion.div>
@@ -816,11 +584,18 @@ export default function OpportunitiesSection({
                   Value
                 </MenuItem>
                 <MenuItem
-                  onClick={() => handleSortSelect('regions')}
-                  selected={sortBy === 'regions'}
+                  onClick={() => handleSortSelect('name')}
+                  selected={sortBy === 'name'}
+                >
+                  <SortByAlpha />
+                  Name
+                </MenuItem>
+                <MenuItem
+                  onClick={() => handleSortSelect('type')}
+                  selected={sortBy === 'type'}
                 >
                   <Category />
-                  Regions
+                  Type
                 </MenuItem>
                 <MenuItem
                   onClick={() => handleSortSelect('date')}
@@ -864,13 +639,13 @@ export default function OpportunitiesSection({
             <OpportunityGrid
               opportunities={filteredOpportunities}
               onDeleteClick={handleDeleteClick}
-              isDeleting={isDeleting ? deleteDialog.opportunity?.id || null : null}
+              isDeleting={isDeleting}
             />
           ) : (
             <OpportunityList
               opportunities={filteredOpportunities}
               onDeleteClick={handleDeleteClick}
-              isDeleting={isDeleting ? deleteDialog.opportunity?.id || null : null}
+              isDeleting={isDeleting}
             />
           )}
 
@@ -880,7 +655,7 @@ export default function OpportunitiesSection({
             opportunity={deleteDialog.opportunity}
             onCancelAction={handleDeleteCancel}
             onConfirm={handleDeleteConfirm}
-            loading={isDeleting}
+            loading={Boolean(isDeleting)}
           />
 
           {/* Floating Add Button for Mobile */}

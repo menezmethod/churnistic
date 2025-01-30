@@ -22,6 +22,7 @@ import { LogoImage } from '@/app/opportunities/components/LogoImage';
 import { getTypeColors } from '@/app/opportunities/utils/colorUtils';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { FirestoreOpportunity } from '@/types/opportunity';
 
 export function FeaturedOpportunities() {
   const theme = useTheme();
@@ -29,11 +30,11 @@ export function FeaturedOpportunities() {
     threshold: 0.1,
     triggerOnce: true,
   });
-  const { data: opportunities = [] } = useOpportunities(100);
+  const { opportunities } = useOpportunities({ limit: 100 });
 
   // Get top 3 opportunities with highest value
   const featuredOffers = opportunities
-    .sort((a, b) => (b.value || 0) - (a.value || 0))
+    .sort((a: FirestoreOpportunity, b: FirestoreOpportunity) => (b.value || 0) - (a.value || 0))
     .slice(0, 3);
 
   return (
@@ -72,7 +73,7 @@ export function FeaturedOpportunities() {
 
         {featuredOffers.length > 0 ? (
           <Grid container spacing={4}>
-            {featuredOffers.map((offer, index) => {
+            {featuredOffers.map((offer: FirestoreOpportunity, index: number) => {
               const colors = getTypeColors(offer.type, theme);
               return (
                 <Grid
@@ -237,7 +238,7 @@ export function FeaturedOpportunities() {
                       </Typography>
                       <List dense disablePadding>
                         {(offer.bonus?.requirements?.description?.split('\n') || []).map(
-                          (req, idx) => (
+                          (req: string, idx: number) => (
                             <ListItem
                               key={idx}
                               sx={{

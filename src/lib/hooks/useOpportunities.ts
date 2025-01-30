@@ -27,10 +27,20 @@ async function handleResponse<T>(response: Response): Promise<T> {
   }
 }
 
-const getOpportunities = async (limit?: number): Promise<FirestoreOpportunity[]> => {
+const getOpportunities = async (params?: {
+  limit?: number;
+  searchTerm?: string;
+  type?: string | null;
+  sortBy?: 'value' | 'name' | 'type' | 'date' | null;
+  sortDirection?: 'asc' | 'desc';
+}): Promise<FirestoreOpportunity[]> => {
   const url = new URL(API_BASE, window.location.origin);
-  if (limit) {
-    url.searchParams.set('limit', limit.toString());
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        url.searchParams.set(key, value.toString());
+      }
+    });
   }
   const response = await fetch(url);
   return handleResponse<FirestoreOpportunity[]>(response);
@@ -90,12 +100,18 @@ const deleteOpportunity = async (id: string): Promise<void> => {
   }
 };
 
-export function useOpportunities(limit?: number) {
+export function useOpportunities(params?: {
+  limit?: number;
+  searchTerm?: string;
+  type?: string | null;
+  sortBy?: 'value' | 'name' | 'type' | 'date' | null;
+  sortDirection?: 'asc' | 'desc';
+}) {
   const queryClient = useQueryClient();
 
   const query = useQuery<FirestoreOpportunity[]>({
-    queryKey: ['opportunities', limit],
-    queryFn: () => getOpportunities(limit),
+    queryKey: ['opportunities', params],
+    queryFn: () => getOpportunities(params),
     staleTime: 0, // Always fetch fresh data
     refetchOnMount: true,
     refetchOnWindowFocus: true,
@@ -106,13 +122,13 @@ export function useOpportunities(limit?: number) {
     onSuccess: (newOpportunity) => {
       // Optimistically update the cache
       queryClient.setQueryData<FirestoreOpportunity[]>(
-        ['opportunities', limit],
+        ['opportunities', params],
         (old) => {
           return old ? [newOpportunity, ...old] : [newOpportunity];
         }
       );
       // Then invalidate to ensure we have the latest data
-      queryClient.invalidateQueries({ queryKey: ['opportunities', limit] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', params] });
     },
   });
 
@@ -121,7 +137,7 @@ export function useOpportunities(limit?: number) {
     onSuccess: (updatedOpportunity) => {
       if (!isFirestoreOpportunity(updatedOpportunity)) return;
       queryClient.setQueryData<FirestoreOpportunity[]>(
-        ['opportunities', limit],
+        ['opportunities', params],
         (old) => {
           return old
             ? old.map((opp) =>
@@ -131,7 +147,7 @@ export function useOpportunities(limit?: number) {
         }
       );
       // Then invalidate to ensure we have the latest data
-      queryClient.invalidateQueries({ queryKey: ['opportunities', limit] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', params] });
       queryClient.invalidateQueries({
         queryKey: ['opportunity', updatedOpportunity.id],
       });
@@ -142,18 +158,18 @@ export function useOpportunities(limit?: number) {
     mutationFn: deleteOpportunity,
     onMutate: async (deletedId) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['opportunities', limit] });
+      await queryClient.cancelQueries({ queryKey: ['opportunities', params] });
       await queryClient.cancelQueries({ queryKey: ['opportunity', deletedId] });
 
       // Snapshot the previous value
       const previousOpportunities = queryClient.getQueryData<FirestoreOpportunity[]>([
         'opportunities',
-        limit,
+        params,
       ]);
 
       // Optimistically remove the opportunity from the cache
       queryClient.setQueryData<FirestoreOpportunity[]>(
-        ['opportunities', limit],
+        ['opportunities', params],
         (old) => {
           return old ? old.filter((opp) => opp.id !== deletedId) : [];
         }
@@ -168,20 +184,24 @@ export function useOpportunities(limit?: number) {
     onError: (error, deletedId, context) => {
       // Roll back to the previous value on error
       if (context?.previousOpportunities) {
-        queryClient.setQueryData(['opportunities', limit], context.previousOpportunities);
+        queryClient.setQueryData(['opportunities', params], context.previousOpportunities);
       }
       console.error('Error deleting opportunity:', error);
     },
     onSettled: (_, __, deletedId) => {
       // Only invalidate the opportunities list query
-      queryClient.invalidateQueries({ queryKey: ['opportunities', limit] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', params] });
       // Remove the individual opportunity query instead of invalidating it
       queryClient.removeQueries({ queryKey: ['opportunity', deletedId] });
     },
   });
 
   return {
-    ...query,
+    opportunities: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
     createOpportunity: createMutation.mutate,
     updateOpportunity: updateMutation.mutate,
     deleteOpportunity: deleteMutation.mutate,
