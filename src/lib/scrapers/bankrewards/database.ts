@@ -1,6 +1,8 @@
-import { collection, doc, writeBatch, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, doc, writeBatch, Timestamp } from 'firebase/firestore';
 import fs from 'fs';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
+import { join } from 'path';
 
 import { db } from '@/lib/firebase/config';
 import { BankRewardsOffer } from '@/types/scraper';
@@ -10,11 +12,16 @@ export class BankRewardsDatabase {
   private readonly dbPath: string;
   private readonly dataDir: string;
   private readonly useEmulator: boolean;
+  private storagePath: string;
+  private offersPath: string;
 
   constructor() {
     this.useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
     this.dataDir = path.join(process.cwd(), 'data');
     this.dbPath = path.join(this.dataDir, 'bankrewards.json');
+    this.storagePath =
+      process.env.NODE_ENV === 'production' ? '/tmp/bankrewards' : './data/bankrewards';
+    this.offersPath = join(this.storagePath, 'offers.json');
     this.ensureDataDirectory();
     this.loadFromDisk();
   }
@@ -201,43 +208,56 @@ export class BankRewardsDatabase {
   }
 
   public async getOffers(): Promise<BankRewardsOffer[]> {
-    return Array.from(this.offers.values());
+    try {
+      await this.ensureStorageExists();
+
+      try {
+        const data = await readFile(this.offersPath, 'utf-8');
+        return JSON.parse(data);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          // If file doesn't exist, return empty array
+          return [];
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error reading offers:', error);
+      return [];
+    }
   }
 
   public async getStats(): Promise<{ total: number; active: number; expired: number }> {
-    const offers = Array.from(this.offers.values());
-    const active = offers.filter((o) => o.metadata.status === 'active').length;
-    const expired = offers.filter((o) => o.metadata.status === 'expired').length;
-
+    const offers = await this.getOffers();
     return {
       total: offers.length,
-      active,
-      expired,
+      active: offers.filter((offer) => offer.metadata?.status === 'active').length,
+      expired: offers.filter((offer) => offer.metadata?.status === 'expired').length,
     };
   }
 
-  public async deleteAllOffers(): Promise<{ deleted: number }> {
-    const count = this.offers.size;
-    console.info(`[BankRewards] Deleting ${count} offers`);
+  public async deleteAllOffers(): Promise<{ success: boolean; message: string }> {
+    try {
+      await this.ensureStorageExists();
+      await writeFile(this.offersPath, JSON.stringify([], null, 2));
+      return { success: true, message: 'All offers deleted successfully' };
+    } catch (error) {
+      console.error('Error deleting offers:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  }
 
-    this.offers.clear();
-    await this.saveToDisk();
-
-    if (!this.useEmulator) {
-      try {
-        const offersRef = collection(db, 'bankrewards');
-        const snapshot = await getDocs(offersRef);
-        const batch = writeBatch(db);
-        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
-        await batch.commit();
-      } catch (error) {
-        console.error(
-          '[BankRewards] Firestore delete failed, but disk delete succeeded:',
-          error
-        );
+  private async ensureStorageExists() {
+    try {
+      await mkdir(this.storagePath, { recursive: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+        console.error('Error creating storage directory:', error);
+        throw error;
       }
     }
-
-    return { deleted: count };
   }
 }
