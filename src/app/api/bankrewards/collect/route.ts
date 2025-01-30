@@ -1,74 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { UserRole } from '@/lib/auth/types';
-import { getAdminAuth } from '@/lib/firebase/admin';
+import { verifySession } from '@/lib/auth/session';
 import { BankRewardsCollector } from '@/lib/scrapers/bankrewards/collector';
 import { BankRewardsDatabase } from '@/lib/scrapers/bankrewards/database';
 
 import { getBankRewardsConfig } from '../config';
 
-async function verifyAdminAccess(request: NextRequest) {
-  const sessionCookie = request.cookies.get('session')?.value;
-  if (!sessionCookie) {
-    return false;
-  }
+// Validation schema for query parameters
+const querySchema = z.object({
+  action: z.enum(['collect', 'stats']).default('collect'),
+});
 
-  try {
-    const decodedClaims = await getAdminAuth().verifySessionCookie(sessionCookie, true);
-    return (
-      decodedClaims.role === UserRole.ADMIN ||
-      decodedClaims.role === UserRole.SUPERADMIN ||
-      decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
-    );
-  } catch (error) {
-    console.error('Admin verification failed:', error);
-    return false;
-  }
-}
-
-// Start collection
-export async function POST(request: NextRequest) {
-  try {
-    // Verify admin access
-    const isAdmin = await verifyAdminAccess(request);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    const config = getBankRewardsConfig();
-    const collector = new BankRewardsCollector(config);
-    const result = await collector.collect();
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error('Error running BankRewards collector:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to run collector',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// Get collection stats
+// Combined GET handler for both collection and stats
 export async function GET(request: NextRequest) {
   try {
     // Verify admin access
-    const isAdmin = await verifyAdminAccess(request);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const sessionCookie = request.cookies.get('session')?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        { error: 'Unauthorized - No session cookie' },
+        { status: 403 }
+      );
     }
 
-    const database = new BankRewardsDatabase();
-    const stats = await database.getStats();
-    return NextResponse.json(stats);
+    const session = await verifySession(sessionCookie);
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Invalid session' },
+        { status: 403 }
+      );
+    }
+
+    if (!session.isAdmin && !session.isSuperAdmin) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Insufficient permissions' },
+        { status: 403 }
+      );
+    }
+
+    // Parse query parameters
+    const { searchParams } = new URL(request.url);
+    const { action } = querySchema.parse({
+      action: searchParams.get('action') || 'collect',
+    });
+
+    if (action === 'collect') {
+      const config = getBankRewardsConfig();
+      const collector = new BankRewardsCollector(config);
+      const result = await collector.collect();
+      return NextResponse.json(result);
+    } else {
+      const database = new BankRewardsDatabase();
+      const stats = await database.getStats();
+      return NextResponse.json(stats);
+    }
   } catch (error) {
-    console.error('Error getting BankRewards stats:', error);
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          error: {
+            message: 'Invalid request parameters',
+            details: error.errors,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    console.error('Error in BankRewards operation:', error);
     return NextResponse.json(
       {
-        error: 'Failed to get stats',
-        details: error instanceof Error ? error.message : String(error),
+        error: {
+          message: 'Operation failed',
+          details: error instanceof Error ? error.message : String(error),
+        },
       },
       { status: 500 }
     );
@@ -79,9 +85,27 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // Verify admin access
-    const isAdmin = await verifyAdminAccess(request);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const sessionCookie = request.cookies.get('session')?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        { error: 'Unauthorized - No session cookie' },
+        { status: 403 }
+      );
+    }
+
+    const session = await verifySession(sessionCookie);
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Invalid session' },
+        { status: 403 }
+      );
+    }
+
+    if (!session.isAdmin && !session.isSuperAdmin) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Insufficient permissions' },
+        { status: 403 }
+      );
     }
 
     const database = new BankRewardsDatabase();

@@ -16,7 +16,7 @@ let adminDb: Firestore | undefined;
 function getAdminConfig(): AppOptions {
   const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
   const projectId = useEmulators
-    ? 'demo-churnistic-local'
+    ? 'churnistic'
     : process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
   if (!projectId) {

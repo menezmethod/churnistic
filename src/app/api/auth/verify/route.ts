@@ -88,7 +88,29 @@ export async function POST(request: NextRequest) {
     console.log('Attempting to verify session cookie...');
 
     try {
-      const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
+      let decodedClaims;
+      const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+
+      if (useEmulator) {
+        // In emulator mode, verify ID token directly
+        try {
+          decodedClaims = await auth.verifyIdToken(sessionCookie);
+        } catch (error) {
+          console.error('ID token verification failed:', error);
+          // If verification fails, try decoding without verification (emulator mode)
+          const jwt = JSON.parse(
+            Buffer.from(sessionCookie.split('.')[1], 'base64').toString()
+          );
+          decodedClaims = {
+            ...jwt,
+            uid: jwt.user_id,
+          };
+        }
+      } else {
+        // In production, verify session cookie
+        decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
+      }
+
       console.log('Session verified successfully for:', decodedClaims.email);
 
       // Check for admin/superadmin role if required

@@ -343,7 +343,7 @@ export default function AppNavbar() {
   const handleLogout = async () => {
     try {
       await signOut();
-      router.push('/signin');
+      router.push('/auth/signin');
     } catch (error) {
       console.error('Error signing out:', error);
     }

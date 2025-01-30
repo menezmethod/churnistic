@@ -1,9 +1,9 @@
 'use client';
 import type { JSX } from 'react';
 
-import { ThemeProvider } from '@/app/styles/theme/ThemeContext';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { QueryProvider } from '@/lib/providers/QueryProvider';
+import { ThemeProvider } from '@/styles/theme/ThemeContext';
 
 interface ClientProvidersProps {
   children: React.ReactNode;

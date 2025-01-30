@@ -2,8 +2,8 @@
 
 import { type ReactNode } from 'react';
 
-import { ThemeProvider } from '@/app/styles/theme/ThemeContext';
 import { ClientAuthProvider } from '@/lib/auth/ClientAuthProvider';
+import { ThemeProvider } from '@/styles/theme/ThemeContext';
 
 import { QueryProvider } from './QueryProvider';
 

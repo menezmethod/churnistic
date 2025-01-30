@@ -28,6 +28,7 @@ export const firebaseConfig = {
   appId: USE_EMULATOR
     ? '1:000000000000:web:0000000000000000000000'
     : process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Initialize Firebase - ensure single instance
@@ -85,7 +86,7 @@ export async function manageSessionCookie(user: User) {
       configurable: true,
     });
 
-    // Set session cookie
+    // Always use the session API, even in emulator mode
     const response = await fetch('/api/auth/session', {
       method: 'POST',
       headers: {
@@ -97,13 +98,17 @@ export async function manageSessionCookie(user: User) {
     if (!response.ok) {
       throw new Error('Failed to set session cookie');
     }
-
-    // Set a local cookie for the emulator environment
-    if (USE_EMULATOR) {
-      document.cookie = `session=${idToken}; path=/; max-age=3600; SameSite=Strict`;
-    }
   } catch (error) {
     console.error('Error managing session:', error);
     throw error;
   }
 }
+
+// Add this if using Firebase Admin SDK for backend operations
+export const getAuthSettings = () => ({
+  authDomain: [
+    'your-production-domain.com',
+    '*.vercel.app', // Wildcard for all Vercel preview deployments
+    'localhost', // Keep for local development
+  ],
+});

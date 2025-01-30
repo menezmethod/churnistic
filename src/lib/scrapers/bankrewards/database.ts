@@ -1,6 +1,7 @@
 import { collection, doc, writeBatch, Timestamp } from 'firebase/firestore';
 import fs from 'fs';
-import { mkdir, readFile, writeFile } from 'fs/promises';
+import { mkdir, access, writeFile, readFile } from 'fs/promises';
+import { tmpdir } from 'os';
 import path from 'path';
 
 import { db } from '@/lib/firebase/config';
@@ -8,36 +9,63 @@ import { BankRewardsOffer } from '@/types/scraper';
 
 export class BankRewardsDatabase {
   private offers: Map<string, BankRewardsOffer> = new Map();
-  private readonly dbPath: string;
   private readonly storagePath: string;
+  private readonly offersPath: string;
   private readonly useEmulator: boolean;
-  private offersPath: string;
+  private isStorageReady: boolean = false;
 
   constructor() {
     this.useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
-    // Use /tmp in production and development for consistent behavior
-    this.storagePath =
-      process.env.NODE_ENV === 'production'
-        ? '/tmp/bankrewards'
-        : path.join(process.cwd(), 'data', 'bankrewards');
-
-    this.dbPath = path.join(this.storagePath, 'bankrewards.json');
+    // Use system temp directory as base
+    const tempBase = process.env.VERCEL ? '/tmp' : tmpdir();
+    this.storagePath = path.join(tempBase, 'bankrewards');
     this.offersPath = path.join(this.storagePath, 'offers.json');
 
-    this.ensureStorageDirectory();
-    this.loadFromDisk();
+    // Initialize storage asynchronously
+    this.initializeStorage().catch((error) => {
+      console.error('[BankRewards] Failed to initialize storage:', error);
+    });
   }
 
-  private ensureStorageDirectory() {
+  private async initializeStorage(): Promise<void> {
     try {
-      if (!fs.existsSync(this.storagePath)) {
-        fs.mkdirSync(this.storagePath, { recursive: true });
+      await this.ensureStorageExists();
+      await this.loadFromDisk();
+      this.isStorageReady = true;
+    } catch (error) {
+      console.error('[BankRewards] Storage initialization failed:', error);
+      this.isStorageReady = false;
+      throw error;
+    }
+  }
+
+  private async ensureStorageExists(): Promise<void> {
+    try {
+      // Check if directory exists and is writable
+      try {
+        await access(this.storagePath, fs.constants.W_OK);
+      } catch {
+        // Directory doesn't exist or isn't writable, try to create it
+        await mkdir(this.storagePath, { recursive: true, mode: 0o755 });
         console.info(`[BankRewards] Created storage directory: ${this.storagePath}`);
+
+        // Verify the directory was created and is writable
+        await access(this.storagePath, fs.constants.W_OK);
+      }
+
+      // Create empty offers file if it doesn't exist
+      try {
+        await access(this.offersPath, fs.constants.F_OK);
+      } catch {
+        await writeFile(this.offersPath, '[]', { mode: 0o644 });
+        console.info(`[BankRewards] Created empty offers file: ${this.offersPath}`);
       }
     } catch (error) {
-      console.error('[BankRewards] Error creating storage directory:', error);
-      throw error;
+      console.error('[BankRewards] Storage setup failed:', error);
+      throw new Error(
+        `Failed to setup storage: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -55,22 +83,37 @@ export class BankRewardsDatabase {
     return true;
   }
 
-  private async loadFromDisk() {
+  private async loadFromDisk(): Promise<void> {
     try {
-      if (!fs.existsSync(this.dbPath)) {
-        console.info(`[BankRewards] No existing database file at ${this.dbPath}`);
-        return;
+      let rawData: string;
+      try {
+        rawData = await readFile(this.offersPath, 'utf-8');
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          console.info(`[BankRewards] No existing offers file at ${this.offersPath}`);
+          return;
+        }
+        throw error;
       }
 
-      const rawData = fs.readFileSync(this.dbPath, 'utf-8');
       if (!rawData.trim()) {
-        console.info('[BankRewards] Empty database file');
+        console.info('[BankRewards] Empty offers file');
         return;
       }
 
-      const data = JSON.parse(rawData);
-      let loadedCount = 0;
+      let data;
+      try {
+        data = JSON.parse(rawData);
+      } catch (error) {
+        console.error('[BankRewards] Invalid JSON in offers file:', error);
+        const backupPath = `${this.offersPath}.backup.${Date.now()}`;
+        await writeFile(backupPath, rawData);
+        console.info(`[BankRewards] Backed up corrupted file to ${backupPath}`);
+        this.offers.clear();
+        return;
+      }
 
+      let loadedCount = 0;
       if (Array.isArray(data)) {
         data.forEach((offer) => {
           if (this.validateOffer(offer)) {
@@ -83,32 +126,47 @@ export class BankRewardsDatabase {
 
       console.info(`[BankRewards] Loaded ${loadedCount} valid offers from disk`);
     } catch (error) {
-      if (error instanceof SyntaxError) {
-        console.error('[BankRewards] Invalid JSON in database file:', error);
-        const backupPath = `${this.dbPath}.backup.${Date.now()}`;
-        fs.copyFileSync(this.dbPath, backupPath);
-        console.info(`[BankRewards] Backed up corrupted database to ${backupPath}`);
-        this.offers.clear();
-      } else {
-        console.error('[BankRewards] Error loading database from disk:', error);
-      }
+      console.error('[BankRewards] Error loading offers from disk:', error);
+      throw new Error(
+        `Failed to load offers: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
-  private async saveToDisk() {
+  private async saveToDisk(): Promise<void> {
+    if (!this.isStorageReady) {
+      await this.initializeStorage();
+    }
+
     try {
       const data = Array.from(this.offers.values());
-      const tempPath = `${this.dbPath}.tmp`;
-      await fs.promises.writeFile(tempPath, JSON.stringify(data, null, 2));
-      await fs.promises.rename(tempPath, this.dbPath);
+      const tempPath = `${this.offersPath}.tmp`;
+
+      // Write to temporary file first
+      await writeFile(tempPath, JSON.stringify(data, null, 2), { mode: 0o644 });
+
+      // Verify the write was successful
+      const written = await readFile(tempPath, 'utf-8');
+      try {
+        JSON.parse(written); // Validate JSON
+      } catch (error) {
+        throw new Error(
+          `Failed to write valid JSON: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
+
+      // Atomic rename
+      await fs.promises.rename(tempPath, this.offersPath);
       console.info(`[BankRewards] Saved ${data.length} offers to disk`);
     } catch (error) {
       console.error('[BankRewards] Error saving to disk:', error);
-      throw error; // Propagate error since disk storage is our fallback
+      throw new Error(
+        `Failed to save offers: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
-  private async saveToFirestore(offers: BankRewardsOffer[]) {
+  private async saveToFirestore(offers: BankRewardsOffer[]): Promise<void> {
     if (this.useEmulator) {
       console.info('[BankRewards] In emulator mode, skipping Firestore save');
       return;
@@ -150,6 +208,10 @@ export class BankRewardsDatabase {
   }
 
   public async saveOffer(offer: BankRewardsOffer): Promise<void> {
+    if (!this.isStorageReady) {
+      await this.initializeStorage();
+    }
+
     if (!this.validateOffer(offer)) {
       throw new Error('Invalid offer data');
     }
@@ -180,7 +242,49 @@ export class BankRewardsDatabase {
     }
   }
 
+  public async getOffers(): Promise<BankRewardsOffer[]> {
+    if (!this.isStorageReady) {
+      await this.initializeStorage();
+    }
+    return [...this.offers.values()];
+  }
+
+  public async getStats(): Promise<{ total: number; active: number; expired: number }> {
+    if (!this.isStorageReady) {
+      await this.initializeStorage();
+    }
+
+    const offers = [...this.offers.values()];
+    return {
+      total: offers.length,
+      active: offers.filter((offer) => offer.metadata?.status === 'active').length,
+      expired: offers.filter((offer) => offer.metadata?.status === 'expired').length,
+    };
+  }
+
+  public async deleteAllOffers(): Promise<{ success: boolean; message: string }> {
+    if (!this.isStorageReady) {
+      await this.initializeStorage();
+    }
+
+    try {
+      this.offers.clear();
+      await this.saveToDisk();
+      return { success: true, message: 'All offers deleted successfully' };
+    } catch (error) {
+      console.error('Error deleting offers:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  }
+
   public async markOffersAsExpired(): Promise<void> {
+    if (!this.isStorageReady) {
+      await this.initializeStorage();
+    }
+
     console.info(`[BankRewards] Marking ${this.offers.size} offers as expired`);
 
     for (const [id, offer] of this.offers) {
@@ -194,10 +298,8 @@ export class BankRewardsDatabase {
       });
     }
 
-    // Always save to disk first
     await this.saveToDisk();
 
-    // Only try Firestore in production
     if (!this.useEmulator) {
       try {
         await this.saveToFirestore([...this.offers.values()]);
@@ -206,60 +308,6 @@ export class BankRewardsDatabase {
           '[BankRewards] Firestore save failed, but disk save succeeded:',
           error
         );
-      }
-    }
-  }
-
-  public async getOffers(): Promise<BankRewardsOffer[]> {
-    try {
-      await this.ensureStorageExists();
-
-      try {
-        const data = await readFile(this.offersPath, 'utf-8');
-        return JSON.parse(data);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-          // If file doesn't exist, return empty array
-          return [];
-        }
-        throw error;
-      }
-    } catch (error) {
-      console.error('Error reading offers:', error);
-      return [];
-    }
-  }
-
-  public async getStats(): Promise<{ total: number; active: number; expired: number }> {
-    const offers = await this.getOffers();
-    return {
-      total: offers.length,
-      active: offers.filter((offer) => offer.metadata?.status === 'active').length,
-      expired: offers.filter((offer) => offer.metadata?.status === 'expired').length,
-    };
-  }
-
-  public async deleteAllOffers(): Promise<{ success: boolean; message: string }> {
-    try {
-      await this.ensureStorageExists();
-      await writeFile(this.offersPath, JSON.stringify([], null, 2));
-      return { success: true, message: 'All offers deleted successfully' };
-    } catch (error) {
-      console.error('Error deleting offers:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
-      };
-    }
-  }
-
-  private async ensureStorageExists() {
-    try {
-      await mkdir(this.storagePath, { recursive: true });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-        console.error('Error creating storage directory:', error);
-        throw error;
       }
     }
   }

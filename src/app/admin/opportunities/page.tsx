@@ -14,6 +14,7 @@ import {
   Speed as SpeedIcon,
   CloudDownload as ImportIcon,
   DoneAll as BulkApproveIcon,
+  DeleteSweep as PurgeIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -38,14 +39,16 @@ import {
   Typography,
   useTheme,
   alpha,
-  Fade,
 } from '@mui/material';
+import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 
 import { OpportunityPreviewModal } from './components/OpportunityPreviewModal';
 import { useOpportunities } from './hooks/useOpportunities';
 import { Opportunity } from './types/opportunity';
 import AdminProtectedRoute from '../components/AdminProtectedRoute';
+import { ConfirmationDialog } from './components/ConfirmationDialog';
+import { StatsExplanation } from './components/StatsExplanation';
 
 const StatsCard = ({
   title,
@@ -64,52 +67,78 @@ const StatsCard = ({
 }) => {
   const theme = useTheme();
   return (
-    <Card
-      sx={{
-        height: '100%',
-        background: `linear-gradient(135deg, ${alpha(color, 0.05)} 0%, ${alpha(color, 0.1)} 100%)`,
-        borderRadius: 2,
-        transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: theme.shadows[8],
-        },
-      }}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
     >
-      <CardContent>
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: 2,
-              bgcolor: alpha(color, 0.15),
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {icon}
-          </Box>
-          <Box>
-            <Typography
-              variant="h4"
-              fontWeight="bold"
-              sx={{ color: theme.palette.text.primary }}
+      <Card
+        sx={{
+          height: '100%',
+          background: `linear-gradient(135deg, ${alpha(color, 0.02)} 0%, ${alpha(
+            color,
+            0.08
+          )} 100%)`,
+          borderRadius: 3,
+          border: `1px solid ${alpha(color, 0.1)}`,
+          transition: 'all 0.3s ease-in-out',
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: `0 8px 24px ${alpha(color, 0.15)}`,
+            border: `1px solid ${alpha(color, 0.2)}`,
+          },
+        }}
+      >
+        <CardContent sx={{ p: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={3}>
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: alpha(color, 0.12),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  bgcolor: alpha(color, 0.18),
+                },
+              }}
             >
-              {prefix && <span style={{ opacity: 0.7 }}>{prefix}</span>}
-              {value.toLocaleString()}
-              {suffix && <span style={{ opacity: 0.7 }}>{suffix}</span>}
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ color: theme.palette.text.secondary, mt: 0.5 }}
-            >
-              {title}
-            </Typography>
-          </Box>
-        </Stack>
-      </CardContent>
-    </Card>
+              {icon}
+            </Box>
+            <Box>
+              <Typography
+                variant="h4"
+                fontWeight="700"
+                sx={{
+                  color: theme.palette.text.primary,
+                  letterSpacing: '-0.5px',
+                }}
+              >
+                {prefix && (
+                  <span style={{ opacity: 0.7, marginRight: '2px' }}>{prefix}</span>
+                )}
+                {value.toLocaleString()}
+                {suffix && (
+                  <span style={{ opacity: 0.7, marginLeft: '2px' }}>{suffix}</span>
+                )}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: alpha(theme.palette.text.secondary, 0.8),
+                  mt: 0.5,
+                  fontWeight: 500,
+                }}
+              >
+                {title}
+              </Typography>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 };
 
@@ -119,11 +148,11 @@ const OpportunitiesPage = () => {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(
     null
   );
+  const [showPurgeConfirmation, setShowPurgeConfirmation] = useState(false);
   const {
     opportunities,
     pagination,
     updatePagination,
-    hasMore,
     approveOpportunity,
     rejectOpportunity,
     bulkApproveOpportunities,
@@ -131,6 +160,8 @@ const OpportunitiesPage = () => {
     stats,
     importOpportunities,
     isImporting,
+    purgeAllData,
+    isPurging,
   } = useOpportunities();
 
   useEffect(() => {
@@ -253,29 +284,44 @@ const OpportunitiesPage = () => {
       ? (((stats.approved + stats.rejected) / stats.total) * 100).toFixed(1)
       : '0';
 
+  const handlePurgeClick = () => {
+    setShowPurgeConfirmation(true);
+  };
+
+  const handlePurgeConfirm = async () => {
+    try {
+      await purgeAllData();
+      setShowPurgeConfirmation(false);
+    } catch (error) {
+      console.error('Failed to purge data:', error);
+    }
+  };
+
+  const handlePurgeCancel = () => {
+    setShowPurgeConfirmation(false);
+  };
+
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-      <Grid container spacing={3}>
-        {/* Main Stats */}
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
+    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
+      <StatsExplanation />
+      <Grid container spacing={4}>
+        {/* Stats Grid */}
+        <Grid item xs={12}>
+          <Grid container spacing={3}>
+            {/* Main Overview */}
+            <Grid item xs={12} md={4}>
               <StatsCard
                 title="Total Opportunities"
                 value={stats.total}
                 icon={
                   <TrendingUpIcon
-                    sx={{ color: theme.palette.primary.main, fontSize: 28 }}
+                    sx={{ color: theme.palette.primary.main, fontSize: 32 }}
                   />
                 }
                 color={theme.palette.primary.main}
               />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
+            </Grid>
+            <Grid item xs={12} md={4}>
               <StatsCard
                 title="Pending Review"
                 value={stats.pending}
@@ -284,12 +330,8 @@ const OpportunitiesPage = () => {
                 }
                 color={theme.palette.warning.main}
               />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
+            </Grid>
+            <Grid item xs={12} md={4}>
               <StatsCard
                 title="Processing Rate"
                 value={Number(processingSpeed)}
@@ -297,97 +339,108 @@ const OpportunitiesPage = () => {
                 color={theme.palette.info.main}
                 suffix="%"
               />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="Avg. Bonus Value"
-                value={stats.avgValue}
-                icon={
-                  <ValueIcon sx={{ color: theme.palette.success.main, fontSize: 28 }} />
-                }
-                color={theme.palette.success.main}
-                prefix="$"
-              />
-            </div>
-          </Fade>
-        </Grid>
+            </Grid>
 
-        {/* Offer Type Distribution */}
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="Bank Offers"
-                value={stats.byType.bank}
-                icon={
-                  <BankIcon sx={{ color: theme.palette.success.main, fontSize: 28 }} />
-                }
-                color={theme.palette.success.main}
-              />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="Credit Card Offers"
-                value={stats.byType.credit_card}
-                icon={<CardIcon sx={{ color: theme.palette.info.main, fontSize: 28 }} />}
-                color={theme.palette.info.main}
-              />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="Brokerage Offers"
-                value={stats.byType.brokerage}
-                icon={
-                  <BrokerageIcon
-                    sx={{ color: theme.palette.secondary.main, fontSize: 28 }}
+            {/* Offer Type Distribution */}
+            <Grid item xs={12}>
+              <Typography
+                variant="h6"
+                sx={{ mb: 2, color: theme.palette.text.secondary }}
+              >
+                Offer Type Distribution
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={4}>
+                  <StatsCard
+                    title="Bank Offers"
+                    value={stats.byType.bank}
+                    icon={
+                      <BankIcon
+                        sx={{ color: theme.palette.success.main, fontSize: 28 }}
+                      />
+                    }
+                    color={theme.palette.success.main}
                   />
-                }
-                color={theme.palette.secondary.main}
-              />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="High Value ($500+)"
-                value={stats.highValue}
-                icon={
-                  <ValueIcon sx={{ color: theme.palette.error.main, fontSize: 28 }} />
-                }
-                color={theme.palette.error.main}
-              />
-            </div>
-          </Fade>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <StatsCard
+                    title="Credit Card Offers"
+                    value={stats.byType.credit_card}
+                    icon={
+                      <CardIcon sx={{ color: theme.palette.info.main, fontSize: 28 }} />
+                    }
+                    color={theme.palette.info.main}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <StatsCard
+                    title="Brokerage Offers"
+                    value={stats.byType.brokerage}
+                    icon={
+                      <BrokerageIcon
+                        sx={{ color: theme.palette.secondary.main, fontSize: 28 }}
+                      />
+                    }
+                    color={theme.palette.secondary.main}
+                  />
+                </Grid>
+              </Grid>
+            </Grid>
+
+            {/* Value Metrics */}
+            <Grid item xs={12}>
+              <Typography
+                variant="h6"
+                sx={{ mb: 2, color: theme.palette.text.secondary }}
+              >
+                Value Metrics
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <StatsCard
+                    title="Avg. Bonus Value"
+                    value={stats.avgValue}
+                    icon={
+                      <ValueIcon
+                        sx={{ color: theme.palette.success.main, fontSize: 28 }}
+                      />
+                    }
+                    color={theme.palette.success.main}
+                    prefix="$"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <StatsCard
+                    title="High Value Offers ($500+)"
+                    value={stats.highValueCount}
+                    icon={
+                      <ValueIcon sx={{ color: theme.palette.error.main, fontSize: 28 }} />
+                    }
+                    color={theme.palette.error.main}
+                  />
+                </Grid>
+              </Grid>
+            </Grid>
+          </Grid>
         </Grid>
 
         {/* Search and Actions */}
         <Grid item xs={12}>
           <Paper
-            elevation={2}
+            elevation={0}
             sx={{
-              p: { xs: 2, md: 3 },
-              mb: 3,
-              borderRadius: 2,
+              p: { xs: 2.5, md: 3.5 },
+              mb: 4,
+              borderRadius: 3,
               background: theme.palette.background.paper,
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              boxShadow: `0 4px 24px ${alpha(theme.palette.common.black, 0.04)}`,
             }}
           >
             <Stack
               direction={{ xs: 'column', md: 'row' }}
-              spacing={2}
+              spacing={3}
+              alignItems="center"
               sx={{ width: '100%' }}
             >
               <TextField
@@ -398,51 +451,81 @@ const OpportunitiesPage = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SearchIcon sx={{ color: theme.palette.text.secondary }} />
+                      <SearchIcon sx={{ color: theme.palette.text.secondary, ml: 1 }} />
                     </InputAdornment>
                   ),
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
+                    borderRadius: 2.5,
                     backgroundColor: alpha(theme.palette.background.default, 0.6),
+                    transition: 'all 0.3s ease',
                     '&:hover': {
                       backgroundColor: alpha(theme.palette.background.default, 0.8),
+                      boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.04)}`,
+                    },
+                    '&.Mui-focused': {
+                      boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.08)}`,
                     },
                   },
                 }}
               />
               <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                spacing={1}
+                direction="row"
+                spacing={2}
                 sx={{ minWidth: { xs: '100%', md: 'auto' } }}
               >
-                <IconButton
-                  color="primary"
-                  onClick={handleSync}
-                  disabled={isImporting}
-                  sx={{ borderRadius: 2 }}
-                  aria-label={isImporting ? 'Syncing...' : 'Sync Now'}
-                >
-                  <ImportIcon />
-                </IconButton>
-                <IconButton
-                  color="success"
-                  onClick={handleBulkApprove}
-                  disabled={
-                    isBulkApproving ||
-                    !opportunities.some(
-                      (opp) =>
-                        opp.isStaged &&
-                        opp.status !== 'approved' &&
-                        opp.status !== 'rejected'
-                    )
-                  }
-                  sx={{ borderRadius: 2 }}
-                  aria-label={isBulkApproving ? 'Approving All...' : 'Approve All'}
-                >
-                  <BulkApproveIcon />
-                </IconButton>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <IconButton
+                    color="primary"
+                    onClick={handleSync}
+                    disabled={isImporting}
+                    sx={{
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                      '&:hover': {
+                        bgcolor: alpha(theme.palette.primary.main, 0.12),
+                      },
+                    }}
+                    title="Sync Opportunities"
+                  >
+                    <ImportIcon />
+                  </IconButton>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <IconButton
+                    color="success"
+                    onClick={handleBulkApprove}
+                    disabled={isBulkApproving}
+                    sx={{
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.success.main, 0.08),
+                      '&:hover': {
+                        bgcolor: alpha(theme.palette.success.main, 0.12),
+                      },
+                    }}
+                    title="Approve All"
+                  >
+                    <BulkApproveIcon />
+                  </IconButton>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <IconButton
+                    color="error"
+                    onClick={handlePurgeClick}
+                    disabled={isPurging}
+                    sx={{
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.error.main, 0.08),
+                      '&:hover': {
+                        bgcolor: alpha(theme.palette.error.main, 0.12),
+                      },
+                    }}
+                    title="Purge All Data"
+                  >
+                    <PurgeIcon />
+                  </IconButton>
+                </motion.div>
               </Stack>
             </Stack>
           </Paper>
@@ -450,17 +533,34 @@ const OpportunitiesPage = () => {
 
         {/* Opportunities Table */}
         <Grid item xs={12}>
-          <TableContainer component={Paper}>
+          <TableContainer
+            component={Paper}
+            elevation={0}
+            sx={{
+              borderRadius: 3,
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              boxShadow: `0 4px 24px ${alpha(theme.palette.common.black, 0.04)}`,
+              overflow: 'hidden',
+            }}
+          >
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>
+                  <TableCell
+                    sx={{
+                      py: 3,
+                      px: 3,
+                      background: alpha(theme.palette.background.default, 0.5),
+                    }}
+                  >
                     <TableSortLabel
                       active={pagination.sortBy === 'name'}
                       direction={pagination.sortDirection}
                       onClick={() => handleSort('name')}
                     >
-                      Name
+                      <Typography variant="subtitle2" fontWeight={600}>
+                        Name
+                      </Typography>
                     </TableSortLabel>
                   </TableCell>
                   <TableCell>Type</TableCell>
@@ -488,19 +588,43 @@ const OpportunitiesPage = () => {
                     <TableRow
                       key={opportunity.id}
                       hover
-                      sx={opportunity.isStaged ? { bgcolor: 'action.hover' } : undefined}
+                      sx={{
+                        '&:hover': {
+                          bgcolor: alpha(theme.palette.primary.main, 0.04),
+                        },
+                        ...(opportunity.isStaged && {
+                          bgcolor: alpha(theme.palette.warning.main, 0.04),
+                        }),
+                      }}
                     >
-                      <TableCell>
+                      <TableCell sx={{ py: 2.5, px: 3 }}>
                         <Stack direction="row" alignItems="center" spacing={2}>
                           {opportunity.logo && (
                             <Box
                               component="img"
                               src={opportunity.logo.url}
                               alt={opportunity.name}
-                              sx={{ width: 24, height: 24, objectFit: 'contain' }}
+                              sx={{
+                                width: 32,
+                                height: 32,
+                                objectFit: 'contain',
+                                borderRadius: 1,
+                                p: 0.5,
+                                bgcolor: 'white',
+                                boxShadow: `0 2px 8px ${alpha(
+                                  theme.palette.common.black,
+                                  0.04
+                                )}`,
+                              }}
                             />
                           )}
-                          <Typography>{opportunity.name}</Typography>
+                          <Typography
+                            variant="body2"
+                            fontWeight={500}
+                            sx={{ color: theme.palette.text.primary }}
+                          >
+                            {opportunity.name}
+                          </Typography>
                         </Stack>
                       </TableCell>
                       <TableCell>
@@ -556,8 +680,14 @@ const OpportunitiesPage = () => {
               rowsPerPageOptions={[10, 20, 50]}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
-              nextIconButtonProps={{
-                disabled: !hasMore,
+              sx={{
+                borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                '.MuiTablePagination-select': {
+                  borderRadius: 1,
+                  '&:focus': {
+                    bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  },
+                },
               }}
             />
           </TableContainer>
@@ -574,6 +704,15 @@ const OpportunitiesPage = () => {
           onReject={() => handleReject(selectedOpportunity)}
         />
       )}
+
+      {/* Purge Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showPurgeConfirmation}
+        title="Confirm Data Purge"
+        message="Are you sure you want to purge all data? This action cannot be undone."
+        onConfirm={handlePurgeConfirm}
+        onCancel={handlePurgeCancel}
+      />
     </Container>
   );
 };

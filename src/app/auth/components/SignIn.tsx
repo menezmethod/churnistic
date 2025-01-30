@@ -115,7 +115,11 @@ export function SignIn(): JSX.Element {
 
     try {
       await signIn(email, password);
-      router.push('/dashboard');
+      // Get the callback URL from the query parameters
+      const params = new URLSearchParams(window.location.search);
+      const callbackUrl = params.get('callbackUrl');
+      // Redirect to the callback URL if present, otherwise to dashboard
+      router.push(callbackUrl ? decodeURIComponent(callbackUrl) : '/dashboard');
     } catch (error: unknown) {
       console.error('Sign in error:', error);
       setEmailError(true);
@@ -136,7 +140,11 @@ export function SignIn(): JSX.Element {
 
     try {
       await signInWithGoogle();
-      router.push('/dashboard');
+      // Get the callback URL from the query parameters
+      const params = new URLSearchParams(window.location.search);
+      const callbackUrl = params.get('callbackUrl');
+      // Redirect to the callback URL if present, otherwise to dashboard
+      router.push(callbackUrl ? decodeURIComponent(callbackUrl) : '/dashboard');
     } catch (error) {
       console.error('Google sign in error:', {
         error,

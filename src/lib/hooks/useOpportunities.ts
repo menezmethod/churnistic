@@ -113,8 +113,6 @@ export function useOpportunities(params?: {
     queryKey: ['opportunities', params],
     queryFn: () => getOpportunities(params),
     staleTime: 0, // Always fetch fresh data
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
   });
 
   const createMutation = useMutation({
@@ -201,16 +199,16 @@ export function useOpportunities(params?: {
 
   return {
     opportunities: query.data ?? [],
-    isLoading: query.isLoading,
+    isLoading: query.isPending,
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,
     createOpportunity: createMutation.mutate,
     updateOpportunity: updateMutation.mutate,
     deleteOpportunity: deleteMutation.mutate,
-    isCreating: createMutation.isLoading,
-    isUpdating: updateMutation.isLoading,
-    isDeleting: deleteMutation.isLoading,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
     createError: createMutation.error,
     updateError: updateMutation.error,
     deleteError: deleteMutation.error,

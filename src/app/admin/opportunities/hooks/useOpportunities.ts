@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import CryptoJS from 'crypto-js';
 import { getAuth } from 'firebase/auth';
 import {
   collection,
   getDocs,
   updateDoc,
   doc,
-  writeBatch,
   query,
   orderBy,
   limit,
@@ -15,8 +15,10 @@ import {
   setDoc,
   DocumentData,
   QueryDocumentSnapshot,
+  writeBatch,
+  QuerySnapshot,
 } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 import { db } from '@/lib/firebase/config';
 
@@ -169,6 +171,24 @@ interface DebitTransactionRequirement extends BaseRequirement {
   type: 'debit_transactions';
   details: { amount: number; period: number; count: number };
 }
+
+interface OpportunityFingerprint {
+  source_id: string;
+  name: string;
+  value: number;
+  requirements_hash: string;
+}
+
+const generateFingerprint = (offer: BankRewardsOffer): string => {
+  const requirements = offer.bonus?.requirements?.description || '';
+  const fp: OpportunityFingerprint = {
+    source_id: offer.id,
+    name: offer.name,
+    value: offer.value,
+    requirements_hash: CryptoJS.MD5(requirements).toString(),
+  };
+  return CryptoJS.MD5(JSON.stringify(fp)).toString();
+};
 
 const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   const bank = offer.name?.split(' ')?.[0] || offer.name || '';
@@ -360,6 +380,7 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     bank,
     value: offer.value,
     status: 'staged' as const,
+    fingerprint: generateFingerprint(offer),
     metadata: {
       created_at: offer.metadata?.created_at || new Date().toISOString(),
       updated_at: offer.metadata?.updated_at || new Date().toISOString(),
@@ -467,6 +488,9 @@ const fetchStagedOpportunities = async (): Promise<
   })) as (Opportunity & { isStaged: boolean })[];
 };
 
+// Add this type definition at the top of the file
+type OpportunityWithValue = Opportunity & { value: number };
+
 export function useOpportunities() {
   const queryClient = useQueryClient();
   const [pagination, setPagination] = useState<PaginationState>({
@@ -484,6 +508,7 @@ export function useOpportunities() {
     rejected: number;
     avgValue: number;
     highValue: number;
+    highValueCount: number;
     byType: {
       bank: number;
       credit_card: number;
@@ -496,6 +521,7 @@ export function useOpportunities() {
     rejected: 0,
     avgValue: 0,
     highValue: 0,
+    highValueCount: 0,
     byType: {
       bank: 0,
       credit_card: 0,
@@ -505,8 +531,9 @@ export function useOpportunities() {
 
   // Fetch staged opportunities
   const { data: stagedOpportunities = [] } = useQuery({
-    queryKey: ['staged_offers'],
+    queryKey: ['opportunities', 'staged'],
     queryFn: fetchStagedOpportunities,
+    staleTime: 1000 * 30, // 30 seconds
   });
 
   // Fetch paginated opportunities
@@ -517,113 +544,231 @@ export function useOpportunities() {
   } = useQuery({
     queryKey: ['opportunities', 'paginated', pagination],
     queryFn: () => fetchPaginatedOpportunities(pagination),
-    keepPreviousData: true,
+    staleTime: 1000 * 30, // 30 seconds
   });
 
-  // Fetch total stats with detailed metrics
+  // Fetch total stats with detailed metrics - this is the single source of truth for stats
   const { data: totalStats } = useQuery({
     queryKey: ['opportunities', 'stats'],
     queryFn: async () => {
-      const snapshot = await getDocs(collection(db, 'opportunities'));
-      const opportunities = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Opportunity[];
+      const [mainSnapshot, stagedSnapshot] = await Promise.all([
+        getDocs(
+          query(
+            collection(db, 'opportunities'),
+            where('status', 'in', ['approved', 'pending'])
+          )
+        ),
+        getDocs(collection(db, 'staged_offers')),
+      ]);
 
-      const totalValue = opportunities.reduce((sum, opp) => sum + opp.value, 0);
+      // Type-safe value extraction
+      const getValue = (doc: QueryDocumentSnapshot<DocumentData>): number => {
+        const data = doc.data() as OpportunityWithValue;
+        return data.value || 0;
+      };
+
+      // Calculate pending counts by type
+      const pendingByType = stagedSnapshot.docs.reduce(
+        (acc, doc) => {
+          const data = doc.data() as Opportunity;
+          acc[data.type] = (acc[data.type] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      // Calculate high value count
+      const highValueCount = stagedSnapshot.docs.filter((doc) => {
+        const data = doc.data() as OpportunityWithValue;
+        return data.value >= 500;
+      }).length;
+
+      // Calculate pending count and total value from staged offers
+      const pendingValues = stagedSnapshot.docs.map(getValue);
+      const pendingCount = stagedSnapshot.size;
+      const pendingTotalValue = pendingValues.reduce((sum, value) => sum + value, 0);
+
+      // Calculate approved count and total value from main collection
+      const approvedValues = mainSnapshot.docs
+        .filter((doc) => (doc.data() as Opportunity).status === 'approved')
+        .map(getValue);
+      const approvedCount = approvedValues.length;
+      const approvedTotalValue = approvedValues.reduce((sum, value) => sum + value, 0);
+
+      // Calculate total count and value
+      const totalCount = pendingCount + approvedCount;
+      const totalValue = pendingTotalValue + approvedTotalValue;
+
+      // Calculate average value
+      const avgValue = totalCount > 0 ? totalValue / totalCount : 0;
 
       return {
-        total: opportunities.length,
-        pending: opportunities.filter((opp) => opp.status === 'pending').length,
-        approved: opportunities.filter((opp) => opp.status === 'approved').length,
-        rejected: opportunities.filter((opp) => opp.status === 'rejected').length,
-        avgValue:
-          opportunities.length > 0 ? Math.round(totalValue / opportunities.length) : 0,
-        highValue: opportunities.filter((opp) => opp.value >= 500).length,
+        total: totalCount,
+        pending: pendingCount,
+        approved: approvedCount,
+        rejected: 0,
+        avgValue: Math.round(avgValue),
+        highValue: Math.max(...pendingValues, ...approvedValues, 0),
+        highValueCount,
         byType: {
-          bank: opportunities.filter((opp) => opp.type === 'bank').length,
-          credit_card: opportunities.filter((opp) => opp.type === 'credit_card').length,
-          brokerage: opportunities.filter((opp) => opp.type === 'brokerage').length,
+          bank: pendingByType['bank'] || 0,
+          credit_card: pendingByType['credit_card'] || 0,
+          brokerage: pendingByType['brokerage'] || 0,
         },
       };
     },
+    staleTime: 1000 * 30,
   });
 
-  // Fetch and sync BankRewards offers
-  useQuery({
-    queryKey: ['bankRewardsOffers'],
+  // Remove the stats effect since we're using the query as single source of truth
+  useEffect(() => {
+    if (totalStats) {
+      setStats(totalStats);
+    }
+  }, [totalStats]);
+
+  // Combine opportunities ensuring no duplicates by source_id
+  const allOpportunities = useMemo(() => {
+    if (!paginatedData?.items || !stagedOpportunities) return [];
+
+    const mainOpportunities = new Map(
+      paginatedData.items.map((opp) => [opp.source_id, { ...opp, isStaged: false }])
+    );
+    const stagedOppMap = new Map(
+      stagedOpportunities.map((opp) => [opp.source_id, { ...opp, isStaged: true }])
+    );
+
+    // Only add staged opportunities that don't exist in main collection
+    stagedOppMap.forEach((stagedOpp, sourceId) => {
+      if (!mainOpportunities.has(sourceId)) {
+        mainOpportunities.set(sourceId, stagedOpp);
+      }
+    });
+
+    return Array.from(mainOpportunities.values());
+  }, [stagedOpportunities, paginatedData?.items]);
+
+  const updatePagination = (updates: Partial<PaginationState>) => {
+    setPagination((prev: PaginationState) => ({
+      ...prev,
+      ...updates,
+      page: 'page' in updates ? updates.page! : 1,
+    }));
+  };
+
+  // Manual bank rewards query - disabled by default
+  const { refetch: refetchBankRewards } = useQuery({
+    queryKey: ['bankRewards', 'offers'],
     queryFn: fetchBankRewardsOffers,
-    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    enabled: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
 
-  // Import mutation to stage opportunities
+  // Import mutation
   const importMutation = useMutation({
     mutationFn: async () => {
-      console.log('Starting import process');
-      const response = await fetchBankRewardsOffers();
-      console.log('Fetched offers:', response.data.offers.length);
+      console.log('Starting atomic import process');
+      const { data: response } = await refetchBankRewards();
 
-      const batch = writeBatch(db);
+      if (!response?.data?.offers) {
+        throw new Error('No offers found in response');
+      }
 
-      // Transform offers
-      const newOffers = response.data.offers.map(transformBankRewardsOffer);
-      console.log('Transformed offers:', newOffers.length);
-
-      // Get existing staged offers to check for duplicates
-      const [stagedSnapshot, approvedSnapshot] = await Promise.all([
-        getDocs(collection(db, 'staged_offers')),
+      // Get all existing data in transaction
+      const [mainSnapshot, stagedSnapshot] = await Promise.all([
         getDocs(collection(db, 'opportunities')),
+        getDocs(query(collection(db, 'staged_offers'), orderBy('fingerprint'))),
       ]);
 
-      console.log('Current staged offers:', stagedSnapshot.size);
-      console.log('Current approved offers:', approvedSnapshot.size);
+      // Create fingerprint maps
+      const existingFingerprints = new Set<string>();
+      const stagedFingerprints = new Set<string>();
 
-      // Track both staged and approved offers by source_id
-      const existingSourceIds = new Set([
-        ...stagedSnapshot.docs.map((doc) => doc.data().source_id),
-        ...approvedSnapshot.docs.map((doc) => doc.data().source_id),
-      ]);
+      // Populate fingerprints from existing data
+      mainSnapshot.docs.forEach((doc) => {
+        existingFingerprints.add(doc.data().fingerprint);
+      });
 
-      console.log('Existing source IDs:', existingSourceIds.size);
+      stagedSnapshot.docs.forEach((doc) => {
+        stagedFingerprints.add(doc.data().fingerprint);
+      });
 
-      let addedCount = 0;
-      let skippedCount = 0;
+      // Generate new offers with fingerprints
+      const newOffers = response.data.offers
+        .map((offer) => ({
+          offer,
+          fingerprint: generateFingerprint(offer),
+        }))
+        .filter(
+          ({ fingerprint }) =>
+            !existingFingerprints.has(fingerprint) && !stagedFingerprints.has(fingerprint)
+        );
 
-      for (const offer of newOffers) {
-        // Skip if already staged or previously approved
-        if (existingSourceIds.has(offer.source_id)) {
-          skippedCount++;
+      console.log(
+        `Found ${newOffers.length} truly new offers out of ${response.data.offers.length}`
+      );
+
+      if (newOffers.length === 0) {
+        console.log('No new offers to import');
+        return 0;
+      }
+
+      // Atomic operation: Delete all existing staged offers first
+      const deleteBatch = writeBatch(db);
+      stagedSnapshot.docs.forEach((doc) => deleteBatch.delete(doc.ref));
+      await deleteBatch.commit();
+      console.log(`Cleared ${stagedSnapshot.size} existing staged offers`);
+
+      // Add new offers in optimized batches
+      let addBatch = writeBatch(db);
+      const addedFingerprints = new Set<string>();
+      let duplicatesSkipped = 0;
+
+      for (const [index, { offer, fingerprint }] of newOffers.entries()) {
+        if (addedFingerprints.has(fingerprint)) {
+          duplicatesSkipped++;
           continue;
         }
 
-        // Use source_id as document ID to prevent duplicates
-        const docRef = doc(collection(db, 'staged_offers'), offer.source_id);
-        batch.set(docRef, offer);
-        addedCount++;
+        const docRef = doc(collection(db, 'staged_offers'));
+        addBatch.set(docRef, {
+          ...transformBankRewardsOffer(offer),
+          id: docRef.id,
+          fingerprint,
+          metadata: {
+            imported_at: new Date().toISOString(),
+            source: 'bankrewards',
+            first_seen: new Date().toISOString(),
+            last_updated: new Date().toISOString(),
+          },
+        });
+        addedFingerprints.add(fingerprint);
+
+        // Commit every 500 operations
+        if (index % 500 === 0 && index !== 0) {
+          await addBatch.commit();
+          addBatch = writeBatch(db);
+        }
       }
 
-      console.log(`Import summary:
-        Total offers: ${newOffers.length}
-        Added: ${addedCount}
-        Skipped: ${skippedCount}
-      `);
-
-      if (addedCount > 0) {
-        await batch.commit();
-        console.log('Batch commit successful');
-      } else {
-        console.log('No new offers to commit');
+      // Commit final batch
+      if (addedFingerprints.size > 0) {
+        await addBatch.commit();
       }
 
-      return addedCount;
+      console.log(
+        `Added ${addedFingerprints.size} offers, skipped ${duplicatesSkipped} duplicates`
+      );
+      return addedFingerprints.size;
     },
     onSuccess: (count) => {
       console.log(`Import completed successfully. Added ${count} new offers.`);
-      queryClient.invalidateQueries(['staged_offers']);
-      queryClient.invalidateQueries(['opportunities', 'stats']);
-    },
-    onError: (error) => {
-      console.error('Import failed:', error);
+      queryClient.invalidateQueries({
+        queryKey: ['opportunities'],
+        exact: false,
+        refetchType: 'all',
+      });
     },
   });
 
@@ -815,40 +960,12 @@ export function useOpportunities() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['opportunities']);
-      queryClient.invalidateQueries(['staged_offers']);
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['staged_offers'] });
     },
   });
 
-  // Combine staged and Firebase opportunities for display
-  const allOpportunities = [
-    ...stagedOpportunities,
-    ...(paginatedData?.items || []).map((opp) => ({
-      ...opp,
-      isStaged: false,
-    })),
-  ];
-
-  // Update stats to include staged opportunities
-  useEffect(() => {
-    if (totalStats) {
-      setStats({
-        ...totalStats,
-        total: totalStats.total + stagedOpportunities.length,
-        pending: totalStats.pending + stagedOpportunities.length,
-      });
-    }
-  }, [totalStats, stagedOpportunities]);
-
-  const updatePagination = (updates: Partial<PaginationState>) => {
-    setPagination((prev: PaginationState) => ({
-      ...prev,
-      ...updates,
-      page: 'page' in updates ? updates.page! : 1,
-    }));
-  };
-
-  // Bulk approve mutation
+  // Bulk approve opportunities mutation
   const bulkApproveOpportunitiesMutation = useMutation({
     mutationFn: async (opportunities: Opportunity[]) => {
       console.log(
@@ -881,10 +998,58 @@ export function useOpportunities() {
       total: number;
     }) => {
       console.log('Bulk approval completed:', result);
-      queryClient.invalidateQueries(['opportunities']);
-      queryClient.invalidateQueries(['staged_offers']);
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['staged_offers'] });
     },
   });
+
+  // Add the purge mutation
+  const purgeMutation = useMutation({
+    mutationFn: async () => {
+      const [stagedSnapshot, mainSnapshot] = await Promise.all([
+        getDocs(collection(db, 'staged_offers')),
+        getDocs(collection(db, 'opportunities')),
+      ]);
+
+      const deleteBatch = async (snapshot: QuerySnapshot<DocumentData>) => {
+        const batchSize = 500;
+        const batches = [];
+        let currentBatch = writeBatch(db);
+        let count = 0;
+
+        snapshot.docs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
+          currentBatch.delete(doc.ref);
+          count++;
+          if (count % batchSize === 0) {
+            batches.push(currentBatch);
+            currentBatch = writeBatch(db);
+          }
+        });
+
+        if (count % batchSize !== 0) {
+          batches.push(currentBatch);
+        }
+
+        await Promise.all(batches.map((b) => b.commit()));
+      };
+
+      await deleteBatch(stagedSnapshot);
+      await deleteBatch(mainSnapshot);
+
+      return {
+        stagedDeleted: stagedSnapshot.size,
+        opportunitiesDeleted: mainSnapshot.size,
+      };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+    },
+  });
+
+  // Add to the hook's returned object
+  const purgeAllData = purgeMutation.mutate;
+  const isPurging = purgeMutation.isPending;
 
   return {
     opportunities: allOpportunities,
@@ -896,10 +1061,12 @@ export function useOpportunities() {
     approveOpportunity: approveOpportunityMutation.mutate,
     rejectOpportunity: rejectOpportunityMutation.mutate,
     bulkApproveOpportunities: bulkApproveOpportunitiesMutation.mutate,
-    isBulkApproving: bulkApproveOpportunitiesMutation.isLoading,
+    isBulkApproving: bulkApproveOpportunitiesMutation.isPending,
     stats,
     importOpportunities: importMutation.mutate,
-    isImporting: importMutation.isLoading,
+    isImporting: importMutation.isPending,
     hasStagedOpportunities: stagedOpportunities.length > 0,
+    purgeAllData,
+    isPurging,
   };
 }

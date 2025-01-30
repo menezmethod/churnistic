@@ -1,6 +1,8 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { z } from 'zod';
 
+import { verifySession } from '@/lib/auth/session';
+import { UserRole } from '@/lib/auth/types';
 import { BankRewardsDatabase } from '@/lib/scrapers/bankrewards/database';
 import { BankRewardsTransformer } from '@/lib/scrapers/bankrewards/transformer';
 
@@ -14,6 +16,20 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
+    // Verify admin access
+    const sessionCookie = request.cookies.get('session')?.value;
+    if (!sessionCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const session = await verifySession(sessionCookie);
+    if (
+      !session ||
+      (session.role !== UserRole.ADMIN && session.role !== UserRole.SUPERADMIN)
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     // Validate query parameters
     const { searchParams } = new URL(request.url);
     const { format } = querySchema.parse({

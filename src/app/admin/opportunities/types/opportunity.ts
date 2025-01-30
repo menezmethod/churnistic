@@ -135,4 +135,5 @@ export interface Opportunity {
   };
   createdAt: string;
   updatedAt: string;
+  fingerprint: string;
 }

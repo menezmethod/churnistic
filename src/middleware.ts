@@ -51,42 +51,24 @@ export async function middleware(request: NextRequest) {
   if (!sessionCookie) {
     console.log('No session cookie found, redirecting to signin');
     const signinUrl = new URL('/auth/signin', request.url);
-    signinUrl.searchParams.set('callbackUrl', request.url);
+    signinUrl.searchParams.set('callbackUrl', encodeURIComponent(request.url));
     return NextResponse.redirect(signinUrl);
   }
 
   try {
-    // Get the protocol and host from the request URL
     const protocol = request.nextUrl.protocol;
     const host = request.headers.get('host');
-
-    // Construct the absolute URL for the verify endpoint
     const verifyUrl = `${protocol}//${host}/api/auth/verify`;
-    console.log('Verify request details:', {
-      url: verifyUrl,
-      sessionCookiePresent: !!sessionCookie,
-      sessionCookieLength: sessionCookie?.length,
-      host,
-      protocol,
-      path,
-      isAdminPath,
-      cookies: request.cookies.getAll(),
-      isRsc,
-    });
 
-    // Forward all cookies and headers
+    // Forward necessary headers for verification
     const headers = new Headers({
       'Content-Type': 'application/json',
-      Cookie: request.headers.get('cookie') || '',
-      // Forward other important headers
+      Cookie: `session=${sessionCookie}`,
       'User-Agent': request.headers.get('user-agent') || '',
-      Accept: request.headers.get('accept') || '',
-      'Accept-Language': request.headers.get('accept-language') || '',
-      'X-Requested-With': request.headers.get('x-requested-with') || '',
-      Origin: request.headers.get('origin') || request.url,
+      'X-Requested-With': 'XMLHttpRequest',
     });
 
-    // Verify session using the API route
+    // Verify session
     const verifyResponse = await fetch(verifyUrl, {
       method: 'POST',
       headers,
@@ -94,58 +76,27 @@ export async function middleware(request: NextRequest) {
         sessionCookie,
         requiredRole: isAdminPath ? UserRole.ADMIN : undefined,
       }),
-      credentials: 'include',
-    });
-
-    console.log('Verify response:', {
-      status: verifyResponse.status,
-      ok: verifyResponse.ok,
-      path,
-      isAdminPath,
-      isRsc,
+      cache: 'no-store',
     });
 
     if (!verifyResponse.ok) {
-      const responseData = await verifyResponse.json();
-      console.log('Session verification failed:', {
-        status: verifyResponse.status,
-        error: responseData.error,
-        path,
-        isAdminPath,
-        isRsc,
-      });
-
       if (verifyResponse.status === 403) {
-        // Add debug logging for unauthorized case
-        console.log('Access denied:', {
-          path,
-          isAdminPath,
-          error: responseData.error,
-          status: verifyResponse.status,
-        });
         return NextResponse.redirect(new URL('/unauthorized', request.url));
       }
 
-      const signinUrl = new URL('/auth/signin', request.url);
-      signinUrl.searchParams.set('callbackUrl', request.url);
-      return NextResponse.redirect(signinUrl);
+      // Clear invalid session and redirect to signin
+      const response = NextResponse.redirect(new URL('/auth/signin', request.url));
+      response.cookies.delete('session');
+      return response;
     }
 
     const { user } = await verifyResponse.json();
-    console.log('Session verified for user:', {
-      email: user?.email,
-      role: user?.role,
-      isSuperAdmin: user?.isSuperAdmin,
-      path,
-      isAdminPath,
-      isRsc,
-    });
 
-    // Clone the request headers and add the verified user info
+    // Add user info to headers
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-verified-user', JSON.stringify(user));
 
-    // For RSC requests, we need to handle them differently
+    // Handle RSC requests
     if (isRsc) {
       const response = NextResponse.next({
         request: {
@@ -163,25 +114,15 @@ export async function middleware(request: NextRequest) {
     });
   } catch (error) {
     console.error('Middleware error:', {
-      errorType: error instanceof Error ? 'Error' : typeof error,
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
+      error: error instanceof Error ? error.message : String(error),
       path,
       isAdminPath,
       isRsc,
-      sessionCookiePresent: !!sessionCookie,
     });
 
-    // Try to parse the response if it's a fetch error
-    if (error instanceof Error && error.message.includes('JSON')) {
-      console.log('Possible HTML response received instead of JSON');
-      const signinUrl = new URL('/auth/signin', request.url);
-      signinUrl.searchParams.set('callbackUrl', request.url);
-      return NextResponse.redirect(signinUrl);
-    }
-
-    const signinUrl = new URL('/auth/signin', request.url);
-    signinUrl.searchParams.set('callbackUrl', request.url);
-    return NextResponse.redirect(signinUrl);
+    // Clear session and redirect to signin on error
+    const response = NextResponse.redirect(new URL('/auth/signin', request.url));
+    response.cookies.delete('session');
+    return response;
   }
 }

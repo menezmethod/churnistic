@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 
-import { useTheme } from '@/app/styles/theme/ThemeContext';
+import { useTheme } from '@/styles/theme/ThemeContext';
 
 import type { PreferencesSectionProps } from './types';
 

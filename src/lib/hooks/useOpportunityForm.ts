@@ -55,6 +55,8 @@ function updateNestedValue(obj: Record<string, unknown>, path: string, value: un
 export function useOpportunityForm(initialData?: Partial<Opportunity>) {
   const router = useRouter();
   const [formData, setFormData] = useState<Opportunity>({
+    id: '',
+    fingerprint: '',
     type: 'bank',
     name: '',
     offer_link: '',

@@ -6,6 +6,7 @@ const mockOffers: Opportunity[] = [
     type: 'credit_card',
     offer_link: 'https://www.chase.com/sapphire-preferred',
     value: 800,
+    fingerprint: 'chase-sapphire-preferred',
     bonus: {
       description:
         'Earn 80,000 bonus points after you spend $4,000 on purchases in the first 3 months',
@@ -68,6 +69,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.capitalone.com/360checking',
     value: 400,
+    fingerprint: 'capital-one-360-checking',
     bonus: {
       description: 'Get a $400 bonus when you open a new 360 Checking account',
       requirements: {
@@ -95,6 +97,7 @@ const mockOffers: Opportunity[] = [
     type: 'brokerage',
     offer_link: 'https://www.webull.com',
     value: 250,
+    fingerprint: 'webull',
     bonus: {
       description: 'Get free stocks worth up to $250',
       requirements: {
@@ -146,6 +149,7 @@ const mockOffers: Opportunity[] = [
     type: 'brokerage',
     offer_link: 'https://start.moomoo.com',
     value: 225,
+    fingerprint: 'moomoo',
     bonus: {
       description:
         'Get up to 15 free stocks when you make a qualified deposit + earn 8.1% APY on uninvested cash for 3 months + up to $300 in Cash Rewards if you transfer from another brokerage!',
@@ -173,6 +177,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://click.linksynergy.com',
     value: 300,
+    fingerprint: 'key-smart-checking',
     bonus: {
       description: '$300 bonus',
       requirements: {
@@ -214,6 +219,7 @@ const mockOffers: Opportunity[] = [
     type: 'brokerage',
     offer_link: 'https://www.sofi.com',
     value: 25,
+    fingerprint: 'sofi-invest',
     bonus: {
       description: 'Get $25 in stock after depositing $25',
       requirements: {
@@ -240,6 +246,7 @@ const mockOffers: Opportunity[] = [
     type: 'credit_card',
     offer_link: 'https://i.capitalone.com',
     value: 250,
+    fingerprint: 'capital-one-savor',
     bonus: {
       description: 'Earn $250 statement credit',
       requirements: {
@@ -280,6 +287,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://current.com',
     value: 50,
+    fingerprint: 'current',
     bonus: {
       description: '$50 bonus. Use code ALEXANDZ395',
       requirements: {
@@ -309,6 +317,7 @@ const mockOffers: Opportunity[] = [
     type: 'brokerage',
     offer_link: 'https://plynkinvest.app.link',
     value: 10,
+    fingerprint: 'plynk',
     bonus: {
       description: 'Get $10 after linking a bank account!',
       requirements: {
@@ -335,6 +344,7 @@ const mockOffers: Opportunity[] = [
     type: 'credit_card',
     offer_link: 'https://i.capitalone.com',
     value: 200,
+    fingerprint: 'capital-one-quicksilver',
     bonus: {
       description: 'Earn $200 statement credit',
       requirements: {
@@ -375,6 +385,7 @@ const mockOffers: Opportunity[] = [
     type: 'credit_card',
     offer_link: 'https://www.discover.com',
     value: 100,
+    fingerprint: 'discover-student',
     bonus: {
       description: 'Earn $100 statement credit',
       requirements: {
@@ -415,6 +426,7 @@ const mockOffers: Opportunity[] = [
     type: 'brokerage',
     offer_link: 'https://www.fidelity.com',
     value: 100,
+    fingerprint: 'fidelity',
     bonus: {
       description: 'Get $100 when you open a new account',
       requirements: {
@@ -441,6 +453,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.chime.com',
     value: 75,
+    fingerprint: 'chime',
     bonus: {
       description: '$75 welcome bonus',
       requirements: {
@@ -470,6 +483,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.cefcu.com',
     value: 225,
+    fingerprint: 'citizens-equity-first-credit-union',
     bonus: {
       description: '$200 bonus for direct deposit. $25 bonus for debit card spend',
       requirements: {
@@ -498,6 +512,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://info.middlesexfederal.com',
     value: 150,
+    fingerprint: 'middlesex-federal',
     bonus: {
       description:
         'Must requrest debit card and make over 15 transactions within 2nd and 4th "statement cycle"',
@@ -528,6 +543,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.dedhamsavings.com',
     value: 250,
+    fingerprint: 'dedham-savings-bank',
     bonus: {
       description: 'Earn $250 within 90 days after qualifications are met',
       requirements: {
@@ -556,6 +572,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://aplusfcu.org',
     value: 100,
+    fingerprint: 'a-plus-federal-credit-union',
     bonus: {
       description: '$100 bonus',
       requirements: {
@@ -590,6 +607,7 @@ const mockOffers: Opportunity[] = [
     type: 'credit_card',
     offer_link: 'https://www.usbank.com',
     value: 20,
+    fingerprint: 'u-s-bank-altitude',
     bonus: {
       description: 'Get 20,000 bonus points',
       requirements: {
@@ -630,6 +648,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.simmonsbank.com',
     value: 600,
+    fingerprint: 'simmons-bank',
     bonus: {
       description: 'Three bonuses of $50-$200 each depending on average daily balance',
       requirements: {
@@ -657,6 +676,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.langleyfcu.org',
     value: 100,
+    fingerprint: 'langley-credit-union',
     bonus: {
       description:
         'Open a new checking account and make any purchase with the debit card for a $100 credit',
@@ -683,6 +703,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.communityamerica.com',
     value: 400,
+    fingerprint: 'community-america-credit-union',
     bonus: {
       description: '$400 bonus with direct deposit',
       requirements: {
@@ -712,6 +733,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://rivervalleycu.org',
     value: 100,
+    fingerprint: 'river-valley-credit-union',
     bonus: {
       description: '$100 cash bonus',
       requirements: {
@@ -738,6 +760,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.oldsecond.com',
     value: 300,
+    fingerprint: 'old-second-bank',
     bonus: {
       description:
         '$300 bonus: $50 on account open, $100 from direct deposits, and $150 from opening a Money Builder Savings account',
@@ -769,6 +792,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.andrewsfcu.org',
     value: 150,
+    fingerprint: 'andrews-federal-credit-union',
     bonus: {
       description: '$150 bonus with direct deposit',
       requirements: {
@@ -797,6 +821,7 @@ const mockOffers: Opportunity[] = [
     type: 'credit_card',
     offer_link: 'https://www.bankofamerica.com',
     value: 25,
+    fingerprint: 'bank-of-america-travel-rewards',
     bonus: {
       description: 'Earn 25,000 online bonus points',
       requirements: {
@@ -837,6 +862,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.simmonsbank.com',
     value: 900,
+    fingerprint: 'simmons-bank-2',
     bonus: {
       description:
         'Three bonuses of $100 or $300 each depending on how much your direct deposit is',
@@ -865,6 +891,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.sbdanbury.com',
     value: 100,
+    fingerprint: 'savings-bank-of-danbury-priority-checking',
     bonus: {
       description:
         '$100 bonus with the Priority Checking account. Mutually exclusive with the other Savings Bank of Danbury checking accounts',
@@ -893,6 +920,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.stonehambank.com',
     value: 300,
+    fingerprint: 'stoneham-bank',
     bonus: {
       description: '$300 bonus awarded within 120 days of direct deposit',
       requirements: {
@@ -920,6 +948,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://dollar.bank',
     value: 300,
+    fingerprint: 'dollar-bank',
     bonus: {
       description:
         '$300 bonus: $200 as a Mastercard debit card rebate and $100 as a deposit after a year',
@@ -949,6 +978,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.referlive.com',
     value: 100,
+    fingerprint: 'achieva-credit-union',
     bonus: {
       description: '$100 bonus, sent as a Mastercard Gift Card',
       requirements: {
@@ -975,6 +1005,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.huntington.com',
     value: 400,
+    fingerprint: 'huntington-bank',
     bonus: {
       description: '$400 bonus',
       requirements: {
@@ -1001,6 +1032,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.everwisecu.com',
     value: 200,
+    fingerprint: 'everwise-credit-union',
     bonus: {
       description: '$200 bonus',
       requirements: {
@@ -1029,6 +1061,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.premieramerica.com',
     value: 100,
+    fingerprint: 'premier-america-credit-union',
     bonus: {
       description:
         '$25 bonus and $75 bonus, paid separately. It seems the $75 is for signing up and the $25 is for the direct deposit',
@@ -1056,6 +1089,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://banking.citi.com',
     value: 300,
+    fingerprint: 'citi',
     bonus: {
       description: '$300 cash',
       requirements: {
@@ -1083,6 +1117,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.sunflowerbank.com',
     value: 200,
+    fingerprint: 'sunflower-bank',
     bonus: {
       description: '$200 bonus',
       requirements: {
@@ -1113,6 +1148,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.comchoicecu.org',
     value: 300,
+    fingerprint: 'community-choice-credit-union',
     bonus: {
       description: '$300 bonus',
       requirements: {
@@ -1141,6 +1177,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://bhcu.org',
     value: 150,
+    fingerprint: 'bhc-u',
     bonus: {
       description: '$150 bonus',
       requirements: {
@@ -1169,6 +1206,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.visionsfcu.org',
     value: 200,
+    fingerprint: 'visions-federal-credit-union',
     bonus: {
       description: '$200 cash',
       requirements: {
@@ -1195,6 +1233,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.usfederalcu.org',
     value: 150,
+    fingerprint: 'u-s-federal-credit-union',
     bonus: {
       description: '$150 bonus',
       requirements: {
@@ -1221,6 +1260,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.ahcu.org',
     value: 250,
+    fingerprint: 'associated-healthcare-credit-union',
     bonus: {
       description:
         '$250 bonus. Bonus will be paid by the 10th day of the month following requirements being met',
@@ -1251,6 +1291,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.expeditioncu.com',
     value: 200,
+    fingerprint: 'expedition-credit-union',
     bonus: {
       description:
         '$200 cash bonus, deposited within 30 days of completing requirements. Note that this bank conducts a hard pull, so keep that in mind was calculating risk vs reward',
@@ -1279,6 +1320,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.columbiabankonline.com',
     value: 100,
+    fingerprint: 'columbia-bank',
     bonus: {
       description:
         'Get $100 after making 10 point-of-sale debit card purchases within 60 days of account opening. Stacks with the $300 bonus for direct deposit and the up-to-$400 bonus for maintaining a high balance',
@@ -1306,6 +1348,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.hancockwhitney.com',
     value: 200,
+    fingerprint: 'hancock-whitney',
     bonus: {
       description: '200 for freestyle checking account',
       requirements: {
@@ -1333,6 +1376,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.dupagecu.com',
     value: 205,
+    fingerprint: 'du-page-credit-union',
     bonus: {
       description: '$200 Welcome Reward, plus 0.5% cash back',
       requirements: {
@@ -1359,6 +1403,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.mypscu.com',
     value: 100,
+    fingerprint: 'public-service-credit-union',
     bonus: {
       description: '$100 bonus',
       requirements: {
@@ -1385,6 +1430,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.cefcu.com',
     value: 175,
+    fingerprint: 'citizens-equity-first-credit-union-2',
     bonus: {
       description: '$150 Direct Deposit Bonus, $25 debit card spend bonus',
       requirements: {
@@ -1412,6 +1458,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.truist.com',
     value: 400,
+    fingerprint: 'truist-bank',
     bonus: {
       description: '$400 bonus',
       requirements: {
@@ -1459,6 +1506,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.sunmark.org',
     value: 250,
+    fingerprint: 'sunmark-credit-union',
     bonus: {
       description: '$250 bonus for opening checking account',
       requirements: {
@@ -1487,6 +1535,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.fnbc.bank',
     value: 100,
+    fingerprint: 'first-national-bank',
     bonus: {
       description: '$100 bonus',
       requirements: {
@@ -1517,6 +1566,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.macu.com',
     value: 100,
+    fingerprint: 'mountain-america-credit-union',
     bonus: {
       description: '$100 bonus',
       requirements: {
@@ -1543,6 +1593,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.firstmarkcu.org',
     value: 300,
+    fingerprint: 'first-mark-credit-union',
     bonus: {
       description:
         '$300 bonus - $50 in the first 30 days and $250 between days 31 and 90',
@@ -1574,6 +1625,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://www.americafirst.com',
     value: 100,
+    fingerprint: 'america-first-credit-union',
     bonus: {
       description:
         '$100 bonus for opening a savings account and adding Classic or Premium Checking',
@@ -1603,6 +1655,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://herculescu.com',
     value: 150,
+    fingerprint: 'hercules-first-federal-credit-union',
     bonus: {
       description: '$150 bonus after direct deposit is received',
       requirements: {
@@ -1631,6 +1684,7 @@ const mockOffers: Opportunity[] = [
     type: 'bank',
     offer_link: 'https://legacy.bank',
     value: 150,
+    fingerprint: 'legacy-bank',
     bonus: {
       description: '$250 cash bonus',
       requirements: {

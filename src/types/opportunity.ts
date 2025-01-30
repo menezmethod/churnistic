@@ -256,6 +256,7 @@ export interface Opportunity {
   name: string;
   offer_link: string;
   value: number;
+  fingerprint: string;
   bonus?: {
     title?: string;
     description?: string;

@@ -183,11 +183,43 @@ export async function GET() {
     }
     await batch.commit();
 
+    // Fetch existing opportunities
+    const opportunitiesRef = collection(db, 'opportunities');
+    const snapshot = await getDocs(opportunitiesRef);
+
+    const opportunities = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as {
+        source?: { name?: string };
+        details?: { expiration?: string };
+      }),
+    }));
+
+    // Filter only bank rewards opportunities
+    const bankRewardsOffers = opportunities.filter(
+      (opp) => opp.source?.name === 'bankrewards'
+    );
+
+    // Calculate stats
+    const stats = {
+      total: bankRewardsOffers.length,
+      active: bankRewardsOffers.filter(
+        (opp) => !opp.details?.expiration || new Date(opp.details.expiration) > new Date()
+      ).length,
+      expired: bankRewardsOffers.filter(
+        (opp) => opp.details?.expiration && new Date(opp.details.expiration) <= new Date()
+      ).length,
+    };
+
     return NextResponse.json({
       success: true,
       message: `Successfully synced ${newOffers.length} new bank rewards offers`,
       total_offers: offers.length,
       new_offers: newOffers.length,
+      data: {
+        stats,
+        offers: bankRewardsOffers,
+      },
     });
   } catch (error) {
     console.error('Error syncing bank rewards:', error);
