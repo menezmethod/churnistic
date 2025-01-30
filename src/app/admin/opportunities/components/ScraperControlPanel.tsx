@@ -1,15 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { 
-  CloudDownload as ImportIcon, 
-  Sync as SyncIcon, 
+import {
+  CloudDownload as ImportIcon,
+  Sync as SyncIcon,
   ExpandMore as ExpandIcon,
   TrendingUp as TrendingUpIcon,
   NewReleases as NewReleasesIcon,
   Speed as SpeedIcon,
   AccessTime as AccessTimeIcon,
-  CloudSync as CloudSyncIcon 
+  CloudSync as CloudSyncIcon,
 } from '@mui/icons-material';
 import {
   alpha,
@@ -20,20 +19,28 @@ import {
   Fade,
   Grid,
   IconButton,
-  LinearProgress,
   Paper,
   Stack,
   Typography,
   useTheme,
-  Zoom,
 } from '@mui/material';
+import { useState } from 'react';
+
 import { useBankRewardsScraper } from '../hooks/useBankRewardsScraper';
 
 export const ScraperControlPanel = () => {
   const theme = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
-  const { status, stats, isRunning, progress, startScraper, stopScraper, syncWithFirestore, error } =
-    useBankRewardsScraper();
+  const {
+    status,
+    stats,
+    isRunning,
+    progress,
+    startScraper,
+    stopScraper,
+    syncWithFirestore,
+    error,
+  } = useBankRewardsScraper();
 
   return (
     <Paper
@@ -73,7 +80,10 @@ export const ScraperControlPanel = () => {
             width: 40,
             height: 40,
             borderRadius: '50%',
-            bgcolor: alpha(isRunning ? theme.palette.success.main : theme.palette.info.main, 0.1),
+            bgcolor: alpha(
+              isRunning ? theme.palette.success.main : theme.palette.info.main,
+              0.1
+            ),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -86,7 +96,10 @@ export const ScraperControlPanel = () => {
                 sx={{
                   color: theme.palette.success.main,
                   animation: 'spin 1.5s linear infinite',
-                  '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } },
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                  },
                 }}
               />
               <CircularProgress
@@ -111,7 +124,9 @@ export const ScraperControlPanel = () => {
             BankRewards Scraper
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {isRunning ? `Collecting offers • ${Math.round(progress)}% complete` : 'Ready for synchronization'}
+            {isRunning
+              ? `Collecting offers • ${Math.round(progress)}% complete`
+              : 'Ready for synchronization'}
           </Typography>
         </Box>
 
@@ -128,8 +143,8 @@ export const ScraperControlPanel = () => {
 
       {/* Content */}
       <Collapse in={isExpanded}>
-        <Box sx={{ p: 3, pt: 0 }}>
-          <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Box sx={{ p: 4, pt: 2 }}>
+          <Grid container spacing={3} sx={{ mb: 4 }}>
             <StatItem
               label="Total Collected"
               value={stats.totalOffers}
@@ -187,7 +202,9 @@ export const ScraperControlPanel = () => {
               variant="outlined"
               onClick={syncWithFirestore}
               disabled={status === 'syncing'}
-              startIcon={status === 'syncing' ? <CircularProgress size={20} /> : <CloudSyncIcon />}
+              startIcon={
+                status === 'syncing' ? <CircularProgress size={20} /> : <CloudSyncIcon />
+              }
               sx={{
                 borderRadius: 3,
                 borderWidth: 2,
@@ -268,4 +285,4 @@ const StatItem = ({
       </Box>
     </Stack>
   </Grid>
-); 
+);

@@ -25,7 +25,9 @@ export default function AccountDetailsSection({ details }: AccountDetailsSection
     {
       icon: <Payment />,
       label: 'Monthly Fees',
-      value: details.monthly_fees?.amount?.startsWith('$') ? details.monthly_fees.amount : `$${details.monthly_fees?.amount}`,
+      value: details.monthly_fees?.amount?.startsWith('$')
+        ? details.monthly_fees.amount
+        : `$${details.monthly_fees?.amount}`,
       highlight: details.monthly_fees?.amount === 'None',
       subtext: details.monthly_fees?.waiver_details,
     },

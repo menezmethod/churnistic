@@ -1,6 +1,12 @@
 import { useState } from 'react';
 
-type ScraperStatus = 'idle' | 'running' | 'stopping' | 'initializing' | 'syncing' | 'error';
+type ScraperStatus =
+  | 'idle'
+  | 'running'
+  | 'stopping'
+  | 'initializing'
+  | 'syncing'
+  | 'error';
 
 export const useBankRewardsScraper = () => {
   const [status, setStatus] = useState<ScraperStatus>('idle');
@@ -17,10 +23,10 @@ export const useBankRewardsScraper = () => {
     try {
       setStatus('initializing');
       setError(null);
-      
+
       const response = await fetch('/api/bankrewards/collect', { method: 'POST' });
       if (!response.ok) throw new Error('Failed to start scraper');
-      
+
       setStatus('running');
       // Simulate progress - replace with actual progress tracking
       const interval = setInterval(() => {
@@ -73,4 +79,4 @@ export const useBankRewardsScraper = () => {
     stopScraper,
     syncWithFirestore,
   };
-}; 
+};

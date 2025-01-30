@@ -901,5 +901,8 @@ export function useOpportunities() {
     importOpportunities: importMutation.mutate,
     isImporting: importMutation.isLoading,
     hasStagedOpportunities: stagedOpportunities.length > 0,
+    refetch: () => {
+      // Implementation of refetch function
+    },
   };
 }

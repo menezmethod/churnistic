@@ -136,3 +136,30 @@ export interface Opportunity {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface OpportunityWithStaged extends Opportunity {
+  isStaged?: boolean;
+  status: 'staged' | 'pending' | 'approved' | 'rejected';
+  source: {
+    name: string;
+    collected_at: string;
+    original_id: string;
+  };
+  source_id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OpportunityStats {
+  total: number;
+  approved: number;
+  rejected: number;
+  pending: number;
+  avgValue: number;
+  highValue: number;
+  byType: {
+    bank: number;
+    credit_card: number;
+    brokerage: number;
+  };
+}
