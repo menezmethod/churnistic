@@ -67,18 +67,12 @@ function getDomain(host: string): string | undefined {
   console.log('Getting cookie domain for host:', host);
 
   // Strip protocol if present
-  const domain = host.replace(/^https?:\/\//, '');
+  const domain = host.replace(/^https?:\/\//, '').split(':')[0];
 
-  // For localhost, return undefined to let the browser handle it
-  if (domain.includes('localhost')) {
-    console.log('Localhost detected, using default domain');
+  // For localhost or Vercel preview URLs, return undefined to let the browser handle it
+  if (domain.includes('localhost') || domain.includes('vercel.app')) {
+    console.log('Development/Preview environment detected, using default domain handling');
     return undefined;
-  }
-
-  // For Vercel preview URLs
-  if (domain.includes('vercel.app')) {
-    console.log('Vercel preview domain detected');
-    return domain;
   }
 
   // For production domain
@@ -87,9 +81,9 @@ function getDomain(host: string): string | undefined {
     return 'churnistic.com';
   }
 
-  // Default case
-  console.log('Using provided domain as is');
-  return domain;
+  // Default case - return undefined to let the browser handle it
+  console.log('Using browser default domain handling');
+  return undefined;
 }
 
 export async function DELETE() {

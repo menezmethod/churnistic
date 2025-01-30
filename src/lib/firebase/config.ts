@@ -160,20 +160,18 @@ const sessionCookieConfig = {
   name: 'session',
   maxAge: 60 * 60 * 24 * 5 * 1000, // 5 days
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production', // Critical for Vercel
-  sameSite: 'lax' as const,
+  secure: process.env.NODE_ENV === 'production', // Only require HTTPS in production
+  sameSite: (process.env.NODE_ENV === 'production' ? 'lax' : 'none') as 'lax' | 'none',
   path: '/',
-  // Add domain if using custom domain
-  // domain: process.env.NODE_ENV === 'production' ? '.yourdomain.com' : undefined
 };
 
-export const getSessionCookieOptions = () => ({
-  ...sessionCookieConfig,
-  // Vercel-specific domain configuration
-  domain:
-    process.env.VERCEL_ENV === 'production'
-      ? '.churnistic.com' // Your production domain
-      : process.env.VERCEL_URL
-        ? `.${process.env.VERCEL_URL}` // Automatic Vercel preview domains
-        : 'localhost',
-});
+export const getSessionCookieOptions = () => {
+  const isProduction = process.env.VERCEL_ENV === 'production';
+
+  return {
+    ...sessionCookieConfig,
+    domain: isProduction ? '.churnistic.com' : undefined,
+    secure: isProduction,
+    sameSite: (isProduction ? 'lax' : 'none') as 'lax' | 'none',
+  };
+};
