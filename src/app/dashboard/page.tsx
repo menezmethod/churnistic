@@ -214,7 +214,7 @@ export default function DashboardPage() {
                     const transformedOpp = {
                       ...opp,
                       type:
-                        opp.type === 'bank'
+                        opp.type === 'bank_account'
                           ? 'bank_account'
                           : (opp.type as 'credit_card' | 'bank_account'),
                     };

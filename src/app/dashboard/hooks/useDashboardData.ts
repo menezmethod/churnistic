@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { db } from '@/lib/firebase/config';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { FirestoreOpportunity } from '@/types/opportunity';
 
 export interface UserProfile {
   displayName?: string;
@@ -15,32 +16,21 @@ export interface UserProfile {
   updatedAt?: string;
 }
 
-export interface Opportunity {
+// Define a strict type for transformed opportunities
+export interface TransformedOpportunity {
   id: string;
+  value: number; // Always a number after transformation
   title: string;
   type: 'credit_card' | 'bank_account' | 'brokerage';
-  value: string | number;
   bank: string;
   description: string;
   requirements: string[];
+  status: 'active' | 'inactive';
   source: string;
   sourceLink: string;
   postedDate: string;
   expirationDate?: string;
   confidence: number;
-  status: string;
-  metadata?: {
-    progress?: number;
-    target?: number;
-    riskLevel?: number;
-    riskFactors?: string[];
-  };
-  timeframe?: string;
-  logo?: {
-    type?: string;
-    url?: string;
-  };
-  name?: string;
 }
 
 export interface TrackedOpportunity {
@@ -67,25 +57,36 @@ export interface DashboardStats {
 
 export const useDashboardData = () => {
   const { user, loading: authLoading } = useAuth();
-  const { data: opportunities = [], isLoading: oppsLoading } = useOpportunities();
+  const { opportunities, isLoading: oppsLoading } = useOpportunities();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // Transform opportunities data
-  const transformedOpportunities = opportunities.map((opp) => ({
+  // Helper function to convert value to number
+  const toNumber = (value: string | number | undefined): number => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') return parseFloat(value) || 0;
+    return 0;
+  };
+
+  // Helper function to ensure type is one of the allowed values
+  const normalizeType = (type: string | undefined): TransformedOpportunity['type'] => {
+    if (type === 'bank') return 'bank_account';
+    if (type === 'credit_card' || type === 'bank_account' || type === 'brokerage') {
+      return type;
+    }
+    return 'bank_account'; // default value
+  };
+
+  // Transform opportunities data with proper typing
+  const transformedOpportunities: TransformedOpportunity[] = opportunities.map((opp: FirestoreOpportunity) => ({
     id: opp.id || crypto.randomUUID(),
-    value:
-      typeof opp.value === 'number'
-        ? opp.value
-        : typeof opp.value === 'string'
-          ? parseInt(opp.value) || 0
-          : 0,
+    value: toNumber(opp.value),
     title: opp.name || opp.title || 'Untitled Opportunity',
-    type: (opp.type === 'bank' ? 'bank_account' : opp.type) || 'bank_account',
+    type: normalizeType(opp.type),
     bank: opp.bank || 'Unknown Bank',
     description: opp.bonus?.description || '',
     requirements: [opp.bonus?.requirements?.description || 'No requirements specified'],
-    status: opp.metadata?.status || 'active',
+    status: opp.metadata?.status === 'active' ? 'active' : 'inactive',
     source: opp.metadata?.created_by || 'Unknown',
     sourceLink: opp.offer_link || '',
     postedDate: opp.metadata?.created_at || new Date().toISOString(),
@@ -96,30 +97,33 @@ export const useDashboardData = () => {
   // Get active opportunities sorted by value
   const activeOpportunities = transformedOpportunities
     .filter((opp) => opp.status === 'active')
-    .sort((a, b) => (b.value || 0) - (a.value || 0));
+    .sort((a, b) => b.value - a.value);
 
   // Get quick opportunities (top 3 by value)
   const quickOpportunities = activeOpportunities.slice(0, 3);
 
   // Calculate total potential value (ensure we don't divide by zero)
   const totalPotentialValue = activeOpportunities.reduce(
-    (sum, opp) => sum + (opp.value || 0),
+    (sum, opp) => sum + opp.value,
     0
   );
 
   const numActiveOpportunities = Math.max(activeOpportunities.length, 1);
 
   // Get tracked opportunities (opportunities with progress)
-  const trackedOpportunities = transformedOpportunities
+  const trackedOpportunities: TrackedOpportunity[] = transformedOpportunities
     .filter((opp) => opp.status === 'active')
-    .map((opp) => ({
-      id: opp.id,
-      title: opp.title || 'Untitled Opportunity',
-      type: (opp.type as 'credit_card' | 'bank_account') || 'bank_account',
-      progress: Math.min((opp.value || 0) * 0.5, opp.value || 0), // Ensure progress doesn't exceed value
-      target: opp.value || 0,
-      daysLeft: 30,
-    }));
+    .map((opp) => {
+      const numericValue = opp.value; // Already a number from transformation
+      return {
+        id: opp.id,
+        title: opp.title,
+        type: opp.type === 'brokerage' ? 'bank_account' : opp.type,
+        progress: Math.min(numericValue * 0.5, numericValue),
+        target: numericValue,
+        daysLeft: 30,
+      };
+    });
 
   // Calculate stats with safe math operations
   const stats: DashboardStats = {

@@ -6,33 +6,50 @@ export const sortAndFilterOpportunities = (
   selectedType: string | null,
   sortBy: 'value' | 'name' | 'type' | 'date' | null,
   sortOrder: 'asc' | 'desc'
-) => {
+): FirestoreOpportunity[] => {
   if (!opportunities) return [];
 
-  return opportunities
-    .filter((opp): opp is FirestoreOpportunity => {
-      if (!opp.id) return false;
+  let filtered = [...opportunities];
 
-      const matchesSearch =
-        !searchTerm ||
-        [opp.name, opp.description, opp.bonus?.description].some((text) =>
-          text?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+  // Apply type filter first - ensure exact match
+  if (selectedType) {
+    filtered = filtered.filter((opp) => {
+      // Ensure strict type comparison
+      return opp.type === selectedType;
+    });
+  }
 
-      const matchesType =
-        !selectedType || opp.type.toLowerCase() === selectedType.toLowerCase();
+  // Then apply search filter if present
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
+    filtered = filtered.filter((opp) => {
+      const searchFields = [
+        opp.name,
+        opp.description,
+        opp.type,
+        opp.bonus?.description,
+        opp.details?.availability?.type,
+        opp.details?.account_type,
+      ];
 
-      return matchesSearch && matchesType;
-    })
-    .sort((a, b) => {
-      if (!sortBy) return 0;
+      return searchFields.some(
+        (field) => field && field.toString().toLowerCase().includes(term)
+      );
+    });
+  }
 
+  // Finally, sort the results
+  if (sortBy) {
+    filtered.sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
         case 'value':
-          const aTotal = (a.bonus?.tiers?.[0]?.value || 0) + (a.value || 0);
-          const bTotal = (b.bonus?.tiers?.[0]?.value || 0) + (b.value || 0);
-          comparison = bTotal - aTotal;
+          // Ensure numeric comparison
+          const aValue =
+            typeof a.value === 'number' ? a.value : parseFloat(a.value as string) || 0;
+          const bValue =
+            typeof b.value === 'number' ? b.value : parseFloat(b.value as string) || 0;
+          comparison = bValue - aValue;
           break;
         case 'name':
           comparison = (a.name || '').localeCompare(b.name || '');
@@ -46,6 +63,9 @@ export const sortAndFilterOpportunities = (
           comparison = new Date(bDate).getTime() - new Date(aDate).getTime();
           break;
       }
-      return sortOrder === 'asc' ? -comparison : comparison;
+      return sortOrder === 'asc' ? comparison : -comparison;
     });
+  }
+
+  return filtered;
 };

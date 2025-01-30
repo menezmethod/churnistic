@@ -16,7 +16,6 @@ import { FirestoreOpportunity } from '@/types/opportunity';
 import AccountDetailsSection from './components/AccountDetailsSection';
 import AvailabilitySection from './components/AvailabilitySection';
 import BonusDetailsSection from './components/BonusDetailsSection';
-import { BonusTiersSection } from './components/BonusTiersSection';
 import { EditDialog } from './components/EditDialog';
 import { ErrorState } from './components/ErrorState';
 import { HeaderSection } from './components/HeaderSection';
