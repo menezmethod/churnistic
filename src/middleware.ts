@@ -1,16 +1,5 @@
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-
-// Initialize Firebase Admin if not already initialized
-if (!getApps().length) {
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
-
-  initializeApp({
-    credential: cert(serviceAccount),
-  });
-}
 
 // Paths that require authentication
 const protectedPaths = ['/dashboard', '/admin', '/api/users'];
@@ -19,7 +8,7 @@ const protectedPaths = ['/dashboard', '/admin', '/api/users'];
 const adminPaths = ['/admin'];
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/auth/verify).*)'],
 };
 
 export async function middleware(request: NextRequest) {
@@ -43,19 +32,26 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Verify session cookie
-    const decodedClaims = await getAuth().verifySessionCookie(sessionCookie, true);
+    // Verify session using the API route
+    const verifyResponse = await fetch(new URL('/api/auth/verify', request.url), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sessionCookie,
+        requiredRole: isAdminPath ? 'admin' : undefined,
+      }),
+    });
 
-    // For admin paths, check if user has admin/superadmin role
-    if (isAdminPath) {
-      const userRole = decodedClaims.role;
-      const isSuperAdmin =
-        decodedClaims.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL;
+    if (!verifyResponse.ok) {
+      const { error } = await verifyResponse.json();
+      console.log('Session verification failed:', error);
 
-      if (!isSuperAdmin && userRole !== 'admin') {
-        console.log('User does not have admin privileges');
+      if (verifyResponse.status === 403) {
         return NextResponse.redirect(new URL('/unauthorized', request.url));
       }
+      return NextResponse.redirect(new URL('/auth/signin', request.url));
     }
 
     return NextResponse.next();
