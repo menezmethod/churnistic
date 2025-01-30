@@ -3,8 +3,11 @@
 import { Box, Button, Container, Typography } from '@mui/material';
 import { useRouter } from 'next/navigation';
 
+import { useAuth } from '@/lib/auth/AuthContext';
+
 export default function UnauthorizedPage() {
   const router = useRouter();
+  const { user } = useAuth();
 
   return (
     <Container maxWidth="sm">
@@ -31,7 +34,9 @@ export default function UnauthorizedPage() {
           data-testid="error-message"
           sx={{ textAlign: 'center', mb: 4 }}
         >
-          Please sign in to access this page.
+          {user
+            ? "You don't have permission to access this page. Please contact an administrator if you believe this is a mistake."
+            : 'Please sign in to access this page.'}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
@@ -41,13 +46,15 @@ export default function UnauthorizedPage() {
           >
             Go to Home
           </Button>
-          <Button
-            variant="contained"
-            onClick={() => router.push('/auth/signin')}
-            data-testid="signin-button"
-          >
-            Go to Sign In
-          </Button>
+          {!user && (
+            <Button
+              variant="contained"
+              onClick={() => router.push('/auth/signin')}
+              data-testid="signin-button"
+            >
+              Go to Sign In
+            </Button>
+          )}
         </Box>
       </Box>
     </Container>

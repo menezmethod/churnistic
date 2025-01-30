@@ -184,7 +184,10 @@ export function useOpportunities(params?: {
     onError: (error, deletedId, context) => {
       // Roll back to the previous value on error
       if (context?.previousOpportunities) {
-        queryClient.setQueryData(['opportunities', params], context.previousOpportunities);
+        queryClient.setQueryData(
+          ['opportunities', params],
+          context.previousOpportunities
+        );
       }
       console.error('Error deleting opportunity:', error);
     },
