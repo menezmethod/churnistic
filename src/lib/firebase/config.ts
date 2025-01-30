@@ -72,9 +72,23 @@ if (USE_EMULATOR) {
 // Session management
 export async function manageSessionCookie(user: User) {
   try {
+    console.log('Managing session cookie for user:', {
+      uid: user.uid,
+      email: user.email,
+      emailVerified: user.emailVerified,
+    });
+
     // Get the ID token with force refresh
     const idToken = await user.getIdToken(true);
     const idTokenResult = await user.getIdTokenResult(true);
+
+    console.log('Got ID token and claims:', {
+      hasToken: !!idToken,
+      claims: {
+        role: idTokenResult.claims.role,
+        permissions: idTokenResult.claims.permissions,
+      },
+    });
 
     // Add claims to the user object
     Object.defineProperty(user, 'customClaims', {
@@ -87,33 +101,52 @@ export async function manageSessionCookie(user: User) {
     });
 
     // Always use the session API, even in emulator mode
+    console.log('Sending session cookie request to API');
     const response = await fetch('/api/auth/session', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ idToken }),
+      body: JSON.stringify({
+        idToken,
+        origin: typeof window !== 'undefined' ? window.location.origin : 'unknown',
+      }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to set session cookie');
+      const errorData = await response.json();
+      console.error('Session API error:', errorData);
+      throw new Error(`Failed to set session cookie: ${JSON.stringify(errorData)}`);
     }
+
+    const result = await response.json();
+    console.log('Session cookie set successfully:', result);
   } catch (error) {
     console.error('Error managing session:', error);
     throw error;
   }
 }
 
-// Add this if using Firebase Admin SDK for backend operations
+// Initialize Firebase with auth state observer
+if (typeof window !== 'undefined') {
+  auth.onAuthStateChanged((user) => {
+    console.log('Auth state changed:', {
+      isSignedIn: !!user,
+      userId: user?.uid,
+      email: user?.email,
+    });
+  });
+}
+
 export const getAuthSettings = () => ({
   authDomain: [
     // Production
     'churnistic.com',
     'www.churnistic.com',
     // Vercel deployments
-    'churnistic.vercel.app', // Production branch
-    'churnistic-*.vercel.app', // Preview deployments
-    'churnistic-*-menezmethods-projects.vercel.app', // Team preview deployments
+    'churnistic.vercel.app',
+    'churnistic-*.vercel.app',
+    'churnistic-*-menezmethods-projects.vercel.app',
     // Development
     'localhost',
   ],

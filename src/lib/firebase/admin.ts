@@ -19,6 +19,14 @@ function getAdminConfig(): AppOptions {
     ? 'churnistic'
     : process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
+  console.log('Admin config - Environment:', {
+    useEmulators,
+    nodeEnv: process.env.NODE_ENV,
+    vercelEnv: process.env.VERCEL_ENV,
+    hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
+    projectId,
+  });
+
   if (!projectId) {
     throw new Error('Firebase Project ID is not set in environment variables');
   }
@@ -40,6 +48,12 @@ function getAdminConfig(): AppOptions {
 
   try {
     const serviceAccount = JSON.parse(serviceAccountKey);
+    console.log('Service account parsed successfully:', {
+      projectId: serviceAccount.project_id,
+      clientEmail: serviceAccount.client_email ? 'present' : 'missing',
+      hasPrivateKey: !!serviceAccount.private_key,
+    });
+
     return {
       credential: cert(serviceAccount),
       projectId,
@@ -77,14 +91,18 @@ export function initializeAdminAuth(): Auth {
   try {
     if (!adminApp) {
       const config = getAdminConfig();
+      console.log('Initializing admin app with config');
       adminApp = getApps().length ? getApps()[0] : initializeApp(config);
+      console.log('Admin app initialized successfully');
     }
 
     if (!adminAuth) {
+      console.log('Getting admin auth instance');
       adminAuth = getAuth(adminApp);
       if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
         console.log('🔐 Connecting Admin to Auth Emulator at: localhost:9099');
       }
+      console.log('Admin auth instance created successfully');
     }
 
     return adminAuth;
