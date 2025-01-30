@@ -29,6 +29,7 @@ export const config = {
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isRsc = request.headers.get('RSC') === '1';
+  const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
   console.log('Middleware - Full request details:', {
     path,
@@ -36,6 +37,7 @@ export async function middleware(request: NextRequest) {
     url: request.url,
     method: request.method,
     headers: Object.fromEntries(request.headers.entries()),
+    useEmulator,
   });
 
   // Check if path is protected
@@ -62,6 +64,40 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
+    // In emulator mode, verify session differently
+    if (useEmulator) {
+      try {
+        const [, payload] = sessionCookie.split('.');
+        if (!payload) {
+          throw new Error('Invalid session token format');
+        }
+        const decodedClaims = JSON.parse(Buffer.from(payload, 'base64').toString());
+
+        // Add user info to headers
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set(
+          'x-verified-user',
+          JSON.stringify({
+            uid: decodedClaims.user_id || decodedClaims.sub,
+            email: decodedClaims.email,
+            role: decodedClaims.role || 'user',
+            permissions: decodedClaims.permissions || [],
+          })
+        );
+
+        return NextResponse.next({
+          request: {
+            headers: requestHeaders,
+          },
+        });
+      } catch (error) {
+        console.error('Emulator session verification failed:', error);
+        const response = NextResponse.redirect(new URL('/auth/signin', request.url));
+        response.cookies.delete('session');
+        return response;
+      }
+    }
+
     // Use origin instead of constructing protocol/host manually
     const verifyUrl = new URL('/api/auth/verify', request.nextUrl.origin).toString();
 

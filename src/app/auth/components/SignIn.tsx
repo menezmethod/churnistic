@@ -103,6 +103,10 @@ export function SignIn(): JSX.Element {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setIsLoading(true);
+    setEmailError(false);
+    setPasswordError(false);
+    setEmailErrorMessage('');
+    setPasswordErrorMessage('');
 
     const data = new FormData(event.currentTarget);
     const email = data.get('email') as string;
@@ -114,18 +118,39 @@ export function SignIn(): JSX.Element {
     }
 
     try {
+      console.log('Starting sign in process');
       await signIn(email, password);
+      console.log('Sign in successful');
+
       // Get the callback URL from the query parameters
       const params = new URLSearchParams(window.location.search);
       const callbackUrl = params.get('callbackUrl');
-      // Redirect to the callback URL if present, otherwise to dashboard
-      router.push(callbackUrl ? decodeURIComponent(callbackUrl) : '/dashboard');
+      const decodedCallbackUrl = callbackUrl
+        ? decodeURIComponent(callbackUrl)
+        : '/dashboard';
+
+      console.log('Redirecting to:', decodedCallbackUrl);
+      router.push(decodedCallbackUrl);
     } catch (error: unknown) {
       console.error('Sign in error:', error);
-      setEmailError(true);
-      setPasswordError(true);
-      setEmailErrorMessage('Invalid email or password.');
-      setPasswordErrorMessage('Invalid email or password.');
+      const message =
+        error instanceof Error ? error.message : 'An error occurred during sign in';
+
+      if (message.includes('auth/invalid-email')) {
+        setEmailError(true);
+        setEmailErrorMessage('Invalid email address.');
+      } else if (message.includes('auth/user-not-found')) {
+        setEmailError(true);
+        setEmailErrorMessage('No account found with this email.');
+      } else if (message.includes('auth/wrong-password')) {
+        setPasswordError(true);
+        setPasswordErrorMessage('Incorrect password.');
+      } else {
+        setEmailError(true);
+        setPasswordError(true);
+        setEmailErrorMessage('Invalid email or password.');
+        setPasswordErrorMessage('Invalid email or password.');
+      }
     } finally {
       setIsLoading(false);
     }

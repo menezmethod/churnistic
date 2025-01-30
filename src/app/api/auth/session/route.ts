@@ -4,53 +4,42 @@ import { NextResponse } from 'next/server';
 import { getAdminAuth } from '@/lib/firebase/admin';
 import { getSessionCookieOptions } from '@/lib/firebase/config';
 
-const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-
 export async function POST(request: Request) {
   try {
     const { idToken, origin } = await request.json();
-    console.log('Session API called:', {
-      hasToken: !!idToken,
-      origin,
-      useEmulator,
-      headers: Object.fromEntries(request.headers),
-    });
+    const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
-    // In emulator mode, skip token verification
+    // Validate ID token first
+    if (!idToken || typeof idToken !== 'string') {
+      return NextResponse.json({ error: 'Invalid ID token format' }, { status: 400 });
+    }
+
+    // Handle emulator mode
     if (useEmulator) {
-      console.log('Setting emulator mode session cookie');
+      console.log('🔧 Using emulator mode for session creation');
       const cookieStore = await cookies();
       const options = getSessionCookieOptions();
       cookieStore.set('session', idToken, options);
       return NextResponse.json({ status: 'success', mode: 'emulator' });
     }
 
-    // Get admin auth instance
+    // Production mode handling
     const auth = getAdminAuth();
-    const expiresIn = 432000 * 1000; // 5 days in milliseconds
+    const sessionCookie = await auth.createSessionCookie(idToken, {
+      expiresIn: 60 * 60 * 24 * 5 * 1000,
+    });
 
-    // Create session cookie
-    console.log('Creating production session cookie');
-    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
-
-    // Set cookie
     const domain = getDomain(origin || request.headers.get('host') || '');
-    console.log('Setting cookie with domain:', domain);
-
     const cookieStore = await cookies();
     const options = getSessionCookieOptions();
     cookieStore.set('session', sessionCookie, options);
 
-    return NextResponse.json({
-      status: 'success',
-      mode: 'production',
-      domain,
-    });
+    return NextResponse.json({ status: 'success', mode: 'production', domain });
   } catch (error) {
-    console.error('Error creating session:', error);
+    console.error('Full session creation error:', error);
     return NextResponse.json(
       {
-        error: 'Failed to create session',
+        error: 'Authentication failed',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }

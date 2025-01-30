@@ -84,12 +84,14 @@ export const isSuperAdmin = (user: AuthUser | null): boolean => {
 // Get the currently logged-in user
 export const loadUser = async (): Promise<AuthUser | null> => {
   return new Promise((resolve, reject) => {
+    console.log('Starting loadUser');
     const unsubscribe = onAuthStateChanged(
       auth,
       async (user) => {
         unsubscribe();
         if (user) {
           try {
+            console.log('User found in auth state, refreshing token');
             // Force token refresh and get claims
             const idTokenResult = await user.getIdTokenResult(true);
             const authUser = user as AuthUser;
@@ -103,18 +105,30 @@ export const loadUser = async (): Promise<AuthUser | null> => {
             authUser.role = idTokenResult.claims.role as string | undefined;
             authUser.isSuperAdmin = isSuperAdmin(authUser);
 
+            console.log('User loaded with claims:', {
+              uid: authUser.uid,
+              email: authUser.email,
+              role: authUser.customClaims.role,
+              isSuperAdmin: authUser.customClaims.isSuperAdmin,
+            });
+
             // Manage session cookie
             await manageSessionCookie(user);
 
             resolve(authUser);
           } catch (error) {
+            console.error('Error loading user:', error);
             reject(error);
           }
         } else {
+          console.log('No user found in auth state');
           resolve(null);
         }
       },
-      reject
+      (error) => {
+        console.error('Auth state change error:', error);
+        reject(error);
+      }
     );
   });
 };
@@ -124,14 +138,38 @@ export const loginWithEmail = async (
   credentials: LoginCredentials
 ): Promise<AuthUser> => {
   try {
+    console.log('Starting email login process');
     const { user } = await signInWithEmailAndPassword(
       auth,
       credentials.email,
       credentials.password
     );
-    await user.getIdToken(true);
+    console.log('Firebase auth successful, getting ID token');
+
+    // Force token refresh
+    const idToken = await user.getIdToken(true);
+    console.log('Got fresh ID token:', idToken.substring(0, 10) + '...');
+
+    // Set session cookie
+    console.log('Setting session cookie');
     await manageSessionCookie(user);
-    return user as AuthUser;
+    console.log('Session cookie set');
+
+    // Get fresh claims
+    const idTokenResult = await user.getIdTokenResult(true);
+    const authUser = user as AuthUser;
+    authUser.customClaims = {
+      role: idTokenResult.claims.role as string | undefined,
+      permissions: idTokenResult.claims.permissions as string[] | undefined,
+      isSuperAdmin: isSuperAdmin(authUser),
+    };
+
+    console.log('Login complete with claims:', {
+      role: authUser.customClaims.role,
+      isSuperAdmin: authUser.customClaims.isSuperAdmin,
+    });
+
+    return authUser;
   } catch (error) {
     console.error('Login error:', error);
     throw error;

@@ -40,9 +40,17 @@ function getAdminConfig(): AppOptions {
     );
   }
 
+  // Add temporary debug logging
+  console.log('Service Account Key Environment Variable:', {
+    exists: !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
+    length: process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.length,
+    first50: process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.slice(0, 50),
+    last50: process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.slice(-50),
+  });
+
   try {
-    // Decode base64 first
     const decodedKey = Buffer.from(serviceAccountKey, 'base64').toString('utf-8');
+    console.log('Decoded Key:', decodedKey.slice(0, 200)); // First 200 chars
     const serviceAccount = JSON.parse(decodedKey);
 
     console.log('Service account parsed successfully:', {
@@ -56,8 +64,8 @@ function getAdminConfig(): AppOptions {
       projectId,
     };
   } catch (error) {
-    console.error('Error parsing service account key:', error);
-    throw new Error('Invalid service account key format');
+    console.error('Full decoding error:', error);
+    throw error;
   }
 }
 

@@ -44,9 +44,14 @@ const AuthContext = createContext<AuthContextType>({
   isOnline: false,
 });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({
+  children,
+}: {
+  children: React.ReactNode;
+  session?: string;
+}) {
   const router = useRouter();
-  const { data: user, isLoading } = useUser();
+  const { data: user, isPending } = useUser();
   const { mutateAsync: login } = useLogin();
   const { mutateAsync: register } = useRegister();
   const { mutateAsync: logoutMutation } = useLogout();
@@ -120,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       user: user ?? null,
-      loading: isLoading,
+      loading: isPending,
       hasRole,
       hasPermission,
       isSuperAdmin,
@@ -134,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       user,
-      isLoading,
+      isPending,
       hasRole,
       hasPermission,
       isSuperAdmin,

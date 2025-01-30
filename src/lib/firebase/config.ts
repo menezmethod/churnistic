@@ -30,13 +30,15 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const functions = getFunctions(app);
 
+// Set auth persistence to browser local storage for persistence across refreshes
+if (typeof window !== 'undefined') {
+  setPersistence(auth, browserLocalPersistence).catch(console.error);
+}
+
 // Emulator connection should only happen in development
 if (USE_EMULATOR) {
   try {
     console.log('🔧 Using Firebase Emulator Suite');
-
-    // Set auth persistence to browser local storage for persistence across refreshes
-    setPersistence(auth, browserLocalPersistence);
 
     // Connect to Auth Emulator
     console.log('🔑 Connecting to Auth Emulator at: localhost:9099');
@@ -103,6 +105,7 @@ export async function manageSessionCookie(user: User) {
         idToken,
         origin: typeof window !== 'undefined' ? window.location.origin : 'unknown',
       }),
+      credentials: 'include', // Important for cookie handling
     });
 
     if (!response.ok) {
@@ -113,6 +116,7 @@ export async function manageSessionCookie(user: User) {
 
     const result = await response.json();
     console.log('Session cookie set successfully:', result);
+    return result;
   } catch (error) {
     console.error('Error managing session:', error);
     throw error;
@@ -149,19 +153,20 @@ const sessionCookieConfig = {
   name: 'session',
   maxAge: 60 * 60 * 24 * 5 * 1000, // 5 days
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production', // Only require HTTPS in production
-  sameSite: (process.env.NODE_ENV === 'production' ? 'lax' : 'none') as 'lax' | 'none',
+  secure: false, // Allow non-HTTPS in development
+  sameSite: 'lax' as const,
   path: '/',
 };
 
 export const getSessionCookieOptions = () => {
   const isProduction = process.env.VERCEL_ENV === 'production';
+  const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
   return {
     ...sessionCookieConfig,
     domain: isProduction ? '.churnistic.com' : undefined,
-    secure: isProduction,
-    sameSite: (isProduction ? 'lax' : 'none') as 'lax' | 'none',
+    secure: isProduction && !useEmulator,
+    sameSite: useEmulator ? 'lax' : ((isProduction ? 'lax' : 'none') as 'lax' | 'none'),
   };
 };
 

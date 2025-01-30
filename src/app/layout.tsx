@@ -4,15 +4,16 @@ import { Inter } from 'next/font/google';
 
 import AppNavbar from '@/components/AppNavbar';
 import { ToastProvider } from '@/components/ui/toaster';
+import { Providers } from '@/lib/providers/Providers';
 
-import { ClientProviders } from './client-providers';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Churnistic',
-  description: 'Churnistic - Your Customer Retention Platform',
+  description:
+    'Churnistic - Maximize Credit Card, Bank, and Brokerage Offers Through Strategic Churning',
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',
@@ -31,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/favicon.ico" sizes="any" />
       </head>
       <body className={inter.className}>
-        <ClientProviders>
+        <Providers>
           <ToastProvider>
             <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
               <AppNavbar />
@@ -40,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </Box>
             </Box>
           </ToastProvider>
-        </ClientProviders>
+        </Providers>
       </body>
     </html>
   );
