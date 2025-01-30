@@ -2,9 +2,10 @@ import { getApps, initializeApp } from 'firebase/app';
 import {
   type User,
   connectAuthEmulator,
-  getAuth,
   browserLocalPersistence,
   setPersistence,
+  browserSessionPersistence,
+  initializeAuth,
 } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
@@ -33,7 +34,9 @@ export const firebaseConfig = {
 
 // Initialize Firebase - ensure single instance
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+export const auth = initializeAuth(app, {
+  persistence: browserSessionPersistence,
+});
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const functions = getFunctions(app);
@@ -150,4 +153,27 @@ export const getAuthSettings = () => ({
     // Development
     'localhost',
   ],
+});
+
+// In your session cookie config, add production settings
+const sessionCookieConfig = {
+  name: 'session',
+  maxAge: 60 * 60 * 24 * 5 * 1000, // 5 days
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production', // Critical for Vercel
+  sameSite: 'lax' as const,
+  path: '/',
+  // Add domain if using custom domain
+  // domain: process.env.NODE_ENV === 'production' ? '.yourdomain.com' : undefined
+};
+
+export const getSessionCookieOptions = () => ({
+  ...sessionCookieConfig,
+  // Vercel-specific domain configuration
+  domain:
+    process.env.VERCEL_ENV === 'production'
+      ? '.churnistic.com' // Your production domain
+      : process.env.VERCEL_URL
+        ? `.${process.env.VERCEL_URL}` // Automatic Vercel preview domains
+        : 'localhost',
 });

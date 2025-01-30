@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 import { getAdminAuth } from '@/lib/firebase/admin';
+import { getSessionCookieOptions } from '@/lib/firebase/config';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
@@ -19,13 +20,9 @@ export async function POST(request: Request) {
     if (useEmulator) {
       console.log('Setting emulator mode session cookie');
       const cookieStore = await cookies();
-      await cookieStore.set('session', idToken, {
-        maxAge: 60 * 60 * 24 * 5, // 5 days
-        httpOnly: true,
-        secure: true, // Always use secure in preview/prod
-        sameSite: 'lax',
-        path: '/',
-        domain: getDomain(origin || request.headers.get('host') || ''),
+      cookieStore.set({
+        value: idToken,
+        ...getSessionCookieOptions(),
       });
       return NextResponse.json({ status: 'success', mode: 'emulator' });
     }
@@ -39,17 +36,13 @@ export async function POST(request: Request) {
     const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
 
     // Set cookie
-    const cookieStore = await cookies();
     const domain = getDomain(origin || request.headers.get('host') || '');
     console.log('Setting cookie with domain:', domain);
 
-    cookieStore.set('session', sessionCookie, {
-      maxAge: expiresIn / 1000, // Convert to seconds
-      httpOnly: true,
-      secure: true, // Always use secure in preview/prod
-      sameSite: 'lax',
-      path: '/',
-      domain,
+    const cookieStore = await cookies();
+    cookieStore.set({
+      value: sessionCookie,
+      ...getSessionCookieOptions(),
     });
 
     return NextResponse.json({

@@ -11,12 +11,9 @@ const adminPaths = ['/admin'];
 
 export const config = {
   matcher: [
-    // Match all paths except static files, images, and the verify endpoint
-    '/((?!_next/static|_next/image|favicon.ico|api/auth/verify).*)',
-    // Match RSC routes
-    '/admin/:path*',
-    '/dashboard/:path*',
-    '/api/users/:path*',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!api/auth/verify|api/auth/session).*)',
+    '/((?!auth/signin|auth/signup|unauthorized).*)',
   ],
 };
 
@@ -56,9 +53,8 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const protocol = request.nextUrl.protocol;
-    const host = request.headers.get('host');
-    const verifyUrl = `${protocol}//${host}/api/auth/verify`;
+    // Use origin instead of constructing protocol/host manually
+    const verifyUrl = new URL('/api/auth/verify', request.nextUrl.origin).toString();
 
     // Forward necessary headers for verification
     const headers = new Headers({
