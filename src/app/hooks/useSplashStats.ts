@@ -14,7 +14,8 @@ export const useSplashStats = () => {
 
   // Calculate total potential value
   const totalPotentialValue = activeOpportunities.reduce(
-    (sum: number, opp: FirestoreOpportunity) => sum + (typeof opp.value === 'number' ? opp.value : 0),
+    (sum: number, opp: FirestoreOpportunity) =>
+      sum + (typeof opp.value === 'number' ? opp.value : 0),
     0
   );
 

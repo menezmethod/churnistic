@@ -78,21 +78,23 @@ export const useDashboardData = () => {
   };
 
   // Transform opportunities data with proper typing
-  const transformedOpportunities: TransformedOpportunity[] = opportunities.map((opp: FirestoreOpportunity) => ({
-    id: opp.id || crypto.randomUUID(),
-    value: toNumber(opp.value),
-    title: opp.name || opp.title || 'Untitled Opportunity',
-    type: normalizeType(opp.type),
-    bank: opp.bank || 'Unknown Bank',
-    description: opp.bonus?.description || '',
-    requirements: [opp.bonus?.requirements?.description || 'No requirements specified'],
-    status: opp.metadata?.status === 'active' ? 'active' : 'inactive',
-    source: opp.metadata?.created_by || 'Unknown',
-    sourceLink: opp.offer_link || '',
-    postedDate: opp.metadata?.created_at || new Date().toISOString(),
-    expirationDate: opp.details?.expiration,
-    confidence: 0.9,
-  }));
+  const transformedOpportunities: TransformedOpportunity[] = opportunities.map(
+    (opp: FirestoreOpportunity) => ({
+      id: opp.id || crypto.randomUUID(),
+      value: toNumber(opp.value),
+      title: opp.name || opp.title || 'Untitled Opportunity',
+      type: normalizeType(opp.type),
+      bank: opp.bank || 'Unknown Bank',
+      description: opp.bonus?.description || '',
+      requirements: [opp.bonus?.requirements?.description || 'No requirements specified'],
+      status: opp.metadata?.status === 'active' ? 'active' : 'inactive',
+      source: opp.metadata?.created_by || 'Unknown',
+      sourceLink: opp.offer_link || '',
+      postedDate: opp.metadata?.created_at || new Date().toISOString(),
+      expirationDate: opp.details?.expiration,
+      confidence: 0.9,
+    })
+  );
 
   // Get active opportunities sorted by value
   const activeOpportunities = transformedOpportunities
