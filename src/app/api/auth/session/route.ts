@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import { getAdminAuth } from '@/lib/firebase/admin';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+const isLocalhost =
+  typeof window !== 'undefined' && window.location.hostname === 'localhost';
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +17,7 @@ export async function POST(request: Request) {
       await cookieStore.set('session', idToken, {
         maxAge: 60 * 60 * 24 * 5, // 5 days
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: !isLocalhost, // Only false for localhost
         sameSite: 'lax',
         path: '/',
       });
@@ -26,7 +28,7 @@ export async function POST(request: Request) {
     const auth = getAdminAuth();
     const expiresIn = 432000 * 1000; // 5 days in milliseconds
 
-    // Create session cookie (only in production)
+    // Create session cookie
     const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
 
     // Set cookie
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
     cookieStore.set('session', sessionCookie, {
       maxAge: expiresIn / 1000, // Convert to seconds
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: !isLocalhost, // Only false for localhost
       sameSite: 'lax',
       path: '/',
     });

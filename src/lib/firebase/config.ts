@@ -107,8 +107,14 @@ export async function manageSessionCookie(user: User) {
 // Add this if using Firebase Admin SDK for backend operations
 export const getAuthSettings = () => ({
   authDomain: [
-    'your-production-domain.com',
-    '*.vercel.app', // Wildcard for all Vercel preview deployments
-    'localhost', // Keep for local development
+    // Production
+    'churnistic.com',
+    'www.churnistic.com',
+    // Vercel deployments
+    'churnistic.vercel.app', // Production branch
+    'churnistic-*.vercel.app', // Preview deployments
+    'churnistic-*-menezmethods-projects.vercel.app', // Team preview deployments
+    // Development
+    'localhost',
   ],
 });
