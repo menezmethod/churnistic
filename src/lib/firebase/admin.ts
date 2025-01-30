@@ -7,7 +7,7 @@ import {
 } from 'firebase-admin/app';
 import { type Auth, getAuth } from 'firebase-admin/auth';
 import { type Firestore, getFirestore } from 'firebase-admin/firestore';
-import './emulator-setup'; // Import emulator setup
+import './emulator-setup';
 
 let adminApp: App | undefined;
 let adminAuth: Auth | undefined;
@@ -15,23 +15,17 @@ let adminDb: Firestore | undefined;
 
 function getAdminConfig(): AppOptions {
   const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-  const projectId = useEmulators
-    ? 'churnistic'
-    : process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-  console.log('Admin config - Environment:', {
-    useEmulators,
-    nodeEnv: process.env.NODE_ENV,
-    vercelEnv: process.env.VERCEL_ENV,
-    hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
-    projectId,
-  });
+  const projectId =
+    process.env.GCLOUD_PROJECT ||
+    (useEmulators
+      ? 'demo-churnistic-local'
+      : process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
 
   if (!projectId) {
     throw new Error('Firebase Project ID is not set in environment variables');
   }
 
-  // In emulator mode, we don't need real credentials
   if (useEmulators) {
     console.log('🔧 Initializing Admin App in Emulator mode');
     return {
@@ -47,18 +41,7 @@ function getAdminConfig(): AppOptions {
   }
 
   try {
-    // Handle both JSON string and already parsed JSON object
-    const serviceAccount =
-      typeof serviceAccountKey === 'string'
-        ? JSON.parse(serviceAccountKey.replace(/\\n/g, '\n')) // Handle newline characters
-        : serviceAccountKey;
-
-    console.log('Service account parsed successfully:', {
-      projectId: serviceAccount.project_id,
-      clientEmail: serviceAccount.client_email ? 'present' : 'missing',
-      hasPrivateKey: !!serviceAccount.private_key,
-    });
-
+    const serviceAccount = JSON.parse(serviceAccountKey);
     return {
       credential: cert(serviceAccount),
       projectId,
@@ -69,68 +52,6 @@ function getAdminConfig(): AppOptions {
       'Invalid service account key format. Please ensure the key is properly formatted JSON.'
     );
   }
-}
-
-export function initializeAdminDb(): Firestore {
-  try {
-    if (!adminApp) {
-      const config = getAdminConfig();
-      adminApp = getApps().length ? getApps()[0] : initializeApp(config);
-    }
-
-    if (!adminDb) {
-      adminDb = getFirestore(adminApp);
-      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-        console.log('📚 Connecting Admin to Firestore Emulator at: localhost:8080');
-      }
-    }
-
-    return adminDb;
-  } catch (error) {
-    console.error('Failed to initialize Admin Firestore:', error);
-    throw error;
-  }
-}
-
-export function initializeAdminAuth(): Auth {
-  try {
-    if (!adminApp) {
-      const config = getAdminConfig();
-      console.log('Initializing admin app with config');
-      adminApp = getApps().length ? getApps()[0] : initializeApp(config);
-      console.log('Admin app initialized successfully');
-    }
-
-    if (!adminAuth) {
-      console.log('Getting admin auth instance');
-      adminAuth = getAuth(adminApp);
-      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-        console.log('🔐 Connecting Admin to Auth Emulator at: localhost:9099');
-      }
-      console.log('Admin auth instance created successfully');
-    }
-
-    return adminAuth;
-  } catch (error) {
-    console.error('Failed to initialize Admin Auth:', error);
-    throw error;
-  }
-}
-
-export function getAdminAuth(): Auth {
-  return adminAuth ?? initializeAdminAuth();
-}
-
-export function getAdminDb(): Firestore {
-  return adminDb ?? initializeAdminDb();
-}
-
-export function getAdminApp(): App {
-  if (!adminApp) {
-    const config = getAdminConfig();
-    adminApp = getApps().length ? getApps()[0] : initializeApp(config);
-  }
-  return adminApp;
 }
 
 // Initialize both Auth and Firestore
@@ -144,18 +65,32 @@ async function initializeAdmin() {
   try {
     console.log('Initializing Firebase Admin...');
 
-    // Initialize Auth first
-    initializeAdminAuth();
-    console.log('Firebase Admin Auth initialized');
+    // Initialize app first if needed
+    if (!adminApp) {
+      const config = getAdminConfig();
+      adminApp = getApps().length ? getApps()[0] : initializeApp(config);
+    }
 
-    // Then initialize Firestore
-    initializeAdminDb();
-    console.log('Firebase Admin Firestore initialized');
+    // Initialize Auth
+    if (!adminAuth) {
+      adminAuth = getAuth(adminApp);
+      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
+        console.log('🔐 Connecting Admin to Auth Emulator at: localhost:9099');
+      }
+    }
+
+    // Initialize Firestore
+    if (!adminDb) {
+      adminDb = getFirestore(adminApp);
+      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
+        console.log('📚 Connecting Admin to Firestore Emulator at: localhost:8080');
+      }
+    }
 
     isInitialized = true;
-    console.log('Firebase Admin initialized successfully');
+    console.log('✅ Firebase Admin initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize Firebase Admin:', error);
+    console.error('❌ Failed to initialize Firebase Admin:', error);
     isInitialized = false;
     throw error;
   }
@@ -164,6 +99,26 @@ async function initializeAdmin() {
 // Initialize on module load
 void initializeAdmin();
 
-// Remove the automatic initialization at module load
-// export { adminApp as app, adminAuth as auth, adminDb as db };
-// export type { App, Auth, Firestore };
+export function getAdminAuth(): Auth {
+  if (!adminAuth) {
+    throw new Error('Firebase Admin Auth not initialized');
+  }
+  return adminAuth;
+}
+
+export function getAdminDb(): Firestore {
+  if (!adminDb) {
+    throw new Error('Firebase Admin Firestore not initialized');
+  }
+  return adminDb;
+}
+
+export function getAdminApp(): App {
+  if (!adminApp) {
+    throw new Error('Firebase Admin App not initialized');
+  }
+  return adminApp;
+}
+
+export { adminApp as app, adminAuth as auth, adminDb as db };
+export type { App, Auth, Firestore };
