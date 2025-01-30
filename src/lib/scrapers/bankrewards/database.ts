@@ -2,7 +2,6 @@ import { collection, doc, writeBatch, Timestamp } from 'firebase/firestore';
 import fs from 'fs';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
-import { join } from 'path';
 
 import { db } from '@/lib/firebase/config';
 import { BankRewardsOffer } from '@/types/scraper';
@@ -10,30 +9,34 @@ import { BankRewardsOffer } from '@/types/scraper';
 export class BankRewardsDatabase {
   private offers: Map<string, BankRewardsOffer> = new Map();
   private readonly dbPath: string;
-  private readonly dataDir: string;
+  private readonly storagePath: string;
   private readonly useEmulator: boolean;
-  private storagePath: string;
   private offersPath: string;
 
   constructor() {
     this.useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-    this.dataDir = path.join(process.cwd(), 'data');
-    this.dbPath = path.join(this.dataDir, 'bankrewards.json');
+
+    // Use /tmp in production and development for consistent behavior
     this.storagePath =
-      process.env.NODE_ENV === 'production' ? '/tmp/bankrewards' : './data/bankrewards';
-    this.offersPath = join(this.storagePath, 'offers.json');
-    this.ensureDataDirectory();
+      process.env.NODE_ENV === 'production'
+        ? '/tmp/bankrewards'
+        : path.join(process.cwd(), 'data', 'bankrewards');
+
+    this.dbPath = path.join(this.storagePath, 'bankrewards.json');
+    this.offersPath = path.join(this.storagePath, 'offers.json');
+
+    this.ensureStorageDirectory();
     this.loadFromDisk();
   }
 
-  private ensureDataDirectory() {
+  private ensureStorageDirectory() {
     try {
-      if (!fs.existsSync(this.dataDir)) {
-        fs.mkdirSync(this.dataDir, { recursive: true });
-        console.info(`[BankRewards] Created data directory: ${this.dataDir}`);
+      if (!fs.existsSync(this.storagePath)) {
+        fs.mkdirSync(this.storagePath, { recursive: true });
+        console.info(`[BankRewards] Created storage directory: ${this.storagePath}`);
       }
     } catch (error) {
-      console.error('[BankRewards] Error creating data directory:', error);
+      console.error('[BankRewards] Error creating storage directory:', error);
       throw error;
     }
   }
