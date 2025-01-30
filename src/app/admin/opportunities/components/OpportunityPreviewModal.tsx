@@ -151,17 +151,37 @@ export const OpportunityPreviewModal = ({
               {opportunity.bonus.requirements?.map((req, index) => (
                 <Box key={index}>
                   <Typography variant="subtitle2" color="text.secondary">
-                    Requirements
+                    {req.title}
                   </Typography>
                   <Typography>
-                    {req.type === 'spend'
-                      ? `Spend $${req.details.amount} within ${req.details.period} days`
-                      : req.type === 'deposit'
-                        ? `Deposit $${req.details.amount}`
-                        : 'Custom requirements'}
+                    {req.description}
+                    {req.type === 'deposit' && req.details.hold_period && (
+                      <Typography variant="body2" color="text.secondary">
+                        Must maintain balance for {req.details.hold_period} days
+                      </Typography>
+                    )}
                   </Typography>
                 </Box>
               ))}
+
+              {opportunity.bonus.tiers && opportunity.bonus.tiers.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Bonus Tiers
+                  </Typography>
+                  {opportunity.bonus.tiers.map((tier, index) => (
+                    <Box
+                      key={index}
+                      sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}
+                    >
+                      <Typography variant="subtitle2">{tier.reward}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Requires {tier.deposit}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
             </Stack>
           </Grid>
 
@@ -173,7 +193,11 @@ export const OpportunityPreviewModal = ({
                   <Typography variant="subtitle2" color="text.secondary">
                     Monthly Fees
                   </Typography>
-                  <Typography>${opportunity.details.monthly_fees.amount}</Typography>
+                  <Typography>
+                    {opportunity.details.monthly_fees.amount
+                      ? `$${opportunity.details.monthly_fees.amount}`
+                      : 'None'}
+                  </Typography>
                 </Box>
               )}
 
@@ -182,7 +206,11 @@ export const OpportunityPreviewModal = ({
                   <Typography variant="subtitle2" color="text.secondary">
                     Annual Fees
                   </Typography>
-                  <Typography>${opportunity.details.annual_fees}</Typography>
+                  <Typography>
+                    {opportunity.details.annual_fees.amount
+                      ? `$${opportunity.details.annual_fees.amount}`
+                      : 'None'}
+                  </Typography>
                 </Box>
               )}
 

@@ -2,37 +2,45 @@
 
 import {
   Add as AddIcon,
-  ArrowForward as ArrowForwardIcon,
-  InfoOutlined as InfoOutlinedIcon,
+  TrendingUp as TrendingUpIcon,
+  Analytics as AnalyticsIcon,
   Settings as SettingsIcon,
+  ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import { alpha, Box, Button, Typography, useTheme } from '@mui/material';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export const QuickActions = () => {
   const theme = useTheme();
-  const router = useRouter();
 
   const quickActions = [
     {
-      label: 'Add New Opportunity',
+      label: 'Add Opportunity',
+      description: 'Track a new reward or offer',
       icon: <AddIcon />,
-      onClick: () => router.push('/opportunities/add'),
+      href: '/opportunities/add',
+      color: theme.palette.primary.main,
     },
     {
-      label: 'Update Progress',
-      icon: <ArrowForwardIcon />,
-      onClick: () => console.log('Update progress'),
+      label: 'Track Progress',
+      description: 'Update your rewards status',
+      icon: <TrendingUpIcon />,
+      href: '/track',
+      color: theme.palette.success.main,
     },
     {
-      label: 'View Analytics',
-      icon: <InfoOutlinedIcon />,
-      onClick: () => console.log('View analytics'),
+      label: 'Analytics',
+      description: 'View detailed insights',
+      icon: <AnalyticsIcon />,
+      href: '/analytics',
+      color: theme.palette.info.main,
     },
     {
       label: 'Settings',
+      description: 'Manage preferences',
       icon: <SettingsIcon />,
-      onClick: () => console.log('Open settings'),
+      href: '/settings',
+      color: theme.palette.warning.main,
     },
   ];
 
@@ -45,12 +53,15 @@ export const QuickActions = () => {
           sm: 'repeat(2, 1fr)',
           md: 'repeat(4, 1fr)',
         },
-        gap: 2,
+        gap: 3,
+        mb: 4,
       }}
     >
       {quickActions.map((action, index) => (
         <Button
           key={action.label}
+          component={Link}
+          href={action.href}
           variant="outlined"
           startIcon={
             <Box
@@ -58,25 +69,26 @@ export const QuickActions = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: 32,
-                height: 32,
-                borderRadius: 1,
-                bgcolor: alpha(theme.palette.primary.main, 0.08),
-                color: 'primary.main',
+                width: 40,
+                height: 40,
+                borderRadius: 2,
+                bgcolor: alpha(action.color, 0.08),
+                color: action.color,
                 transition: 'all 0.3s',
               }}
             >
               {action.icon}
             </Box>
           }
-          onClick={action.onClick}
           sx={{
             width: '100%',
+            height: '100%',
             justifyContent: 'flex-start',
-            py: 1.5,
+            py: 2.5,
             px: 2,
             border: '1px solid',
             borderColor: 'divider',
+            borderRadius: 2,
             bgcolor: alpha(theme.palette.background.paper, 0.8),
             backdropFilter: 'blur(8px)',
             opacity: 0,
@@ -90,12 +102,16 @@ export const QuickActions = () => {
             },
             '&:hover': {
               transform: 'translateY(-4px)',
-              bgcolor: alpha(theme.palette.primary.main, 0.04),
-              borderColor: 'primary.main',
-              boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.1)}`,
+              bgcolor: alpha(action.color, 0.04),
+              borderColor: action.color,
+              boxShadow: `0 8px 16px ${alpha(action.color, 0.1)}`,
               '& .MuiButton-startIcon': {
                 transform: 'scale(1.1)',
-                bgcolor: alpha(theme.palette.primary.main, 0.12),
+                bgcolor: alpha(action.color, 0.12),
+              },
+              '& .arrow-icon': {
+                transform: 'translateX(4px)',
+                opacity: 1,
               },
             },
             '& .MuiButton-startIcon': {
@@ -107,16 +123,35 @@ export const QuickActions = () => {
         >
           <Box sx={{ flex: 1, textAlign: 'left' }}>
             <Typography
-              variant="body2"
-              fontWeight={500}
+              variant="subtitle1"
+              fontWeight={600}
               sx={{
                 color: 'text.primary',
                 transition: 'color 0.3s',
+                mb: 0.5,
               }}
             >
               {action.label}
             </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                transition: 'color 0.3s',
+              }}
+            >
+              {action.description}
+            </Typography>
           </Box>
+          <ArrowForwardIcon
+            className="arrow-icon"
+            sx={{
+              ml: 1,
+              opacity: 0,
+              transition: 'all 0.3s',
+              color: action.color,
+            }}
+          />
         </Button>
       ))}
     </Box>

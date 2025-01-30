@@ -3,6 +3,7 @@ import React from 'react';
 
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { ChurningOpportunity } from '@/types/churning';
+import { FirestoreOpportunity } from '@/types/opportunity';
 
 import { OpportunitiesGrid } from './OpportunitiesGrid';
 import { RiskAssessmentCard } from './RiskAssessmentCard';
@@ -21,10 +22,10 @@ const mockSummary = {
 };
 
 export default function ChurningDashboard() {
-  const { data: opportunities, isLoading } = useOpportunities();
+  const { opportunities, isLoading } = useOpportunities();
 
   const transformedOpportunities: ChurningOpportunity[] =
-    opportunities?.map((opp) => ({
+    opportunities?.map((opp: FirestoreOpportunity) => ({
       id: opp.id || crypto.randomUUID(),
       type: opp.type,
       title: opp.name,

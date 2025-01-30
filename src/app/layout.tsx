@@ -1,15 +1,21 @@
 import Box from '@mui/material/Box';
+import { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 
 import AppNavbar from '@/components/AppNavbar';
+import { ToastProvider } from '@/components/ui/toaster';
 
 import { ClientProviders } from './client-providers';
+import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata = {
-  title: 'Churnistic - Credit Card Churning Tracker',
-  description: 'Track and optimize your credit card rewards and churning strategy',
+export const metadata: Metadata = {
+  title: 'Churnistic',
+  description: 'Track and manage bank rewards and credit card offers',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -17,30 +23,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={inter.className}>
         <ClientProviders>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: '100vh',
-              width: '100%',
-              backgroundColor: 'background.default',
-            }}
-          >
-            <AppNavbar />
-            <Box
-              component="main"
-              sx={{
-                flex: 1,
-                width: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                backgroundColor: 'inherit',
-                mt: { xs: '56px', sm: '64px' },
-              }}
-            >
-              {children}
+          <ToastProvider>
+            <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+              <AppNavbar />
+              <Box component="main" sx={{ flexGrow: 1, pt: { xs: '64px', md: '72px' } }}>
+                {children}
+              </Box>
             </Box>
-          </Box>
+          </ToastProvider>
         </ClientProviders>
       </body>
     </html>
