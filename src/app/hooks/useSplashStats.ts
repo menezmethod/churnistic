@@ -2,18 +2,19 @@
 
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { FirestoreOpportunity } from '@/types/opportunity';
 
 export const useSplashStats = () => {
-  const { data: opportunities = [] } = useOpportunities();
+  const { opportunities = [] } = useOpportunities();
 
   // Get active opportunities
   const activeOpportunities = opportunities.filter(
-    (opp) => opp.metadata?.status === 'active'
+    (opp: FirestoreOpportunity) => opp.metadata?.status === 'active'
   );
 
   // Calculate total potential value
   const totalPotentialValue = activeOpportunities.reduce(
-    (sum, opp) => sum + (typeof opp.value === 'number' ? opp.value : 0),
+    (sum: number, opp: FirestoreOpportunity) => sum + (typeof opp.value === 'number' ? opp.value : 0),
     0
   );
 

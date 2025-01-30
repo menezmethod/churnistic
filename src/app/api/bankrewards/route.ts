@@ -10,14 +10,8 @@ import { getBankRewardsConfig } from './config';
 // Validation schemas
 const getQuerySchema = z.object({
   format: z.enum(['detailed', 'simple']).optional(),
+  type: z.enum(['credit_card', 'bank', 'brokerage']).optional().nullable(),
 });
-
-// Types
-interface BankRewardsStats {
-  total: number;
-  active: number;
-  expired: number;
-}
 
 export async function POST() {
   try {
@@ -45,12 +39,35 @@ export async function POST() {
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const { format } = getQuerySchema.parse({
+    const { format, type } = getQuerySchema.parse({
       format: searchParams.get('format') || 'simple',
+      type: searchParams.get('type') || null,
     });
 
     const db = new BankRewardsDatabase();
-    const [offers, stats] = await Promise.all([db.getOffers(), db.getStats()]);
+    let offers = await db.getOffers();
+
+    // Update the type filtering logic
+    if (type) {
+      offers = offers.filter((offer) => {
+        const offerType = offer.type.toLowerCase();
+        switch (type) {
+          case 'credit_card':
+            return offerType === 'credit_card' || offerType === 'cr';
+          case 'bank':
+            return (
+              offerType === 'bank' ||
+              offerType === 'bank_account' ||
+              offerType === 'checking' ||
+              offerType === 'savings'
+            );
+          case 'brokerage':
+            return offerType === 'brokerage' || offerType === 'investment';
+          default:
+            return false;
+        }
+      });
+    }
 
     // If detailed format is requested, transform the offers
     const transformedOffers =
@@ -60,7 +77,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       data: {
-        stats: stats as BankRewardsStats,
+        stats: { total: offers.length, active: offers.length, expired: 0 },
         offers: transformedOffers,
       },
     });

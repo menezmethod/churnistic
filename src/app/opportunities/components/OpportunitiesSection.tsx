@@ -28,9 +28,10 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 import FloatingAddButton from './FloatingAddButton';
@@ -39,7 +40,6 @@ import OpportunityDeleteDialog from './OpportunityDeleteDialog';
 import OpportunityGrid from './OpportunityGrid';
 import OpportunityList from './OpportunityList';
 import { getTypeColors } from '../utils/colorUtils';
-import { sortAndFilterOpportunities } from '../utils/filterUtils';
 
 interface OpportunitiesSectionProps {
   opportunities: FirestoreOpportunity[];
@@ -47,7 +47,7 @@ interface OpportunitiesSectionProps {
   error: Error | null;
   onDeleteAction: (id: string) => Promise<void>;
   onAddOpportunityAction: () => void;
-  initialCategory?: string | null;
+  initialCategory: string | null;
 }
 
 const CATEGORY_MAP = {
@@ -63,31 +63,22 @@ const REVERSE_CATEGORY_MAP = {
 } as const;
 
 export default function OpportunitiesSection({
-  opportunities: initialOpportunities,
-  loading,
-  error,
   onDeleteAction,
   onAddOpportunityAction,
 }: OpportunitiesSectionProps) {
   const theme = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const isDark = theme.palette.mode === 'dark';
-  const [opportunities, setOpportunities] =
-    useState<FirestoreOpportunity[]>(initialOpportunities);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Initialize selected type from URL parameter
-  const [selectedType, setSelectedType] = useState<string | null>(() => {
-    const category = searchParams.get('category');
-    if (!category) return null;
-    return CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null;
-  });
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [sortBy, setSortBy] = useState<string>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [sortBy, setSortBy] = useState<'value' | 'name' | 'type' | 'date' | null>(
+    'value'
+  );
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     opportunity: FirestoreOpportunity | null;
@@ -95,7 +86,33 @@ export default function OpportunitiesSection({
     open: false,
     opportunity: null,
   });
-  const { user } = useAuth();
+
+  // Initialize selected type from URL parameter
+  const [selectedType, setSelectedType] = useState<string | null>(() => {
+    const category = searchParams.get('category');
+    if (!category) return null;
+    return CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null;
+  });
+
+  // Use the enhanced useOpportunities hook
+  const {
+    opportunities: filteredOpportunities,
+    isLoading,
+    isError,
+    error: useOpportunitiesError,
+    refetch,
+  } = useOpportunities({
+    searchTerm,
+    type: selectedType,
+    sortBy,
+    sortDirection,
+  });
+
+  // Handle type selection
+  const handleTypeClick = (type: string | null) => {
+    setSelectedType(type);
+    updateUrl(type);
+  };
 
   // Update URL when filter changes
   const updateUrl = (newType: string | null) => {
@@ -116,24 +133,6 @@ export default function OpportunitiesSection({
     router.push(newUrl, { scroll: false });
   };
 
-  // Handle type selection
-  const handleTypeClick = (type: string | null) => {
-    setSelectedType(type);
-    updateUrl(type);
-  };
-
-  // Sync state with URL when URL changes
-  useEffect(() => {
-    const category = searchParams.get('category');
-    const newType = category
-      ? CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null
-      : null;
-
-    if (newType !== selectedType) {
-      setSelectedType(newType);
-    }
-  }, [searchParams, selectedType]);
-
   const handleDeleteClick = (opportunity: FirestoreOpportunity) => {
     if (!user) {
       router.push('/auth/signin?redirect=/opportunities');
@@ -144,7 +143,7 @@ export default function OpportunitiesSection({
 
   const handleDeleteCancel = () => {
     setDeleteDialog({ open: false, opportunity: null });
-    setIsDeleting(false);
+    setIsDeleting(null);
   };
 
   const handleDeleteConfirm = async () => {
@@ -154,17 +153,16 @@ export default function OpportunitiesSection({
       return;
     }
 
-    setIsDeleting(true);
+    setIsDeleting(id);
     try {
       await onDeleteAction(id);
       // Remove the opportunity from the local state
-      const updatedOpportunities = opportunities.filter((opp) => opp.id !== id);
-      setOpportunities(updatedOpportunities);
+      refetch();
       setDeleteDialog({ open: false, opportunity: null });
     } catch (error) {
       console.error('Failed to delete opportunity:', error);
     } finally {
-      setIsDeleting(false);
+      setIsDeleting(null);
     }
   };
 
@@ -191,21 +189,13 @@ export default function OpportunitiesSection({
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       // If selecting a new sort type, default to ascending
-      setSortBy(type);
+      setSortBy(type as 'value' | 'name' | 'type' | 'date' | null);
       setSortDirection('asc');
     }
     handleSortClose();
   };
 
-  const filteredAndSortedOpportunities = sortAndFilterOpportunities(
-    opportunities || [],
-    searchTerm,
-    selectedType,
-    sortBy as 'name' | 'value' | 'type' | 'date' | null,
-    sortDirection
-  );
-
-  if (loading) {
+  if (isLoading) {
     return (
       <Box
         sx={{
@@ -258,7 +248,7 @@ export default function OpportunitiesSection({
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <Container
         maxWidth="lg"
@@ -291,7 +281,9 @@ export default function OpportunitiesSection({
               </Typography>
             </Box>
             <Typography color="text.secondary">
-              {error instanceof Error ? error.message : 'Unknown error'}
+              {useOpportunitiesError instanceof Error
+                ? useOpportunitiesError.message
+                : 'Unknown error'}
             </Typography>
           </Paper>
         </motion.div>
@@ -585,6 +577,13 @@ export default function OpportunitiesSection({
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
               >
                 <MenuItem
+                  onClick={() => handleSortSelect('value')}
+                  selected={sortBy === 'value'}
+                >
+                  <SortByAlpha />
+                  Value
+                </MenuItem>
+                <MenuItem
                   onClick={() => handleSortSelect('name')}
                   selected={sortBy === 'name'}
                 >
@@ -638,15 +637,15 @@ export default function OpportunitiesSection({
           {/* Opportunities List/Grid */}
           {viewMode === 'grid' ? (
             <OpportunityGrid
-              opportunities={filteredAndSortedOpportunities}
+              opportunities={filteredOpportunities}
               onDeleteClick={handleDeleteClick}
-              isDeleting={isDeleting ? deleteDialog.opportunity?.id || null : null}
+              isDeleting={isDeleting}
             />
           ) : (
             <OpportunityList
-              opportunities={filteredAndSortedOpportunities}
+              opportunities={filteredOpportunities}
               onDeleteClick={handleDeleteClick}
-              isDeleting={isDeleting ? deleteDialog.opportunity?.id || null : null}
+              isDeleting={isDeleting}
             />
           )}
 
@@ -656,7 +655,7 @@ export default function OpportunitiesSection({
             opportunity={deleteDialog.opportunity}
             onCancelAction={handleDeleteCancel}
             onConfirm={handleDeleteConfirm}
-            loading={isDeleting}
+            loading={Boolean(isDeleting)}
           />
 
           {/* Floating Add Button for Mobile */}

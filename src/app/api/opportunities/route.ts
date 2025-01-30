@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { getAdminDb } from '@/lib/firebase/admin';
-import { FormData, FirestoreOpportunity } from '@/types/opportunity';
+import type { FirestoreOpportunity } from '@/types/opportunity';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 const isPreviewEnvironment = process.env.VERCEL_ENV === 'preview';
@@ -19,12 +19,15 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
-    const limitNum = Number(searchParams.get('limit')) || 10;
+    const limitParam = searchParams.get('limit');
+    const limitNum = limitParam ? Number(limitParam) : undefined;
 
     console.log('Query params:', { type, limitNum });
 
     const db = getAdminDb();
-    const opportunitiesRef = db.collection('opportunities');
+    const opportunitiesRef = db.collection(
+      'opportunities'
+    ) as FirebaseFirestore.CollectionReference;
 
     // Skip auth check in emulator or preview environment
     if (!useEmulator && !isPreviewEnvironment) {
@@ -35,10 +38,16 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Building Firestore query...');
-    let queryRef = opportunitiesRef.limit(limitNum);
+    let queryRef: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> =
+      opportunitiesRef;
 
     if (type) {
       queryRef = queryRef.where('type', '==', type);
+    }
+
+    // Only apply limit if explicitly requested
+    if (limitNum) {
+      queryRef = queryRef.limit(limitNum);
     }
 
     const snapshot = await queryRef.get();
@@ -79,15 +88,12 @@ export async function POST(req: NextRequest) {
       vercelEnv: process.env.VERCEL_ENV,
     });
 
-    let userEmail = 'preview@example.com';
+    // Always get the auth context
+    const { session } = await createAuthContext(req);
 
-    // Skip auth check in emulator or preview environment
-    if (!useEmulator && !isPreviewEnvironment) {
-      const { session } = await createAuthContext(req);
-      if (!session?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      userEmail = session.email;
+    // In production, require authentication
+    if (!useEmulator && !isPreviewEnvironment && !session?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Parse and validate request body
@@ -98,7 +104,7 @@ export async function POST(req: NextRequest) {
     let body;
     try {
       body = await req.json();
-      console.log('Received data:', body);
+      console.log('Received data:', JSON.stringify(body, null, 2));
     } catch (error) {
       console.error('Error parsing request body:', error);
       return NextResponse.json(
@@ -107,81 +113,129 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const data = body as FormData;
-
     // Validate required fields
-    if (!data.name || !data.type) {
+    if (!body.name || !body.type || !body.id || !body.metadata?.created_by) {
+      console.error('Missing required fields:', {
+        name: body.name,
+        type: body.type,
+        id: body.id,
+        created_by: body.metadata?.created_by,
+      });
       return NextResponse.json(
-        { error: 'Name and type are required fields' },
+        { error: 'Name, type, id, and metadata.created_by are required fields' },
         { status: 400 }
       );
     }
 
+    // In production, ensure the user can only use their own email
+    if (
+      !useEmulator &&
+      !isPreviewEnvironment &&
+      session?.email !== body.metadata.created_by
+    ) {
+      return NextResponse.json(
+        { error: 'Cannot create opportunities on behalf of other users' },
+        { status: 403 }
+      );
+    }
+
+    // Create the opportunity object with proper type checking
     const opportunity = {
-      name: data.name.trim(),
-      type: data.type,
-      description: data.description || '',
-      offer_link: data.offer_link || '',
-      value: parseInt(data.value) || 0,
+      id: body.id,
+      name: body.name.trim(),
+      type: body.type,
+      description: body.description || '',
+      offer_link: body.offer_link || '',
+      value: parseInt(body.value) || 0,
+      source_id: body.source_id || body.id,
+      source: body.source || {
+        name: 'bankrewards.io',
+        collected_at: new Date().toISOString(),
+        original_id: body.source_id || body.id,
+        timing: null,
+        availability: null,
+        credit: null,
+      },
       bonus: {
-        title: data.bonus?.title || '',
-        description: data.bonus?.description || '',
-        requirements: {
-          title: data.bonus?.requirements?.title || '',
-          description: data.bonus?.requirements?.description || '',
-          minimum_deposit: data.bonus?.requirements?.minimum_deposit || null,
-          trading_requirements: data.bonus?.requirements?.trading_requirements || null,
-          holding_period: data.bonus?.requirements?.holding_period || null,
+        title: body.bonus?.title || '',
+        description: body.bonus?.description || '',
+        requirements: body.bonus?.requirements || {
+          title: '',
+          description: '',
         },
-        additional_info: data.bonus?.additional_info || null,
-        tiers: data.bonus?.tiers || null,
+        additional_info: body.bonus?.additional_info || null,
+        tiers: body.bonus?.tiers || null,
       },
       details: {
-        monthly_fees: {
-          amount: data.details?.monthly_fees?.amount || '0',
+        monthly_fees: body.details?.monthly_fees || {
+          amount: '0',
         },
-        account_type: data.details?.account_type || '',
-        availability: data.details?.availability || {
+        account_type: body.details?.account_type || '',
+        availability: body.details?.availability || {
           type: 'Nationwide',
           states: [],
         },
-        credit_inquiry: data.details?.credit_inquiry || null,
-        household_limit: data.details?.household_limit || null,
-        early_closure_fee: data.details?.early_closure_fee || null,
-        chex_systems: data.details?.chex_systems || null,
-        expiration: data.details?.expiration || null,
+        credit_inquiry: body.details?.credit_inquiry || null,
+        household_limit: body.details?.household_limit || null,
+        early_closure_fee: body.details?.early_closure_fee || null,
+        chex_systems: body.details?.chex_systems || null,
+        expiration: body.details?.expiration || null,
+        options_trading: body.details?.options_trading || null,
+        ira_accounts: body.details?.ira_accounts || null,
+        under_5_24:
+          body.details?.under_5_24 !== undefined ? body.details.under_5_24 : null,
+        foreign_transaction_fees: body.details?.foreign_transaction_fees || null,
+        annual_fees: body.details?.annual_fees || null,
       },
-      logo: {
-        type: data.logo?.type || '',
-        url: data.logo?.url || '',
+      logo: body.logo || {
+        type: '',
+        url: '',
       },
       card_image:
-        data.type === 'credit_card'
-          ? {
-              url: data.card_image?.url || '',
-              network: data.card_image?.network || 'Unknown',
-              color: data.card_image?.color || 'Unknown',
-              badge: data.card_image?.badge,
+        body.type === 'credit_card'
+          ? body.card_image || {
+              url: '',
+              network: 'Unknown',
+              color: 'Unknown',
+              badge: null,
             }
           : null,
       metadata: {
-        created_at: new Date().toISOString(),
+        ...(body.metadata || {}),
+        created_at: body.metadata?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        created_by: userEmail,
-        status: 'active',
-        environment: isPreviewEnvironment ? 'preview' : 'production',
+        created_by: body.metadata.created_by,
+        updated_by: body.metadata.created_by,
+        status: body.metadata?.status || 'active',
+        environment: process.env.NODE_ENV || 'development',
       },
+      status: body.status || 'approved',
+      createdAt: body.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
-    const db = getAdminDb();
-    const docRef = await db.collection('opportunities').add(opportunity);
+    console.log('Processed opportunity:', JSON.stringify(opportunity, null, 2));
 
-    console.log('Opportunity created with ID:', docRef.id);
+    try {
+      const db = getAdminDb();
+      // Use the provided ID instead of generating a new one
+      await db.collection('opportunities').doc(body.id).set(opportunity);
+      console.log('Opportunity created with ID:', body.id);
 
-    return NextResponse.json({
-      id: docRef.id,
-      message: 'Opportunity created successfully',
-    });
+      return NextResponse.json({
+        id: body.id,
+        message: 'Opportunity created successfully',
+      });
+    } catch (dbError) {
+      console.error('Database error:', dbError);
+      return NextResponse.json(
+        {
+          error: 'Database error',
+          details: dbError instanceof Error ? dbError.message : 'Unknown database error',
+        },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Error creating opportunity:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

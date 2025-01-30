@@ -26,7 +26,7 @@ export default function OpportunityGrid({
             isDeleting={isDeleting === opportunity.id}
             viewMode="grid"
             index={index}
-            onDeleteOpportunityAction={onDeleteClick}
+            onDeleteClick={onDeleteClick}
           />
         </Grid>
       ))}

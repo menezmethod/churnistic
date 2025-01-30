@@ -155,6 +155,10 @@ export interface FirestoreOpportunity {
     };
     options_trading?: 'Yes' | 'No' | string;
     ira_accounts?: 'Yes' | 'No' | string;
+    platform_features?: Array<{
+      name: string;
+      description: string;
+    }>;
   };
   logo?: {
     type?: 'icon' | 'url';
@@ -196,8 +200,47 @@ export interface RewardsStructure {
 }
 
 export interface Details {
-  description: string;
-  requirements?: string;
+  monthly_fees?: {
+    amount: string;
+    waiver_details?: string | null;
+  } | null;
+  annual_fees?: {
+    amount: string;
+    waived_first_year: boolean;
+  } | null;
+  account_type?: string | null;
+  availability?: {
+    type: string;
+    states?: string[];
+    is_nationwide?: boolean;
+  } | null;
+  credit_inquiry?: string | null;
+  expiration?: string | null;
+  credit_score?: string | null;
+  under_5_24?: boolean | null;
+  foreign_transaction_fees?: {
+    percentage: string;
+    waived: boolean;
+  } | null;
+  minimum_credit_limit?: string | null;
+  rewards_structure?: {
+    base_rewards: string;
+    bonus_categories?: Array<{
+      category: string;
+      rate: string;
+      limit?: string;
+    }>;
+    welcome_bonus?: string;
+  } | null;
+  household_limit?: string | null;
+  early_closure_fee?: string | null;
+  chex_systems?: string | null;
+  options_trading?: string | null;
+  ira_accounts?: string | null;
+  platform_features?: Array<{
+    name: string;
+    description: string;
+  }> | null;
 }
 
 export interface Bonus {
@@ -280,6 +323,10 @@ export interface Opportunity {
     };
     options_trading?: 'Yes' | 'No' | string;
     ira_accounts?: 'Yes' | 'No' | string;
+    platform_features?: Array<{
+      name: string;
+      description: string;
+    }>;
   };
   logo?: {
     type?: 'icon' | 'url';

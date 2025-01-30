@@ -27,8 +27,22 @@ async function handleResponse<T>(response: Response): Promise<T> {
   }
 }
 
-const getOpportunities = async (): Promise<FirestoreOpportunity[]> => {
-  const response = await fetch(API_BASE);
+const getOpportunities = async (params?: {
+  limit?: number;
+  searchTerm?: string;
+  type?: string | null;
+  sortBy?: 'value' | 'name' | 'type' | 'date' | null;
+  sortDirection?: 'asc' | 'desc';
+}): Promise<FirestoreOpportunity[]> => {
+  const url = new URL(API_BASE, window.location.origin);
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        url.searchParams.set(key, value.toString());
+      }
+    });
+  }
+  const response = await fetch(url);
   return handleResponse<FirestoreOpportunity[]>(response);
 };
 
@@ -86,12 +100,18 @@ const deleteOpportunity = async (id: string): Promise<void> => {
   }
 };
 
-export function useOpportunities() {
+export function useOpportunities(params?: {
+  limit?: number;
+  searchTerm?: string;
+  type?: string | null;
+  sortBy?: 'value' | 'name' | 'type' | 'date' | null;
+  sortDirection?: 'asc' | 'desc';
+}) {
   const queryClient = useQueryClient();
 
   const query = useQuery<FirestoreOpportunity[]>({
-    queryKey: ['opportunities'],
-    queryFn: () => getOpportunities(),
+    queryKey: ['opportunities', params],
+    queryFn: () => getOpportunities(params),
     staleTime: 0, // Always fetch fresh data
     refetchOnMount: true,
     refetchOnWindowFocus: true,
@@ -101,11 +121,14 @@ export function useOpportunities() {
     mutationFn: createOpportunity,
     onSuccess: (newOpportunity) => {
       // Optimistically update the cache
-      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities'], (old) => {
-        return old ? [newOpportunity, ...old] : [newOpportunity];
-      });
+      queryClient.setQueryData<FirestoreOpportunity[]>(
+        ['opportunities', params],
+        (old) => {
+          return old ? [newOpportunity, ...old] : [newOpportunity];
+        }
+      );
       // Then invalidate to ensure we have the latest data
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', params] });
     },
   });
 
@@ -113,15 +136,18 @@ export function useOpportunities() {
     mutationFn: updateOpportunity,
     onSuccess: (updatedOpportunity) => {
       if (!isFirestoreOpportunity(updatedOpportunity)) return;
-      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities'], (old) => {
-        return old
-          ? old.map((opp) =>
-              opp.id === updatedOpportunity.id ? updatedOpportunity : opp
-            )
-          : [];
-      });
+      queryClient.setQueryData<FirestoreOpportunity[]>(
+        ['opportunities', params],
+        (old) => {
+          return old
+            ? old.map((opp) =>
+                opp.id === updatedOpportunity.id ? updatedOpportunity : opp
+              )
+            : [];
+        }
+      );
       // Then invalidate to ensure we have the latest data
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', params] });
       queryClient.invalidateQueries({
         queryKey: ['opportunity', updatedOpportunity.id],
       });
@@ -132,18 +158,22 @@ export function useOpportunities() {
     mutationFn: deleteOpportunity,
     onMutate: async (deletedId) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['opportunities'] });
+      await queryClient.cancelQueries({ queryKey: ['opportunities', params] });
       await queryClient.cancelQueries({ queryKey: ['opportunity', deletedId] });
 
       // Snapshot the previous value
       const previousOpportunities = queryClient.getQueryData<FirestoreOpportunity[]>([
         'opportunities',
+        params,
       ]);
 
       // Optimistically remove the opportunity from the cache
-      queryClient.setQueryData<FirestoreOpportunity[]>(['opportunities'], (old) => {
-        return old ? old.filter((opp) => opp.id !== deletedId) : [];
-      });
+      queryClient.setQueryData<FirestoreOpportunity[]>(
+        ['opportunities', params],
+        (old) => {
+          return old ? old.filter((opp) => opp.id !== deletedId) : [];
+        }
+      );
 
       // Remove the individual opportunity from cache
       queryClient.setQueryData(['opportunity', deletedId], null);
@@ -154,20 +184,24 @@ export function useOpportunities() {
     onError: (error, deletedId, context) => {
       // Roll back to the previous value on error
       if (context?.previousOpportunities) {
-        queryClient.setQueryData(['opportunities'], context.previousOpportunities);
+        queryClient.setQueryData(['opportunities', params], context.previousOpportunities);
       }
       console.error('Error deleting opportunity:', error);
     },
     onSettled: (_, __, deletedId) => {
       // Only invalidate the opportunities list query
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', params] });
       // Remove the individual opportunity query instead of invalidating it
       queryClient.removeQueries({ queryKey: ['opportunity', deletedId] });
     },
   });
 
   return {
-    ...query,
+    opportunities: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
     createOpportunity: createMutation.mutate,
     updateOpportunity: updateMutation.mutate,
     deleteOpportunity: deleteMutation.mutate,

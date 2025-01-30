@@ -6,8 +6,8 @@ import {
   BonusTier,
   Details,
   Logo,
-  Metadata,
   Bonus,
+  Metadata,
 } from '@/types/transformed';
 
 export interface EnhancedTransformedOffer extends TransformedOffer {
@@ -24,7 +24,6 @@ export class BankRewardsTransformer {
 
   private extractTableTiers(): BonusTier[] {
     const tiers: BonusTier[] = [];
-    const seenTiers = new Set<string>();
 
     // Find tables that might contain tier information
     const tables = this.$('table');
@@ -66,21 +65,13 @@ export class BankRewardsTransformer {
             const normalizedDeposit = deposit.startsWith('$')
               ? deposit
               : `$${this.normalizeAmount(deposit)}`;
-            const normalizedReward = reward.startsWith('$')
-              ? `$${this.normalizeAmount(reward.slice(1))}`
-              : reward;
 
-            // Create a unique key for this tier combination
-            const tierKey = `${normalizedReward}-${normalizedDeposit}`;
-
-            // Only add if we haven't seen this exact combination before
-            if (!seenTiers.has(tierKey)) {
-              seenTiers.add(tierKey);
-              tiers.push({
-                reward: normalizedReward,
-                deposit: normalizedDeposit,
-              });
-            }
+            tiers.push({
+              reward: reward.startsWith('$')
+                ? `$${this.normalizeAmount(reward.slice(1))}`
+                : reward,
+              deposit: normalizedDeposit,
+            });
           }
         }
       });
@@ -91,7 +82,6 @@ export class BankRewardsTransformer {
 
   private extractTextTiers(text: string): BonusTier[] {
     const tiers: BonusTier[] = [];
-    const seenTiers = new Set<string>();
     const patterns = [
       // Share/Stock rewards with deposit tiers
       {
@@ -145,12 +135,7 @@ export class BankRewardsTransformer {
           for (const { pattern, handler } of patterns) {
             const match = itemText.match(pattern);
             if (match && match[1] && match[2]) {
-              const tier = handler(match);
-              const tierKey = `${tier.reward}-${tier.deposit}`;
-              if (!seenTiers.has(tierKey)) {
-                seenTiers.add(tierKey);
-                tiers.push(tier);
-              }
+              tiers.push(handler(match));
               break;
             }
           }
@@ -163,12 +148,7 @@ export class BankRewardsTransformer {
         const matches = Array.from(text.matchAll(pattern));
         for (const match of matches) {
           if (match[1] && match[2]) {
-            const tier = handler(match);
-            const tierKey = `${tier.reward}-${tier.deposit}`;
-            if (!seenTiers.has(tierKey)) {
-              seenTiers.add(tierKey);
-              tiers.push(tier);
-            }
+            tiers.push(handler(match));
           }
         }
       }
@@ -178,11 +158,38 @@ export class BankRewardsTransformer {
   }
 
   private extractBonusDescription(): string {
-    // Try to find the description text after "Bonus Details:"
     const bonusSection = this.$('p:contains("Bonus Details:")').next();
     if (bonusSection.length) {
-      const description = this.cleanText(bonusSection.text());
-      if (description) return description;
+      let description = this.cleanText(bonusSection.text());
+      if (description) {
+        // Filter out ongoing rewards
+        const sentences = description.split(/[.!?]+\s+/);
+        description = sentences
+          .filter((sentence) => !this.isOngoingReward(sentence))
+          .join('. ');
+
+        // Check for cash back matching
+        const cashBackMatching = this.extractCashBackMatching();
+        if (cashBackMatching) {
+          const perks = this.$('p:contains("Card Perks:")').next().text();
+          const cashBack = this.$('p:contains("Card Cash Back:")').next().text();
+
+          // Combine cash back details with matching
+          description = `${cashBackMatching}. ${this.cleanText(cashBack)}`;
+
+          // Add any additional perks that aren't cash back related
+          const otherPerks = perks
+            .split(/[.!?]+\s+/)
+            .filter((perk) => !perk.toLowerCase().includes('cash back'))
+            .join('. ');
+
+          if (otherPerks) {
+            description = `${description}. ${otherPerks}`;
+          }
+        }
+
+        return description;
+      }
     }
 
     // Look for text patterns in the entire content
@@ -191,105 +198,379 @@ export class BankRewardsTransformer {
     // Look for specific bonus patterns
     const patterns = [
       // Points bonus with spending requirement
-      /(?:Get|Earn|Receive)\s+(?:up\s+to\s+)?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:bonus\s+)?points?\s+(?:after|when)\s+(?:spending|you\s+spend)\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:within|in)\s+(\d+)\s+(?:days?|months?)/gi,
+      {
+        pattern:
+          /(?:Get|Earn|Receive)\s+(?:up\s+to\s+)?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:bonus\s+)?points?\s+(?:after|when)\s+(?:spending|you\s+spend)\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:within|in)\s+(\d+)\s+(?:days?|months?)/i,
+        handler: (match: RegExpMatchArray) =>
+          `Earn ${this.normalizeAmount(match[1])} bonus points after spending $${this.normalizeAmount(match[2])} in ${match[3]} days`,
+      },
       // Cash bonus with amount
-      /(?:Get|Earn|Receive)\s+(?:up\s+to\s+)?\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:cash\s+)?bonus/gi,
+      {
+        pattern:
+          /(?:Get|Earn|Receive)\s+(?:up\s+to\s+)?\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:cash\s+)?bonus/i,
+        handler: (match: RegExpMatchArray) => `$${this.normalizeAmount(match[1])} bonus`,
+      },
       // Free stock/shares
-      /(?:Get|Earn|Receive)\s+(\d+)\s+(?:free\s+)?(?:stocks?|shares?)/gi,
+      {
+        pattern: /(?:Get|Earn|Receive)\s+(\d+)\s+(?:free\s+)?(?:stocks?|shares?)/i,
+        handler: (match: RegExpMatchArray) => `Get ${match[1]} free stocks`,
+      },
       // Statement credit
-      /\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+statement\s+credit/gi,
+      {
+        pattern: /\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+statement\s+credit/i,
+        handler: (match: RegExpMatchArray) =>
+          `$${this.normalizeAmount(match[1])} statement credit`,
+      },
       // Cash back bonus
-      /\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+cash\s+back\s+bonus/gi,
+      {
+        pattern: /\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+cash\s+back\s+bonus/i,
+        handler: (match: RegExpMatchArray) =>
+          `$${this.normalizeAmount(match[1])} cash back bonus`,
+      },
     ];
 
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
+    for (const { pattern, handler } of patterns) {
+      const match = pattern.exec(text);
       if (match) {
-        if (pattern.source.includes('points')) {
-          return `Earn ${this.normalizeAmount(match[1])} bonus points after spending $${this.normalizeAmount(match[2])} in ${match[3]} days`;
-        }
-        const amount = this.normalizeAmount(match[1]);
-        if (pattern.source.includes('stock')) {
-          return `Get ${amount} free stocks`;
-        }
-        return `$${amount} bonus`;
+        return handler(match);
       }
     }
 
     return '';
   }
 
+  private combineBonusRequirements(requirements: string[]): string {
+    if (requirements.length === 0) return '';
+
+    // Group similar requirements
+    const groups: { [key: string]: string[] } = {
+      accounts: [],
+      deposits: [],
+      transactions: [],
+      balance: [],
+      enrollment: [],
+      timeframes: [],
+      other: [],
+    };
+
+    requirements.forEach((req) => {
+      if (req.toLowerCase().includes('open') || req.toLowerCase().includes('account')) {
+        groups.accounts.push(req);
+      } else if (
+        req.toLowerCase().includes('deposit') ||
+        req.toLowerCase().includes('ach')
+      ) {
+        groups.deposits.push(req);
+      } else if (
+        req.toLowerCase().includes('transaction') ||
+        req.toLowerCase().includes('purchase')
+      ) {
+        groups.transactions.push(req);
+      } else if (req.toLowerCase().includes('balance')) {
+        groups.balance.push(req);
+      } else if (
+        req.toLowerCase().includes('enroll') ||
+        req.toLowerCase().includes('sign up')
+      ) {
+        groups.enrollment.push(req);
+      } else if (
+        req.toLowerCase().includes('days') ||
+        req.toLowerCase().includes('months')
+      ) {
+        groups.timeframes.push(req);
+      } else {
+        groups.other.push(req);
+      }
+    });
+
+    // Combine requirements within each group
+    const combinedGroups = Object.values(groups)
+      .filter((group) => group.length > 0)
+      .map((group) => {
+        if (group.length === 1) return group[0];
+
+        // For multiple requirements in a group, use AND
+        return group.join(' AND ');
+      });
+
+    // Join groups with appropriate conjunctions
+    if (combinedGroups.length === 1) {
+      return combinedGroups[0];
+    } else if (combinedGroups.length === 2) {
+      return `${combinedGroups[0]} AND ${combinedGroups[1]}`;
+    } else {
+      const lastGroup = combinedGroups.pop();
+      return `${combinedGroups.join(', ')}, AND ${lastGroup}`;
+    }
+  }
+
   private extractBonusRequirements(): string {
-    // First try to find the requirements section
-    const requirementsSection = this.$(
-      'p:contains("Bonus Requirements:"), p:contains("Requirements:")'
+    // Helper function to clean text without regex
+    const cleanRequirementText = (text: string): string => {
+      const $ = this.$;
+      const div = $('<div>').html(text);
+
+      // Remove known non-requirement sections
+      div.find('*:contains("Account Type:")').remove();
+      div.find('*:contains("Monthly Fees:")').remove();
+      div.find('*:contains("Credit Inquiry:")').remove();
+      div.find('*:contains("Bonus Details:")').remove();
+      div.find('*:contains("Terms and Conditions")').remove();
+
+      return div.text().replace(/\s+/g, ' ').trim();
+    };
+
+    // First try to find promo code
+    const promoCodeSection = this.$('div')
+      .filter((_, el) => {
+        const text = this.$(el).text().toLowerCase();
+        return (
+          text.includes('promo code') ||
+          text.includes('offer code') ||
+          text.includes('bonus code')
+        );
+      })
+      .first();
+
+    let promoCode = '';
+    if (promoCodeSection.length) {
+      const text = promoCodeSection.text();
+      const codeMatch = text.match(
+        /(?:promo|offer|bonus|referral)\s+code\s+["']?\$?([A-Z0-9]+)["']?/i
+      );
+      if (codeMatch) {
+        promoCode = `Use promo code ${codeMatch[1]}. `;
+      }
+    }
+
+    // Look for requirements in multiple places
+    const requirementPatterns = [
+      // Direct deposit patterns
+      /(?:make|have|receive|complete)\s+(?:a|direct)\s+deposits?\s+(?:of|totaling|worth)?\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /direct\s+deposits?\s+(?:of|totaling|worth)?\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+
+      // Spending patterns
+      /spend\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:or\s+more\s+)?(?:within|in|during)?\s+(?:the\s+)?(?:first\s+)?(\d+)\s+days?/i,
+      /spend\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+or\s+more/i,
+
+      // Balance patterns
+      /maintain\s+(?:a|minimum|average)?\s+balance\s+of\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /keep\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+in\s+(?:your|the)\s+account/i,
+
+      // Transaction patterns
+      /make\s+(\d+)\s+(?:debit\s+card\s+)?(?:purchase|transaction)s?/i,
+      /complete\s+(\d+)\s+(?:debit\s+card\s+)?(?:purchase|transaction)s?/i,
+
+      // Time-based patterns
+      /within\s+(\d+)\s+days?\s+of\s+(?:account\s+)?opening/i,
+      /in\s+the\s+first\s+(\d+)\s+days?/i,
+
+      // Brokerage-specific patterns
+      /(?:transfer|deposit|fund)\s+(?:a\s+minimum\s+of\s+)?\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:to|into)\s+(?:your|the)\s+(?:new\s+)?(?:account|brokerage)/i,
+      /link\s+(?:a|your)\s+(?:bank\s+)?account/i,
+      /open\s+(?:and|&)?\s*fund\s+(?:a|your|an?\s+new)?\s+(?:account|brokerage)\s+with\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /minimum\s+(?:initial\s+)?(?:deposit|funding|investment)\s+of\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /fund\s+(?:your|the)\s+account\s+with\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+      /transfer\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:to|into)\s+(?:your|the)\s+account\s+within\s+(\d+)\s+days?/i,
+      /link\s+(?:a|your)\s+bank\s+account\s+(?:and|&)?\s*(?:get|receive|earn)\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/i,
+    ];
+
+    // Find the requirements section using Cheerio
+    const requirementSections = this.$(
+      [
+        'div:contains("Bonus Requirements")',
+        'div:contains("Requirements:")',
+        'div:contains("To qualify:")',
+        'div:contains("To earn:")',
+        'div:contains("To receive:")',
+        'div:contains("How to earn:")',
+        'div:contains("Eligibility:")',
+        'div:contains("Qualification:")',
+        'div:contains("Bonus Requirement")', // Added singular form
+        'div:contains("Bonus Details")', // Added bonus details as fallback
+      ].join(', ')
     );
-    if (requirementsSection.length) {
-      // Get all text nodes after the requirements label
-      const reqContent = requirementsSection.nextAll().slice(0, 3);
-      const requirements = reqContent
-        .map((_, el) => {
-          const text = this.$(el).text().trim();
-          // Only include text that looks like spending requirements
-          if (
-            text.toLowerCase().includes('spend') ||
-            text.toLowerCase().includes('purchase') ||
-            text.toLowerCase().includes('deposit')
-          ) {
-            return text;
+
+    let requirements = '';
+
+    if (requirementSections.length) {
+      // Get all text nodes after the requirements section
+      const section = requirementSections.first();
+      const nextElements = section.nextAll().slice(0, 5);
+
+      // Extract requirements from text nodes and lists
+      const reqTexts: string[] = [];
+
+      nextElements.each((_, el) => {
+        const $el = this.$(el);
+
+        // Handle lists specially
+        if ($el.is('ul, ol')) {
+          $el.find('li').each((_, li) => {
+            const text = cleanRequirementText(this.$(li).text());
+            if (text && text.length > 10) {
+              reqTexts.push(text);
+            }
+          });
+        } else {
+          const text = cleanRequirementText($el.text());
+          if (text && text.length > 10) {
+            reqTexts.push(text);
           }
-          return null;
-        })
-        .get()
-        .filter(Boolean)[0]; // Take the first valid requirement
-
-      if (requirements) {
-        // Extract amount and timeframe using simpler patterns
-        const amount = requirements.match(/\$?([\d,]+)/)?.[1];
-        const months = requirements.match(/(\d+)\s*months?/)?.[1];
-        const days = requirements.match(/(\d+)\s*days?/)?.[1];
-
-        if (amount && (months || days)) {
-          const timeframe = months
-            ? `${months} ${months === '1' ? 'month' : 'months'}`
-            : `${days} days`;
-          return `Spend $${this.normalizeAmount(amount)} in ${timeframe}`;
         }
+      });
 
-        // If we can't parse it cleanly, at least clean up any duplicates
-        return this.cleanText(requirements)
-          .replace(
-            /(?:spend\s+\$[\d,]+\s+in\s+(?:\d+\s+(?:months?|days?))\s*)+/gi,
-            (match) => match.split(/\s+in\s+/)[0] + ' in ' + match.split(/\s+in\s+/)[1]
-          )
-          .replace(/\s+months?\s+months?/, ' months');
+      // Filter and combine requirements
+      requirements = reqTexts
+        .filter((text) => {
+          const lower = text.toLowerCase();
+          return (
+            (lower.includes('deposit') ||
+              lower.includes('balance') ||
+              lower.includes('transaction') ||
+              lower.includes('spend') ||
+              lower.includes('purchase') ||
+              lower.includes('open') ||
+              lower.includes('maintain') ||
+              lower.includes('within') ||
+              lower.includes('days') ||
+              lower.includes('link') || // Added for brokerage accounts
+              lower.includes('fund') || // Added for brokerage accounts
+              lower.includes('transfer')) && // Added for brokerage accounts
+            !lower.includes('monthly fee') &&
+            !lower.includes('account type')
+          );
+        })
+        .map((text) => {
+          // Clean up common prefixes/suffixes
+          return text
+            .replace(/^(?:and|or|plus)\s+/i, '')
+            .replace(/\s+(?:and|or|plus)\s*$/i, '')
+            .replace(/^[-•*]\s*/, '')
+            .trim();
+        })
+        .filter((text) => text.length > 10)
+        .join(' AND ');
+    }
+
+    // If no requirements found in sections, try finding them in paragraphs
+    if (!requirements) {
+      const paragraphs = this.$('p').filter((_, el) => {
+        const text = this.$(el).text().toLowerCase();
+        return (
+          (text.includes('deposit') ||
+            text.includes('balance') ||
+            text.includes('transaction') ||
+            text.includes('spend') ||
+            text.includes('purchase') ||
+            text.includes('within') ||
+            text.includes('days') ||
+            text.includes('link') || // Added for brokerage accounts
+            text.includes('fund') || // Added for brokerage accounts
+            text.includes('transfer')) && // Added for brokerage accounts
+          !text.includes('monthly fee') &&
+          !text.includes('account type')
+        );
+      });
+
+      if (paragraphs.length) {
+        requirements = cleanRequirementText(paragraphs.first().text());
       }
     }
 
-    // If we can't find a dedicated requirements section, look in the bonus description
-    const bonusDesc = this.extractBonusDescription();
-    const spendMatch = bonusDesc.match(
-      /(?:spending|spend)\s+\$?([\d,]+)(?:\s+(?:within|in)\s+(\d+)\s+(days?|months?))?/i
-    );
-    if (spendMatch) {
-      const [, amount, period, unit] = spendMatch;
-      if (period) {
-        return `Spend $${this.normalizeAmount(amount)} in ${period} ${unit}`;
+    // If still no requirements found, try pattern matching on all content
+    if (!requirements) {
+      const allText = this.$('div').text();
+
+      // First try to find requirements in the bonus description
+      const bonusDescSection = this.$('div:contains("Bonus Details")').first();
+      if (bonusDescSection.length) {
+        const bonusDesc = bonusDescSection.nextAll().slice(0, 2).text();
+        for (const pattern of requirementPatterns) {
+          const match = bonusDesc.match(pattern);
+          if (match) {
+            if (pattern.source.includes('spend')) {
+              requirements = match[2]
+                ? `Spend $${this.normalizeAmount(match[1])} within ${match[2]} days of account opening`
+                : `Spend $${this.normalizeAmount(match[1])} or more`;
+            } else if (pattern.source.includes('deposit')) {
+              requirements = `Make direct deposits of $${this.normalizeAmount(match[1])}`;
+            } else if (pattern.source.includes('balance')) {
+              requirements = `Maintain a balance of $${this.normalizeAmount(match[1])}`;
+            } else if (pattern.source.includes('transaction')) {
+              requirements = `Complete ${match[1]} transactions`;
+            } else if (pattern.source.includes('days')) {
+              const prevSentence = bonusDesc
+                .split(/[.!?]\s+/)
+                .find((s) => s.match(pattern));
+              if (prevSentence) {
+                requirements = cleanRequirementText(prevSentence);
+              }
+            } else if (pattern.source.includes('link')) {
+              requirements = 'Link a bank account';
+            } else if (pattern.source.includes('transfer') && match[2]) {
+              requirements = `Transfer $${this.normalizeAmount(match[1])} into the account within ${match[2]} days`;
+            } else if (pattern.source.includes('fund')) {
+              requirements = `Fund the account with $${this.normalizeAmount(match[1])}`;
+            }
+            break;
+          }
+        }
       }
-      return `Spend $${this.normalizeAmount(amount)}`;
+
+      // If still no requirements, try the entire content
+      if (!requirements) {
+        for (const pattern of requirementPatterns) {
+          const match = allText.match(pattern);
+          if (match) {
+            if (pattern.source.includes('spend')) {
+              requirements = match[2]
+                ? `Spend $${this.normalizeAmount(match[1])} within ${match[2]} days of account opening`
+                : `Spend $${this.normalizeAmount(match[1])} or more`;
+            } else if (pattern.source.includes('deposit')) {
+              requirements = `Make direct deposits of $${this.normalizeAmount(match[1])}`;
+            } else if (pattern.source.includes('balance')) {
+              requirements = `Maintain a balance of $${this.normalizeAmount(match[1])}`;
+            } else if (pattern.source.includes('transaction')) {
+              requirements = `Complete ${match[1]} transactions`;
+            } else if (pattern.source.includes('link')) {
+              requirements = 'Link a bank account';
+            } else if (pattern.source.includes('transfer') && match[2]) {
+              requirements = `Transfer $${this.normalizeAmount(match[1])} into the account within ${match[2]} days`;
+            } else if (pattern.source.includes('fund')) {
+              requirements = `Fund the account with $${this.normalizeAmount(match[1])}`;
+            }
+            break;
+          }
+        }
+      }
     }
 
-    // Fallback to looking in the general content with simpler patterns
-    const text = this.$('div').text();
-    const generalSpendMatch = text.match(
-      /spend\s+\$?([\d,]+)(?:\s+(?:within|in)\s+(\d+)\s+(days?|months?))/i
-    );
-    if (generalSpendMatch) {
-      const [, amount, period, unit] = generalSpendMatch;
-      return `Spend $${this.normalizeAmount(amount)} in ${period} ${unit}`;
+    if (!requirements) {
+      return promoCode + 'Contact bank for specific requirements';
     }
 
-    return 'Contact bank for specific requirements';
+    // Clean up the final requirements
+    requirements = requirements
+      .replace(/bonus\s+requirements?:?\s*/i, '')
+      .replace(/requirements?:?\s*/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // Capitalize first letter
+    requirements = requirements.charAt(0).toUpperCase() + requirements.slice(1);
+
+    // Check for recurring requirements
+    const bonusSection = this.$('div:contains("Bonus Details")').first();
+    if (bonusSection.length) {
+      const bonusText = bonusSection.nextAll().slice(0, 3).text();
+      const recurring = this.extractRecurringRequirements(bonusText);
+      if (recurring) {
+        requirements = requirements ? `${requirements}. ${recurring}` : recurring;
+      }
+    }
+
+    return promoCode + requirements;
   }
 
   private extractAdditionalInfo(): string | undefined {
@@ -417,48 +698,142 @@ export class BankRewardsTransformer {
     return Object.keys(rewards).length > 0 ? rewards : undefined;
   }
 
-  private extractCardDetails(details: Details): void {
-    // Extract annual fees
-    const annualFeesText = this.$('p:contains("Annual Fees:")').text();
-    if (annualFeesText) {
-      details.annual_fees = this.cleanText(annualFeesText.split(':')[1]);
+  private extract524Status(): boolean | undefined {
+    // Common patterns for 5/24 mentions
+    const patterns = [
+      /(?:chase\s+)?5\/24(?:\s+rule)?:?\s*([^.]+)/i,
+      /(?:subject\s+to|under|affected\s+by)\s+(?:chase\s+)?5\/24(?:\s+rule)?:?\s*([^.]+)/i,
+      /(?:chase\s+)?5\/24(?:\s+rule)?\s+(?:status|requirement):?\s*([^.]+)/i,
+      /opened\s+(?:more\s+than\s+)?(\d+)\s+cards?\s+in\s+(?:the\s+)?(?:last\s+)?24\s+months/i,
+      /five\s+cards?\s+in\s+(?:the\s+)?(?:last\s+)?24\s+months/i,
+    ];
+
+    // First try to find explicit 5/24 sections
+    const under524Text = this.$(
+      'p:contains("5/24"), p:contains("Chase 5/24"), p:contains("Under 5/24"), p:contains("five cards in 24 months")'
+    ).text();
+
+    if (under524Text) {
+      for (const pattern of patterns) {
+        const match = under524Text.match(pattern);
+        if (match) {
+          const details = match[1] ? this.cleanText(match[1]) : under524Text;
+          return (
+            details.toLowerCase().includes('yes') ||
+            details.toLowerCase().includes('required') ||
+            details.toLowerCase().includes('subject to') ||
+            !details.toLowerCase().includes('no') ||
+            !details.toLowerCase().includes('not')
+          );
+        }
+      }
     }
 
+    // If no explicit section, search in general content
+    const generalText = this.$('div').text();
+    for (const pattern of patterns) {
+      const match = generalText.match(pattern);
+      if (match) {
+        const details = match[1]
+          ? this.cleanText(match[1])
+          : match[0]
+            ? this.cleanText(match[0])
+            : 'Subject to Chase 5/24 rule';
+        return (
+          details.toLowerCase().includes('yes') ||
+          details.toLowerCase().includes('required') ||
+          details.toLowerCase().includes('subject to') ||
+          !details.toLowerCase().includes('no') ||
+          !details.toLowerCase().includes('not')
+        );
+      }
+    }
+
+    return undefined;
+  }
+
+  private extractCardDetails(details: Details): void {
     // Extract foreign transaction fees
     const foreignFeesText = this.$('p:contains("Foreign Transaction Fees:")').text();
     if (foreignFeesText) {
-      details.foreign_transaction_fees = this.cleanText(foreignFeesText.split(':')[1]);
+      const text = this.cleanText(foreignFeesText.split(':')[1]);
+      const percentageMatch = text.match(/(\d+(?:\.\d+)?%?)/);
+      const isWaived =
+        text.toLowerCase().includes('none') ||
+        text.toLowerCase().includes('no fee') ||
+        text.toLowerCase().includes('waived') ||
+        text.toLowerCase().includes('0%') ||
+        text.toLowerCase().includes('$0');
+
+      details.foreign_transaction_fees = {
+        percentage: percentageMatch
+          ? percentageMatch[1].endsWith('%')
+            ? percentageMatch[1]
+            : `${percentageMatch[1]}%`
+          : isWaived
+            ? '0%'
+            : '3%', // Default to 3% if no percentage found and not waived
+        waived: isWaived,
+      };
     }
 
-    // Extract 5/24 status for credit cards
-    const under524Text = this.$('p:contains("Under 5/24:")').text();
-    if (under524Text) {
-      details.under_5_24 = this.cleanText(under524Text.split(':')[1]);
-    } else {
-      // Try to find 5/24 info in general text
-      const text = this.$('div').text().toLowerCase();
-      if (text.includes('5/24') || text.includes('five cards in 24 months')) {
-        details.under_5_24 = text.includes('not be approved') ? 'Yes' : 'No';
-      }
+    // Extract annual fees
+    const annualFeesText = this.$('p:contains("Annual Fees:")').text();
+    if (annualFeesText) {
+      const text = this.cleanText(annualFeesText.split(':')[1]);
+      const amount =
+        text.toLowerCase().includes('none') || text === '0' || text === '$0'
+          ? '$0'
+          : text.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || text;
+
+      details.annual_fees = {
+        amount: amount.startsWith('$') ? amount : `$${amount}`,
+        waived_first_year:
+          text.toLowerCase().includes('waived') ||
+          text.toLowerCase().includes('first year free'),
+      };
+    }
+
+    // Extract 5/24 status using the comprehensive method
+    const status524 = this.extract524Status();
+    if (status524 !== undefined) {
+      details.under_5_24 = status524;
     }
   }
 
   private extractDetails(): Details {
     const details: Details = {};
 
-    // Extract monthly fees with proper formatting
+    // Extract monthly fees with proper formatting and waiver conditions
     const monthlyFeesText = this.$('p:contains("Monthly Fees:")').text();
     if (monthlyFeesText) {
       const amount = this.cleanText(monthlyFeesText.split(':')[1]);
+
+      // Look for waiver information in the content
+      const waiverPatterns = [
+        /(?:fees?\s+(?:are|is|will\s+be)\s+waived|no\s+(?:monthly\s+)?fees?\s+(?:when|if))\s+(?:any\s+of\s+the\s+following\s+(?:are|is)\s+achieve[d]?:?\s+)?([^.]+)/i,
+        /to\s+avoid\s+(?:the\s+)?(?:monthly\s+)?fees?[,:]?\s+([^.]+)/i,
+        /(?:monthly\s+)?fees?\s+(?:can\s+be|are|is)\s+waived\s+(?:when|if)\s+([^.]+)/i,
+        /no\s+(?:monthly\s+)?fees?\s+with\s+([^.]+)/i,
+      ];
+
+      let waiverDetails = '';
+      const content = this.$('div').text();
+
+      for (const pattern of waiverPatterns) {
+        const match = content.match(pattern);
+        if (match && match[1]) {
+          waiverDetails = this.cleanText(match[1]);
+          break;
+        }
+      }
+
       details.monthly_fees = {
         amount:
           amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
             ? 'None'
             : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount,
-        waiver_details:
-          this.cleanText(
-            this.$('p:contains("Monthly Fee Waiver:")').text().split(':')[1]
-          ) || undefined,
+        waiver_details: waiverDetails || undefined,
       };
     }
 
@@ -480,48 +855,117 @@ export class BankRewardsTransformer {
       details.availability = {
         type: isNationwide ? 'Nationwide' : states.length > 0 ? 'State' : undefined,
         states: states.length > 0 ? states : undefined,
-        details: undefined, // Removed redundant details
+        details: undefined,
       };
     }
 
-    // Extract credit inquiry with consistent casing
-    const creditInquiryText = this.$('p:contains("Credit Inquiry:")').text();
-    if (creditInquiryText) {
-      const inquiry = this.cleanText(creditInquiryText.split(':')[1]).toLowerCase();
-      if (inquiry.includes('hard')) {
-        details.credit_inquiry = 'Hard Pull';
-      } else if (inquiry.includes('soft')) {
-        details.credit_inquiry = 'Soft Pull';
-      } else {
-        details.credit_inquiry = inquiry;
+    // Credit inquiry only for credit cards
+    if (this.type === 'credit_card') {
+      const creditInquiryText = this.$('p:contains("Credit Inquiry:")').text();
+      if (creditInquiryText) {
+        const inquiry = this.cleanText(creditInquiryText.split(':')[1]).toLowerCase();
+        if (inquiry.includes('hard')) {
+          details.credit_inquiry = 'Hard Pull';
+        } else if (inquiry.includes('soft')) {
+          details.credit_inquiry = 'Soft Pull';
+        } else {
+          details.credit_inquiry = inquiry;
+        }
       }
     }
 
-    // Extract household limit
-    const householdLimitText = this.$('p:contains("Household Limit:")').text();
-    if (householdLimitText) {
-      details.household_limit = this.cleanText(householdLimitText.split(':')[1]);
+    // Bank Account specific fields
+    if (this.type === 'bank') {
+      // Extract minimum deposit
+      const minDepositText = this.$('p:contains("Minimum Deposit:")').text();
+      if (minDepositText) {
+        const amount = this.cleanText(minDepositText.split(':')[1]);
+        details.minimum_deposit =
+          amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
+            ? 'None'
+            : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount;
+      }
+
+      // Extract holding period
+      const holdingPeriodText = this.$('p:contains("Holding Period:")').text();
+      if (holdingPeriodText) {
+        details.holding_period = this.cleanText(holdingPeriodText.split(':')[1]);
+      }
+
+      // Extract household limit
+      const householdLimitText = this.$('p:contains("Household Limit:")').text();
+      if (householdLimitText) {
+        details.household_limit = this.cleanText(householdLimitText.split(':')[1]);
+      }
+
+      // Extract early closure fee
+      const earlyClosureFeeText = this.$(
+        'p:contains("Early Account Closure Fee:")'
+      ).text();
+      if (earlyClosureFeeText) {
+        const amount = this.cleanText(earlyClosureFeeText.split(':')[1]);
+        details.early_closure_fee =
+          amount.toLowerCase() === 'none' || amount === '0' || amount === '$0'
+            ? 'None'
+            : amount.match(/\$?(\d+(?:\.\d{2})?)/)?.[0] || amount;
+      }
+
+      // Extract ChexSystems
+      const chexSystemsText = this.$('p:contains("ChexSystems:")').text();
+      if (chexSystemsText) {
+        details.chex_systems = this.cleanText(chexSystemsText.split(':')[1]);
+      }
     }
 
-    // Extract early closure fee
-    const earlyClosureFeeText = this.$('p:contains("Early Account Closure Fee:")').text();
-    if (earlyClosureFeeText) {
-      details.early_closure_fee = this.cleanText(earlyClosureFeeText.split(':')[1]);
+    // Credit Card specific fields
+    if (this.type === 'credit_card') {
+      // Extract 5/24 status using comprehensive method
+      const status524 = this.extract524Status();
+      if (status524 !== undefined) {
+        details.under_5_24 = status524;
+      }
+
+      // Extract minimum credit limit
+      const minCreditLimitText = this.$('p:contains("Minimum Credit Limit:")').text();
+      if (minCreditLimitText) {
+        const amount = this.cleanText(minCreditLimitText.split(':')[1]);
+        details.minimum_credit_limit =
+          amount.match(/\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)/)?.[0] || amount;
+      }
+
+      // Extract rewards structure
+      const rewardsText = this.$('p:contains("Rewards Structure:")').text();
+      if (rewardsText) {
+        const baseRewardsText = this.$('p:contains("Base Rewards:")').text();
+        const welcomeBonusText = this.$('p:contains("Welcome Bonus:")').text();
+        const bonusCategoriesText = this.$('p:contains("Bonus Categories:")').text();
+
+        details.rewards_structure = {
+          base_rewards: this.cleanText(baseRewardsText.split(':')[1]) || '',
+          welcome_bonus: welcomeBonusText
+            ? this.cleanText(welcomeBonusText.split(':')[1])
+            : undefined,
+          bonus_categories: bonusCategoriesText
+            ? this.cleanText(bonusCategoriesText.split(':')[1])
+                .split(',')
+                .map((category) => {
+                  const [cat, rate] = category.split('@').map((s) => s.trim());
+                  const limitMatch = category.match(/up to \$([\d,]+)/);
+                  return {
+                    category: cat,
+                    rate: rate || '',
+                    limit: limitMatch ? limitMatch[1] : undefined,
+                  };
+                })
+            : undefined,
+        };
+      }
+
+      // Extract card-specific details (annual fees, foreign transaction fees)
+      this.extractCardDetails(details);
     }
 
-    // Extract ChexSystems
-    const chexSystemsText = this.$('p:contains("ChexSystems:")').text();
-    if (chexSystemsText) {
-      details.chex_systems = this.cleanText(chexSystemsText.split(':')[1]);
-    }
-
-    // Extract expiration
-    const expirationText = this.$('p:contains("Expiration:")').text();
-    if (expirationText) {
-      details.expiration = this.cleanText(expirationText.split(':')[1]) || 'None Listed';
-    }
-
-    // Extract brokerage-specific details
+    // Brokerage specific fields
     if (this.type === 'brokerage') {
       // Extract options trading
       const optionsTradingText = this.$('p:contains("Options Trading:")').text();
@@ -534,11 +978,39 @@ export class BankRewardsTransformer {
       if (iraAccountsText) {
         details.ira_accounts = this.cleanText(iraAccountsText.split(':')[1]);
       }
+
+      // Extract trading requirements
+      const tradingReqText = this.$('p:contains("Trading Requirements:")').text();
+      if (tradingReqText) {
+        details.trading_requirements = this.cleanText(tradingReqText.split(':')[1]);
+      }
+
+      // Extract platform features
+      const platformFeaturesText = this.$('p:contains("Platform Features:")').text();
+      if (platformFeaturesText) {
+        const features = this.$('p:contains("Platform Features:")')
+          .nextAll('ul')
+          .first()
+          .find('li');
+        if (features.length) {
+          details.platform_features = features
+            .map((_, el) => {
+              const featureText = this.$(el).text();
+              const [name, description] = featureText.split(':').map((s) => s.trim());
+              return {
+                name,
+                description: description || name,
+              };
+            })
+            .get();
+        }
+      }
     }
 
-    // Extract credit card specific details if this is a credit card
-    if (this.type === 'credit_card') {
-      this.extractCardDetails(details);
+    // Extract expiration
+    const expirationText = this.$('p:contains("Expiration:")').text();
+    if (expirationText) {
+      details.expiration = this.cleanText(expirationText.split(':')[1]) || 'None Listed';
     }
 
     return details;
@@ -884,6 +1356,48 @@ export class BankRewardsTransformer {
       }
     }
 
+    // Special handling for credit card cash back matching
+    const cashBackMatchingPatterns = [
+      /cash\s+back\s+match(?:ing)?\s+(?:for|at|during)\s+(?:the\s+)?first\s+year/i,
+      /match(?:es|ing)?\s+all\s+cash\s+back\s+earned\s+(?:in|during)\s+(?:the\s+)?first\s+year/i,
+      /dollar[-\s]for[-\s]dollar\s+match(?:ing)?\s+(?:of|on)\s+(?:all\s+)?cash\s+back/i,
+      /doubles?\s+(?:all\s+)?(?:your\s+)?(?:cash\s+back|rewards)\s+(?:earned\s+)?(?:in|during)\s+(?:the\s+)?first\s+year/i,
+    ];
+
+    for (const pattern of cashBackMatchingPatterns) {
+      if (pattern.test(text)) {
+        // Estimate value based on typical spending patterns
+        const monthlySpend = 1000; // Assume $1000/month typical spend
+        const categorySpendPercent = 0.3; // Assume 30% of spend in bonus categories
+        const categorySpendLimit = 1000; // Quarterly limit on bonus categories
+
+        // Calculate first year value with matching
+        const regularCashBack = monthlySpend * 12 * 0.01; // 1% base
+        const categoryCashBack =
+          Math.min(monthlySpend * categorySpendPercent * 12, categorySpendLimit * 4) *
+          0.02; // 2% categories
+        const totalFirstYear = (regularCashBack + categoryCashBack) * 2; // Double with matching
+
+        return Math.round(totalFirstYear);
+      }
+    }
+
+    // Special handling for category rewards with quarterly limits
+    const categoryRewardPatterns = [
+      /(\d+)%\s+(?:cash\s+back|rewards?)\s+(?:on|at|for)\s+(?:.*?)\s+up\s+to\s+\$(\d+(?:,\d+)?)\s+(?:per|each|a)\s+quarter/i,
+      /(\d+)%\s+(?:back|rewards?)\s+(?:on|at|for)\s+(?:.*?)\s+\(up\s+to\s+\$(\d+(?:,\d+)?)\s+quarterly\)/i,
+    ];
+
+    for (const pattern of categoryRewardPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const rate = parseInt(match[1]) / 100;
+        const quarterlyLimit = parseFloat(this.normalizeAmount(match[2]));
+        const annualValue = quarterlyLimit * 4 * rate;
+        return Math.round(annualValue);
+      }
+    }
+
     return 0;
   }
 
@@ -917,7 +1431,7 @@ export class BankRewardsTransformer {
 
     // Get value from tiers if they exist
     const tiers = this.extractTableTiers();
-    const tiersValue = tiers.length > 0 ? this.estimateValueFromTiers(tiers) : 0;
+    const tiersValue = this.estimateValueFromTiers(tiers);
 
     // Get value from cash back section if it exists
     const cashBackSection = this.$('p:contains("Card Cash Back:")').next();
@@ -1048,7 +1562,26 @@ export class BankRewardsTransformer {
         title: 'Bonus Requirements',
         description: bonusRequirements,
       },
-      tiers: tiers.length > 0 ? tiers : undefined,
+      tiers:
+        tiers.length > 0
+          ? tiers.map((tier) => {
+              // Extract numeric value from reward (e.g. "6 shares" -> 6)
+              const rewardValue = parseFloat(tier.reward.replace(/[^0-9.]/g, '')) || 0;
+
+              // Extract numeric value from deposit (e.g. "$100" -> 100)
+              const depositStr = tier.deposit || '0';
+              const depositValue = parseFloat(depositStr.replace(/[^0-9.]/g, '')) || 0;
+
+              return {
+                reward: tier.reward,
+                deposit: tier.deposit || '',
+                level: tier.reward,
+                value: rewardValue,
+                minimum_deposit: depositValue,
+                requirements: tier.requirement || tier.deposit || '',
+              };
+            })
+          : undefined,
       additional_info: additionalInfo,
     };
 
@@ -1071,6 +1604,65 @@ export class BankRewardsTransformer {
       logo: this.getLogo(offer.title),
       ...(this.type === 'credit_card' && { card_image: this.getCardImage() }),
     };
+  }
+
+  private validateTransformedOffer(offer: EnhancedTransformedOffer): void {
+    // Validate required fields
+    if (!offer.id) throw new Error('Missing ID in transformed offer');
+    if (!offer.name) throw new Error('Missing name in transformed offer');
+    if (!offer.type) throw new Error('Missing type in transformed offer');
+    if (!offer.bonus) throw new Error('Missing bonus in transformed offer');
+    if (!offer.details) throw new Error('Missing details in transformed offer');
+    if (!offer.metadata) throw new Error('Missing metadata in transformed offer');
+
+    // Validate type-specific fields
+    if (offer.type === 'credit_card') {
+      if (!offer.details.annual_fees) {
+        console.warn(`Missing annual fees for credit card offer ${offer.id}`);
+      }
+      if (!offer.details.foreign_transaction_fees) {
+        console.warn(
+          `Missing foreign transaction fees for credit card offer ${offer.id}`
+        );
+      }
+      if (!offer.details.under_5_24) {
+        console.warn(`Missing 5/24 status for credit card offer ${offer.id}`);
+      }
+    }
+
+    if (offer.type === 'bank') {
+      if (!offer.details.minimum_deposit) {
+        console.warn(`Missing minimum deposit for bank offer ${offer.id}`);
+      }
+      if (!offer.details.early_closure_fee) {
+        console.warn(`Missing early closure fee for bank offer ${offer.id}`);
+      }
+      if (!offer.details.chex_systems) {
+        console.warn(`Missing ChexSystems status for bank offer ${offer.id}`);
+      }
+    }
+
+    if (offer.type === 'brokerage') {
+      if (!offer.details.options_trading) {
+        console.warn(`Missing options trading info for brokerage offer ${offer.id}`);
+      }
+      if (!offer.details.trading_requirements) {
+        console.warn(`Missing trading requirements for brokerage offer ${offer.id}`);
+      }
+    }
+
+    // Validate bonus structure
+    if (!offer.bonus.description) {
+      console.warn(`Missing bonus description for offer ${offer.id}`);
+    }
+    if (!offer.bonus.requirements?.description) {
+      console.warn(`Missing bonus requirements for offer ${offer.id}`);
+    }
+
+    // Validate value
+    if (offer.value === 0) {
+      console.warn(`Zero value for offer ${offer.id}`);
+    }
   }
 
   private cleanText(text: string): string {
@@ -1175,5 +1767,208 @@ export class BankRewardsTransformer {
       return new Date(date).toISOString();
     }
     return date.toISOString();
+  }
+
+  private estimateStockValue(numStocks: number, company?: string): number {
+    // Historical average values for common stock rewards
+    const stockValues: { [key: string]: number } = {
+      moomoo: 15,
+      webull: 10,
+      robinhood: 12,
+      sofi: 8,
+      public: 10,
+      tastyworks: 12,
+      firstrade: 10,
+      default: 12,
+    };
+
+    const companyValue = company
+      ? Object.entries(stockValues).find(([key]) =>
+          company.toLowerCase().includes(key)
+        )?.[1] || stockValues.default
+      : stockValues.default;
+
+    return Math.round(numStocks * companyValue * 100) / 100;
+  }
+
+  // Add a method to handle tiered requirements
+  private extractTieredRequirements(): { tier: string; requirements: string }[] {
+    const tiers: { tier: string; requirements: string }[] = [];
+
+    // Look for recurring/escalating bonus patterns in the content
+    const bonusSection = this.$('div:contains("Bonus Details")').first();
+    if (bonusSection.length) {
+      const bonusText = bonusSection.nextAll().slice(0, 3).text();
+
+      // Pattern for escalating bonuses with specific periods
+      const escalatingPattern =
+        /\$(\d+(?:,\d+)?)\s*(?:for|in|during)\s+(?:days?\s+)?(\d+)-(\d+)(?:\s*,\s*\$(\d+(?:,\d+)?)\s*(?:for|in|during)\s+(?:days?\s+)?(\d+)-(\d+))*(?:\s*,\s*\$(\d+(?:,\d+)?)\s*(?:for|in|during)\s+(?:days?\s+)?(\d+)-(\d+))*(?:\s*,\s*\$(\d+(?:,\d+)?)\s*(?:for|in|during)\s+(?:days?\s+)?(\d+)-(\d+))*/i;
+
+      const match = bonusText.match(escalatingPattern);
+      if (match) {
+        // Extract all bonus tiers
+        const amounts = [match[1], match[4], match[7], match[10]].filter(Boolean);
+        const periods = [
+          [match[2], match[3]],
+          [match[5], match[6]],
+          [match[8], match[9]],
+          [match[11], match[12]],
+        ].filter((period) => period[0] && period[1]);
+
+        // Create tier entries for each period
+        amounts.forEach((amount, index) => {
+          if (periods[index]) {
+            tiers.push({
+              tier: `$${this.normalizeAmount(amount)}`,
+              requirements: `Complete requirements during days ${periods[index][0]}-${periods[index][1]}`,
+            });
+          }
+        });
+      }
+
+      // Pattern for recurring requirements with same bonus
+      const recurringPattern =
+        /(?:receive|get|earn)\s+(?:direct\s+deposits?)\s+(?:totaling|of)\s+\$?(\d+(?:,\d+)?)\s+(?:and|&)?\s*(?:make|complete)\s+(\d+)\s+(?:debit\s+card\s+)?(?:purchases?|transactions?)\s+(?:in|within|during|every)\s+(\d+)\s+days?/i;
+
+      const recurringMatch = bonusText.match(recurringPattern);
+      if (recurringMatch) {
+        const [depositAmount, transactions, period] = recurringMatch;
+        tiers.push({
+          tier: 'Recurring Requirements',
+          requirements: `Receive direct deposits totaling $${this.normalizeAmount(depositAmount)} and make ${transactions} debit card purchases every ${period} days`,
+        });
+      }
+    }
+
+    // Look for tiered structure in tables (existing code)
+    this.$('table').each((_, table) => {
+      const $table = this.$(table);
+      const headers = $table
+        .find('tr:first-child th, tr:first-child td')
+        .map((_, cell) => this.$(cell).text().toLowerCase().trim())
+        .get();
+
+      const isTierTable = headers.some(
+        (h) => h.includes('tier') || h.includes('bonus') || h.includes('reward')
+      );
+
+      if (isTierTable) {
+        $table.find('tr:not(:first-child)').each((_, row) => {
+          const cells = this.$(row).find('td');
+          if (cells.length >= 2) {
+            const tierText = this.cleanText(cells.eq(0).text());
+            const reqText = this.cleanText(cells.eq(1).text());
+
+            if (tierText && reqText) {
+              tiers.push({
+                tier: tierText,
+                requirements: reqText,
+              });
+            }
+          }
+        });
+      }
+    });
+
+    // Look for tiered structure in lists (existing code)
+    this.$('ul, ol').each((_, list) => {
+      const $list = this.$(list);
+      const items = $list.find('li');
+
+      if (items.length >= 2) {
+        let isTierList = false;
+        const tierTexts: string[] = [];
+
+        items.each((_, item) => {
+          const text = this.$(item).text().toLowerCase();
+          if (text.includes('tier') || text.match(/\$\d+.*bonus/)) {
+            isTierList = true;
+            tierTexts.push(this.cleanText(this.$(item).text()));
+          }
+        });
+
+        if (isTierList) {
+          tierTexts.forEach((text) => {
+            const [tier, ...rest] = text.split(/:\s+/);
+            if (rest.length > 0) {
+              tiers.push({
+                tier: tier.trim(),
+                requirements: rest.join(': ').trim(),
+              });
+            }
+          });
+        }
+      }
+    });
+
+    return tiers;
+  }
+
+  // Add new patterns for recurring requirements
+  private recurringPatterns = [
+    {
+      pattern:
+        /(?:receive|get|earn)\s+(?:direct\s+deposits?)\s+(?:totaling|of)\s+\$?(\d+(?:,\d+)?(?:\.\d{2})?k?)\s+(?:and|&)?\s*(?:make|complete)\s+(\d+)\s+(?:debit\s+card\s+)?(?:purchases?|transactions?)\s+(?:in|within|during|every)\s+(\d+)\s+days?/i,
+      handler: (match: RegExpMatchArray) =>
+        `Receive direct deposits totaling $${this.normalizeAmount(match[1])} and make ${match[2]} debit card purchases within ${match[3]} days`,
+    },
+    {
+      pattern:
+        /(?:continue|repeat|do)\s+this\s+(?:again|process)?\s+(?:in|for|during)\s+(?:successive|following|next)\s+(\d+)-day\s+periods?/i,
+      handler: (match: RegExpMatchArray) =>
+        `Requirements must be met in successive ${match[1]}-day periods`,
+    },
+    {
+      pattern:
+        /(?:escalating|increasing)\s+bonuses?\s+of\s+\$?(\d+)(?:\s*,\s*\$?(\d+)(?:\s*,\s*\$?(\d+)(?:\s*,\s*\$?(\d+))?)?)?/i,
+      handler: (match: RegExpMatchArray) => {
+        const amounts = [match[1], match[2], match[3], match[4]].filter(Boolean);
+        return `Escalating bonuses of $${amounts.join(', $')}`;
+      },
+    },
+  ];
+
+  // Add new method to handle recurring requirements
+  private extractRecurringRequirements(text: string): string {
+    for (const { pattern, handler } of this.recurringPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        return handler(match);
+      }
+    }
+    return '';
+  }
+
+  // Add new method to separate ongoing rewards from sign-up bonuses
+  private isOngoingReward(text: string): boolean {
+    const ongoingPatterns = [
+      /cash\s+back\s+matching/i,
+      /doubles?\s+(?:all|your)\s+cash\s+back/i,
+      /\d+%\s+(?:cash\s+back|rewards?)\s+on/i,
+      /unlimited\s+(?:cash\s+back|rewards?)/i,
+      /quarterly\s+(?:cash\s+back|rewards?)/i,
+    ];
+
+    return ongoingPatterns.some((pattern) => pattern.test(text));
+  }
+
+  private extractCashBackMatching(): string | null {
+    const matchingPatterns = [
+      /cash\s+back\s+match(?:ing)?\s+(?:for|at|during)\s+(?:the\s+)?first\s+year/i,
+      /match(?:es|ing)?\s+all\s+cash\s+back\s+earned\s+(?:in|during)\s+(?:the\s+)?first\s+year/i,
+      /dollar[-\s]for[-\s]dollar\s+match(?:ing)?\s+(?:of|on)\s+(?:all\s+)?cash\s+back/i,
+      /doubles?\s+(?:all\s+)?(?:your\s+)?(?:cash\s+back|rewards)\s+(?:earned\s+)?(?:in|during)\s+(?:the\s+)?first\s+year/i,
+    ];
+
+    const content = this.$(
+      'div:contains("Card Perks"), div:contains("Bonus Details")'
+    ).text();
+    for (const pattern of matchingPatterns) {
+      const match = content.match(pattern);
+      if (match) {
+        return 'Cash back will be matched dollar-for-dollar at the end of the first year';
+      }
+    }
+    return null;
   }
 }
