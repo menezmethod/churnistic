@@ -21,7 +21,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { BankLogos } from './components/BankLogos';
 import { FAQ } from './components/FAQ';
 import { FeaturedOpportunities } from './components/FeaturedOpportunities';
-import { useSplashStats } from './hooks/useSplashStats';
+import { useSplashStats } from '../lib/hooks/useSplashStats';
 
 // Replace the User interface with the actual AuthUser type from your auth context
 type AuthUser = ReturnType<typeof useAuth>['user'];
