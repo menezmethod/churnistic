@@ -40,11 +40,12 @@ import {
   alpha,
   Fade,
 } from '@mui/material';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 import { OpportunityPreviewModal } from './components/OpportunityPreviewModal';
 import { useOpportunities } from './hooks/useOpportunities';
 import { Opportunity } from './types/opportunity';
+import { ScraperControlPanel } from '../components/ScraperControlPanel';
 
 const StatsCard = ({
   title,
@@ -131,21 +132,6 @@ const OpportunitiesPage = () => {
     importOpportunities,
     isImporting,
   } = useOpportunities();
-
-  useEffect(() => {
-    // Initial sync
-    importOpportunities();
-
-    // Set up interval for continuous sync
-    const syncInterval = setInterval(
-      () => {
-        importOpportunities();
-      },
-      5 * 60 * 1000
-    ); // Sync every 5 minutes
-
-    return () => clearInterval(syncInterval);
-  }, [importOpportunities]);
 
   const handleSort = (field: string) => {
     updatePagination({
@@ -255,6 +241,11 @@ const OpportunitiesPage = () => {
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
       <Grid container spacing={3}>
+        {/* Scraper Control Panel */}
+        <Grid item xs={12}>
+          <ScraperControlPanel />
+        </Grid>
+
         {/* Main Stats */}
         <Grid item xs={12} md={3}>
           <Fade in timeout={300}>

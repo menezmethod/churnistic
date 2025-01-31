@@ -396,7 +396,39 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
 };
 
 const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
-  const response = await fetch('http://localhost:3000/api/bankrewards?format=detailed');
+  // Determine the base URL dynamically
+  const baseUrl = (() => {
+    // Check if we're in a browser environment
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+
+      // Check for production domain
+      if (hostname === 'churnistic.com' || hostname === 'www.churnistic.com') {
+        return 'https://churnistic.com';
+      }
+
+      // Check for Vercel preview deployment
+      if (hostname.includes('vercel.app')) {
+        return `https://${hostname}`;
+      }
+
+      // If running on localhost or other development domain
+      return `${window.location.protocol}//${hostname}${window.location.port ? `:${window.location.port}` : ''}`;
+    }
+
+    // Server-side fallback (during SSR)
+    const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
+    if (vercelUrl) {
+      return `https://${vercelUrl}`;
+    }
+
+    // Default fallback for development
+    return 'http://localhost:3000';
+  })();
+
+  // Then fetch the results
+  const apiUrl = `${baseUrl}/api/bankrewards?format=detailed`;
+  const response = await fetch(apiUrl);
   if (!response.ok) throw new Error('Failed to fetch from BankRewards API');
   const data = await response.json();
   return data as BankRewardsResponse;

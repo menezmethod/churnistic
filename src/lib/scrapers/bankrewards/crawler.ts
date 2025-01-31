@@ -9,7 +9,8 @@ import {
   writeBatch,
   Timestamp,
 } from 'firebase/firestore';
-import { Browser, chromium, BrowserContext } from 'playwright';
+const { chromium } = await import('playwright');
+import { Browser, BrowserContext } from 'playwright';
 
 import { db } from '../../../lib/firebase/firebase';
 
@@ -119,12 +120,18 @@ export class BankRewardsCrawler {
   }
 
   private async saveOffer(offer: OfferData) {
-    this.offers.push(offer);
-    this.offersProcessed++;
-    this.log(`Processed offer ${this.offersProcessed}`, {
-      title: offer.title,
-      type: offer.type,
-    });
+    try {
+      // Validate JSON structure
+      JSON.stringify(offer);
+      this.offers.push(offer);
+      this.offersProcessed++;
+      this.log(`Processed offer ${this.offersProcessed}`, {
+        title: offer.title,
+        type: offer.type,
+      });
+    } catch (error) {
+      this.log('Invalid offer data', { error, offer });
+    }
   }
 
   public async run(startUrls: string[]) {

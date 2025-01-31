@@ -91,3 +91,4 @@ firebase-data/firestore_export/
 .vercel
 .now
 
+/firebase-export-*/
