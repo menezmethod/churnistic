@@ -39,7 +39,10 @@ function getAdminConfig(): AppOptions {
   }
 
   try {
-    const serviceAccount = JSON.parse(serviceAccountKey);
+    // Decode base64 encoded service account key
+    const decodedKey = Buffer.from(serviceAccountKey, 'base64').toString('utf-8');
+    const serviceAccount = JSON.parse(decodedKey);
+
     return {
       credential: cert(serviceAccount),
       projectId,
@@ -47,7 +50,7 @@ function getAdminConfig(): AppOptions {
   } catch (error) {
     console.error('Error parsing service account key:', error);
     throw new Error(
-      'Invalid service account key format. Please ensure the key is properly formatted JSON.'
+      'Invalid service account key format. Ensure key is base64 encoded JSON.'
     );
   }
 }
