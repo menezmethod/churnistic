@@ -64,6 +64,10 @@ export function initializeAdminDb(): Firestore {
 
     if (!adminDb) {
       adminDb = getFirestore(adminApp);
+      adminDb.settings({
+        ignoreUndefinedProperties: true,
+        preferRest: process.env.NODE_ENV === 'production', // Better for Vercel
+      });
       if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
         console.log('📚 Connecting Admin to Firestore Emulator at: localhost:8080');
       }

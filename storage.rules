@@ -23,7 +23,7 @@ service firebase.storage {
 
     // Protected paths
     match /{allPaths=**} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && request.auth.token.email_verified;
       allow write: if isAdmin();
     }
   }
