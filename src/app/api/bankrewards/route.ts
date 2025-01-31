@@ -26,7 +26,11 @@ export async function POST(request: NextRequest) {
     const session = await verifySession(sessionCookie);
     if (
       !session ||
-      (session.role !== UserRole.ADMIN && session.role !== UserRole.SUPERADMIN)
+      !(
+        session.role?.toLowerCase() === UserRole.ADMIN.toLowerCase() ||
+        session.role?.toLowerCase() === UserRole.SUPERADMIN.toLowerCase() ||
+        session.isSuperAdmin
+      )
     ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
@@ -63,7 +67,11 @@ export async function GET(request: NextRequest) {
     const session = await verifySession(sessionCookie);
     if (
       !session ||
-      (session.role !== UserRole.ADMIN && session.role !== UserRole.SUPERADMIN)
+      !(
+        session.role?.toLowerCase() === UserRole.ADMIN.toLowerCase() ||
+        session.role?.toLowerCase() === UserRole.SUPERADMIN.toLowerCase() ||
+        session.isSuperAdmin
+      )
     ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
