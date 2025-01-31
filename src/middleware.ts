@@ -4,7 +4,13 @@ import type { NextRequest } from 'next/server';
 import { UserRole } from '@/lib/auth/types';
 
 // Paths that require authentication
-const protectedPaths = ['/dashboard', '/admin', '/api/users'];
+const protectedPaths = [
+  '/dashboard',
+  '/dashboard/:path*', // Handle all dashboard subroutes
+  '/admin',
+  '/admin/:path*', // Handle all admin subroutes
+  '/api/users',
+];
 
 // Paths that require admin/superadmin role
 const adminPaths = ['/admin'];
@@ -16,13 +22,11 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - api/auth/verify (auth verification endpoint)
-     * - api/auth/session (session endpoint)
-     * - auth/signin (signin page)
-     * - auth/signup (signup page)
+     * - auth/ (auth pages)
+     * - api/auth/ (auth API endpoints)
      * - unauthorized (unauthorized page)
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/auth/verify|api/auth/session|auth/signin|auth/signup|unauthorized).*)',
+    '/((?!_next/static|_next/image|favicon.ico|auth/|api/auth/|unauthorized).*)',
   ],
 };
 
@@ -40,8 +44,20 @@ export async function middleware(request: NextRequest) {
     useEmulator,
   });
 
+  // Normalize path by removing trailing slash
+  const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path;
+
   // Check if path is protected
-  const isProtectedPath = protectedPaths.some((prefix) => path.startsWith(prefix));
+  const isProtectedPath = protectedPaths.some((protectedPath) => {
+    const normalizedProtected = protectedPath.endsWith('/')
+      ? protectedPath.slice(0, -1)
+      : protectedPath;
+
+    return (
+      normalizedPath === normalizedProtected ||
+      normalizedPath.startsWith(`${normalizedProtected}/`)
+    );
+  });
   const isAdminPath = adminPaths.some((prefix) => path.startsWith(prefix));
   console.log('Path analysis:', {
     path,
