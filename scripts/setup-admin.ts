@@ -1,4 +1,6 @@
-import * as admin from 'firebase-admin';
+import { initializeApp, applicationDefault } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 import { UserRole } from '../src/lib/auth/types';
 
@@ -15,12 +17,13 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
 process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
 
 // Initialize with project ID from env or fallback
-admin.initializeApp({
+const app = initializeApp({
+  credential: applicationDefault(),
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic',
 });
 
-const auth = admin.auth();
-const db = admin.firestore();
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 console.log('Connected to Firebase emulators');
 
@@ -38,7 +41,7 @@ async function setupAdmin() {
     try {
       adminUser = await auth.getUserByEmail(adminEmail);
       console.log('Admin user already exists');
-    } catch (error) {
+    } catch {
       console.log('Creating new admin user...');
       // Create the admin user if doesn't exist
       adminUser = await auth.createUser({
