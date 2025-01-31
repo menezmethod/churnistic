@@ -16,19 +16,18 @@ export class BankRewardsDatabase {
   constructor() {
     this.useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
-    // Use Vercel-compatible temp directory
-    // In Vercel, we should use /tmp directly
-    const baseDir = process.env.VERCEL ? '/tmp' : process.cwd();
-    const config = getBankRewardsConfig();
-
-    // Ensure the storage path is always under /tmp in Vercel
-    this.storagePath = process.env.VERCEL
-      ? path.join('/tmp', 'bankrewards')
-      : path.join(baseDir, config.storageDir);
-
-    this.dbPath = path.join(this.storagePath, 'bankrewards.json');
+    // In Vercel, use /tmp directly. In local dev, use project directory
+    if (process.env.VERCEL) {
+      this.storagePath = '/tmp/bankrewards';
+      this.dbPath = '/tmp/bankrewards/bankrewards.json';
+    } else {
+      const config = getBankRewardsConfig();
+      this.storagePath = path.join(process.cwd(), config.storageDir);
+      this.dbPath = path.join(this.storagePath, 'bankrewards.json');
+    }
 
     // Log the paths for debugging
+    console.log('[BankRewards] Running in Vercel:', !!process.env.VERCEL);
     console.log('[BankRewards] Storage path:', this.storagePath);
     console.log('[BankRewards] DB path:', this.dbPath);
 
@@ -37,47 +36,20 @@ export class BankRewardsDatabase {
   }
 
   private async ensureDirectoryExists() {
-    const maxRetries = 3;
-    let retries = 0;
-
-    while (retries < maxRetries) {
-      try {
-        // Log attempt for debugging
-        console.log(
-          `[BankRewards] Creating directory (attempt ${retries + 1}):`,
-          this.storagePath
-        );
-
-        await fsPromises.mkdir(this.storagePath, {
-          recursive: true,
-          mode: 0o777, // More permissive mode for Vercel
-        });
-        console.log('[BankRewards] Directory created successfully');
+    try {
+      console.log('[BankRewards] Creating directory:', this.storagePath);
+      await fsPromises.mkdir(this.storagePath, {
+        recursive: true,
+        mode: 0o777, // More permissive mode for Vercel
+      });
+      console.log('[BankRewards] Directory created successfully');
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'EEXIST') {
+        console.log('[BankRewards] Directory already exists:', this.storagePath);
         return;
-      } catch (error: unknown) {
-        if (error instanceof Error && 'code' in error && error.code === 'EEXIST') {
-          // Directory already exists, no action needed
-          console.log('[BankRewards] Directory already exists:', this.storagePath);
-          return;
-        }
-
-        console.error(
-          `[BankRewards] Failed to create storage directory (attempt ${retries + 1}):`,
-          this.storagePath,
-          error instanceof Error ? error.message : String(error)
-        );
-        retries++;
-
-        if (retries < maxRetries) {
-          await new Promise((resolve) => setTimeout(resolve, 100 * retries));
-        } else {
-          throw new Error(
-            `Failed to create directory after ${maxRetries} attempts: ${
-              error instanceof Error ? error.message : 'Unknown error'
-            }`
-          );
-        }
       }
+      console.error('[BankRewards] Failed to create directory:', error);
+      throw error;
     }
   }
 
