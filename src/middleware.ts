@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-import { UserRole } from '@/lib/auth/types';
+import { UserRole, ADMIN_ROLES } from '@/lib/auth/types';
 
 // Paths that require authentication
 const protectedPaths = [
-  '/dashboard',
-  '/dashboard/:path*', // Handle all dashboard subroutes
-  '/admin',
-  '/admin/:path*', // Handle all admin subroutes
-  '/api/users',
+  { path: '/dashboard', roles: [UserRole.USER] },
+  { path: '/admin', roles: ADMIN_ROLES },
+  { path: '/api/users', roles: ADMIN_ROLES },
 ];
-
-// Paths that require admin/superadmin role
-const adminPaths = ['/admin'];
 
 export const config = {
   matcher: [
@@ -48,25 +43,11 @@ export async function middleware(request: NextRequest) {
   const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path;
 
   // Check if path is protected
-  const isProtectedPath = protectedPaths.some((protectedPath) => {
-    const normalizedProtected = protectedPath.endsWith('/')
-      ? protectedPath.slice(0, -1)
-      : protectedPath;
+  const pathConfig = protectedPaths.find(
+    ({ path }) => normalizedPath === path || normalizedPath.startsWith(`${path}/`)
+  );
 
-    return (
-      normalizedPath === normalizedProtected ||
-      normalizedPath.startsWith(`${normalizedProtected}/`)
-    );
-  });
-  const isAdminPath = adminPaths.some((prefix) => path.startsWith(prefix));
-  console.log('Path analysis:', {
-    path,
-    isProtectedPath,
-    isAdminPath,
-    isRsc,
-  });
-
-  if (!isProtectedPath) {
+  if (!pathConfig) {
     return NextResponse.next();
   }
 
@@ -101,11 +82,31 @@ export async function middleware(request: NextRequest) {
           })
         );
 
-        return NextResponse.next({
+        const response = NextResponse.next({
           request: {
             headers: requestHeaders,
           },
         });
+
+        // Add secure cookie with user data
+        response.cookies.set(
+          'x-auth-user',
+          JSON.stringify({
+            uid: decodedClaims.user_id || decodedClaims.sub,
+            email: decodedClaims.email,
+            role: decodedClaims.role || 'user',
+            permissions: decodedClaims.permissions || [],
+            emailVerified: decodedClaims.email_verified || false,
+          }),
+          {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+          }
+        );
+
+        return response;
       } catch (error) {
         console.error('Emulator session verification failed:', error);
         const response = NextResponse.redirect(new URL('/auth/signin', request.url));
@@ -131,7 +132,10 @@ export async function middleware(request: NextRequest) {
       headers,
       body: JSON.stringify({
         sessionCookie,
-        requiredRole: isAdminPath ? UserRole.ADMIN : undefined,
+        requiredRole:
+          pathConfig.roles && pathConfig.roles.includes(UserRole.ADMIN)
+            ? UserRole.ADMIN
+            : undefined,
       }),
       cache: 'no-store',
     });
@@ -149,9 +153,22 @@ export async function middleware(request: NextRequest) {
 
     const { user } = await verifyResponse.json();
 
+    // After successful verification
+    if (pathConfig.roles && !pathConfig.roles.includes(user.role)) {
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+
     // Add user info to headers
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-verified-user', JSON.stringify(user));
+    requestHeaders.set(
+      'x-verified-user',
+      JSON.stringify({
+        id: user.uid,
+        role: user.role,
+        email: user.email,
+        permissions: user.permissions,
+      })
+    );
 
     // Handle RSC requests
     if (isRsc) {
@@ -161,19 +178,58 @@ export async function middleware(request: NextRequest) {
         },
       });
       response.headers.set('RSC', '1');
+
+      // Add secure cookie with user data
+      response.cookies.set(
+        'x-auth-user',
+        JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          role: user.role,
+          permissions: user.permissions,
+          emailVerified: user.emailVerified,
+        }),
+        {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+        }
+      );
+
       return response;
     }
 
-    return NextResponse.next({
+    const response = NextResponse.next({
       request: {
         headers: requestHeaders,
       },
     });
+
+    // Add secure cookie with user data
+    response.cookies.set(
+      'x-auth-user',
+      JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        role: user.role,
+        permissions: user.permissions,
+        emailVerified: user.emailVerified,
+      }),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      }
+    );
+
+    return response;
   } catch (error) {
     console.error('Middleware error:', {
       error: error instanceof Error ? error.message : String(error),
       path,
-      isAdminPath,
+      isAdminPath: pathConfig.roles && pathConfig.roles.includes(UserRole.ADMIN),
       isRsc,
     });
 

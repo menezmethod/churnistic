@@ -1,5 +1,3 @@
-import type { User } from 'firebase/auth';
-
 export enum UserRole {
   ADMIN = 'admin',
   MANAGER = 'manager',
@@ -191,8 +189,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 };
 
-export interface AuthUser extends User {
+export interface AuthUser {
+  uid: string;
+  email: string;
   role?: UserRole;
+  isSuperAdmin?: boolean;
 }
 
 export interface AuthContextType {
@@ -215,4 +216,15 @@ export interface Session {
   email: string;
   role: UserRole;
   permissions?: Permission[];
+}
+
+export const ADMIN_ROLES = [UserRole.ADMIN, UserRole.SUPERADMIN];
+
+export interface AppUser {
+  uid: string;
+  email: string;
+  emailVerified: boolean;
+  role: UserRole;
+  permissions: Permission[];
+  isSuperAdmin?: boolean;
 }
