@@ -1,10 +1,12 @@
-import { collection, doc, writeBatch, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, writeBatch, getDocs } from 'firebase/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 
 import { getBankRewardsConfig } from '@/app/api/bankrewards/config';
-import { db } from '@/lib/firebase/config';
+import { db } from '@/lib/firebase/admin';
+import { db as configDb } from '@/lib/firebase/config';
 import { BankRewardsOffer } from '@/types/scraper';
 
 export class BankRewardsDatabase {
@@ -131,44 +133,24 @@ export class BankRewardsDatabase {
   }
 
   private async saveToFirestore(offers: BankRewardsOffer[]) {
-    if (this.useEmulator) {
-      console.info('[BankRewards] In emulator mode, skipping Firestore save');
-      return;
-    }
+    if (!db) throw new Error('Firestore not initialized');
 
-    try {
-      const offersRef = collection(db, 'bankrewards');
-      const batchSize = 500;
-      const batches = [];
+    const batch = db.batch();
+    const offersRef = db.collection('bankrewards');
 
-      for (let i = 0; i < offers.length; i += batchSize) {
-        const batch = writeBatch(db);
-        const batchOffers = offers.slice(i, i + batchSize);
+    offers.forEach((offer) => {
+      const docRef = offersRef.doc();
+      batch.set(docRef, {
+        ...offer,
+        metadata: {
+          ...offer.metadata,
+          lastChecked: Timestamp.fromDate(new Date()),
+          lastUpdated: Timestamp.fromDate(new Date()),
+        },
+      });
+    });
 
-        for (const offer of batchOffers) {
-          const docRef = doc(offersRef);
-          batch.set(docRef, {
-            ...offer,
-            metadata: {
-              ...offer.metadata,
-              lastChecked: Timestamp.fromDate(new Date()),
-              lastUpdated: Timestamp.fromDate(new Date()),
-            },
-          });
-        }
-
-        batches.push(batch);
-      }
-
-      console.info(`[BankRewards] Committing ${batches.length} batches to Firestore`);
-      await Promise.all(batches.map((batch) => batch.commit()));
-      console.info(
-        `[BankRewards] Successfully saved ${offers.length} offers to Firestore`
-      );
-    } catch (error) {
-      console.error('[BankRewards] Error saving to Firestore:', error);
-      throw error;
-    }
+    await batch.commit();
   }
 
   public async saveOffer(offer: BankRewardsOffer): Promise<void> {
@@ -257,9 +239,9 @@ export class BankRewardsDatabase {
 
     if (!this.useEmulator) {
       try {
-        const offersRef = collection(db, 'bankrewards');
+        const offersRef = collection(configDb, 'bankrewards');
         const snapshot = await getDocs(offersRef);
-        const batch = writeBatch(db);
+        const batch = writeBatch(configDb);
         snapshot.docs.forEach((doc) => batch.delete(doc.ref));
         await batch.commit();
       } catch (error) {
