@@ -15,23 +15,30 @@ const getQuerySchema = z.object({
   type: z.enum(['credit_card', 'bank', 'brokerage']).optional().nullable(),
 });
 
+async function verifyAdminAccess(request: NextRequest) {
+  // Skip auth check in development/emulator mode
+  if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
+    return true;
+  }
+
+  const sessionCookie = request.cookies.get('session')?.value;
+  if (!sessionCookie) {
+    return false;
+  }
+
+  const session = await verifySession(sessionCookie);
+  return (
+    !!session &&
+    (session.role?.toLowerCase() === UserRole.ADMIN.toLowerCase() ||
+      session.role?.toLowerCase() === UserRole.SUPERADMIN.toLowerCase() ||
+      session.isSuperAdmin)
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // Verify admin access
-    const sessionCookie = request.cookies.get('session')?.value;
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    const session = await verifySession(sessionCookie);
-    if (
-      !session ||
-      !(
-        session.role?.toLowerCase() === UserRole.ADMIN.toLowerCase() ||
-        session.role?.toLowerCase() === UserRole.SUPERADMIN.toLowerCase() ||
-        session.isSuperAdmin
-      )
-    ) {
+    const hasAccess = await verifyAdminAccess(request);
+    if (!hasAccess) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -39,13 +46,26 @@ export async function POST(request: NextRequest) {
     const collector = new BankRewardsCollector(config);
     const result = await collector.collect();
 
+    // Add stats to response
+    const db = new BankRewardsDatabase();
+    const offers = await db.getOffers();
+
     return NextResponse.json({
-      data: result,
+      success: true,
+      data: {
+        result,
+        stats: {
+          total: offers.length,
+          active: offers.length,
+          expired: 0,
+        },
+      },
     });
   } catch (error) {
     console.error('Error running BankRewards scraper:', error);
     return NextResponse.json(
       {
+        success: false,
         error: {
           message: 'Failed to run scraper',
           details: error instanceof Error ? error.message : String(error),
@@ -58,21 +78,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify admin access
-    const sessionCookie = request.cookies.get('session')?.value;
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    const session = await verifySession(sessionCookie);
-    if (
-      !session ||
-      !(
-        session.role?.toLowerCase() === UserRole.ADMIN.toLowerCase() ||
-        session.role?.toLowerCase() === UserRole.SUPERADMIN.toLowerCase() ||
-        session.isSuperAdmin
-      )
-    ) {
+    const hasAccess = await verifyAdminAccess(request);
+    if (!hasAccess) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -113,11 +120,23 @@ export async function GET(request: NextRequest) {
         ? offers.map((offer) => new BankRewardsTransformer().transform(offer))
         : offers;
 
+    // Calculate stats
+    const now = Date.now();
+    const newToday = offers.filter((offer) => {
+      const offerDate = new Date(offer.metadata.lastChecked).getTime();
+      return now - offerDate < 24 * 60 * 60 * 1000;
+    }).length;
+
     return NextResponse.json({
-      data: {
-        stats: { total: offers.length, active: offers.length, expired: 0 },
-        offers: transformedOffers,
+      status: 'running', // or 'idle' based on actual scraper status
+      progress: 0, // Update with actual progress if available
+      stats: {
+        totalOffers: offers.length,
+        newToday,
+        successRate: 100, // Update with actual success rate
+        avgTime: 0, // Update with actual average time
       },
+      offers: transformedOffers.slice(0, 10), // Return first 10 offers for preview
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
