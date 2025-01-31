@@ -54,6 +54,7 @@ export interface BankRewardsOffer {
     lastChecked?: string;
     offerBaseUrl?: string;
   };
+  createdAt: string | Date;
 }
 
 export interface EnhancedTransformedOffer {

@@ -426,8 +426,8 @@ const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
     return 'http://localhost:3000';
   })();
 
+  // Then fetch the results
   const apiUrl = `${baseUrl}/api/bankrewards?format=detailed`;
-
   const response = await fetch(apiUrl);
   if (!response.ok) throw new Error('Failed to fetch from BankRewards API');
   const data = await response.json();

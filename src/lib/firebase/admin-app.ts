@@ -3,9 +3,15 @@ process.env.FIREBASE_CONFIG = JSON.stringify({
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic',
 });
 
-if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+// Set up all emulators if needed
+if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
   process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
   process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+  process.env.STORAGE_EMULATOR_HOST = 'http://localhost:9199';
+  process.env.FIREBASE_STORAGE_EMULATOR_HOST = 'http://localhost:9199';
+
+  // Add storage base URL for emulator
+  process.env.FIREBASE_STORAGE_BASE_URL = 'http://localhost:9199/v0';
 }
 
 import {
@@ -23,15 +29,30 @@ let adminAuth: Auth | undefined;
 let adminDb: Firestore | undefined;
 
 function getAdminConfig(): AppOptions {
-  const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true';
-  const projectId = useEmulators
-    ? 'churnistic'
-    : process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic';
 
-  if (!projectId) {
-    throw new Error('Firebase Project ID is not set in environment variables');
+  // For Vercel deployments
+  if (process.env.VERCEL) {
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (!serviceAccountKey) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is required for Vercel deployments');
+    }
+
+    try {
+      const decodedKey = Buffer.from(serviceAccountKey, 'base64').toString('utf-8');
+      const serviceAccount = JSON.parse(decodedKey);
+      return {
+        credential: cert(serviceAccount),
+        projectId,
+      };
+    } catch (error) {
+      console.error('Error parsing service account key:', error);
+      throw error;
+    }
   }
 
+  // For local development
   if (useEmulators) {
     console.log('🔧 Initializing Admin App in Emulator mode');
     return {
@@ -39,6 +60,7 @@ function getAdminConfig(): AppOptions {
     };
   }
 
+  // For local production-like environment
   const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (!serviceAccountKey) {
     throw new Error(
@@ -47,19 +69,15 @@ function getAdminConfig(): AppOptions {
   }
 
   try {
-    // Decode base64 encoded service account key
     const decodedKey = Buffer.from(serviceAccountKey, 'base64').toString('utf-8');
     const serviceAccount = JSON.parse(decodedKey);
-
     return {
       credential: cert(serviceAccount),
       projectId,
     };
   } catch (error) {
     console.error('Error parsing service account key:', error);
-    throw new Error(
-      'Invalid service account key format. Please ensure the key is properly formatted JSON and base64 encoded.'
-    );
+    throw error;
   }
 }
 
@@ -73,7 +91,7 @@ export function initializeAdminDb(): Firestore {
     if (!adminDb) {
       adminDb = getFirestore(adminApp);
 
-      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
         console.log(
           '📚 Connecting Admin to Firestore Emulator at:',
           process.env.FIRESTORE_EMULATOR_HOST
