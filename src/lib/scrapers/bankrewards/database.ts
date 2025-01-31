@@ -10,25 +10,54 @@ import { BankRewardsOffer } from '@/types/scraper';
 export class BankRewardsDatabase {
   private offers: Map<string, BankRewardsOffer> = new Map();
   private readonly dbPath: string;
-  private readonly dataDir: string;
   private readonly useEmulator: boolean;
   private storagePath: string;
 
   constructor() {
     this.useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-    this.dataDir = path.join(process.cwd(), 'data');
-    this.dbPath = path.join(this.dataDir, 'bankrewards.json');
-    this.storagePath = path.resolve(getBankRewardsConfig().storageDir);
+
+    // Use Vercel-compatible temp directory
+    const baseDir = process.env.VERCEL ? '/tmp' : process.cwd();
+    this.storagePath = path.join(baseDir, getBankRewardsConfig().storageDir);
+
+    this.dbPath = path.join(this.storagePath, 'bankrewards.json');
     this.ensureDirectoryExists();
     this.loadFromDisk();
   }
 
   private async ensureDirectoryExists() {
-    try {
-      await fsPromises.mkdir(this.storagePath, { recursive: true });
-    } catch (error) {
-      console.error(`Failed to create storage directory: ${this.storagePath}`);
-      throw error;
+    const maxRetries = 3;
+    let retries = 0;
+
+    while (retries < maxRetries) {
+      try {
+        await fsPromises.mkdir(this.storagePath, {
+          recursive: true,
+          mode: 0o755, // Ensure proper permissions
+        });
+        return;
+      } catch (error: unknown) {
+        if (error instanceof Error && 'code' in error && error.code === 'EEXIST') {
+          // Directory already exists, no action needed
+          return;
+        }
+
+        console.error(
+          `Failed to create storage directory (attempt ${retries + 1}): ${this.storagePath}`,
+          error
+        );
+        retries++;
+
+        if (retries < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, 100 * retries));
+        } else {
+          throw new Error(
+            `Failed to create directory after ${maxRetries} attempts: ${
+              error instanceof Error ? error.message : 'Unknown error'
+            }`
+          );
+        }
+      }
     }
   }
 
@@ -48,12 +77,10 @@ export class BankRewardsDatabase {
 
   private async loadFromDisk() {
     try {
-      if (!fs.existsSync(this.dbPath)) {
-        console.info(`[BankRewards] No existing database file at ${this.dbPath}`);
-        return;
-      }
+      // Use async file check
+      await fsPromises.access(this.dbPath, fs.constants.F_OK);
 
-      const rawData = fs.readFileSync(this.dbPath, 'utf-8');
+      const rawData = await fsPromises.readFile(this.dbPath, 'utf-8');
       if (!rawData.trim()) {
         console.info('[BankRewards] Empty database file');
         return;
@@ -73,7 +100,11 @@ export class BankRewardsDatabase {
       }
 
       console.info(`[BankRewards] Loaded ${loadedCount} valid offers from disk`);
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        console.info(`[BankRewards] No existing database file at ${this.dbPath}`);
+        return;
+      }
       if (error instanceof SyntaxError) {
         console.error('[BankRewards] Invalid JSON in database file:', error);
         const backupPath = `${this.dbPath}.backup.${Date.now()}`;
