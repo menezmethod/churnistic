@@ -1,7 +1,9 @@
 import { collection, doc, writeBatch, getDocs, Timestamp } from 'firebase/firestore';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 
+import { getBankRewardsConfig } from '@/app/api/bankrewards/config';
 import { db } from '@/lib/firebase/config';
 import { BankRewardsOffer } from '@/types/scraper';
 
@@ -10,23 +12,22 @@ export class BankRewardsDatabase {
   private readonly dbPath: string;
   private readonly dataDir: string;
   private readonly useEmulator: boolean;
+  private storagePath: string;
 
   constructor() {
     this.useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
     this.dataDir = path.join(process.cwd(), 'data');
     this.dbPath = path.join(this.dataDir, 'bankrewards.json');
-    this.ensureDataDirectory();
+    this.storagePath = path.resolve(getBankRewardsConfig().storageDir);
+    this.ensureDirectoryExists();
     this.loadFromDisk();
   }
 
-  private ensureDataDirectory() {
+  private async ensureDirectoryExists() {
     try {
-      if (!fs.existsSync(this.dataDir)) {
-        fs.mkdirSync(this.dataDir, { recursive: true });
-        console.info(`[BankRewards] Created data directory: ${this.dataDir}`);
-      }
+      await fsPromises.mkdir(this.storagePath, { recursive: true });
     } catch (error) {
-      console.error('[BankRewards] Error creating data directory:', error);
+      console.error(`Failed to create storage directory: ${this.storagePath}`);
       throw error;
     }
   }
