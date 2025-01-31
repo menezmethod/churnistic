@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { verifySession } from '@/lib/auth/session';
+import { UserRole } from '@/lib/auth/types';
 import { BankRewardsCollector } from '@/lib/scrapers/bankrewards/collector';
 import { BankRewardsDatabase } from '@/lib/scrapers/bankrewards/database';
 import { BankRewardsTransformer } from '@/lib/scrapers/bankrewards/transformer';
@@ -13,8 +15,22 @@ const getQuerySchema = z.object({
   type: z.enum(['credit_card', 'bank', 'brokerage']).optional().nullable(),
 });
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    // Verify admin access
+    const sessionCookie = request.cookies.get('session')?.value;
+    if (!sessionCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const session = await verifySession(sessionCookie);
+    if (
+      !session ||
+      (session.role !== UserRole.ADMIN && session.role !== UserRole.SUPERADMIN)
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     const config = getBankRewardsConfig();
     const collector = new BankRewardsCollector(config);
     const result = await collector.collect();
@@ -38,6 +54,20 @@ export async function POST() {
 
 export async function GET(request: NextRequest) {
   try {
+    // Verify admin access
+    const sessionCookie = request.cookies.get('session')?.value;
+    if (!sessionCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const session = await verifySession(sessionCookie);
+    if (
+      !session ||
+      (session.role !== UserRole.ADMIN && session.role !== UserRole.SUPERADMIN)
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const { format, type } = getQuerySchema.parse({
       format: searchParams.get('format') || 'simple',
