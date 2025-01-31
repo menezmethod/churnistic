@@ -3,10 +3,16 @@ import path from 'path';
 import { BankRewardsConfig } from '@/types/scraper';
 
 export const getBankRewardsConfig = (): BankRewardsConfig => {
-  // Use process.cwd() for Vercel compatibility
+  const isGithubAction = process.env.GITHUB_ACTIONS === 'true';
+
+  // Use appropriate storage directory based on environment
   const defaultStorageDir = path.join(
     process.cwd(),
-    process.env.VERCEL ? '/tmp/bankrewards' : './storage/bankrewards'
+    isGithubAction
+      ? '/tmp/bankrewards'
+      : process.env.VERCEL
+        ? '/tmp/bankrewards'
+        : './storage/bankrewards'
   );
 
   const config: BankRewardsConfig = {

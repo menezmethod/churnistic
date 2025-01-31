@@ -27,7 +27,8 @@
     "test:e2e": "start-server-and-test dev http://localhost:3000 cypress:run",
     "setup-test-accounts": "ts-node scripts/setup-test-accounts.ts",
     "setup-admin": "NEXT_PUBLIC_ADMIN_EMAIL=admin@test.com ADMIN_PASSWORD=testpass123 NODE_ENV=development tsx scripts/setup-admin.ts",
-    "dev:all": "./start-dev.sh"
+    "dev:all": "./start-dev.sh",
+    "collect": "ts-node src/lib/scrapers/bankrewards/collector.ts"
   },
   "dependencies": {
     "@crawlee/browser-pool": "^3.7.2",

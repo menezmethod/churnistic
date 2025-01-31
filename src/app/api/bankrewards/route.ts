@@ -44,23 +44,42 @@ export async function POST(request: NextRequest) {
 
     const config = getBankRewardsConfig();
     const collector = new BankRewardsCollector(config);
-    const result = await collector.collect();
 
-    // Add stats to response
-    const db = new BankRewardsDatabase();
-    const offers = await db.getOffers();
+    try {
+      const result = await collector.collect();
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        result,
-        stats: {
-          total: offers.length,
-          active: offers.length,
-          expired: 0,
+      // Add stats to response
+      const db = new BankRewardsDatabase();
+      const offers = await db.getOffers();
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          result,
+          stats: {
+            total: offers.length,
+            active: offers.length,
+            expired: 0,
+          },
         },
-      },
-    });
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('browserType.launch')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              message: 'Scraping is not available in this environment',
+              details:
+                'Please run the scraper in a development environment or set up a dedicated scraping service.',
+              originalError: error instanceof Error ? error.message : String(error),
+            },
+          },
+          { status: 503 }
+        );
+      }
+      throw error;
+    }
   } catch (error) {
     console.error('Error running BankRewards scraper:', error);
     return NextResponse.json(

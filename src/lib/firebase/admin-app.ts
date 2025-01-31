@@ -28,6 +28,12 @@ let adminApp: App | undefined;
 let adminAuth: Auth | undefined;
 let adminDb: Firestore | undefined;
 
+const serviceAccount = JSON.parse(
+  Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 || '', 'base64').toString(
+    'utf-8'
+  )
+);
+
 function getAdminConfig(): AppOptions {
   const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic';
@@ -132,12 +138,14 @@ export function getAdminDb(): Firestore {
   return adminDb ?? initializeAdminDb();
 }
 
-export function getAdminApp(): App {
-  if (!adminApp) {
-    const config = getAdminConfig();
-    adminApp = getApps().length ? getApps()[0] : initializeApp(config);
+export const getAdminApp = () => {
+  if (getApps().length === 0) {
+    return initializeApp({
+      credential: cert(serviceAccount),
+      storageBucket: `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`,
+    });
   }
-  return adminApp;
-}
+  return getApps()[0];
+};
 
 export type { App, Auth, Firestore };

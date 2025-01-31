@@ -9,7 +9,7 @@ import {
   writeBatch,
   Timestamp,
 } from 'firebase/firestore';
-import { Browser, chromium, BrowserContext } from 'playwright';
+const { chromium } = await import('playwright');
 
 import { db } from '../../../lib/firebase/firebase';
 

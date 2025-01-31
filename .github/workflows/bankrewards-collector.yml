@@ -1,0 +1,57 @@
+name: BankRewards Daily Collection
+
+on:
+  schedule:
+    - cron: '0 12 * * *' # Runs daily at 12:00 UTC
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  FIRESTORE_EMULATOR_HOST: localhost:8080
+  FIREBASE_STORAGE_EMULATOR_HOST: localhost:9199
+  NEXT_PUBLIC_USE_FIREBASE_EMULATORS: 'false'
+  GOOGLE_APPLICATION_CREDENTIALS: ./firebase-service-account.json
+
+jobs:
+  collect-and-store:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps
+
+      - name: Build project
+        run: npm run build
+
+      - name: Set up Firebase credentials
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}' | base64 -d > firebase-service-account.json
+          echo "Firebase credentials configured"
+
+      - name: Run collection script
+        run: npm run collect
+
+      - name: Verify JSON generation
+        run: |
+          if [ -f "bankrewards-output.json" ]; then
+            echo "JSON file created successfully"
+            ls -lh bankrewards-output.json
+          else
+            echo "Error: JSON file not found"
+            exit 1
+          fi
+
+      - name: Upload to Firebase Storage
+        run: |
+          npm exec -- firebase storage:upload ./bankrewards-output.json bankrewards --token "$FIREBASE_TOKEN"
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_DEPLOY_TOKEN }} 
