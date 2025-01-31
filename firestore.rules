@@ -3,13 +3,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Development-only rules - DO NOT USE IN PRODUCTION
-    match /bankrewards/{offerId} {
-      allow read, write: if true;
+    match /bankrewards/{document} {
+      allow read: if request.auth != null;
+      allow write: if false; // Disable client-side writes
     }
     
     // Allow read/write access to all other collections in development
     match /{document=**} {
-      allow read, write: if true;
+      allow read: if request.auth != null;
+      allow write: if false; // Disable all other client-side writes
     }
   }
 } 

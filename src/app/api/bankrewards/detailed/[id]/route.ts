@@ -1,7 +1,7 @@
+import { doc, getDoc } from 'firebase/firestore';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { BankRewardsDatabase } from '@/lib/scrapers/bankrewards/database';
-import { BankRewardsTransformer } from '@/lib/scrapers/bankrewards/transformer';
+import { db } from '@/lib/firebase/firebase';
 
 type Context = {
   params: Promise<{ id: string | string[] | undefined }>;
@@ -9,48 +9,20 @@ type Context = {
 
 export async function GET(request: NextRequest, context: Context): Promise<NextResponse> {
   try {
-    const db = new BankRewardsDatabase();
-    const offers = await db.getOffers();
-
-    // Find the specific offer by ID
     const params = await context.params;
-    const offerId =
-      typeof params.id === 'string'
-        ? params.id
-        : Array.isArray(params.id)
-          ? params.id[0]
-          : '';
-    const offer = offers.find((o) => o.id === offerId);
+    const offerId = typeof params.id === 'string' ? params.id : params.id?.[0] || '';
+    const docRef = doc(db, 'bankrewards', offerId);
+    const docSnap = await getDoc(docRef);
 
-    if (!offer) {
-      return NextResponse.json(
-        {
-          error: {
-            message: 'Offer not found',
-            details: `No offer found with ID: ${offerId}`,
-          },
-        },
-        { status: 404 }
-      );
+    if (!docSnap.exists()) {
+      return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
     }
 
-    // Always transform the offer for detailed endpoint
-    const transformedOffer = new BankRewardsTransformer().transform(offer);
-
-    return NextResponse.json({
-      data: transformedOffer,
-    });
+    const data = docSnap.data();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching detailed BankRewards offer:', error);
-    return NextResponse.json(
-      {
-        error: {
-          message: 'Failed to fetch offer',
-          details: error instanceof Error ? error.message : String(error),
-        },
-      },
-      { status: 500 }
-    );
+    console.error('Error fetching detailed offer:', error);
+    return NextResponse.json({ error: 'Failed to fetch offer details' }, { status: 500 });
   }
 }
 

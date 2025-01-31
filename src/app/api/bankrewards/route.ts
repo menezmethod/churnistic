@@ -1,107 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { BankRewardsCollector } from '@/lib/scrapers/bankrewards/collector';
-import { BankRewardsDatabase } from '@/lib/scrapers/bankrewards/database';
-import { BankRewardsTransformer } from '@/lib/scrapers/bankrewards/transformer';
+import { verifySession } from '@/lib/auth/session';
+import { UserRole } from '@/lib/auth/types';
+import { getAdminDb } from '@/lib/firebase/admin';
 
-import { getBankRewardsConfig } from './config';
-
-// Validation schemas
-const getQuerySchema = z.object({
-  format: z.enum(['detailed', 'simple']).optional(),
-  type: z.enum(['credit_card', 'bank', 'brokerage']).optional().nullable(),
+const querySchema = z.object({
+  type: z.enum(['credit_card', 'bank', 'brokerage']).optional(),
 });
 
-export async function POST() {
-  try {
-    const config = getBankRewardsConfig();
-    const collector = new BankRewardsCollector(config);
-    const result = await collector.collect();
-
-    return NextResponse.json({
-      data: result,
-    });
-  } catch (error) {
-    console.error('Error running BankRewards scraper:', error);
-    return NextResponse.json(
-      {
-        error: {
-          message: 'Failed to run scraper',
-          details: error instanceof Error ? error.message : String(error),
-        },
-      },
-      { status: 500 }
-    );
+async function verifyAdminAccess(request: NextRequest) {
+  if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
+    return true;
   }
+
+  const sessionCookie = request.cookies.get('session')?.value;
+  if (!sessionCookie) {
+    return false;
+  }
+
+  const session = await verifySession(sessionCookie);
+  return session?.role?.toLowerCase() === UserRole.ADMIN.toLowerCase() || session?.isSuperAdmin;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const { format, type } = getQuerySchema.parse({
-      format: searchParams.get('format') || 'simple',
-      type: searchParams.get('type') || null,
-    });
-
-    const db = new BankRewardsDatabase();
-    let offers = await db.getOffers();
-
-    // Update the type filtering logic
-    if (type) {
-      offers = offers.filter((offer) => {
-        const offerType = offer.type.toLowerCase();
-        switch (type) {
-          case 'credit_card':
-            return offerType === 'credit_card' || offerType === 'cr';
-          case 'bank':
-            return (
-              offerType === 'bank' ||
-              offerType === 'bank_account' ||
-              offerType === 'checking' ||
-              offerType === 'savings'
-            );
-          case 'brokerage':
-            return offerType === 'brokerage' || offerType === 'investment';
-          default:
-            return false;
-        }
-      });
+    const hasAccess = await verifyAdminAccess(request);
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // If detailed format is requested, transform the offers
-    const transformedOffers =
-      format === 'detailed'
-        ? offers.map((offer) => new BankRewardsTransformer().transform(offer))
-        : offers;
+    const searchParams = request.nextUrl.searchParams;
+    const { type } = querySchema.parse({
+      type: searchParams.get('type') || undefined,
+    });
+
+    const db = getAdminDb();
+    const collection = db.collection('bankrewards');
+    
+    const snapshot = type 
+      ? await collection.where('type', '==', type).get()
+      : await collection.get();
+
+    const offers = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
 
     return NextResponse.json({
-      data: {
-        stats: { total: offers.length, active: offers.length, expired: 0 },
-        offers: transformedOffers,
-      },
+      total: offers.length,
+      offers
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        {
-          error: {
-            message: 'Invalid request parameters',
-            details: error.errors,
-          },
-        },
+        { error: 'Invalid request parameters' },
         { status: 400 }
       );
     }
 
     console.error('Error fetching BankRewards offers:', error);
     return NextResponse.json(
-      {
-        error: {
-          message: 'Failed to fetch offers',
-          details: error instanceof Error ? error.message : String(error),
-        },
-      },
+      { error: 'Failed to fetch offers' },
       { status: 500 }
     );
   }

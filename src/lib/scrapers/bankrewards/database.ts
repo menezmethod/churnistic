@@ -1,33 +1,149 @@
-import { collection, doc, writeBatch, getDocs, Timestamp } from 'firebase/firestore';
-import fs from 'fs';
-import path from 'path';
+import { Timestamp } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 
-import { db } from '@/lib/firebase/config';
+import { getAdminApp, getAdminDb } from '@/lib/firebase/admin-app';
 import { BankRewardsOffer } from '@/types/scraper';
 
 export class BankRewardsDatabase {
   private offers: Map<string, BankRewardsOffer> = new Map();
-  private readonly dbPath: string;
-  private readonly dataDir: string;
   private readonly useEmulator: boolean;
+  private readonly storagePath: string;
+  private readonly storage: ReturnType<typeof getStorage>;
+  private readonly bucketName: string;
 
   constructor() {
-    this.useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-    this.dataDir = path.join(process.cwd(), 'data');
-    this.dbPath = path.join(this.dataDir, 'bankrewards.json');
-    this.ensureDataDirectory();
-    this.loadFromDisk();
+    try {
+      this.useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+      this.storagePath = 'bankrewards/bankrewards.json';
+
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic';
+      this.bucketName = `${projectId}.appspot.com`;
+
+      const app = getAdminApp();
+      if (!app) throw new Error('Failed to initialize Firebase Admin App');
+
+      this.storage = getStorage(app);
+      console.log(
+        `[BankRewards] Initialized storage (${this.getEnvironment()}) with bucket: ${this.bucketName}`
+      );
+
+      this.initializeStorage().catch((error) => {
+        console.error('[BankRewards] Failed to initialize storage:', error);
+      });
+    } catch (error) {
+      console.error('[BankRewards] Error in constructor:', error);
+      throw error;
+    }
   }
 
-  private ensureDataDirectory() {
+  private getEnvironment(): string {
+    if (this.useEmulator) return 'emulator';
+    if (process.env.NODE_ENV === 'development') return 'local-development';
+    return process.env.VERCEL_ENV || 'production';
+  }
+
+  private async initializeStorage() {
     try {
-      if (!fs.existsSync(this.dataDir)) {
-        fs.mkdirSync(this.dataDir, { recursive: true });
-        console.info(`[BankRewards] Created data directory: ${this.dataDir}`);
+      const bucket = this.storage.bucket(this.bucketName);
+      const file = bucket.file(this.storagePath);
+
+      const [exists] = await file.exists();
+      if (!exists) {
+        console.info('[BankRewards] Creating initial storage structure');
+        await file.save(JSON.stringify([]), {
+          contentType: 'application/json',
+          metadata: {
+            created: new Date().toISOString(),
+            environment: this.getEnvironment(),
+            emulator: this.useEmulator,
+          },
+        });
       }
+
+      await this.loadFromStorage();
     } catch (error) {
-      console.error('[BankRewards] Error creating data directory:', error);
+      console.error('[BankRewards] Error initializing storage:', error);
       throw error;
+    }
+  }
+
+  private async loadFromStorage() {
+    try {
+      console.log(
+        `[BankRewards] Loading from ${this.useEmulator ? 'emulator' : 'production'} storage`
+      );
+      const bucket = this.storage.bucket(this.bucketName);
+      const file = bucket.file(this.storagePath);
+
+      const exists = await file.exists();
+      if (!exists[0]) {
+        console.info('[BankRewards] No existing database file in storage');
+        return;
+      }
+
+      const [content] = await file.download({
+        validation: !this.useEmulator,
+      });
+      const data = JSON.parse(content.toString());
+      let loadedCount = 0;
+
+      if (Array.isArray(data)) {
+        data.forEach((offer) => {
+          if (this.validateOffer(offer)) {
+            const uniqueKey = `${offer.id}-${offer.title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+            this.offers.set(uniqueKey, offer);
+            loadedCount++;
+          }
+        });
+      }
+
+      console.info(`[BankRewards] Loaded ${loadedCount} valid offers from storage`);
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        console.error('[BankRewards] Invalid JSON in storage file:', error);
+        await this.createBackup();
+        this.offers.clear();
+      } else {
+        console.error('[BankRewards] Error loading from storage:', error);
+      }
+    }
+  }
+
+  private async saveToStorage() {
+    try {
+      console.log(
+        `[BankRewards] Saving to ${this.useEmulator ? 'emulator' : 'production'} storage`
+      );
+      const bucket = this.storage.bucket(this.bucketName);
+      const file = bucket.file(this.storagePath);
+
+      const data = Array.from(this.offers.values());
+      await file.save(JSON.stringify(data, null, 2), {
+        contentType: 'application/json',
+        metadata: {
+          updated: new Date().toISOString(),
+          environment: this.getEnvironment(),
+        },
+      });
+
+      console.info(`[BankRewards] Saved ${data.length} offers to storage`);
+    } catch (error) {
+      console.error('[BankRewards] Error saving to storage:', error);
+      throw error;
+    }
+  }
+
+  private async createBackup() {
+    try {
+      const bucket = this.storage.bucket(this.bucketName);
+      const sourceFile = bucket.file(this.storagePath);
+      const backupPath = `${this.storagePath}.backup.${Date.now()}`;
+      const backupFile = bucket.file(backupPath);
+
+      await sourceFile.copy(backupFile);
+      console.info(`[BankRewards] Created backup at ${backupPath}`);
+    } catch (error) {
+      console.error('[BankRewards] Failed to create backup:', error);
     }
   }
 
@@ -45,98 +161,26 @@ export class BankRewardsDatabase {
     return true;
   }
 
-  private async loadFromDisk() {
-    try {
-      if (!fs.existsSync(this.dbPath)) {
-        console.info(`[BankRewards] No existing database file at ${this.dbPath}`);
-        return;
-      }
-
-      const rawData = fs.readFileSync(this.dbPath, 'utf-8');
-      if (!rawData.trim()) {
-        console.info('[BankRewards] Empty database file');
-        return;
-      }
-
-      const data = JSON.parse(rawData);
-      let loadedCount = 0;
-
-      if (Array.isArray(data)) {
-        data.forEach((offer) => {
-          if (this.validateOffer(offer)) {
-            const uniqueKey = `${offer.id}-${offer.title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-            this.offers.set(uniqueKey, offer);
-            loadedCount++;
-          }
-        });
-      }
-
-      console.info(`[BankRewards] Loaded ${loadedCount} valid offers from disk`);
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        console.error('[BankRewards] Invalid JSON in database file:', error);
-        const backupPath = `${this.dbPath}.backup.${Date.now()}`;
-        fs.copyFileSync(this.dbPath, backupPath);
-        console.info(`[BankRewards] Backed up corrupted database to ${backupPath}`);
-        this.offers.clear();
-      } else {
-        console.error('[BankRewards] Error loading database from disk:', error);
-      }
-    }
-  }
-
-  private async saveToDisk() {
-    try {
-      const data = Array.from(this.offers.values());
-      const tempPath = `${this.dbPath}.tmp`;
-      await fs.promises.writeFile(tempPath, JSON.stringify(data, null, 2));
-      await fs.promises.rename(tempPath, this.dbPath);
-      console.info(`[BankRewards] Saved ${data.length} offers to disk`);
-    } catch (error) {
-      console.error('[BankRewards] Error saving to disk:', error);
-      throw error; // Propagate error since disk storage is our fallback
-    }
-  }
-
   private async saveToFirestore(offers: BankRewardsOffer[]) {
-    if (this.useEmulator) {
-      console.info('[BankRewards] In emulator mode, skipping Firestore save');
-      return;
-    }
+    const db = getAdminDb();
+    if (!db) throw new Error('Firestore not initialized');
 
-    try {
-      const offersRef = collection(db, 'bankrewards');
-      const batchSize = 500;
-      const batches = [];
+    const batch = db.batch();
+    const offersRef = db.collection('bankrewards');
 
-      for (let i = 0; i < offers.length; i += batchSize) {
-        const batch = writeBatch(db);
-        const batchOffers = offers.slice(i, i + batchSize);
+    offers.forEach((offer) => {
+      const docRef = offersRef.doc();
+      batch.set(docRef, {
+        ...offer,
+        metadata: {
+          ...offer.metadata,
+          lastChecked: Timestamp.fromDate(new Date()),
+          lastUpdated: Timestamp.fromDate(new Date()),
+        },
+      });
+    });
 
-        for (const offer of batchOffers) {
-          const docRef = doc(offersRef);
-          batch.set(docRef, {
-            ...offer,
-            metadata: {
-              ...offer.metadata,
-              lastChecked: Timestamp.fromDate(new Date()),
-              lastUpdated: Timestamp.fromDate(new Date()),
-            },
-          });
-        }
-
-        batches.push(batch);
-      }
-
-      console.info(`[BankRewards] Committing ${batches.length} batches to Firestore`);
-      await Promise.all(batches.map((batch) => batch.commit()));
-      console.info(
-        `[BankRewards] Successfully saved ${offers.length} offers to Firestore`
-      );
-    } catch (error) {
-      console.error('[BankRewards] Error saving to Firestore:', error);
-      throw error;
-    }
+    await batch.commit();
   }
 
   public async saveOffer(offer: BankRewardsOffer): Promise<void> {
@@ -154,19 +198,15 @@ export class BankRewardsDatabase {
       },
     });
 
-    // Always save to disk first
-    await this.saveToDisk();
+    await this.saveToStorage();
 
-    // Only try Firestore in production
-    if (!this.useEmulator) {
-      try {
-        await this.saveToFirestore([...this.offers.values()]);
-      } catch (error) {
-        console.error(
-          '[BankRewards] Firestore save failed, but disk save succeeded:',
-          error
-        );
-      }
+    try {
+      await this.saveToFirestore([...this.offers.values()]);
+    } catch (error) {
+      console.error(
+        '[BankRewards] Firestore save failed, but storage save succeeded:',
+        error
+      );
     }
   }
 
@@ -184,19 +224,15 @@ export class BankRewardsDatabase {
       });
     }
 
-    // Always save to disk first
-    await this.saveToDisk();
+    await this.saveToStorage();
 
-    // Only try Firestore in production
-    if (!this.useEmulator) {
-      try {
-        await this.saveToFirestore([...this.offers.values()]);
-      } catch (error) {
-        console.error(
-          '[BankRewards] Firestore save failed, but disk save succeeded:',
-          error
-        );
-      }
+    try {
+      await this.saveToFirestore([...this.offers.values()]);
+    } catch (error) {
+      console.error(
+        '[BankRewards] Firestore save failed, but storage save succeeded:',
+        error
+      );
     }
   }
 
@@ -221,21 +257,21 @@ export class BankRewardsDatabase {
     console.info(`[BankRewards] Deleting ${count} offers`);
 
     this.offers.clear();
-    await this.saveToDisk();
 
-    if (!this.useEmulator) {
-      try {
-        const offersRef = collection(db, 'bankrewards');
-        const snapshot = await getDocs(offersRef);
-        const batch = writeBatch(db);
-        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
-        await batch.commit();
-      } catch (error) {
-        console.error(
-          '[BankRewards] Firestore delete failed, but disk delete succeeded:',
-          error
-        );
-      }
+    try {
+      const bucket = this.storage.bucket(this.bucketName);
+      const file = bucket.file(this.storagePath);
+      await file.delete();
+
+      const db = getAdminDb();
+      const offersRef = db.collection('bankrewards');
+      const snapshot = await offersRef.get();
+      const batch = db.batch();
+      snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    } catch (error) {
+      console.error('[BankRewards] Error deleting offers:', error);
+      throw error;
     }
 
     return { deleted: count };

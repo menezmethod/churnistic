@@ -121,3 +121,27 @@ export class BankRewardsCollector {
     }
   }
 }
+
+if (require.main === module) {
+  const config = {
+    userAgent: 'Mozilla/5.0 (compatible; BankRewardsBot/1.0)',
+    timeoutSecs: 300,
+    maxConcurrency: 3,
+    maxRequestsPerMinute: 60,
+    maxRetries: 3,
+    proxyUrls: [],
+    headless: true,
+    stealth: false,
+    storageDir: './data',
+    logLevel: 'info' as const,
+  };
+
+  const collector = new BankRewardsCollector(config);
+  collector
+    .collect()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error('Collection failed:', error);
+      process.exit(1);
+    });
+}

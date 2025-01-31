@@ -1,6 +1,20 @@
+import path from 'path';
+
 import { BankRewardsConfig } from '@/types/scraper';
 
 export const getBankRewardsConfig = (): BankRewardsConfig => {
+  const isGithubAction = process.env.GITHUB_ACTIONS === 'true';
+
+  // Use appropriate storage directory based on environment
+  const defaultStorageDir = path.join(
+    process.cwd(),
+    isGithubAction
+      ? '/tmp/bankrewards'
+      : process.env.VERCEL
+        ? '/tmp/bankrewards'
+        : './storage/bankrewards'
+  );
+
   const config: BankRewardsConfig = {
     maxConcurrency: Number(process.env.BANKREWARDS_MAX_CONCURRENCY || '2'),
     maxRequestsPerMinute: Number(process.env.BANKREWARDS_MAX_REQUESTS_PER_MINUTE || '20'),
@@ -10,7 +24,7 @@ export const getBankRewardsConfig = (): BankRewardsConfig => {
     userAgent:
       process.env.BANKREWARDS_USER_AGENT ||
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    storageDir: process.env.BANKREWARDS_STORAGE_DIR || './storage/bankrewards',
+    storageDir: process.env.BANKREWARDS_STORAGE_DIR || defaultStorageDir,
     logLevel: (process.env.BANKREWARDS_LOG_LEVEL ||
       'info') as BankRewardsConfig['logLevel'],
   };
