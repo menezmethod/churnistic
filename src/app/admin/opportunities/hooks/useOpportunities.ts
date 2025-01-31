@@ -396,35 +396,11 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
 };
 
 const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
-  // Determine the base URL dynamically
-  const baseUrl = (() => {
-    // Check if we're in a browser environment
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-
-      // Check for production domain
-      if (hostname === 'churnistic.com' || hostname === 'www.churnistic.com') {
-        return 'https://churnistic.com';
-      }
-
-      // Check for Vercel preview deployment
-      if (hostname.includes('vercel.app')) {
-        return `https://${hostname}`;
-      }
-
-      // If running on localhost or other development domain
-      return `${window.location.protocol}//${hostname}${window.location.port ? `:${window.location.port}` : ''}`;
-    }
-
-    // Server-side fallback (during SSR)
-    const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
-    if (vercelUrl) {
-      return `https://${vercelUrl}`;
-    }
-
-    // Default fallback for development
-    return 'http://localhost:3000';
-  })();
+  // Use the dedicated production scraper URL from environment variable
+  const baseUrl = process.env.NEXT_PUBLIC_BANKREWARDS_SCRAPER_URL;
+  if (!baseUrl) {
+    throw new Error('BankRewards scraper URL is not configured');
+  }
 
   // Then fetch the results
   const apiUrl = `${baseUrl}/api/bankrewards?format=detailed`;
