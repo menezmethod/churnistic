@@ -11,17 +11,12 @@ on:
         default: 'production'
 
 env:
-  FIRESTORE_EMULATOR_HOST: localhost:8080
-  FIREBASE_STORAGE_EMULATOR_HOST: localhost:9199
-  NEXT_PUBLIC_USE_FIREBASE_EMULATORS: 'false'
-  GOOGLE_APPLICATION_CREDENTIALS: ./firebase-service-account.json
-  NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+  # Firebase Configuration
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-  NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-  FIREBASE_TOKEN: ${{ secrets.FIREBASE_DEPLOY_TOKEN }}
+  FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}
+  # Ensure we're not using emulators
+  NEXT_PUBLIC_USE_FIREBASE_EMULATORS: 'false'
   # BankRewards specific configuration
   BANKREWARDS_MAX_CONCURRENCY: '2'
   BANKREWARDS_MAX_REQUESTS_PER_MINUTE: '20'
@@ -47,46 +42,146 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm ci
+          # Only install required dependencies for the scraper
+          npm install typescript @types/node firebase-admin playwright cheerio
           npx playwright install --with-deps chromium
         env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1  # Only install chromium
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
-      - name: Build project
-        run: npm run build
-        env:
-          NODE_ENV: production
-
-      - name: Set up Firebase credentials
+      - name: Verify Firebase credentials
         run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}' | base64 -d > firebase-service-account.json
-          echo "Firebase credentials configured"
+          # Verify FIREBASE_SERVICE_ACCOUNT_KEY is set and valid
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_KEY" ]; then
+            echo "Error: FIREBASE_SERVICE_ACCOUNT_KEY is not set"
+            exit 1
+          fi
+          
+          # Verify it's valid JSON when decoded
+          echo $FIREBASE_SERVICE_ACCOUNT_KEY | base64 -d | jq . > /dev/null || {
+            echo "Error: FIREBASE_SERVICE_ACCOUNT_KEY is not valid JSON when decoded"
+            exit 1
+          }
+          
+          # Verify project ID matches
+          PROJECT_ID=$(echo $FIREBASE_SERVICE_ACCOUNT_KEY | base64 -d | jq -r .project_id)
+          if [ "$PROJECT_ID" != "$NEXT_PUBLIC_FIREBASE_PROJECT_ID" ]; then
+            echo "Error: Project ID mismatch between service account ($PROJECT_ID) and NEXT_PUBLIC_FIREBASE_PROJECT_ID ($NEXT_PUBLIC_FIREBASE_PROJECT_ID)"
+            exit 1
+          }
+          
+          echo "Firebase credentials verified successfully"
+
+      - name: Set up TypeScript configuration
+        run: |
+          echo '{
+            "compilerOptions": {
+              "target": "ES2020",
+              "module": "CommonJS",
+              "moduleResolution": "node",
+              "esModuleInterop": true,
+              "strict": true,
+              "skipLibCheck": true,
+              "outDir": "dist",
+              "baseUrl": ".",
+              "paths": {
+                "@/*": ["src/*"]
+              }
+            },
+            "include": ["src/**/*"],
+            "exclude": ["node_modules"]
+          }' > tsconfig.json
+
+      - name: Create environment file
+        run: |
+          cat > .env << EOL
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_SERVICE_ACCOUNT_KEY=${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}
+          NEXT_PUBLIC_USE_FIREBASE_EMULATORS=false
+          NODE_ENV=production
+          EOL
+
+      - name: Compile scraper
+        run: |
+          # Create src directory structure
+          mkdir -p dist/src/lib/firebase
+          
+          # First compile Firebase admin setup
+          echo "Compiling Firebase admin setup..."
+          npx tsc src/lib/firebase/admin-app.ts --outDir dist
+          
+          # Then compile scraper files
+          echo "Compiling scraper files..."
+          npx tsc src/lib/scrapers/bankrewards/collector.ts \
+            src/lib/scrapers/bankrewards/crawler.ts \
+            src/lib/scrapers/bankrewards/database.ts \
+            src/lib/scrapers/bankrewards/transformer.ts \
+            --outDir dist
 
       - name: Run collection script
         run: |
           mkdir -p /tmp/bankrewards
-          node dist/src/lib/scrapers/bankrewards/collector.js
+          # Add debug logging
+          echo "Debug: Environment variables:"
+          env | grep -E "FIREBASE|NEXT" || true
+          echo "Debug: Running collector..."
+          node --trace-warnings dist/src/lib/scrapers/bankrewards/collector.js
         env:
           NODE_ENV: production
-
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
+          DEBUG: '*'
 
       - name: Upload to Firebase Storage
         run: |
           TIMESTAMP=$(date +%Y%m%d_%H%M%S)
           FILENAME="bankrewards_${TIMESTAMP}.json"
-          mv /tmp/bankrewards/data.json "./${FILENAME}"
           
-          # Upload to Firebase Storage with the timestamped filename
-          firebase storage:upload "./${FILENAME}" \
-            --project ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }} \
-            --token "${{ secrets.FIREBASE_DEPLOY_TOKEN }}" \
-            --public \
-            "bankrewards/${FILENAME}"
+          if [ -f "/tmp/bankrewards/data.json" ]; then
+            echo "Found data file, proceeding with upload..."
+            mv /tmp/bankrewards/data.json "./${FILENAME}"
+            
+            # Create a temporary service account file for the upload
+            echo $FIREBASE_SERVICE_ACCOUNT_KEY | base64 -d > /tmp/service-account.json
+            
+            # Use the Admin SDK directly for upload
+            node -e "
+              const { initializeApp, cert } = require('firebase-admin/app');
+              const { getStorage } = require('firebase-admin/storage');
+              
+              const app = initializeApp({
+                credential: cert('/tmp/service-account.json'),
+                storageBucket: '${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}'
+              });
+              
+              const bucket = getStorage().bucket();
+              
+              bucket.upload('./${FILENAME}', {
+                destination: 'bankrewards/${FILENAME}',
+                public: true,
+                metadata: {
+                  contentType: 'application/json',
+                  metadata: {
+                    firebaseStorageDownloadTokens: Date.now()
+                  }
+                }
+              }).then(() => {
+                console.log('Upload successful');
+                process.exit(0);
+              }).catch((error) => {
+                console.error('Upload failed:', error);
+                process.exit(1);
+              });
+            "
+            
+            # Clean up service account file
+            rm -f /tmp/service-account.json
+          else
+            echo "Error: Data file not found at /tmp/bankrewards/data.json"
+            ls -la /tmp/bankrewards/
+            exit 1
+          fi
 
       - name: Cleanup
         if: always()
         run: |
-          rm -f firebase-service-account.json
           rm -rf /tmp/bankrewards
+          rm -f .env
