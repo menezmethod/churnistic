@@ -1,12 +1,10 @@
-import { collection, writeBatch, getDocs } from 'firebase/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 
 import { getBankRewardsConfig } from '@/app/api/bankrewards/config';
-import { db } from '@/lib/firebase/admin';
-import { db as configDb } from '@/lib/firebase/config';
+import { getAdminDb } from '@/lib/firebase/admin-app';
 import { BankRewardsOffer } from '@/types/scraper';
 
 export class BankRewardsDatabase {
@@ -133,6 +131,7 @@ export class BankRewardsDatabase {
   }
 
   private async saveToFirestore(offers: BankRewardsOffer[]) {
+    const db = getAdminDb();
     if (!db) throw new Error('Firestore not initialized');
 
     const batch = db.batch();
@@ -239,9 +238,10 @@ export class BankRewardsDatabase {
 
     if (!this.useEmulator) {
       try {
-        const offersRef = collection(configDb, 'bankrewards');
-        const snapshot = await getDocs(offersRef);
-        const batch = writeBatch(configDb);
+        const db = getAdminDb();
+        const offersRef = db.collection('bankrewards');
+        const snapshot = await offersRef.get();
+        const batch = db.batch();
         snapshot.docs.forEach((doc) => batch.delete(doc.ref));
         await batch.commit();
       } catch (error) {
