@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
       console.log('Auth check result:', {
         hasSession: !!session,
         email: session?.email,
-        customClaims: session?.customClaims,
+        isSuperAdmin: session?.isSuperAdmin,
       });
 
-      const isAdmin = session?.customClaims?.admin || session?.customClaims?.isAdmin;
-      const isSuperAdmin = session?.customClaims?.superAdmin || session?.customClaims?.isSuperAdmin;
+      const isAdmin = session?.role === 'admin';
+      const isSuperAdmin = session?.isSuperAdmin === true;
 
       if (!session?.email || (!isAdmin && !isSuperAdmin)) {
         return NextResponse.json(
