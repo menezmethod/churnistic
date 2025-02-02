@@ -355,13 +355,24 @@ const fetchPaginatedOpportunities = async (
 const fetchStagedOpportunities = async (): Promise<
   (Opportunity & { isStaged: boolean })[]
 > => {
-  const snapshot = await getDocs(collection(db, 'staged_offers'));
-  return snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-    ...doc.data(),
-    id: doc.id,
-    status: 'staged' as const,
-    isStaged: true,
-  })) as (Opportunity & { isStaged: boolean })[];
+  console.log('Fetching staged opportunities...');
+  try {
+    const snapshot = await getDocs(collection(db, 'staged_offers'));
+    console.log('Staged offers snapshot:', {
+      empty: snapshot.empty,
+      size: snapshot.size,
+      docs: snapshot.docs.map((doc) => ({ id: doc.id })),
+    });
+    return snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+      ...doc.data(),
+      id: doc.id,
+      status: 'staged' as const,
+      isStaged: true,
+    })) as (Opportunity & { isStaged: boolean })[];
+  } catch (error) {
+    console.error('Error fetching staged opportunities:', error);
+    throw error;
+  }
 };
 
 export function useOpportunities() {

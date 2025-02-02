@@ -7,19 +7,25 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isEmulator() {
-      return true;  // This will be overridden in production
+    function isAdmin() {
+      return isAuthenticated() && 
+        ('admin' in request.auth.token && request.auth.token.admin == true);
     }
 
-    // Allow all operations in emulator mode
-    match /{document=**} {
-      allow read, write: if isEmulator() || isAuthenticated();
+    // Allow read for authenticated users, write for admins
+    match /staged_offers/{document} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
-    // Development-only rules - DO NOT USE IN PRODUCTION
+    match /opportunities/{document} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     match /bankrewards/{document} {
-      allow read: if isEmulator() || isAuthenticated();
-      allow write: if isEmulator();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
   }
 } 
