@@ -9,23 +9,28 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        ('admin' in request.auth.token && request.auth.token.admin == true);
+        (request.auth.token.admin == true || request.auth.token.isAdmin == true);
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.superAdmin == true || request.auth.token.isSuperAdmin == true);
     }
 
     // Allow read for authenticated users, write for admins
     match /staged_offers/{document} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isSuperAdmin();
     }
 
     match /opportunities/{document} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isSuperAdmin();
     }
 
     match /bankrewards/{document} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isSuperAdmin();
     }
   }
 } 

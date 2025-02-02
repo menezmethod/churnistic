@@ -16,23 +16,27 @@ export async function POST(request: NextRequest) {
       isProductionEnvironment,
     });
 
-    // Always require authentication in production
-    if (isProductionEnvironment || (!useEmulator && !isPreviewEnvironment)) {
+    // Only skip auth in development with emulator
+    if (!useEmulator) {
       const { session } = await createAuthContext(request);
       console.log('Auth check result:', {
         hasSession: !!session,
         email: session?.email,
-        isAdmin: session?.isAdmin,
+        customClaims: session?.customClaims,
       });
 
-      if (!session?.email || !session?.isAdmin) {
+      const isAdmin = session?.customClaims?.admin || session?.customClaims?.isAdmin;
+      const isSuperAdmin = session?.customClaims?.superAdmin || session?.customClaims?.isSuperAdmin;
+
+      if (!session?.email || (!isAdmin && !isSuperAdmin)) {
         return NextResponse.json(
           {
             error: 'Unauthorized. Admin access required.',
             auth: {
               hasSession: !!session,
               email: session?.email,
-              isAdmin: session?.isAdmin,
+              isAdmin,
+              isSuperAdmin,
             },
           },
           { status: 401 }
