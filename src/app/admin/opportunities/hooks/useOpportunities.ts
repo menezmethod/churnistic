@@ -460,67 +460,33 @@ export function useOpportunities() {
       const response = await fetchBankRewardsOffers();
       console.log('Fetched offers:', response.data.offers.length);
 
-      const batch = writeBatch(db);
-
       // Transform offers
       const newOffers = response.data.offers.map(transformBankRewardsOffer);
       console.log('Transformed offers:', newOffers.length);
 
-      // Get existing staged offers to check for duplicates
-      const [stagedSnapshot, approvedSnapshot] = await Promise.all([
-        getDocs(collection(db, 'staged_offers')),
-        getDocs(collection(db, 'opportunities')),
-      ]);
+      // Send to API endpoint
+      const importResponse = await fetch('/api/opportunities/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ offers: newOffers }),
+      });
 
-      console.log('Current staged offers:', stagedSnapshot.size);
-      console.log('Current approved offers:', approvedSnapshot.size);
-
-      // Track both staged and approved offers by source_id
-      const existingSourceIds = new Set([
-        ...stagedSnapshot.docs.map((doc) => doc.data().source_id),
-        ...approvedSnapshot.docs.map((doc) => doc.data().source_id),
-      ]);
-
-      console.log('Existing source IDs:', existingSourceIds.size);
-
-      let addedCount = 0;
-      let skippedCount = 0;
-
-      for (const offer of newOffers) {
-        // Skip if already staged or previously approved
-        if (existingSourceIds.has(offer.source_id)) {
-          skippedCount++;
-          continue;
-        }
-
-        // Use source_id as document ID to prevent duplicates
-        const docRef = doc(collection(db, 'staged_offers'), offer.source_id);
-        batch.set(docRef, offer);
-        addedCount++;
+      if (!importResponse.ok) {
+        const error = await importResponse.json();
+        throw new Error(error.details || error.error || 'Failed to import opportunities');
       }
 
-      console.log(`Import summary:
-        Total offers: ${newOffers.length}
-        Added: ${addedCount}
-        Skipped: ${skippedCount}
-      `);
+      const result = await importResponse.json();
+      console.log('Import result:', result);
 
-      if (addedCount > 0) {
-        await batch.commit();
-        console.log('Batch commit successful');
-      } else {
-        console.log('No new offers to commit');
-      }
-
-      return addedCount;
+      return result.addedCount;
     },
     onSuccess: (count) => {
       console.log(`Import completed successfully. Added ${count} new offers.`);
       queryClient.invalidateQueries(['staged_offers']);
       queryClient.invalidateQueries(['opportunities', 'stats']);
-    },
-    onError: (error) => {
-      console.error('Import failed:', error);
     },
   });
 
