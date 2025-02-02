@@ -432,28 +432,11 @@ export function useOpportunities() {
   const { data: totalStats } = useQuery({
     queryKey: ['opportunities', 'stats'],
     queryFn: async () => {
-      const snapshot = await getDocs(collection(db, 'opportunities'));
-      const opportunities = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Opportunity[];
-
-      const totalValue = opportunities.reduce((sum, opp) => sum + opp.value, 0);
-
-      return {
-        total: opportunities.length,
-        pending: opportunities.filter((opp) => opp.status === 'pending').length,
-        approved: opportunities.filter((opp) => opp.status === 'approved').length,
-        rejected: opportunities.filter((opp) => opp.status === 'rejected').length,
-        avgValue:
-          opportunities.length > 0 ? Math.round(totalValue / opportunities.length) : 0,
-        highValue: opportunities.filter((opp) => opp.value >= 500).length,
-        byType: {
-          bank: opportunities.filter((opp) => opp.type === 'bank').length,
-          credit_card: opportunities.filter((opp) => opp.type === 'credit_card').length,
-          brokerage: opportunities.filter((opp) => opp.type === 'brokerage').length,
-        },
-      };
+      const response = await fetch('/api/opportunities/stats');
+      if (!response.ok) {
+        throw new Error('Failed to fetch stats');
+      }
+      return response.json();
     },
   });
 

@@ -4,6 +4,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Chase Sapphire Preferred',
     type: 'credit_card',
+    status: 'pending',
     offer_link: 'https://www.chase.com/sapphire-preferred',
     value: 800,
     bonus: {
@@ -66,6 +67,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Capital One 360 Checking',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.capitalone.com/360checking',
     value: 400,
     bonus: {
@@ -93,6 +95,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Webull',
     type: 'brokerage',
+    status: 'pending',
     offer_link: 'https://www.webull.com',
     value: 250,
     bonus: {
@@ -144,6 +147,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Moomoo',
     type: 'brokerage',
+    status: 'pending',
     offer_link: 'https://start.moomoo.com',
     value: 225,
     bonus: {
@@ -171,6 +175,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Key Smart Checking®',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://click.linksynergy.com',
     value: 300,
     bonus: {
@@ -212,6 +217,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'SoFi Invest',
     type: 'brokerage',
+    status: 'pending',
     offer_link: 'https://www.sofi.com',
     value: 25,
     bonus: {
@@ -238,6 +244,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Capital One Savor',
     type: 'credit_card',
+    status: 'pending',
     offer_link: 'https://i.capitalone.com',
     value: 250,
     bonus: {
@@ -278,6 +285,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Current',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://current.com',
     value: 50,
     bonus: {
@@ -307,6 +315,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Plynk',
     type: 'brokerage',
+    status: 'pending',
     offer_link: 'https://plynkinvest.app.link',
     value: 10,
     bonus: {
@@ -333,6 +342,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Capital One Quicksilver',
     type: 'credit_card',
+    status: 'pending',
     offer_link: 'https://i.capitalone.com',
     value: 200,
     bonus: {
@@ -373,6 +383,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Discover Student',
     type: 'credit_card',
+    status: 'pending',
     offer_link: 'https://www.discover.com',
     value: 100,
     bonus: {
@@ -413,6 +424,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Fidelity',
     type: 'brokerage',
+    status: 'pending',
     offer_link: 'https://www.fidelity.com',
     value: 100,
     bonus: {
@@ -439,6 +451,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Chime',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.chime.com',
     value: 75,
     bonus: {
@@ -468,6 +481,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Citizens Equity First Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.cefcu.com',
     value: 225,
     bonus: {
@@ -496,6 +510,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Middlesex Federal',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://info.middlesexfederal.com',
     value: 150,
     bonus: {
@@ -526,6 +541,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Dedham Savings Bank',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.dedhamsavings.com',
     value: 250,
     bonus: {
@@ -554,6 +570,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'A+ Federal Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://aplusfcu.org',
     value: 100,
     bonus: {
@@ -588,6 +605,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'U.S. Bank Altitude',
     type: 'credit_card',
+    status: 'pending',
     offer_link: 'https://www.usbank.com',
     value: 20,
     bonus: {
@@ -628,6 +646,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Simmons Bank',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.simmonsbank.com',
     value: 600,
     bonus: {
@@ -655,6 +674,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Langley Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.langleyfcu.org',
     value: 100,
     bonus: {
@@ -681,6 +701,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Community America Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.communityamerica.com',
     value: 400,
     bonus: {
@@ -710,6 +731,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'River Valley Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://rivervalleycu.org',
     value: 100,
     bonus: {
@@ -736,6 +758,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Old Second Bank',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.oldsecond.com',
     value: 300,
     bonus: {
@@ -767,6 +790,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Andrews Federal Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.andrewsfcu.org',
     value: 150,
     bonus: {
@@ -795,6 +819,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Bank of America Travel Rewards',
     type: 'credit_card',
+    status: 'pending',
     offer_link: 'https://www.bankofamerica.com',
     value: 25,
     bonus: {
@@ -833,8 +858,9 @@ const mockOffers: Opportunity[] = [
     },
   },
   {
-    name: 'Simmons Bank',
+    name: 'Simmons Bank MO/KS',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.simmonsbank.com',
     value: 900,
     bonus: {
@@ -863,6 +889,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Savings Bank of Danbury Priority Checking',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.sbdanbury.com',
     value: 100,
     bonus: {
@@ -891,6 +918,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Stoneham Bank',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.stonehambank.com',
     value: 300,
     bonus: {
@@ -918,6 +946,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Dollar Bank',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://dollar.bank',
     value: 300,
     bonus: {
@@ -947,6 +976,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Achieva Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.referlive.com',
     value: 100,
     bonus: {
@@ -973,6 +1003,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Huntington Bank',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.huntington.com',
     value: 400,
     bonus: {
@@ -999,6 +1030,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Everwise Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.everwisecu.com',
     value: 200,
     bonus: {
@@ -1027,6 +1059,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Premier America Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.premieramerica.com',
     value: 100,
     bonus: {
@@ -1054,6 +1087,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Citi',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://banking.citi.com',
     value: 300,
     bonus: {
@@ -1081,6 +1115,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Sunflower Bank',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.sunflowerbank.com',
     value: 200,
     bonus: {
@@ -1111,6 +1146,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Community Choice Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.comchoicecu.org',
     value: 300,
     bonus: {
@@ -1139,6 +1175,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'BHCU',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://bhcu.org',
     value: 150,
     bonus: {
@@ -1167,6 +1204,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Visions Federal Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.visionsfcu.org',
     value: 200,
     bonus: {
@@ -1193,6 +1231,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'US Federal Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.usfederalcu.org',
     value: 150,
     bonus: {
@@ -1219,6 +1258,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Associated Healthcare Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.ahcu.org',
     value: 250,
     bonus: {
@@ -1249,6 +1289,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Expedition Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.expeditioncu.com',
     value: 200,
     bonus: {
@@ -1277,6 +1318,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Columbia Bank',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.columbiabankonline.com',
     value: 100,
     bonus: {
@@ -1304,6 +1346,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Hancock Whitney',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.hancockwhitney.com',
     value: 200,
     bonus: {
@@ -1331,6 +1374,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'DuPage Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.dupagecu.com',
     value: 205,
     bonus: {
@@ -1357,6 +1401,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Public Service Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.mypscu.com',
     value: 100,
     bonus: {
@@ -1383,6 +1428,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Citizens Equity First Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.cefcu.com',
     value: 175,
     bonus: {
@@ -1410,6 +1456,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Truist Bank',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.truist.com',
     value: 400,
     bonus: {
@@ -1457,6 +1504,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Sunmark Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.sunmark.org',
     value: 250,
     bonus: {
@@ -1485,6 +1533,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'First National Bank',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.fnbc.bank',
     value: 100,
     bonus: {
@@ -1515,6 +1564,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Mountain America Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.macu.com',
     value: 100,
     bonus: {
@@ -1541,6 +1591,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'FirstMark Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.firstmarkcu.org',
     value: 300,
     bonus: {
@@ -1572,6 +1623,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'America First Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://www.americafirst.com',
     value: 100,
     bonus: {
@@ -1601,6 +1653,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Hercules First Federal Credit Union',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://herculescu.com',
     value: 150,
     bonus: {
@@ -1629,6 +1682,7 @@ const mockOffers: Opportunity[] = [
   {
     name: 'Legacy Bank',
     type: 'bank',
+    status: 'pending',
     offer_link: 'https://legacy.bank',
     value: 150,
     bonus: {
