@@ -12,7 +12,6 @@ import {
   startAfter,
   where,
   deleteDoc,
-  setDoc,
   DocumentData,
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
@@ -519,23 +518,23 @@ export function useOpportunities() {
           throw new Error('No authenticated user found');
         }
 
-        // First, add to opportunities collection to ensure the ID exists
-        const approvedOpportunity = {
-          ...opportunityData,
-          status: 'approved' as const,
-          updatedAt: new Date().toISOString(),
-          metadata: {
-            ...(opportunityData.metadata || {}),
-            created_by: user.email,
-            updated_by: user.email,
-            updated_at: new Date().toISOString(),
-            status: 'active',
+        // Send to server-side API endpoint for Firebase operations
+        const approveResponse = await fetch('/api/opportunities/approve', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        };
+          body: JSON.stringify(opportunityData),
+        });
 
-        await setDoc(doc(db, 'opportunities', opportunityData.id), approvedOpportunity);
+        if (!approveResponse.ok) {
+          const errorData = await approveResponse.json();
+          throw new Error(
+            errorData.details || errorData.error || 'Failed to approve opportunity'
+          );
+        }
 
-        // Transform to match API structure
+        // Transform to match API structure for the external API
         const formData = {
           id: opportunityData.id,
           name: opportunityData.name,
@@ -634,7 +633,7 @@ export function useOpportunities() {
 
         console.log('Sending to API:', JSON.stringify(formData, null, 2));
 
-        // Create API endpoint entry
+        // Create external API endpoint entry
         const response = await fetch('/api/opportunities', {
           method: 'POST',
           headers: {
@@ -643,7 +642,6 @@ export function useOpportunities() {
           body: JSON.stringify(formData),
         });
 
-        let errorMessage = 'Failed to create API endpoint entry';
         if (!response.ok) {
           const responseText = await response.text();
           console.error('API Error Response Text:', responseText);
@@ -652,20 +650,23 @@ export function useOpportunities() {
           try {
             errorData = JSON.parse(responseText);
             console.error('API Error Response:', errorData);
-            errorMessage = errorData.details || errorData.error || errorMessage;
+            throw new Error(
+              errorData.details ||
+                errorData.error ||
+                'Failed to create API endpoint entry'
+            );
           } catch (parseError) {
             console.error('Error parsing API response:', parseError);
-            errorMessage = `${errorMessage}: ${response.statusText} - ${responseText}`;
+            throw new Error(
+              `Failed to create API endpoint entry: ${response.statusText} - ${responseText}`
+            );
           }
-          throw new Error(errorMessage);
         }
 
         const apiResponse = await response.json();
         console.log('API Response:', apiResponse);
 
-        // Remove from staged_offers collection
-        await deleteDoc(doc(db, 'staged_offers', opportunityData.id));
-
+        const { opportunity: approvedOpportunity } = await approveResponse.json();
         return approvedOpportunity;
       } catch (error) {
         console.error('Error in approveOpportunityMutation:', error);

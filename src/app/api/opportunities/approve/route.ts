@@ -47,11 +47,38 @@ export async function POST(request: NextRequest) {
     const opportunityRef = db.collection('opportunities').doc(opportunity.id);
     batch.set(opportunityRef, approvedOpportunity);
 
-    // Remove from staged_offers collection
+    // Remove from staged_offers collection if it exists
     const stagedRef = db.collection('staged_offers').doc(opportunity.id);
     batch.delete(stagedRef);
 
+    // Commit the batch
     await batch.commit();
+
+    // Also update the API endpoint if needed
+    try {
+      const apiResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/opportunities`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.API_KEY}`,
+          },
+          body: JSON.stringify({
+            ...approvedOpportunity,
+            value: approvedOpportunity.value.toString(),
+          }),
+        }
+      );
+
+      if (!apiResponse.ok) {
+        console.error('API Error:', await apiResponse.text());
+        // Don't throw here, we still want to return success for the Firestore operation
+      }
+    } catch (apiError) {
+      console.error('Error updating API:', apiError);
+      // Don't throw here, we still want to return success for the Firestore operation
+    }
 
     return NextResponse.json({
       success: true,

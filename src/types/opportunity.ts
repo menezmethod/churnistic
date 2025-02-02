@@ -386,3 +386,8 @@ type NestedKeyOf<ObjectType extends object> = {
 
 // Export the updated FormKeys
 export type FormKeys = NestedKeyOf<Opportunity>;
+
+export interface DebitTransactionRequirement extends BaseRequirement {
+  type: 'debit_transactions';
+  details: { amount: number; period: number; count: number };
+}
