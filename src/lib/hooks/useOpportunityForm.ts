@@ -59,6 +59,7 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
     name: '',
     offer_link: '',
     value: 0,
+    status: 'approved',
     logo: {
       type: 'url',
       url: '',

@@ -66,6 +66,7 @@ export interface FirestoreOpportunity {
   requirements?: string[];
   isNew?: boolean;
   expirationDate?: string;
+  source_id: string;
   metadata: {
     created_at: string;
     updated_at: string;
@@ -159,6 +160,15 @@ export interface FirestoreOpportunity {
       name: string;
       description: string;
     }>;
+    minimum_deposit?: string;
+    holding_period?: string;
+    trading_requirements?: string;
+  };
+  rewards?: {
+    card_perks: string | null;
+    cash_back: string | null;
+    points_multiplier: string | null;
+    statement_credits: string | null;
   };
   logo?: {
     type?: 'icon' | 'url';
@@ -241,6 +251,9 @@ export interface Details {
     name: string;
     description: string;
   }> | null;
+  minimum_deposit?: string | null;
+  holding_period?: string | null;
+  trading_requirements?: string | null;
 }
 
 export interface Bonus {
@@ -256,6 +269,7 @@ export interface Opportunity {
   name: string;
   offer_link: string;
   value: number;
+  status: 'pending' | 'approved' | 'rejected' | 'staged';
   bonus?: {
     title?: string;
     description?: string;
@@ -327,6 +341,15 @@ export interface Opportunity {
       name: string;
       description: string;
     }>;
+    minimum_deposit?: string;
+    holding_period?: string;
+    trading_requirements?: string;
+  };
+  rewards?: {
+    card_perks: string | null;
+    cash_back: string | null;
+    points_multiplier: string | null;
+    statement_credits: string | null;
   };
   logo?: {
     type?: 'icon' | 'url';
@@ -364,3 +387,18 @@ type NestedKeyOf<ObjectType extends object> = {
 
 // Export the updated FormKeys
 export type FormKeys = NestedKeyOf<Opportunity>;
+
+export interface BaseRequirement {
+  type: string;
+  details: {
+    amount: number;
+    period: number;
+    count?: number;
+  };
+  minimum_deposit?: number | null;
+}
+
+export interface DebitTransactionRequirement extends BaseRequirement {
+  type: 'debit_transactions';
+  details: { amount: number; period: number; count: number };
+}

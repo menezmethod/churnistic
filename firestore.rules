@@ -2,16 +2,35 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Development-only rules - DO NOT USE IN PRODUCTION
-    match /bankrewards/{document} {
-      allow read: if request.auth != null;
-      allow write: if false; // Disable client-side writes
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
     }
-    
-    // Allow read/write access to all other collections in development
-    match /{document=**} {
-      allow read: if request.auth != null;
-      allow write: if false; // Disable all other client-side writes
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.role == 'admin');
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+        request.auth.token.isSuperAdmin == true;
+    }
+
+    // Allow read for authenticated users, write for admins
+    match /staged_offers/{document} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isSuperAdmin();
+    }
+
+    match /opportunities/{document} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isSuperAdmin();
+    }
+
+    match /bankrewards/{document} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isSuperAdmin();
     }
   }
 } 

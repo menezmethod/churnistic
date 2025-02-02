@@ -14,6 +14,8 @@ import {
   Speed as SpeedIcon,
   CloudDownload as ImportIcon,
   DoneAll as BulkApproveIcon,
+  RestartAlt as ResetIcon,
+  DeleteForever as ResetAllIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -39,6 +41,13 @@ import {
   useTheme,
   alpha,
   Fade,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
+  Tooltip,
 } from '@mui/material';
 import { useState } from 'react';
 
@@ -119,6 +128,8 @@ const OpportunitiesPage = () => {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(
     null
   );
+  const [resetStagedDialogOpen, setResetStagedDialogOpen] = useState(false);
+  const [resetAllDialogOpen, setResetAllDialogOpen] = useState(false);
   const {
     opportunities,
     pagination,
@@ -131,6 +142,11 @@ const OpportunitiesPage = () => {
     stats,
     importOpportunities,
     isImporting,
+    resetStagedOffers,
+    isResettingStagedOffers,
+    resetOpportunities,
+    isResettingOpportunities,
+    hasStagedOpportunities,
   } = useOpportunities();
 
   const handleSort = (field: string) => {
@@ -188,7 +204,9 @@ const OpportunitiesPage = () => {
     }
   };
 
-  const getStatusChip = (status: string) => {
+  const getStatusChip = (status: string | undefined) => {
+    if (!status) return null;
+
     switch (status) {
       case 'staged':
         return <Chip label="Staged" color="info" size="small" />;
@@ -237,6 +255,59 @@ const OpportunitiesPage = () => {
     stats.total > 0
       ? (((stats.approved + stats.rejected) / stats.total) * 100).toFixed(1)
       : '0';
+
+  const handleResetStaged = async () => {
+    try {
+      await resetStagedOffers();
+      setResetStagedDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to reset staged offers:', error);
+    }
+  };
+
+  const handleResetAll = async () => {
+    try {
+      await resetOpportunities();
+      setResetAllDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to reset opportunities:', error);
+    }
+  };
+
+  const ResetStagedDialog = () => (
+    <Dialog open={resetStagedDialogOpen} onClose={() => setResetStagedDialogOpen(false)}>
+      <DialogTitle>Reset Staged Offers</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Are you sure you want to reset all staged offers? This action cannot be undone.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setResetStagedDialogOpen(false)}>Cancel</Button>
+        <Button onClick={handleResetStaged} color="error" variant="contained">
+          Reset Staged
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  const ResetAllDialog = () => (
+    <Dialog open={resetAllDialogOpen} onClose={() => setResetAllDialogOpen(false)}>
+      <DialogTitle>Reset All Opportunities</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Are you sure you want to reset all opportunities? This will delete all approved
+          and rejected opportunities. This action cannot be undone.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setResetAllDialogOpen(false)}>Cancel</Button>
+        <Button onClick={handleResetAll} color="error" variant="contained">
+          Reset All
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
@@ -378,6 +449,7 @@ const OpportunitiesPage = () => {
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               spacing={2}
+              alignItems="center"
               sx={{ width: '100%' }}
             >
               <TextField
@@ -402,37 +474,78 @@ const OpportunitiesPage = () => {
                   },
                 }}
               />
+
               <Stack
-                direction={{ xs: 'column', sm: 'row' }}
+                direction="row"
                 spacing={1}
-                sx={{ minWidth: { xs: '100%', md: 'auto' } }}
+                sx={{
+                  minWidth: { xs: '100%', md: 'auto' },
+                  justifyContent: { xs: 'space-between', sm: 'flex-end' },
+                }}
               >
-                <IconButton
-                  color="primary"
-                  onClick={handleSync}
-                  disabled={isImporting}
-                  sx={{ borderRadius: 2 }}
-                  aria-label={isImporting ? 'Syncing...' : 'Sync Now'}
-                >
-                  <ImportIcon />
-                </IconButton>
-                <IconButton
-                  color="success"
-                  onClick={handleBulkApprove}
-                  disabled={
-                    isBulkApproving ||
-                    !opportunities.some(
-                      (opp) =>
-                        opp.isStaged &&
-                        opp.status !== 'approved' &&
-                        opp.status !== 'rejected'
-                    )
-                  }
-                  sx={{ borderRadius: 2 }}
-                  aria-label={isBulkApproving ? 'Approving All...' : 'Approve All'}
-                >
-                  <BulkApproveIcon />
-                </IconButton>
+                <Tooltip title="Import new opportunities" arrow placement="top">
+                  <span>
+                    <IconButton
+                      color="primary"
+                      onClick={handleSync}
+                      disabled={isImporting}
+                      sx={{ borderRadius: 2 }}
+                      aria-label={isImporting ? 'Syncing...' : 'Sync Now'}
+                    >
+                      <ImportIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
+                <Tooltip title="Approve all staged" arrow placement="top">
+                  <span>
+                    <IconButton
+                      color="success"
+                      onClick={handleBulkApprove}
+                      disabled={
+                        isBulkApproving ||
+                        !opportunities.some(
+                          (opp) =>
+                            opp.isStaged &&
+                            opp.status !== 'approved' &&
+                            opp.status !== 'rejected'
+                        )
+                      }
+                      sx={{ borderRadius: 2 }}
+                      aria-label={isBulkApproving ? 'Approving All...' : 'Approve All'}
+                    >
+                      <BulkApproveIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
+                <Tooltip title="Clear all staged" arrow placement="top">
+                  <span>
+                    <IconButton
+                      color="warning"
+                      onClick={() => setResetStagedDialogOpen(true)}
+                      disabled={isResettingStagedOffers || !hasStagedOpportunities}
+                      sx={{ borderRadius: 2 }}
+                      aria-label="Reset Staged"
+                    >
+                      <ResetIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
+                <Tooltip title="Delete all opportunities" arrow placement="top">
+                  <span>
+                    <IconButton
+                      color="error"
+                      onClick={() => setResetAllDialogOpen(true)}
+                      disabled={isResettingOpportunities || stats.total === 0}
+                      sx={{ borderRadius: 2 }}
+                      aria-label="Reset All"
+                    >
+                      <ResetAllIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               </Stack>
             </Stack>
           </Paper>
@@ -507,32 +620,44 @@ const OpportunitiesPage = () => {
                       </TableCell>
                       <TableCell>{getStatusChip(opportunity.status)}</TableCell>
                       <TableCell align="right">
-                        <IconButton
-                          onClick={() => handlePreview(opportunity)}
-                          color="primary"
-                        >
-                          <PreviewIcon />
-                        </IconButton>
-                        <IconButton
-                          color="success"
-                          onClick={() => handleApprove(opportunity)}
-                          disabled={
-                            opportunity.status === 'approved' ||
-                            opportunity.status === 'rejected'
-                          }
-                        >
-                          <ApproveIcon />
-                        </IconButton>
-                        <IconButton
-                          color="error"
-                          onClick={() => handleReject(opportunity)}
-                          disabled={
-                            opportunity.status === 'approved' ||
-                            opportunity.status === 'rejected'
-                          }
-                        >
-                          <RejectIcon />
-                        </IconButton>
+                        <Tooltip title="Preview opportunity details" arrow>
+                          <span>
+                            <IconButton
+                              onClick={() => handlePreview(opportunity)}
+                              color="primary"
+                            >
+                              <PreviewIcon />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title="Approve opportunity" arrow>
+                          <span>
+                            <IconButton
+                              color="success"
+                              onClick={() => handleApprove(opportunity)}
+                              disabled={
+                                opportunity.status === 'approved' ||
+                                opportunity.status === 'rejected'
+                              }
+                            >
+                              <ApproveIcon />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title="Reject opportunity" arrow>
+                          <span>
+                            <IconButton
+                              color="error"
+                              onClick={() => handleReject(opportunity)}
+                              disabled={
+                                opportunity.status === 'approved' ||
+                                opportunity.status === 'rejected'
+                              }
+                            >
+                              <RejectIcon />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -564,6 +689,9 @@ const OpportunitiesPage = () => {
           onReject={() => handleReject(selectedOpportunity)}
         />
       )}
+
+      <ResetStagedDialog />
+      <ResetAllDialog />
     </Container>
   );
 };

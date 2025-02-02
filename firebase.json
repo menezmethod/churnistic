@@ -1,7 +1,8 @@
 {
   "firestore": {
     "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
+    "indexes": "firestore.indexes.json",
+    "rules.local": "firestore.rules.local"
   },
   "storage": {
     "rules": "storage.rules"
@@ -21,7 +22,8 @@
     },
     "firestore": {
       "port": 8080,
-      "host": "localhost"
+      "host": "localhost",
+      "rules": "firestore.rules.local"
     },
     "storage": {
       "port": 9199,
