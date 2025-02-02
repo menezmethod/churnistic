@@ -62,12 +62,11 @@ export interface Availability {
 
 export interface RewardsStructure {
   base_rewards: string;
-  bonus_categories?: Array<{
+  bonus_categories: Array<{
     category: string;
     rate: string;
-    limit?: string;
   }>;
-  welcome_bonus?: string;
+  welcome_bonus: string;
   card_perks?: string;
   cash_back?: string;
   points_multiplier?: string;
@@ -92,10 +91,10 @@ export interface Details {
   chex_systems: string | null;
   options_trading: string | null;
   ira_accounts: string | null;
-  minimum_deposit?: string | null;
-  holding_period?: string | null;
-  trading_requirements?: string | null;
-  platform_features?: Array<{
+  minimum_deposit: string | null;
+  holding_period: string | null;
+  trading_requirements: string | null;
+  platform_features: Array<{
     name: string;
     description: string;
   }> | null;
@@ -232,9 +231,8 @@ export interface BankRewardsOffer {
       bonus_categories: Array<{
         category: string;
         rate: string;
-        limit?: string;
       }>;
-      welcome_bonus?: string;
+      welcome_bonus: string;
       card_perks?: string;
       cash_back?: string;
       points_multiplier?: string;

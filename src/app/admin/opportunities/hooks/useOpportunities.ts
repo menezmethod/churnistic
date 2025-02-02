@@ -293,7 +293,10 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
 
 const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
   // Use our proxy endpoint instead of calling the BankRewards API directly
-  const response = await fetch('/api/proxy/bankrewards?format=detailed');
+  const response = await fetch('/api/opportunities/bankrewards', {
+    method: 'GET',
+    credentials: 'include',
+  });
   if (!response.ok) throw new Error('Failed to fetch from BankRewards API');
   const data = await response.json();
   return data as BankRewardsResponse;
