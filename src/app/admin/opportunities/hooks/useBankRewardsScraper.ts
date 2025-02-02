@@ -35,9 +35,21 @@ export const useBankRewardsScraper = () => {
   const { refetch: refetchStats } = useQuery({
     queryKey: ['bankRewards', 'stats'],
     queryFn: async () => {
-      const response = await fetch('/api/bankrewards/collect', { method: 'GET' });
+      const baseUrl = process.env.NEXT_PUBLIC_BANKREWARDS_SCRAPER_URL;
+      if (!baseUrl) {
+        throw new Error('BankRewards scraper URL is not configured');
+      }
+
+      console.log(
+        '🔍 Scraper - Fetching stats from:',
+        `${baseUrl}/api/bankrewards/collect`
+      );
+      const response = await fetch(`${baseUrl}/api/bankrewards/collect`, {
+        method: 'GET',
+      });
       if (!response.ok) throw new Error('Failed to get scraper stats');
       const data = await response.json();
+      console.log('📊 Scraper - Stats response:', data);
       return data.stats;
     },
     enabled: false,
@@ -51,12 +63,24 @@ export const useBankRewardsScraper = () => {
       setError(null);
       setProgress(0);
 
-      const response = await fetch('/api/bankrewards/collect', { method: 'POST' });
+      const baseUrl = process.env.NEXT_PUBLIC_BANKREWARDS_SCRAPER_URL;
+      if (!baseUrl) {
+        throw new Error('BankRewards scraper URL is not configured');
+      }
+
+      console.log(
+        '🚀 Scraper - Starting scraper at:',
+        `${baseUrl}/api/bankrewards/collect`
+      );
+      const response = await fetch(`${baseUrl}/api/bankrewards/collect`, {
+        method: 'POST',
+      });
       if (!response.ok) {
         throw new Error('Failed to start scraper');
       }
 
       const result = await response.json();
+      console.log('📦 Scraper - Start response:', result);
       if (!result.success) {
         throw new Error(result.error || 'Failed to start scraper');
       }
@@ -73,7 +97,16 @@ export const useBankRewardsScraper = () => {
 
       pollInterval.current = setInterval(async () => {
         try {
-          const statusResponse = await fetch('/api/bankrewards/collect', {
+          const baseUrl = process.env.NEXT_PUBLIC_BANKREWARDS_SCRAPER_URL;
+          if (!baseUrl) {
+            throw new Error('BankRewards scraper URL is not configured');
+          }
+
+          console.log(
+            '🔄 Scraper - Polling status from:',
+            `${baseUrl}/api/bankrewards/collect`
+          );
+          const statusResponse = await fetch(`${baseUrl}/api/bankrewards/collect`, {
             method: 'GET',
           });
           if (!statusResponse.ok) {
@@ -81,6 +114,7 @@ export const useBankRewardsScraper = () => {
           }
 
           const statusResult = await statusResponse.json();
+          console.log('📊 Scraper - Poll response:', statusResult);
 
           if (statusResult.status === 'completed') {
             cleanup();
@@ -117,8 +151,13 @@ export const useBankRewardsScraper = () => {
     try {
       setStatus('stopping');
 
+      const baseUrl = process.env.NEXT_PUBLIC_BANKREWARDS_SCRAPER_URL;
+      if (!baseUrl) {
+        throw new Error('BankRewards scraper URL is not configured');
+      }
+
       // Call the stop endpoint
-      const response = await fetch('/api/bankrewards/collect', {
+      const response = await fetch(`${baseUrl}/api/bankrewards/collect`, {
         method: 'DELETE',
       });
 
@@ -138,7 +177,12 @@ export const useBankRewardsScraper = () => {
   const syncWithFirestore = async () => {
     try {
       setStatus('syncing');
-      const response = await fetch('/api/bankrewards/sync', { method: 'POST' });
+      const baseUrl = process.env.NEXT_PUBLIC_BANKREWARDS_SCRAPER_URL;
+      if (!baseUrl) {
+        throw new Error('BankRewards scraper URL is not configured');
+      }
+
+      const response = await fetch(`${baseUrl}/api/bankrewards/sync`, { method: 'POST' });
       if (!response.ok) throw new Error('Sync failed');
 
       // Update stats after sync

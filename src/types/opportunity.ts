@@ -159,6 +159,15 @@ export interface FirestoreOpportunity {
       name: string;
       description: string;
     }>;
+    minimum_deposit?: string;
+    holding_period?: string;
+    trading_requirements?: string;
+  };
+  rewards?: {
+    card_perks: string | null;
+    cash_back: string | null;
+    points_multiplier: string | null;
+    statement_credits: string | null;
   };
   logo?: {
     type?: 'icon' | 'url';
@@ -241,6 +250,9 @@ export interface Details {
     name: string;
     description: string;
   }> | null;
+  minimum_deposit?: string | null;
+  holding_period?: string | null;
+  trading_requirements?: string | null;
 }
 
 export interface Bonus {
@@ -327,6 +339,15 @@ export interface Opportunity {
       name: string;
       description: string;
     }>;
+    minimum_deposit?: string;
+    holding_period?: string;
+    trading_requirements?: string;
+  };
+  rewards?: {
+    card_perks: string | null;
+    cash_back: string | null;
+    points_multiplier: string | null;
+    statement_credits: string | null;
   };
   logo?: {
     type?: 'icon' | 'url';

@@ -2,7 +2,6 @@ export type { UserRole } from './auth';
 export type { Permission, User, CustomClaims } from './auth';
 export * from './firebase';
 export * from './roles';
-export * from './scraper';
 export * from './server-actions';
 export * from './session';
 export * from './user';
