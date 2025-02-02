@@ -15,11 +15,12 @@ export interface PublicOpportunity {
 
 async function fetchPublicOpportunities(): Promise<PublicOpportunity[]> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-  const response = await fetch(`${baseUrl}/api/opportunities/public`);
+  const response = await fetch(`${baseUrl}/api/opportunities/stats`);
   if (!response.ok) {
     throw new Error('Failed to fetch public opportunities');
   }
-  return response.json();
+  const data = await response.json();
+  return data.opportunities || [];
 }
 
 export function usePublicOpportunities() {

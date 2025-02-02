@@ -11,21 +11,28 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useInView } from 'react-intersection-observer';
 
-import { useDashboardData } from '@/app/dashboard/hooks/useDashboardData';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 import { BankLogos } from './components/BankLogos';
 import { FAQ } from './components/FAQ';
 import { FeaturedOpportunities } from './components/FeaturedOpportunities';
-import { useSplashStats } from '../lib/hooks/useSplashStats';
 
 // Replace the User interface with the actual AuthUser type from your auth context
 type AuthUser = ReturnType<typeof useAuth>['user'];
+
+// Pre-generate random values for animations
+const circles = Array.from({ length: 10 }, (_, i) => ({
+  width: 100 + i * 20,
+  height: 100 + i * 20,
+  left: `${(i * 10) % 100}%`,
+  top: `${(i * 10 + 5) % 100}%`,
+}));
 
 function HeroSection({
   user,
@@ -69,15 +76,15 @@ function HeroSection({
             transparent 60%)`,
         }}
       >
-        {[...Array(10)].map((_, i) => (
+        {circles.map((circle, i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0, scale: 0 }}
             animate={{
               opacity: [0.1, 0.3, 0.1],
               scale: [1, 1.5, 1],
-              x: [0, Math.random() * 200 - 100],
-              y: [0, Math.random() * 200 - 100],
+              x: [0, 50, 0],
+              y: [0, 50, 0],
               rotate: [0, 360],
             }}
             transition={{
@@ -87,14 +94,14 @@ function HeroSection({
             }}
             style={{
               position: 'absolute',
-              width: `${Math.random() * 200 + 100}px`,
-              height: `${Math.random() * 200 + 100}px`,
+              width: circle.width,
+              height: circle.height,
               borderRadius: '50%',
               background: `radial-gradient(circle, 
                 ${alpha(theme.palette.primary.light, 0.2)} 0%, 
                 transparent 70%)`,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
+              left: circle.left,
+              top: circle.top,
             }}
           />
         ))}
@@ -289,45 +296,47 @@ function HeroSection({
 export default function HomePage() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { stats: query, error: dashboardError } = useDashboardData();
-  const { stats: splashStats, error: splashError } = useSplashStats();
+  const { data: stats, error } = useQuery({
+    queryKey: ['stats'],
+    queryFn: async () => {
+      const response = await fetch('/api/opportunities/stats');
+      if (!response.ok) {
+        throw new Error('Failed to fetch stats');
+      }
+      return response.json();
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 
   // Add error state
-  const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (dashboardError || splashError) {
-      setError('Failed to load statistics. Please try again later.');
+    if (error) {
+      setErrorMessage('Failed to load statistics. Please try again later.');
     }
-  }, [dashboardError, splashError]);
+  }, [error]);
 
-  // Use appropriate stats based on user authentication
-  const displayStats =
-    user && query
-      ? [
-          {
-            label: 'POTENTIAL BONUS EARNINGS',
-            value: query.potentialValue || '$0',
-          },
-          {
-            label: 'BONUSES AVAILABLE',
-            value: `${query.activeOpportunities || 0}+`,
-          },
-          {
-            label: 'AVERAGE BONUS VALUE',
-            value: query.averageValue || '$0',
-          },
-        ]
-      : splashStats?.map((stat) => ({
-          label: stat.label,
-          value: stat.value || (stat.label.includes('BONUSES') ? '0+' : '$0'),
-        })) || [];
+  const displayStats = [
+    {
+      label: 'POTENTIAL BONUS EARNINGS',
+      value: stats?.totalPotentialValue || '$0',
+    },
+    {
+      label: 'BONUSES AVAILABLE',
+      value: `${stats?.activeCount || 0}+`,
+    },
+    {
+      label: 'AVERAGE BONUS VALUE',
+      value: stats?.averageValue || '$0',
+    },
+  ];
 
   return (
     <Box component="main">
-      {error && (
+      {errorMessage && (
         <Box sx={{ p: 3, bgcolor: 'error.light', color: 'error.contrastText' }}>
-          <Typography>{error}</Typography>
+          <Typography>{errorMessage}</Typography>
         </Box>
       )}
 
