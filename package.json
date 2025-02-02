@@ -51,6 +51,7 @@
     "acorn": "^8.14.0",
     "caniuse-lite": "^1.0.30001695",
     "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
     "critters": "^0.0.20",
     "date-fns": "3.6.0",
     "firebase": "^10.14.1",

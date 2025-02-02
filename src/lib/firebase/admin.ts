@@ -15,9 +15,7 @@ let adminDb: Firestore | undefined;
 
 function getAdminConfig(): AppOptions {
   const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-  const projectId = useEmulators
-    ? 'demo-churnistic-local'
-    : process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic';
 
   if (!projectId) {
     throw new Error('Firebase Project ID is not set in environment variables');
@@ -26,6 +24,8 @@ function getAdminConfig(): AppOptions {
   // In emulator mode, we don't need real credentials
   if (useEmulators) {
     console.log('🔧 Initializing Admin App in Emulator mode');
+    process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+    process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
     return {
       projectId,
     };
@@ -64,12 +64,20 @@ export function initializeAdminDb(): Firestore {
 
     if (!adminDb) {
       adminDb = getFirestore(adminApp);
-      adminDb.settings({
-        ignoreUndefinedProperties: true,
-        preferRest: process.env.NODE_ENV === 'production', // Better for Vercel
-      });
-      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-        console.log('📚 Connecting Admin to Firestore Emulator at: localhost:8080');
+      const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+
+      if (useEmulators) {
+        adminDb.settings({
+          ignoreUndefinedProperties: true,
+          host: 'localhost:8080',
+          ssl: false,
+        });
+        console.log('📚 Connected Admin to Firestore Emulator at: localhost:8080');
+      } else {
+        adminDb.settings({
+          ignoreUndefinedProperties: true,
+          preferRest: process.env.NODE_ENV === 'production',
+        });
       }
     }
 

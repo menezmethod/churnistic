@@ -12,7 +12,6 @@ import {
   startAfter,
   where,
   deleteDoc,
-  setDoc,
   DocumentData,
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
@@ -20,121 +19,14 @@ import { useEffect, useState } from 'react';
 
 import { db } from '@/lib/firebase/config';
 
-import { Opportunity, Requirement, RequirementType } from '../types/opportunity';
-
-interface BankRewardsOffer {
-  id: string;
-  name: string;
-  type: 'bank' | 'credit_card' | 'brokerage';
-  value: number;
-  bonus: {
-    title: string;
-    description: string;
-    requirements: {
-      title: string;
-      description: string;
-      spending_requirement?: {
-        amount: number;
-        timeframe: string;
-      };
-      minimum_deposit?: number;
-    };
-    tiers?: {
-      reward: string;
-      deposit: string;
-      level?: string;
-      value?: number;
-      minimum_deposit?: number;
-      requirements?: string;
-    }[];
-    additional_info?: string;
-  };
-  details: {
-    monthly_fees?: {
-      amount: string;
-      waiver_details?: string;
-    };
-    annual_fees?: {
-      amount: string;
-      waived_first_year: boolean;
-    };
-    account_type?: string;
-    account_category?: string;
-    availability?: {
-      type: string;
-      states?: string[];
-      is_nationwide?: boolean;
-    };
-    credit_inquiry?: string;
-    expiration?: string;
-    credit_score?: string;
-    under_5_24?: boolean;
-    foreign_transaction_fees?: {
-      percentage: string;
-      waived: boolean;
-    };
-    minimum_credit_limit?: string;
-    rewards_structure?: {
-      base_rewards?: string;
-      bonus_categories?: {
-        category: string;
-        rate: string;
-      }[];
-      welcome_bonus?: string;
-    };
-    household_limit?: string;
-    early_closure_fee?: string;
-    chex_systems?: string;
-    options_trading?: string;
-    ira_accounts?: string;
-  };
-  metadata?: {
-    created_at?: string;
-    updated_at?: string;
-    created_by?: string;
-    updated_by?: string;
-    status?: string;
-    timing?: {
-      bonus_posting_time: string;
-    };
-    availability?: {
-      is_nationwide: boolean;
-      regions?: string[];
-    };
-    credit?: {
-      inquiry: string;
-    };
-    source?: {
-      original_id: string;
-      name?: string;
-    };
-  };
-  logo: {
-    type: string;
-    url: string;
-  };
-  card_image?: {
-    url: string;
-    network?: string;
-    color?: string;
-    badge?: string;
-  };
-  offer_link: string;
-  description?: string;
-  isNew?: boolean;
-  expirationDate?: string;
-}
-
-interface BankRewardsResponse {
-  data: {
-    stats: {
-      total: number;
-      active: number;
-      expired: number;
-    };
-    offers: BankRewardsOffer[];
-  };
-}
+import {
+  Details,
+  Opportunity,
+  Requirement,
+  RequirementType,
+  BankRewardsOffer,
+  BankRewardsResponse,
+} from '../types/opportunity';
 
 interface PaginationState {
   page: number;
@@ -170,130 +62,130 @@ interface DebitTransactionRequirement extends BaseRequirement {
   details: { amount: number; period: number; count: number };
 }
 
+const parseRequirements = (
+  description: string = '',
+  type: 'bank' | 'credit_card' | 'brokerage',
+  offerDetails: BankRewardsOffer['details']
+): Requirement[] => {
+  const requirements: Requirement[] = [];
+
+  // Minimum deposit requirement
+  if (offerDetails?.minimum_deposit) {
+    const amount = parseFloat(offerDetails.minimum_deposit.replace(/[^0-9.]/g, ''));
+    requirements.push({
+      type: 'minimum_deposit' as RequirementType,
+      details: { amount, period: 0 },
+      description: `Maintain a minimum deposit of $${amount.toLocaleString()}`,
+      title: 'Minimum Deposit Requirement',
+    });
+  }
+
+  // Spending requirement pattern
+  const spendMatch = description.match(
+    /spend\s*\$?(\d+[,\d]*)\s*(?:in|within)?\s*(\d+)\s*(month|months|day|days)/i
+  );
+  if (spendMatch && type === 'credit_card') {
+    const amount = parseInt(spendMatch[1].replace(/,/g, ''));
+    const period =
+      parseInt(spendMatch[2]) *
+      (spendMatch[3].toLowerCase().startsWith('month') ? 30 : 1);
+    requirements.push({
+      type: 'spending' as RequirementType,
+      details: { amount, period },
+      description: `Spend $${amount.toLocaleString()} within ${period} days`,
+      title: 'Spending Requirement',
+    });
+  }
+
+  // Direct deposit pattern
+  const ddMatch = description.match(
+    /(?:direct )?deposit\s*(?:of)?\s*\$?(\d+[,\d]*(?:\.\d+)?)/i
+  );
+  if (ddMatch && type === 'bank') {
+    const amount = parseFloat(ddMatch[1].replace(/,/g, ''));
+    requirements.push({
+      type: 'direct_deposit' as RequirementType,
+      details: { amount, period: 60 }, // Default to 60 days if not specified
+      description: `Make a direct deposit of $${amount.toLocaleString()}`,
+      title: 'Direct Deposit Requirement',
+    });
+  }
+
+  // Debit transactions requirement
+  const debitMatch = description.match(/(\d+)\s*(?:debit|purchase|transaction)/i);
+  if (debitMatch && type === 'bank') {
+    const count = parseInt(debitMatch[1]);
+    requirements.push({
+      type: 'debit_transactions' as RequirementType,
+      details: { amount: 0, period: 60, count }, // Default to 60 days
+      description: `Make ${count} debit card transactions`,
+      title: 'Debit Card Requirement',
+    });
+  }
+
+  // Account closure requirement
+  const closureMatch = description.match(
+    /(?:not|don't|do not)\s*close.*?(\d+)\s*(day|days)/i
+  );
+  if (closureMatch) {
+    const period = parseInt(closureMatch[1]);
+    requirements.push({
+      type: 'account_closure' as RequirementType,
+      details: { amount: 0, period },
+      description: `Keep account open for ${period} days`,
+      title: 'Account Duration Requirement',
+    });
+  }
+
+  // If no specific requirements found but we have a description
+  if (requirements.length === 0 && description.trim()) {
+    // Default requirement based on type
+    const defaultReq: Requirement = {
+      type: (type === 'credit_card'
+        ? 'spending'
+        : type === 'bank'
+          ? 'direct_deposit'
+          : 'deposit') as RequirementType,
+      details: {
+        amount: 0,
+        period: 60,
+      },
+      description: description.trim(),
+      title: 'Bonus Requirements',
+    };
+    requirements.push(defaultReq);
+  }
+
+  return requirements;
+};
+
 const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   const bank = offer.name?.split(' ')?.[0] || offer.name || '';
-
-  // Parse requirements from description
-  const parseRequirements = (
-    description: string = '',
-    type: 'bank' | 'credit_card' | 'brokerage'
-  ): Requirement[] => {
-    const requirements: Requirement[] = [];
-
-    // Spending requirement pattern
-    const spendMatch = description.match(
-      /spend\s*\$?(\d+[,\d]*)\s*(?:in|within)?\s*(\d+)\s*(month|months|day|days)/i
-    );
-    if (spendMatch && type === 'credit_card') {
-      const amount = parseInt(spendMatch[1].replace(/,/g, ''));
-      const period =
-        parseInt(spendMatch[2]) *
-        (spendMatch[3].toLowerCase().startsWith('month') ? 30 : 1);
-      requirements.push({
-        type: 'spending' as RequirementType,
-        details: { amount, period },
-        description: `Spend $${amount.toLocaleString()} within ${period} days`,
-        title: 'Spending Requirement',
-      });
-    }
-
-    // Direct deposit pattern
-    const ddMatch = description.match(
-      /(?:direct )?deposit\s*(?:of)?\s*\$?(\d+[,\d]*(?:\.\d+)?)/i
-    );
-    if (ddMatch && type === 'bank') {
-      const amount = parseFloat(ddMatch[1].replace(/,/g, ''));
-      requirements.push({
-        type: 'direct_deposit' as RequirementType,
-        details: { amount, period: 60 }, // Default to 60 days if not specified
-        description: `Make a direct deposit of $${amount.toLocaleString()}`,
-        title: 'Direct Deposit Requirement',
-      });
-    }
-
-    // Deposit and hold pattern
-    const depositHoldMatch = description.match(
-      /\$?(\d+[,\d]*(?:\.\d+)?)\s*deposit.*?(?:held|hold|maintain).*?(\d+)\s*(day|days)/i
-    );
-    if (depositHoldMatch && (type === 'bank' || type === 'brokerage')) {
-      const amount = parseFloat(depositHoldMatch[1].replace(/,/g, ''));
-      const holdPeriod = parseInt(depositHoldMatch[2]);
-      requirements.push({
-        type: 'deposit' as RequirementType,
-        details: {
-          amount,
-          period: 30, // Default deposit period
-          hold_period: holdPeriod,
-        },
-        description: `Deposit $${amount.toLocaleString()} and maintain for ${holdPeriod} days`,
-        title: 'Deposit Requirement',
-      });
-    }
-
-    // Account closure requirement
-    const closureMatch = description.match(
-      /(?:not|don't|do not)\s*close.*?(\d+)\s*(day|days)/i
-    );
-    if (closureMatch) {
-      const period = parseInt(closureMatch[1]);
-      requirements.push({
-        type: 'account_closure' as RequirementType,
-        details: { amount: 0, period },
-        description: `Keep account open for ${period} days`,
-        title: 'Account Duration Requirement',
-      });
-    }
-
-    // If no specific requirements found but we have a description
-    if (requirements.length === 0 && description.trim()) {
-      // Default requirement based on type
-      const defaultReq: Requirement = {
-        type: (type === 'credit_card'
-          ? 'spending'
-          : type === 'bank'
-            ? 'direct_deposit'
-            : 'deposit') as RequirementType,
-        details: {
-          amount: offer.value || 0,
-          period: 60,
-        },
-        description: description.trim(),
-        title: 'Bonus Requirements',
-      };
-      requirements.push(defaultReq);
-    }
-
-    return requirements;
-  };
-
-  // Transform requirements based on offer type and description
-  const requirements = offer.bonus?.requirements?.description
-    ? parseRequirements(offer.bonus.requirements.description, offer.type)
-    : [];
-
-  // Transform bonus tiers with proper null handling
-  const tiers =
-    offer.bonus?.tiers?.map((tier) => ({
-      reward: tier.reward || '',
-      deposit: tier.deposit || '',
-      level: tier.level || null,
-      value: tier.value ?? null,
-      minimum_deposit: tier.minimum_deposit ?? null,
-      requirements: tier.requirements || null,
-    })) || [];
 
   // Transform bonus
   const bonus = {
     title: offer.bonus?.title || '',
     value: offer.value || 0,
     description: offer.bonus?.description || '',
-    requirements,
-    tiers: tiers.length > 0 ? tiers : null,
+    requirements: parseRequirements(
+      offer.bonus?.requirements?.description,
+      offer.type,
+      offer.details
+    ),
+    tiers:
+      offer.bonus?.tiers?.map((tier) => ({
+        reward: tier.reward || '',
+        deposit: tier.deposit || '',
+        level: tier.level || null,
+        value: tier.value ?? null,
+        minimum_deposit: tier.minimum_deposit ?? null,
+        requirements: tier.requirements || null,
+      })) || null,
     additional_info: offer.bonus?.additional_info || null,
   };
 
-  // Transform details
-  const details = {
+  // Transform details with all possible fields
+  const details: Details = {
     monthly_fees: offer.details?.monthly_fees
       ? {
           amount: offer.details.monthly_fees.amount || '0',
@@ -311,17 +203,15 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     availability: offer.details?.availability
       ? {
           type: offer.details.availability.type || 'Nationwide',
-          states: offer.details.availability.states || [],
+          states: offer.details.availability.states || null,
           is_nationwide: offer.details.availability.is_nationwide ?? true,
+          details: offer.details.availability.details || null,
         }
       : null,
     credit_inquiry: offer.details?.credit_inquiry || null,
     expiration: offer.details?.expiration || null,
     credit_score: offer.details?.credit_score || null,
-    under_5_24:
-      offer.type === 'credit_card' && typeof offer.details?.under_5_24 === 'boolean'
-        ? offer.details.under_5_24
-        : null,
+    under_5_24: offer.details?.under_5_24 ?? null,
     foreign_transaction_fees: offer.details?.foreign_transaction_fees
       ? {
           percentage: offer.details.foreign_transaction_fees.percentage || '0',
@@ -334,6 +224,10 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
           base_rewards: offer.details.rewards_structure.base_rewards || '',
           bonus_categories: offer.details.rewards_structure.bonus_categories || [],
           welcome_bonus: offer.details.rewards_structure.welcome_bonus || '',
+          card_perks: offer.details.rewards_structure.card_perks,
+          cash_back: offer.details.rewards_structure.cash_back,
+          points_multiplier: offer.details.rewards_structure.points_multiplier,
+          statement_credits: offer.details.rewards_structure.statement_credits,
         }
       : null,
     household_limit: offer.details?.household_limit || null,
@@ -341,16 +235,10 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     chex_systems: offer.details?.chex_systems || null,
     options_trading: offer.details?.options_trading || null,
     ira_accounts: offer.details?.ira_accounts || null,
-  };
-
-  // Transform source metadata
-  const source = {
-    name: offer.metadata?.source?.name || 'bankrewards.io',
-    collected_at: new Date().toISOString(),
-    original_id: offer.metadata?.source?.original_id || offer.id,
-    timing: offer.metadata?.timing || null,
-    availability: offer.metadata?.availability || null,
-    credit: offer.metadata?.credit || null,
+    minimum_deposit: offer.details?.minimum_deposit || null,
+    holding_period: offer.details?.holding_period || null,
+    trading_requirements: offer.details?.trading_requirements || null,
+    platform_features: offer.details?.platform_features || null,
   };
 
   return {
@@ -365,10 +253,17 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
       updated_at: offer.metadata?.updated_at || new Date().toISOString(),
       created_by: offer.metadata?.created_by || '',
       updated_by: offer.metadata?.updated_by || '',
-      status: offer.metadata?.status || 'active',
+      status: (offer.metadata?.status || 'active') as 'active' | 'expired' | 'staged',
       environment: process.env.NODE_ENV || 'development',
     },
-    source,
+    source: {
+      name: offer.metadata?.source?.name || 'bankrewards.io',
+      collected_at: new Date().toISOString(),
+      original_id: offer.metadata?.source?.original_id || offer.id,
+      timing: offer.metadata?.timing || null,
+      availability: offer.metadata?.availability || null,
+      credit: offer.metadata?.credit || null,
+    },
     source_id: offer.metadata?.source?.original_id || offer.id,
     bonus,
     details,
@@ -396,39 +291,11 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
 };
 
 const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
-  // Determine the base URL dynamically
-  const baseUrl = (() => {
-    // Check if we're in a browser environment
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-
-      // Check for production domain
-      if (hostname === 'churnistic.com' || hostname === 'www.churnistic.com') {
-        return 'https://churnistic.com';
-      }
-
-      // Check for Vercel preview deployment
-      if (hostname.includes('vercel.app')) {
-        return `https://${hostname}`;
-      }
-
-      // If running on localhost or other development domain
-      return `${window.location.protocol}//${hostname}${window.location.port ? `:${window.location.port}` : ''}`;
-    }
-
-    // Server-side fallback (during SSR)
-    const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
-    if (vercelUrl) {
-      return `https://${vercelUrl}`;
-    }
-
-    // Default fallback for development
-    return 'http://localhost:3000';
-  })();
-
-  // Then fetch the results
-  const apiUrl = `${baseUrl}/api/bankrewards?format=detailed`;
-  const response = await fetch(apiUrl);
+  // Use our proxy endpoint instead of calling the BankRewards API directly
+  const response = await fetch('/api/opportunities/bankrewards', {
+    method: 'GET',
+    credentials: 'include',
+  });
   if (!response.ok) throw new Error('Failed to fetch from BankRewards API');
   const data = await response.json();
   return data as BankRewardsResponse;
@@ -490,13 +357,22 @@ const fetchPaginatedOpportunities = async (
 const fetchStagedOpportunities = async (): Promise<
   (Opportunity & { isStaged: boolean })[]
 > => {
-  const snapshot = await getDocs(collection(db, 'staged_offers'));
-  return snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-    ...doc.data(),
-    id: doc.id,
-    status: 'staged' as const,
-    isStaged: true,
-  })) as (Opportunity & { isStaged: boolean })[];
+  console.log('Fetching staged opportunities...');
+  try {
+    const response = await fetch('/api/opportunities/staged');
+    if (!response.ok) {
+      throw new Error('Failed to fetch staged opportunities');
+    }
+    const data = await response.json();
+    return data.opportunities.map((doc: Omit<Opportunity, 'status' | 'isStaged'>) => ({
+      ...doc,
+      status: 'staged' as const,
+      isStaged: true,
+    }));
+  } catch (error) {
+    console.error('Error fetching staged opportunities:', error);
+    throw error;
+  }
 };
 
 export function useOpportunities() {
@@ -556,28 +432,11 @@ export function useOpportunities() {
   const { data: totalStats } = useQuery({
     queryKey: ['opportunities', 'stats'],
     queryFn: async () => {
-      const snapshot = await getDocs(collection(db, 'opportunities'));
-      const opportunities = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Opportunity[];
-
-      const totalValue = opportunities.reduce((sum, opp) => sum + opp.value, 0);
-
-      return {
-        total: opportunities.length,
-        pending: opportunities.filter((opp) => opp.status === 'pending').length,
-        approved: opportunities.filter((opp) => opp.status === 'approved').length,
-        rejected: opportunities.filter((opp) => opp.status === 'rejected').length,
-        avgValue:
-          opportunities.length > 0 ? Math.round(totalValue / opportunities.length) : 0,
-        highValue: opportunities.filter((opp) => opp.value >= 500).length,
-        byType: {
-          bank: opportunities.filter((opp) => opp.type === 'bank').length,
-          credit_card: opportunities.filter((opp) => opp.type === 'credit_card').length,
-          brokerage: opportunities.filter((opp) => opp.type === 'brokerage').length,
-        },
-      };
+      const response = await fetch('/api/opportunities/stats');
+      if (!response.ok) {
+        throw new Error('Failed to fetch stats');
+      }
+      return response.json();
     },
   });
 
@@ -595,67 +454,39 @@ export function useOpportunities() {
       const response = await fetchBankRewardsOffers();
       console.log('Fetched offers:', response.data.offers.length);
 
-      const batch = writeBatch(db);
-
       // Transform offers
       const newOffers = response.data.offers.map(transformBankRewardsOffer);
       console.log('Transformed offers:', newOffers.length);
 
-      // Get existing staged offers to check for duplicates
-      const [stagedSnapshot, approvedSnapshot] = await Promise.all([
-        getDocs(collection(db, 'staged_offers')),
-        getDocs(collection(db, 'opportunities')),
-      ]);
+      // Send to API endpoint
+      const importResponse = await fetch('/api/opportunities/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ offers: newOffers }),
+        credentials: 'include', // Include credentials for authentication
+      });
 
-      console.log('Current staged offers:', stagedSnapshot.size);
-      console.log('Current approved offers:', approvedSnapshot.size);
-
-      // Track both staged and approved offers by source_id
-      const existingSourceIds = new Set([
-        ...stagedSnapshot.docs.map((doc) => doc.data().source_id),
-        ...approvedSnapshot.docs.map((doc) => doc.data().source_id),
-      ]);
-
-      console.log('Existing source IDs:', existingSourceIds.size);
-
-      let addedCount = 0;
-      let skippedCount = 0;
-
-      for (const offer of newOffers) {
-        // Skip if already staged or previously approved
-        if (existingSourceIds.has(offer.source_id)) {
-          skippedCount++;
-          continue;
-        }
-
-        // Use source_id as document ID to prevent duplicates
-        const docRef = doc(collection(db, 'staged_offers'), offer.source_id);
-        batch.set(docRef, offer);
-        addedCount++;
+      if (!importResponse.ok) {
+        const error = await importResponse.json();
+        console.error('Import error:', error);
+        throw new Error(error.details || error.error || 'Failed to import opportunities');
       }
 
-      console.log(`Import summary:
-        Total offers: ${newOffers.length}
-        Added: ${addedCount}
-        Skipped: ${skippedCount}
-      `);
+      const result = await importResponse.json();
+      console.log('Import result:', result);
 
-      if (addedCount > 0) {
-        await batch.commit();
-        console.log('Batch commit successful');
-      } else {
-        console.log('No new offers to commit');
-      }
-
-      return addedCount;
+      return result.addedCount;
     },
     onSuccess: (count) => {
       console.log(`Import completed successfully. Added ${count} new offers.`);
       queryClient.invalidateQueries(['staged_offers']);
       queryClient.invalidateQueries(['opportunities', 'stats']);
     },
-    onError: (error) => {
-      console.error('Import failed:', error);
+    onError: (error: Error) => {
+      console.error('Import error:', error);
+      // You can handle the error here, e.g., show a toast notification
     },
   });
 
@@ -670,23 +501,23 @@ export function useOpportunities() {
           throw new Error('No authenticated user found');
         }
 
-        // First, add to opportunities collection to ensure the ID exists
-        const approvedOpportunity = {
-          ...opportunityData,
-          status: 'approved' as const,
-          updatedAt: new Date().toISOString(),
-          metadata: {
-            ...(opportunityData.metadata || {}),
-            created_by: user.email,
-            updated_by: user.email,
-            updated_at: new Date().toISOString(),
-            status: 'active',
+        // Send to server-side API endpoint for Firebase operations
+        const approveResponse = await fetch('/api/opportunities/approve', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        };
+          body: JSON.stringify(opportunityData),
+        });
 
-        await setDoc(doc(db, 'opportunities', opportunityData.id), approvedOpportunity);
+        if (!approveResponse.ok) {
+          const errorData = await approveResponse.json();
+          throw new Error(
+            errorData.details || errorData.error || 'Failed to approve opportunity'
+          );
+        }
 
-        // Transform to match API structure
+        // Transform to match API structure for the external API
         const formData = {
           id: opportunityData.id,
           name: opportunityData.name,
@@ -785,7 +616,7 @@ export function useOpportunities() {
 
         console.log('Sending to API:', JSON.stringify(formData, null, 2));
 
-        // Create API endpoint entry
+        // Create external API endpoint entry
         const response = await fetch('/api/opportunities', {
           method: 'POST',
           headers: {
@@ -794,7 +625,6 @@ export function useOpportunities() {
           body: JSON.stringify(formData),
         });
 
-        let errorMessage = 'Failed to create API endpoint entry';
         if (!response.ok) {
           const responseText = await response.text();
           console.error('API Error Response Text:', responseText);
@@ -803,20 +633,23 @@ export function useOpportunities() {
           try {
             errorData = JSON.parse(responseText);
             console.error('API Error Response:', errorData);
-            errorMessage = errorData.details || errorData.error || errorMessage;
+            throw new Error(
+              errorData.details ||
+                errorData.error ||
+                'Failed to create API endpoint entry'
+            );
           } catch (parseError) {
             console.error('Error parsing API response:', parseError);
-            errorMessage = `${errorMessage}: ${response.statusText} - ${responseText}`;
+            throw new Error(
+              `Failed to create API endpoint entry: ${response.statusText} - ${responseText}`
+            );
           }
-          throw new Error(errorMessage);
         }
 
         const apiResponse = await response.json();
         console.log('API Response:', apiResponse);
 
-        // Remove from staged_offers collection
-        await deleteDoc(doc(db, 'staged_offers', opportunityData.id));
-
+        const { opportunity: approvedOpportunity } = await approveResponse.json();
         return approvedOpportunity;
       } catch (error) {
         console.error('Error in approveOpportunityMutation:', error);
@@ -918,6 +751,64 @@ export function useOpportunities() {
     },
   });
 
+  // Reset staged offers mutation
+  const resetStagedOffersMutation = useMutation({
+    mutationFn: async () => {
+      console.log('Starting reset of staged offers');
+      const stagedSnapshot = await getDocs(collection(db, 'staged_offers'));
+      const batch = writeBatch(db);
+
+      stagedSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
+      console.log(`Reset ${stagedSnapshot.size} staged offers`);
+      return stagedSnapshot.size;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['staged_offers']);
+      queryClient.invalidateQueries(['opportunities', 'stats']);
+    },
+  });
+
+  // Reset all opportunities mutation
+  const resetOpportunitiesMutation = useMutation({
+    mutationFn: async () => {
+      console.log('Starting reset of all opportunities');
+      const [stagedSnapshot, opportunitiesSnapshot] = await Promise.all([
+        getDocs(collection(db, 'staged_offers')),
+        getDocs(collection(db, 'opportunities')),
+      ]);
+
+      const batch = writeBatch(db);
+
+      // Delete all staged offers
+      stagedSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      // Delete all opportunities
+      opportunitiesSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
+      console.log(
+        `Reset ${stagedSnapshot.size + opportunitiesSnapshot.size} total opportunities`
+      );
+      return {
+        staged: stagedSnapshot.size,
+        opportunities: opportunitiesSnapshot.size,
+      };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['staged_offers']);
+      queryClient.invalidateQueries(['opportunities']);
+      queryClient.invalidateQueries(['opportunities', 'stats']);
+    },
+  });
+
   return {
     opportunities: allOpportunities,
     pagination,
@@ -933,5 +824,9 @@ export function useOpportunities() {
     importOpportunities: importMutation.mutate,
     isImporting: importMutation.isLoading,
     hasStagedOpportunities: stagedOpportunities.length > 0,
+    resetStagedOffers: resetStagedOffersMutation.mutate,
+    isResettingStagedOffers: resetStagedOffersMutation.isLoading,
+    resetOpportunities: resetOpportunitiesMutation.mutate,
+    isResettingOpportunities: resetOpportunitiesMutation.isLoading,
   };
 }
