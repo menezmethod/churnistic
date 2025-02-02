@@ -66,6 +66,7 @@ export interface FirestoreOpportunity {
   requirements?: string[];
   isNew?: boolean;
   expirationDate?: string;
+  source_id: string;
   metadata: {
     created_at: string;
     updated_at: string;

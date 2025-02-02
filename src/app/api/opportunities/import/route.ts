@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { getAdminDb } from '@/lib/firebase/admin';
+import type { FirestoreOpportunity } from '@/types/opportunity';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 const isPreviewEnvironment = process.env.VERCEL_ENV === 'preview';
@@ -16,117 +17,84 @@ export async function POST(request: NextRequest) {
       isProductionEnvironment,
     });
 
-    // Only skip auth in development with emulator
-    if (!useEmulator) {
-      const { session } = await createAuthContext(request);
-      console.log('Auth check result:', {
-        hasSession: !!session,
-        email: session?.email,
-        isSuperAdmin: session?.isSuperAdmin,
-      });
-
-      const isAdmin = session?.role === 'admin';
-      const isSuperAdmin = session?.isSuperAdmin === true;
-
-      if (!session?.email || (!isAdmin && !isSuperAdmin)) {
-        return NextResponse.json(
-          {
-            error: 'Unauthorized. Admin access required.',
-            auth: {
-              hasSession: !!session,
-              email: session?.email,
-              isAdmin,
-              isSuperAdmin,
-            },
-          },
-          { status: 401 }
-        );
-      }
+    // Verify authentication
+    const { session } = await createAuthContext(request);
+    if (!session?.email) {
+      return NextResponse.json(
+        { error: 'Unauthorized', details: 'No authenticated user found' },
+        { status: 401 }
+      );
     }
 
+    // Parse request body
     const { offers } = await request.json();
     if (!Array.isArray(offers)) {
       return NextResponse.json(
-        { error: 'Invalid request body. Expected array of offers.' },
+        { error: 'Bad Request', details: 'Offers must be an array' },
         { status: 400 }
       );
     }
 
-    console.log(`Processing ${offers.length} offers`);
+    console.log(`Processing ${offers.length} offers for import`);
 
+    // Initialize admin DB
     const db = getAdminDb();
-    const batch = db.batch();
 
-    // Only check against approved opportunities for duplicates
-    const approvedSnapshot = await db
-      .collection('opportunities')
-      .where('status', '==', 'approved')
-      .get();
+    // Get existing opportunities and staged offers for duplicate checking
+    const [existingOppsSnapshot, stagedOppsSnapshot] = await Promise.all([
+      db.collection('opportunities').get(),
+      db.collection('staged_offers').get(),
+    ]);
 
-    // Track approved offers by source_id
-    const approvedSourceIds = new Set(
-      approvedSnapshot.docs.map((doc) => doc.data().source_id)
+    const existingSourceIds = new Set([
+      ...existingOppsSnapshot.docs.map((doc) => doc.data().source_id as string),
+      ...stagedOppsSnapshot.docs.map((doc) => doc.data().source_id as string),
+    ]);
+
+    // Filter out duplicates
+    const newOffers = offers.filter(
+      (offer: FirestoreOpportunity) => !existingSourceIds.has(offer.source_id)
     );
+    console.log(`Found ${newOffers.length} new offers to import`);
 
-    console.log(`Found ${approvedSourceIds.size} existing approved offers`);
+    if (newOffers.length === 0) {
+      return NextResponse.json({ addedCount: 0, message: 'No new offers to import' });
+    }
 
-    let addedCount = 0;
-    let skippedCount = 0;
+    // Use batch write for atomic operation
+    const batch = db.batch();
+    const stagedOffersRef = db.collection('staged_offers');
 
-    for (const offer of offers) {
-      // Skip if already approved (but not if just staged)
-      if (approvedSourceIds.has(offer.source_id)) {
-        console.log(`Skipping offer ${offer.source_id} - already approved`);
-        skippedCount++;
-        continue;
-      }
-
-      // Use source_id as document ID to prevent duplicates
-      const docRef = db.collection('staged_offers').doc(offer.source_id);
+    newOffers.forEach((offer: FirestoreOpportunity) => {
+      const docRef = stagedOffersRef.doc();
       batch.set(docRef, {
         ...offer,
+        id: docRef.id,
+        createdAt: new Date().toISOString(),
         metadata: {
-          ...offer.metadata,
-          imported_at: new Date().toISOString(),
-          environment: process.env.VERCEL_ENV || 'development',
-          created_by: request.headers.get('x-user-email') || 'system',
+          created_by: session.email,
+          created_at: new Date().toISOString(),
+          updated_by: session.email,
+          updated_at: new Date().toISOString(),
+          status: 'pending',
+          environment: process.env.NODE_ENV || 'development',
         },
       });
-      addedCount++;
-    }
+    });
 
-    if (addedCount > 0) {
-      console.log(`Committing batch with ${addedCount} new offers`);
-      await batch.commit();
-      console.log('Batch commit successful');
-    } else {
-      console.log('No new offers to commit');
-    }
+    await batch.commit();
+    console.log(`Successfully imported ${newOffers.length} offers`);
 
     return NextResponse.json({
-      success: true,
-      addedCount,
-      skippedCount,
-      total: offers.length,
-      environment: {
-        useEmulator,
-        vercelEnv: process.env.VERCEL_ENV,
-        isPreviewEnvironment,
-        isProductionEnvironment,
-      },
+      addedCount: newOffers.length,
+      message: `Successfully imported ${newOffers.length} offers`,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error importing opportunities:', error);
     return NextResponse.json(
       {
-        error: 'Failed to import opportunities',
-        details: error instanceof Error ? error.message : String(error),
-        environment: {
-          useEmulator,
-          vercelEnv: process.env.VERCEL_ENV,
-          isPreviewEnvironment,
-          isProductionEnvironment,
-        },
+        error: 'Internal Server Error',
+        details: error instanceof Error ? error.message : 'Unknown error occurred',
       },
       { status: 500 }
     );

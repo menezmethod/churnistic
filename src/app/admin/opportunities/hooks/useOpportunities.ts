@@ -480,10 +480,12 @@ export function useOpportunities() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ offers: newOffers }),
+        credentials: 'include', // Include credentials for authentication
       });
 
       if (!importResponse.ok) {
         const error = await importResponse.json();
+        console.error('Import error:', error);
         throw new Error(error.details || error.error || 'Failed to import opportunities');
       }
 
@@ -496,6 +498,10 @@ export function useOpportunities() {
       console.log(`Import completed successfully. Added ${count} new offers.`);
       queryClient.invalidateQueries(['staged_offers']);
       queryClient.invalidateQueries(['opportunities', 'stats']);
+    },
+    onError: (error: Error) => {
+      console.error('Import error:', error);
+      // You can handle the error here, e.g., show a toast notification
     },
   });
 
