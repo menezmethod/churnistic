@@ -19,7 +19,9 @@ export async function createAuthContext(req: NextRequest): Promise<AuthContext> 
       try {
         // In emulator mode, accept the token without verification
         if (useEmulators) {
-          console.log('🔧 Using Firebase Emulators - accepting ID token without verification');
+          console.log(
+            '🔧 Using Firebase Emulators - accepting ID token without verification'
+          );
           try {
             // Basic JWT decode without verification
             const [, payload] = idToken.split('.');

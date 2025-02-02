@@ -313,7 +313,8 @@ const OpportunitiesPage = () => {
       <DialogTitle>Approve All Staged Opportunities</DialogTitle>
       <DialogContent>
         <DialogContentText>
-          Are you sure you want to approve all staged opportunities? This will process all pending opportunities in the system.
+          Are you sure you want to approve all staged opportunities? This will process all
+          pending opportunities in the system.
         </DialogContentText>
       </DialogContent>
       <DialogActions>

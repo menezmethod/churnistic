@@ -133,60 +133,62 @@ function HeroSection({ user }: { user: AuthUser }) {
                     </Typography>
                   </motion.div>
 
-                  <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.4 }}
-                  >
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                      <Button
-                        variant="contained"
-                        size="large"
-                        component={Link}
-                        href="/auth/signup"
-                        endIcon={<KeyboardArrowRight />}
-                        sx={{
-                          px: 4,
-                          py: 2,
-                          borderRadius: 3,
-                          textTransform: 'none',
-                          fontSize: '1.1rem',
-                          fontWeight: 600,
-                          bgcolor: 'common.white',
-                          color: 'primary.main',
-                          '&:hover': {
-                            bgcolor: alpha(theme.palette.common.white, 0.9),
-                            transform: 'translateY(-2px)',
-                            boxShadow: `0 8px 20px ${alpha(theme.palette.common.black, 0.25)}`,
-                          },
-                        }}
-                      >
-                        Start Free
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        size="large"
-                        component={Link}
-                        href="/auth/signin"
-                        sx={{
-                          px: 4,
-                          py: 2,
-                          borderRadius: 3,
-                          textTransform: 'none',
-                          fontSize: '1.1rem',
-                          fontWeight: 600,
-                          borderColor: 'common.white',
-                          color: 'common.white',
-                          '&:hover': {
+                  {!user && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6, delay: 0.4 }}
+                    >
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                        <Button
+                          variant="contained"
+                          size="large"
+                          component={Link}
+                          href="/auth/signup"
+                          endIcon={<KeyboardArrowRight />}
+                          sx={{
+                            px: 4,
+                            py: 2,
+                            borderRadius: 3,
+                            textTransform: 'none',
+                            fontSize: '1.1rem',
+                            fontWeight: 600,
+                            bgcolor: 'common.white',
+                            color: 'primary.main',
+                            '&:hover': {
+                              bgcolor: alpha(theme.palette.common.white, 0.9),
+                              transform: 'translateY(-2px)',
+                              boxShadow: `0 8px 20px ${alpha(theme.palette.common.black, 0.25)}`,
+                            },
+                          }}
+                        >
+                          Start Free
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="large"
+                          component={Link}
+                          href="/auth/signin"
+                          sx={{
+                            px: 4,
+                            py: 2,
+                            borderRadius: 3,
+                            textTransform: 'none',
+                            fontSize: '1.1rem',
+                            fontWeight: 600,
                             borderColor: 'common.white',
-                            bgcolor: alpha(theme.palette.common.white, 0.1),
-                          },
-                        }}
-                      >
-                        Sign In
-                      </Button>
-                    </Stack>
-                  </motion.div>
+                            color: 'common.white',
+                            '&:hover': {
+                              borderColor: 'common.white',
+                              bgcolor: alpha(theme.palette.common.white, 0.1),
+                            },
+                          }}
+                        >
+                          Sign In
+                        </Button>
+                      </Stack>
+                    </motion.div>
+                  )}
                 </>
               )}
             </AnimatePresence>

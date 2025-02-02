@@ -86,7 +86,7 @@ export const useDashboardData = () => {
       type: normalizeType(opp.type),
       bank: opp.bank || 'Unknown Bank',
       description: opp.bonus?.description || '',
-      requirements: [opp.bonus?.requirements?.description || 'No requirements specified'],
+      requirements: [opp.bonus?.requirements?.[0]?.description || 'No requirements specified'],
       status: opp.metadata?.status === 'active' ? 'active' : 'inactive',
       source: opp.metadata?.created_by || 'Unknown',
       sourceLink: opp.offer_link || '',

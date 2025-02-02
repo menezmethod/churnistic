@@ -35,7 +35,9 @@ function getAdminConfig(): AppOptions {
   if (!serviceAccountKey) {
     // Instead of throwing an error, return a basic config for development
     if (process.env.NODE_ENV === 'development') {
-      console.warn('Warning: Using development fallback for Firebase Admin initialization');
+      console.warn(
+        'Warning: Using development fallback for Firebase Admin initialization'
+      );
       return {
         projectId,
       };
@@ -62,7 +64,9 @@ function getAdminConfig(): AppOptions {
   } catch (error) {
     // Handle parsing errors gracefully in development
     if (process.env.NODE_ENV === 'development') {
-      console.warn('Warning: Failed to parse service account key, using development fallback');
+      console.warn(
+        'Warning: Failed to parse service account key, using development fallback'
+      );
       return {
         projectId,
       };
@@ -104,9 +108,19 @@ export function initializeAdminDb(): Firestore {
   } catch (error) {
     // Handle initialization errors gracefully
     console.error('Failed to initialize Admin Firestore:', error);
-    if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-      console.warn('Warning: Using fallback initialization for development/emulator environment');
-      adminDb = getFirestore(adminApp || initializeApp({ projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic' }));
+    if (
+      process.env.NODE_ENV === 'development' ||
+      process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true'
+    ) {
+      console.warn(
+        'Warning: Using fallback initialization for development/emulator environment'
+      );
+      adminDb = getFirestore(
+        adminApp ||
+          initializeApp({
+            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic',
+          })
+      );
       return adminDb;
     }
     throw error;

@@ -414,7 +414,9 @@ const fetchStagedOpportunities = async (): Promise<
 type QueryKeys = {
   opportunities: {
     all: readonly ['opportunities'];
-    paginated: (pagination: PaginationState) => readonly ['opportunities', 'paginated', PaginationState];
+    paginated: (
+      pagination: PaginationState
+    ) => readonly ['opportunities', 'paginated', PaginationState];
     stats: readonly ['opportunities', 'stats'];
     staged: readonly ['opportunities', 'staged'];
   };
@@ -427,7 +429,8 @@ type QueryKeys = {
 const queryKeys: QueryKeys = {
   opportunities: {
     all: ['opportunities'] as const,
-    paginated: (pagination: PaginationState) => ['opportunities', 'paginated', pagination] as const,
+    paginated: (pagination: PaginationState) =>
+      ['opportunities', 'paginated', pagination] as const,
     stats: ['opportunities', 'stats'] as const,
     staged: ['opportunities', 'staged'] as const,
   },
@@ -508,39 +511,52 @@ export function useOpportunities() {
       // Get all opportunities and staged offers
       const [opportunitiesSnapshot, stagedSnapshot] = await Promise.all([
         getDocs(collection(db, 'opportunities')),
-        getDocs(collection(db, 'staged_offers'))
+        getDocs(collection(db, 'staged_offers')),
       ]);
 
       // Calculate base stats
-      const opportunities = opportunitiesSnapshot.docs.map(doc => doc.data() as Opportunity);
-      const stagedOffers = stagedSnapshot.docs.map(doc => doc.data() as Opportunity);
+      const opportunities = opportunitiesSnapshot.docs.map(
+        (doc) => doc.data() as Opportunity
+      );
+      const stagedOffers = stagedSnapshot.docs.map((doc) => doc.data() as Opportunity);
 
       // Calculate approved opportunities stats
-      const approvedOpportunities = opportunities.filter(opp => opp.status === 'approved');
+      const approvedOpportunities = opportunities.filter(
+        (opp) => opp.status === 'approved'
+      );
       const totalApproved = approvedOpportunities.length;
-      const totalRejected = opportunities.filter(opp => opp.status === 'rejected').length;
+      const totalRejected = opportunities.filter(
+        (opp) => opp.status === 'rejected'
+      ).length;
       const totalPending = stagedOffers.length;
 
       // Calculate average bonus value from approved opportunities
-      const totalValue = approvedOpportunities.reduce((sum, opp) => sum + (opp.value || 0), 0);
+      const totalValue = approvedOpportunities.reduce(
+        (sum, opp) => sum + (opp.value || 0),
+        0
+      );
       const avgValue = totalApproved > 0 ? Math.round(totalValue / totalApproved) : 0;
 
       // Calculate type distribution (only count approved opportunities)
       const byType = {
-        bank: approvedOpportunities.filter(opp => opp.type === 'bank').length,
-        credit_card: approvedOpportunities.filter(opp => opp.type === 'credit_card').length,
-        brokerage: approvedOpportunities.filter(opp => opp.type === 'brokerage').length,
+        bank: approvedOpportunities.filter((opp) => opp.type === 'bank').length,
+        credit_card: approvedOpportunities.filter((opp) => opp.type === 'credit_card')
+          .length,
+        brokerage: approvedOpportunities.filter((opp) => opp.type === 'brokerage').length,
       };
 
       // Calculate high value opportunities (approved opportunities over $500)
-      const highValue = approvedOpportunities.filter(opp => (opp.value || 0) >= 500).length;
+      const highValue = approvedOpportunities.filter(
+        (opp) => (opp.value || 0) >= 500
+      ).length;
 
       // Calculate processing rate based on BankRewards total
       const bankRewardsTotal = bankRewardsData?.data?.stats?.total || 0;
       const processedTotal = totalApproved + totalRejected;
-      const processingRate = bankRewardsTotal > 0 
-        ? ((processedTotal / bankRewardsTotal) * 100).toFixed(1) 
-        : '0';
+      const processingRate =
+        bankRewardsTotal > 0
+          ? ((processedTotal / bankRewardsTotal) * 100).toFixed(1)
+          : '0';
 
       return {
         total: bankRewardsTotal, // Use BankRewards total as source of truth
@@ -550,12 +566,14 @@ export function useOpportunities() {
         avgValue,
         highValue,
         byType,
-        bankRewards: bankRewardsData?.data?.stats ? {
-          total: bankRewardsTotal,
-          active: bankRewardsData.data.stats.active || 0,
-          expired: bankRewardsData.data.stats.expired || 0
-        } : undefined,
-        processingRate: `${processingRate}%`
+        bankRewards: bankRewardsData?.data?.stats
+          ? {
+              total: bankRewardsTotal,
+              active: bankRewardsData.data.stats.active || 0,
+              expired: bankRewardsData.data.stats.expired || 0,
+            }
+          : undefined,
+        processingRate: `${processingRate}%`,
       };
     },
     staleTime: 1000 * 15, // 15 seconds - shorter stale time for stats
@@ -574,14 +592,12 @@ export function useOpportunities() {
       queryKeys.opportunities.stats,
       (oldStats: Stats | undefined) => {
         if (!oldStats) return oldStats;
-        
+
         const newPending = Math.max(0, oldStats.pending - 1);
-        const newApproved = action === 'approve' 
-          ? oldStats.approved + 1 
-          : oldStats.approved;
-        const newRejected = action === 'reject' 
-          ? oldStats.rejected + 1 
-          : oldStats.rejected;
+        const newApproved =
+          action === 'approve' ? oldStats.approved + 1 : oldStats.approved;
+        const newRejected =
+          action === 'reject' ? oldStats.rejected + 1 : oldStats.rejected;
 
         return {
           ...oldStats,
@@ -591,8 +607,8 @@ export function useOpportunities() {
           rejected: newRejected,
           byType: {
             ...oldStats.byType,
-            [opportunity.type]: Math.max(0, oldStats.byType[opportunity.type])
-          }
+            [opportunity.type]: Math.max(0, oldStats.byType[opportunity.type]),
+          },
         };
       }
     );
@@ -604,7 +620,7 @@ export function useOpportunities() {
       try {
         // Get Firebase auth instance
         const auth = getAuth();
-        
+
         // Wait for auth state to be ready using Promise with proper typing
         const user = await new Promise<User>((resolve, reject) => {
           // Check if already signed in
@@ -630,7 +646,7 @@ export function useOpportunities() {
 
         // Get fresh ID token with force refresh
         const idToken = await user.getIdToken(true);
-        
+
         // Log auth state (redacted for security)
         console.log('Auth state:', {
           isAuthenticated: true,
@@ -667,7 +683,7 @@ export function useOpportunities() {
               uid: user.uid,
               email: user.email || '',
               token: idToken,
-            }
+            },
           }),
           credentials: 'include',
         });
@@ -679,7 +695,9 @@ export function useOpportunities() {
             statusText: importResponse.statusText,
             error,
           });
-          throw new Error(error.details || error.error || `Import failed: ${importResponse.statusText}`);
+          throw new Error(
+            error.details || error.error || `Import failed: ${importResponse.statusText}`
+          );
         }
 
         const result = await importResponse.json();
@@ -691,7 +709,9 @@ export function useOpportunities() {
         // Enhance error message for auth-related errors
         if (error instanceof Error) {
           if (error.message.includes('auth') || error.message.includes('sign in')) {
-            throw new Error(`Authentication error: ${error.message}. Please sign in again.`);
+            throw new Error(
+              `Authentication error: ${error.message}. Please sign in again.`
+            );
           }
         }
         throw error;
@@ -712,9 +732,10 @@ export function useOpportunities() {
     },
     retry: (failureCount, error) => {
       // Only retry if it's not an auth error
-      if (error instanceof Error && 
-          (error.message.includes('auth') || 
-           error.message.includes('sign in'))) {
+      if (
+        error instanceof Error &&
+        (error.message.includes('auth') || error.message.includes('sign in'))
+      ) {
         return false;
       }
       return failureCount < 2;
@@ -938,8 +959,8 @@ export function useOpportunities() {
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.opportunities.paginated(pagination) 
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.paginated(pagination),
       });
     },
   });
@@ -992,8 +1013,8 @@ export function useOpportunities() {
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.opportunities.paginated(pagination) 
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.paginated(pagination),
       });
     },
   });
@@ -1002,16 +1023,18 @@ export function useOpportunities() {
   const bulkApproveOpportunitiesMutation = useMutation({
     mutationFn: async () => {
       console.log('Starting bulk approval process for all staged offers');
-      
+
       // Get all staged offers first
       const stagedSnapshot = await getDocs(collection(db, 'staged_offers'));
-      const allStagedOpportunities = stagedSnapshot.docs.map(doc => ({
+      const allStagedOpportunities = stagedSnapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       })) as Opportunity[];
 
-      console.log(`Found ${allStagedOpportunities.length} staged opportunities to approve`);
-      
+      console.log(
+        `Found ${allStagedOpportunities.length} staged opportunities to approve`
+      );
+
       const results: string[] = [];
       const errors: Array<{ id: string; error: unknown }> = [];
 
@@ -1027,32 +1050,32 @@ export function useOpportunities() {
       // Process batches sequentially to maintain order and prevent overwhelming
       for (const [index, batch] of batches.entries()) {
         console.log(`Processing batch ${index + 1} of ${batches.length}`);
-        
+
         // Create a new batch write
         const batchWriter = writeBatch(db);
-        
+
         // Add all operations to the batch
         for (const opportunity of batch) {
           const stagedRef = doc(db, 'staged_offers', opportunity.id);
           const approvedRef = doc(db, 'opportunities', opportunity.id);
-          
+
           // Delete from staged_offers and add to opportunities
           batchWriter.delete(stagedRef);
           batchWriter.set(approvedRef, {
             ...opportunity,
             status: 'approved',
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
           });
         }
 
         try {
           // Commit the batch
           await batchWriter.commit();
-          results.push(...batch.map(opp => opp.id));
+          results.push(...batch.map((opp) => opp.id));
           console.log(`Successfully processed batch ${index + 1}`);
         } catch (error) {
           console.error(`Error processing batch ${index + 1}:`, error);
-          errors.push(...batch.map(opp => ({ id: opp.id, error })));
+          errors.push(...batch.map((opp) => ({ id: opp.id, error })));
         }
       }
 
@@ -1067,28 +1090,27 @@ export function useOpportunities() {
       await Promise.all([
         queryClient.cancelQueries({ queryKey: queryKeys.opportunities.all }),
         queryClient.cancelQueries({ queryKey: queryKeys.opportunities.stats }),
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.staged })
+        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.staged }),
       ]);
 
       // Snapshot current state
-      const previousStats = queryClient.getQueryData<Stats>(queryKeys.opportunities.stats);
+      const previousStats = queryClient.getQueryData<Stats>(
+        queryKeys.opportunities.stats
+      );
       const previousPaginated = queryClient.getQueryData(
         queryKeys.opportunities.paginated(pagination)
       );
 
       // Optimistically update stats
       if (previousStats) {
-        queryClient.setQueryData<Stats>(
-          queryKeys.opportunities.stats,
-          {
-            ...previousStats,
-            pending: 0,
-            approved: previousStats.approved + previousStats.pending,
-            processingRate: previousStats.bankRewards?.total 
-              ? `${((previousStats.approved + previousStats.pending) / previousStats.bankRewards.total * 100).toFixed(1)}%`
-              : '0%'
-          }
-        );
+        queryClient.setQueryData<Stats>(queryKeys.opportunities.stats, {
+          ...previousStats,
+          pending: 0,
+          approved: previousStats.approved + previousStats.pending,
+          processingRate: previousStats.bankRewards?.total
+            ? `${(((previousStats.approved + previousStats.pending) / previousStats.bankRewards.total) * 100).toFixed(1)}%`
+            : '0%',
+        });
       }
 
       return { previousStats, previousPaginated };
@@ -1110,8 +1132,8 @@ export function useOpportunities() {
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.opportunities.paginated(pagination) 
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.paginated(pagination),
       });
     },
   });

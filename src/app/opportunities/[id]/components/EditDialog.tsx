@@ -169,16 +169,25 @@ export const EditDialog = ({
                       <TextField
                         fullWidth
                         label="Requirements Description"
-                        value={editData.bonus?.requirements?.description || ''}
+                        value={editData.bonus?.requirements?.[0]?.description || ''}
                         onChange={(e) =>
                           onChange({
                             ...editData,
                             bonus: {
                               ...editData.bonus,
-                              requirements: {
-                                ...editData.bonus?.requirements,
-                                description: e.target.value,
-                              },
+                              requirements: [
+                                {
+                                  ...editData.bonus?.requirements?.[0],
+                                  type: editData.bonus?.requirements?.[0]?.type || 'default',
+                                  title: editData.bonus?.requirements?.[0]?.title || 'Requirements',
+                                  description: e.target.value || '',
+                                  details: {
+                                    amount: editData.bonus?.requirements?.[0]?.details?.amount || 0,
+                                    period: editData.bonus?.requirements?.[0]?.details?.period || 0,
+                                    count: editData.bonus?.requirements?.[0]?.details?.count || 0,
+                                  },
+                                },
+                              ],
                             },
                           })
                         }
@@ -191,16 +200,25 @@ export const EditDialog = ({
                         fullWidth
                         label="Minimum Deposit"
                         type="number"
-                        value={editData.bonus?.requirements?.minimum_deposit || ''}
+                        value={editData.bonus?.requirements?.[0]?.details?.amount || ''}
                         onChange={(e) =>
                           onChange({
                             ...editData,
                             bonus: {
                               ...editData.bonus,
-                              requirements: {
-                                ...editData.bonus?.requirements,
-                                minimum_deposit: parseFloat(e.target.value),
-                              },
+                              requirements: [
+                                {
+                                  ...editData.bonus?.requirements?.[0],
+                                  type: editData.bonus?.requirements?.[0]?.type || 'default',
+                                  title: editData.bonus?.requirements?.[0]?.title || 'Requirements',
+                                  description: editData.bonus?.requirements?.[0]?.description || '',
+                                  details: {
+                                    amount: parseFloat(e.target.value) || 0,
+                                    period: editData.bonus?.requirements?.[0]?.details?.period || 0,
+                                    count: editData.bonus?.requirements?.[0]?.details?.count || 0,
+                                  },
+                                },
+                              ],
                             },
                           })
                         }
@@ -215,16 +233,25 @@ export const EditDialog = ({
                       <TextField
                         fullWidth
                         label="Holding Period"
-                        value={editData.bonus?.requirements?.holding_period || ''}
+                        value={editData.bonus?.requirements?.[0]?.details?.period || ''}
                         onChange={(e) =>
                           onChange({
                             ...editData,
                             bonus: {
                               ...editData.bonus,
-                              requirements: {
-                                ...editData.bonus?.requirements,
-                                holding_period: e.target.value,
-                              },
+                              requirements: [
+                                {
+                                  ...editData.bonus?.requirements?.[0],
+                                  type: editData.bonus?.requirements?.[0]?.type || 'default',
+                                  title: editData.bonus?.requirements?.[0]?.title || 'Requirements',
+                                  description: editData.bonus?.requirements?.[0]?.description || '',
+                                  details: {
+                                    amount: editData.bonus?.requirements?.[0]?.details?.amount || 0,
+                                    period: parseFloat(e.target.value) || 0,
+                                    count: editData.bonus?.requirements?.[0]?.details?.count || 0,
+                                  },
+                                },
+                              ],
                             },
                           })
                         }
@@ -234,16 +261,25 @@ export const EditDialog = ({
                       <TextField
                         fullWidth
                         label="Trading Requirements"
-                        value={editData.bonus?.requirements?.trading_requirements || ''}
+                        value={editData.bonus?.requirements?.[0]?.details?.count || ''}
                         onChange={(e) =>
                           onChange({
                             ...editData,
                             bonus: {
                               ...editData.bonus,
-                              requirements: {
-                                ...editData.bonus?.requirements,
-                                trading_requirements: e.target.value,
-                              },
+                              requirements: [
+                                {
+                                  ...editData.bonus?.requirements?.[0],
+                                  type: editData.bonus?.requirements?.[0]?.type || 'default',
+                                  title: editData.bonus?.requirements?.[0]?.title || 'Requirements',
+                                  description: editData.bonus?.requirements?.[0]?.description || '',
+                                  details: {
+                                    amount: editData.bonus?.requirements?.[0]?.details?.amount || 0,
+                                    period: editData.bonus?.requirements?.[0]?.details?.period || 0,
+                                    count: parseFloat(e.target.value) || 0,
+                                  },
+                                },
+                              ],
                             },
                           })
                         }
