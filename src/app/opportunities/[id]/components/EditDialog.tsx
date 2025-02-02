@@ -178,13 +178,22 @@ export const EditDialog = ({
                               requirements: [
                                 {
                                   ...editData.bonus?.requirements?.[0],
-                                  type: editData.bonus?.requirements?.[0]?.type || 'default',
-                                  title: editData.bonus?.requirements?.[0]?.title || 'Requirements',
+                                  type:
+                                    editData.bonus?.requirements?.[0]?.type || 'default',
+                                  title:
+                                    editData.bonus?.requirements?.[0]?.title ||
+                                    'Requirements',
                                   description: e.target.value || '',
                                   details: {
-                                    amount: editData.bonus?.requirements?.[0]?.details?.amount || 0,
-                                    period: editData.bonus?.requirements?.[0]?.details?.period || 0,
-                                    count: editData.bonus?.requirements?.[0]?.details?.count || 0,
+                                    amount:
+                                      editData.bonus?.requirements?.[0]?.details
+                                        ?.amount || 0,
+                                    period:
+                                      editData.bonus?.requirements?.[0]?.details
+                                        ?.period || 0,
+                                    count:
+                                      editData.bonus?.requirements?.[0]?.details?.count ||
+                                      0,
                                   },
                                 },
                               ],
@@ -209,13 +218,21 @@ export const EditDialog = ({
                               requirements: [
                                 {
                                   ...editData.bonus?.requirements?.[0],
-                                  type: editData.bonus?.requirements?.[0]?.type || 'default',
-                                  title: editData.bonus?.requirements?.[0]?.title || 'Requirements',
-                                  description: editData.bonus?.requirements?.[0]?.description || '',
+                                  type:
+                                    editData.bonus?.requirements?.[0]?.type || 'default',
+                                  title:
+                                    editData.bonus?.requirements?.[0]?.title ||
+                                    'Requirements',
+                                  description:
+                                    editData.bonus?.requirements?.[0]?.description || '',
                                   details: {
                                     amount: parseFloat(e.target.value) || 0,
-                                    period: editData.bonus?.requirements?.[0]?.details?.period || 0,
-                                    count: editData.bonus?.requirements?.[0]?.details?.count || 0,
+                                    period:
+                                      editData.bonus?.requirements?.[0]?.details
+                                        ?.period || 0,
+                                    count:
+                                      editData.bonus?.requirements?.[0]?.details?.count ||
+                                      0,
                                   },
                                 },
                               ],
@@ -242,13 +259,21 @@ export const EditDialog = ({
                               requirements: [
                                 {
                                   ...editData.bonus?.requirements?.[0],
-                                  type: editData.bonus?.requirements?.[0]?.type || 'default',
-                                  title: editData.bonus?.requirements?.[0]?.title || 'Requirements',
-                                  description: editData.bonus?.requirements?.[0]?.description || '',
+                                  type:
+                                    editData.bonus?.requirements?.[0]?.type || 'default',
+                                  title:
+                                    editData.bonus?.requirements?.[0]?.title ||
+                                    'Requirements',
+                                  description:
+                                    editData.bonus?.requirements?.[0]?.description || '',
                                   details: {
-                                    amount: editData.bonus?.requirements?.[0]?.details?.amount || 0,
+                                    amount:
+                                      editData.bonus?.requirements?.[0]?.details
+                                        ?.amount || 0,
                                     period: parseFloat(e.target.value) || 0,
-                                    count: editData.bonus?.requirements?.[0]?.details?.count || 0,
+                                    count:
+                                      editData.bonus?.requirements?.[0]?.details?.count ||
+                                      0,
                                   },
                                 },
                               ],
@@ -270,12 +295,20 @@ export const EditDialog = ({
                               requirements: [
                                 {
                                   ...editData.bonus?.requirements?.[0],
-                                  type: editData.bonus?.requirements?.[0]?.type || 'default',
-                                  title: editData.bonus?.requirements?.[0]?.title || 'Requirements',
-                                  description: editData.bonus?.requirements?.[0]?.description || '',
+                                  type:
+                                    editData.bonus?.requirements?.[0]?.type || 'default',
+                                  title:
+                                    editData.bonus?.requirements?.[0]?.title ||
+                                    'Requirements',
+                                  description:
+                                    editData.bonus?.requirements?.[0]?.description || '',
                                   details: {
-                                    amount: editData.bonus?.requirements?.[0]?.details?.amount || 0,
-                                    period: editData.bonus?.requirements?.[0]?.details?.period || 0,
+                                    amount:
+                                      editData.bonus?.requirements?.[0]?.details
+                                        ?.amount || 0,
+                                    period:
+                                      editData.bonus?.requirements?.[0]?.details
+                                        ?.period || 0,
                                     count: parseFloat(e.target.value) || 0,
                                   },
                                 },

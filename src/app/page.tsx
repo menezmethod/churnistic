@@ -337,26 +337,30 @@ function StatsSection({ stats }: { stats: Array<{ label: string; value: string }
 export default function HomePage() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { stats: dashboardStats } = useDashboardData();
+  const { stats: query } = useDashboardData();
   const { stats: splashStats } = useSplashStats();
 
   // Use appropriate stats based on user authentication
-  const displayStats = user
-    ? [
-        {
-          label: 'POTENTIAL BONUS EARNINGS',
-          value: dashboardStats.potentialValue,
-        },
-        {
-          label: 'BONUSES AVAILABLE',
-          value: dashboardStats.activeOpportunities + '+',
-        },
-        {
-          label: 'AVERAGE BONUS VALUE',
-          value: dashboardStats.averageValue,
-        },
-      ]
-    : splashStats;
+  const displayStats =
+    user && query
+      ? [
+          {
+            label: 'POTENTIAL BONUS EARNINGS',
+            value: query.potentialValue || '$0',
+          },
+          {
+            label: 'BONUSES AVAILABLE',
+            value: `${query.activeOpportunities || 0}+`,
+          },
+          {
+            label: 'AVERAGE BONUS VALUE',
+            value: query.averageValue || '$0',
+          },
+        ]
+      : splashStats?.map((stat) => ({
+          label: stat.label,
+          value: stat.value || (stat.label.includes('BONUSES') ? '0+' : '$0'),
+        })) || [];
 
   return (
     <Box component="main">

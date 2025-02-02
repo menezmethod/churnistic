@@ -4,6 +4,9 @@ import type { NextRequest } from 'next/server';
 // Paths that require authentication
 const protectedPaths = ['/dashboard', '/admin', '/api/users', '/api/opportunities'];
 
+// Public API endpoints
+const publicEndpoints = ['/api/opportunities/stats'];
+
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
@@ -11,6 +14,11 @@ export const config = {
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   console.log('Middleware - Processing request for path:', path);
+
+  // Check if path is public
+  if (publicEndpoints.includes(path)) {
+    return NextResponse.next();
+  }
 
   // Check if path is protected
   const isProtectedPath = protectedPaths.some((prefix) => path.startsWith(prefix));
