@@ -357,18 +357,16 @@ const fetchStagedOpportunities = async (): Promise<
 > => {
   console.log('Fetching staged opportunities...');
   try {
-    const snapshot = await getDocs(collection(db, 'staged_offers'));
-    console.log('Staged offers snapshot:', {
-      empty: snapshot.empty,
-      size: snapshot.size,
-      docs: snapshot.docs.map((doc) => ({ id: doc.id })),
-    });
-    return snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-      ...doc.data(),
-      id: doc.id,
+    const response = await fetch('/api/opportunities/staged');
+    if (!response.ok) {
+      throw new Error('Failed to fetch staged opportunities');
+    }
+    const data = await response.json();
+    return data.opportunities.map((doc: Omit<Opportunity, 'status' | 'isStaged'>) => ({
+      ...doc,
       status: 'staged' as const,
       isStaged: true,
-    })) as (Opportunity & { isStaged: boolean })[];
+    }));
   } catch (error) {
     console.error('Error fetching staged opportunities:', error);
     throw error;
