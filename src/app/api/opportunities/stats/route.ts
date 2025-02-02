@@ -4,6 +4,8 @@ import { getAdminDb } from '@/lib/firebase/admin';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { Opportunity } from '@/types/opportunity';
 
+export const dynamic = 'force-dynamic'; // Ensure this route is always dynamic
+
 // Helper function to round to nearest 5
 function roundToNearest5(num: number): number {
   return Math.ceil(num / 5) * 5;
@@ -22,6 +24,10 @@ function parseNumericValue(value: string | number | null): number {
 export async function GET() {
   try {
     const db = getAdminDb();
+    if (!db) {
+      throw new Error('Firebase admin not initialized');
+    }
+
     const [opportunities, tracked] = await Promise.all([
       db.collection('opportunities').get(),
       db.collection('tracked_opportunities').get(),

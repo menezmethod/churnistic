@@ -181,40 +181,15 @@ export function useDashboardData() {
     void fetchProfile();
   }, [user]);
 
-  const fetchDashboardStats = async () => {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-    const response = await fetch(`${baseUrl}/api/opportunities/stats`);
-
-    if (!response.ok) {
-      throw new Error('Failed to load dashboard data');
-    }
-
-    const stats = await response.json();
-    return {
-      potentialValue: stats.totalPotentialValue,
-      activeOpportunities: stats.activeCount,
-      averageValue: stats.averageValue,
-      trends: {
-        trackedValue: { value: stats.trackedCount || 0, label: 'opportunities tracked' },
-        potentialValue: {
-          value: stats.highValue || 0,
-          label: 'high-value opportunities',
-        },
-        activeOpportunities: {
-          value: stats.activeCount || 0,
-          label: 'active opportunities',
-        },
-        averageValue: {
-          value: Math.round(stats.averageValue || 0),
-          label: 'average bonus value',
-        },
-      },
-    };
-  };
-
-  const query = useQuery({
-    queryKey: ['dashboard', 'stats'],
-    queryFn: fetchDashboardStats,
+  const { error } = useQuery({
+    queryKey: ['dashboardData'],
+    queryFn: async () => {
+      const response = await fetch('/api/opportunities/stats');
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data');
+      }
+      return response.json();
+    },
     staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 5, // 5 minutes
     refetchInterval: 1000 * 60, // 1 minute
@@ -227,7 +202,7 @@ export function useDashboardData() {
     quickOpportunities,
     trackedOpportunities,
     loading: authLoading || oppsLoading || loadingProfile,
-    query,
+    error: error as Error | null,
   };
 }
 

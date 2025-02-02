@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { useDashboardData } from '@/app/dashboard/hooks/useDashboardData';
@@ -26,7 +27,13 @@ import { useSplashStats } from '../lib/hooks/useSplashStats';
 // Replace the User interface with the actual AuthUser type from your auth context
 type AuthUser = ReturnType<typeof useAuth>['user'];
 
-function HeroSection({ user }: { user: AuthUser }) {
+function HeroSection({
+  user,
+  stats,
+}: {
+  user: AuthUser;
+  stats: Array<{ label: string; value: string }>;
+}) {
   const theme = useTheme();
   const [ref, inView] = useInView({
     threshold: 0.1,
@@ -38,16 +45,16 @@ function HeroSection({ user }: { user: AuthUser }) {
       ref={ref}
       sx={{
         position: 'relative',
-        minHeight: '70vh',
+        minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
-        background: `linear-gradient(135deg, 
+        background: `radial-gradient(circle at 20% 20%, 
           ${alpha(theme.palette.primary.dark, 0.95)} 0%,
           ${alpha(theme.palette.primary.main, 0.9)} 100%)`,
         overflow: 'hidden',
       }}
     >
-      {/* Animated background elements */}
+      {/* Enhanced animated background */}
       <Box
         sx={{
           position: 'absolute',
@@ -57,31 +64,37 @@ function HeroSection({ user }: { user: AuthUser }) {
           bottom: 0,
           overflow: 'hidden',
           zIndex: 0,
+          background: `radial-gradient(circle at 50% 50%, 
+            ${alpha(theme.palette.primary.light, 0.1)} 0%, 
+            transparent 60%)`,
         }}
       >
-        {[...Array(5)].map((_, i) => (
+        {[...Array(10)].map((_, i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0, scale: 0 }}
             animate={{
               opacity: [0.1, 0.3, 0.1],
               scale: [1, 1.5, 1],
-              x: [0, 100, 0],
-              y: [0, -50, 0],
+              x: [0, Math.random() * 200 - 100],
+              y: [0, Math.random() * 200 - 100],
+              rotate: [0, 360],
             }}
             transition={{
               duration: 10 + i * 2,
               repeat: Infinity,
-              ease: 'linear',
+              ease: 'easeInOut',
             }}
             style={{
               position: 'absolute',
-              width: '300px',
-              height: '300px',
+              width: `${Math.random() * 200 + 100}px`,
+              height: `${Math.random() * 200 + 100}px`,
               borderRadius: '50%',
-              background: `radial-gradient(circle, ${alpha(theme.palette.primary.light, 0.2)} 0%, transparent 70%)`,
-              left: `${i * 25}%`,
-              top: `${i * 15}%`,
+              background: `radial-gradient(circle, 
+                ${alpha(theme.palette.primary.light, 0.2)} 0%, 
+                transparent 70%)`,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
             }}
           />
         ))}
@@ -102,15 +115,21 @@ function HeroSection({ user }: { user: AuthUser }) {
                     <Typography
                       variant="h1"
                       sx={{
-                        fontSize: { xs: '2rem', md: '3rem' },
+                        fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem', lg: '4rem' },
                         fontWeight: 800,
                         color: 'common.white',
                         mb: 2,
                         textShadow: '0 2px 4px rgba(0,0,0,0.2)',
                         textAlign: 'left',
+                        lineHeight: 1.2,
+                        background: `linear-gradient(45deg, 
+                          ${theme.palette.primary.light}, 
+                          ${theme.palette.common.white})`,
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
                       }}
                     >
-                      Maximize Your Credit Card Rewards
+                      Unlock Your Financial Potential
                     </Typography>
                   </motion.div>
 
@@ -127,9 +146,12 @@ function HeroSection({ user }: { user: AuthUser }) {
                         opacity: 0.9,
                         maxWidth: '600px',
                         textAlign: 'left',
+                        fontSize: { xs: '1rem', sm: '1.25rem', md: '1.5rem' },
+                        lineHeight: 1.6,
                       }}
                     >
-                      Smart tracking for credit card sign-up bonuses. Never miss a reward.
+                      Revolutionize how you earn rewards. Our intelligent platform tracks,
+                      optimizes, and maximizes every credit card opportunity for you.
                     </Typography>
                   </motion.div>
 
@@ -193,152 +215,91 @@ function HeroSection({ user }: { user: AuthUser }) {
               )}
             </AnimatePresence>
           </Grid>
-          {user && (
-            <Grid item xs={12} md={5} sx={{ display: 'flex', justifyContent: 'center' }}>
-              <AnimatePresence>
-                {inView && (
-                  <motion.div
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.6, delay: 0.2 }}
-                  >
-                    <Box
-                      sx={{
-                        p: 3,
-                        borderRadius: 2,
-                        bgcolor: alpha(theme.palette.common.white, 0.1),
-                        textAlign: 'center',
-                      }}
-                    >
-                      <Typography
-                        variant="h5"
-                        color="common.white"
-                        fontWeight={600}
-                        mb={1}
+
+          {/* Enhanced Stats Section */}
+          <Grid item xs={12} sx={{ mt: { xs: 4, md: 6 } }}>
+            <Grid container spacing={2}>
+              {stats.map((stat, index) => (
+                <Grid item xs={12} sm={6} md={4} key={stat.label}>
+                  <AnimatePresence>
+                    {inView && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: index * 0.2 }}
                       >
-                        Welcome Back!
-                      </Typography>
-                      <Typography
-                        variant="body1"
-                        color="common.white"
-                        sx={{ opacity: 0.8 }}
-                        mb={2}
-                      >
-                        Check out today&apos;s top opportunities below.
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        component={Link}
-                        href="/dashboard"
-                        sx={{
-                          px: 3,
-                          py: 1,
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          fontWeight: 600,
-                          bgcolor: theme.palette.secondary.main,
-                          '&:hover': {
-                            bgcolor: theme.palette.secondary.dark,
-                          },
-                        }}
-                      >
-                        Go to Dashboard
-                      </Button>
-                    </Box>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                        <Box
+                          sx={{
+                            p: 3,
+                            borderRadius: 2,
+                            bgcolor: alpha(theme.palette.common.white, 0.1),
+                            textAlign: 'center',
+                            backdropFilter: 'blur(12px)',
+                            border: '1px solid',
+                            borderColor: alpha(theme.palette.common.white, 0.2),
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              transform: 'translateY(-5px)',
+                              boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.3)}`,
+                            },
+                          }}
+                        >
+                          <Typography
+                            variant="h4"
+                            sx={{
+                              mb: 1,
+                              fontWeight: 700,
+                              color: 'common.white',
+                              fontSize: { xs: '1.5rem', sm: '2rem' },
+                              background: `linear-gradient(45deg, 
+                                ${theme.palette.primary.light}, 
+                                ${theme.palette.common.white})`,
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                            }}
+                          >
+                            {stat.value}
+                          </Typography>
+                          <Typography
+                            variant="subtitle1"
+                            sx={{
+                              fontWeight: 500,
+                              color: alpha(theme.palette.common.white, 0.8),
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                              fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                            }}
+                          >
+                            {stat.label}
+                          </Typography>
+                        </Box>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </Grid>
+              ))}
             </Grid>
-          )}
+          </Grid>
         </Grid>
       </Container>
     </Box>
   );
 }
 
-function StatsSection({ stats }: { stats: Array<{ label: string; value: string }> }) {
-  const theme = useTheme();
-  const [ref, inView] = useInView({
-    threshold: 0.1,
-    triggerOnce: true,
-  });
-
-  return (
-    <Container maxWidth="lg" sx={{ py: 8 }} ref={ref}>
-      <Grid container spacing={3}>
-        {stats.map((stat, index) => (
-          <Grid item xs={12} md={4} key={stat.label}>
-            <AnimatePresence>
-              {inView && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.2 }}
-                >
-                  <Box
-                    sx={{
-                      p: 4,
-                      height: '100%',
-                      borderRadius: 4,
-                      position: 'relative',
-                      overflow: 'hidden',
-                      bgcolor: 'background.paper',
-                      boxShadow: `0 8px 32px ${alpha(theme.palette.primary.main, 0.1)}`,
-                      transition: 'all 0.3s ease-in-out',
-                      '&:hover': {
-                        transform: 'translateY(-8px)',
-                        boxShadow: `0 12px 48px ${alpha(theme.palette.primary.main, 0.2)}`,
-                      },
-                      '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '4px',
-                        background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                      },
-                    }}
-                  >
-                    <Typography
-                      variant="h3"
-                      sx={{
-                        mb: 2,
-                        fontWeight: 700,
-                        background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                      }}
-                    >
-                      {stat.value}
-                    </Typography>
-                    <Typography
-                      variant="subtitle1"
-                      sx={{
-                        fontWeight: 500,
-                        color: 'text.secondary',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                      }}
-                    >
-                      {stat.label}
-                    </Typography>
-                  </Box>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </Grid>
-        ))}
-      </Grid>
-    </Container>
-  );
-}
-
 export default function HomePage() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { stats: query } = useDashboardData();
-  const { stats: splashStats } = useSplashStats();
+  const { stats: query, error: dashboardError } = useDashboardData();
+  const { stats: splashStats, error: splashError } = useSplashStats();
+
+  // Add error state
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (dashboardError || splashError) {
+      setError('Failed to load statistics. Please try again later.');
+    }
+  }, [dashboardError, splashError]);
 
   // Use appropriate stats based on user authentication
   const displayStats =
@@ -364,8 +325,13 @@ export default function HomePage() {
 
   return (
     <Box component="main">
-      <HeroSection user={user} />
-      <StatsSection stats={displayStats} />
+      {error && (
+        <Box sx={{ p: 3, bgcolor: 'error.light', color: 'error.contrastText' }}>
+          <Typography>{error}</Typography>
+        </Box>
+      )}
+
+      <HeroSection user={user} stats={displayStats} />
       <BankLogos />
       <FeaturedOpportunities />
       <Box
