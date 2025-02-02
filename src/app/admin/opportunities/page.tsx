@@ -130,53 +130,59 @@ const OpportunitiesPage = () => {
   );
   const [resetStagedDialogOpen, setResetStagedDialogOpen] = useState(false);
   const [resetAllDialogOpen, setResetAllDialogOpen] = useState(false);
+
   const {
     opportunities,
-    pagination,
-    updatePagination,
     hasMore,
+    refetch,
+    pagination,
+    setPagination,
+    isCreating,
     approveOpportunity,
     rejectOpportunity,
     bulkApproveOpportunities,
     isBulkApproving,
     stats,
     importOpportunities,
-    isImporting,
+    hasStagedOpportunities,
     resetStagedOffers,
     isResettingStagedOffers,
     resetOpportunities,
     isResettingOpportunities,
-    hasStagedOpportunities,
   } = useOpportunities();
 
   const handleSort = (field: string) => {
-    updatePagination({
+    setPagination({
       sortBy: field,
       sortDirection:
         pagination.sortBy === field && pagination.sortDirection === 'asc'
           ? 'desc'
           : 'asc',
     });
+    refetch();
   };
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
-    updatePagination({
+    setPagination({
       filters: {
         ...pagination.filters,
         search: value || undefined,
       },
     });
+    refetch();
   };
 
   const handleChangePage = (_: unknown, newPage: number) => {
-    updatePagination({ page: newPage + 1 });
+    setPagination({ page: newPage + 1 });
+    refetch();
   };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    updatePagination({
+    setPagination({
       pageSize: parseInt(event.target.value, 10),
     });
+    refetch();
   };
 
   const handleSync = async () => {
@@ -488,9 +494,9 @@ const OpportunitiesPage = () => {
                     <IconButton
                       color="primary"
                       onClick={handleSync}
-                      disabled={isImporting}
+                      disabled={isCreating}
                       sx={{ borderRadius: 2 }}
-                      aria-label={isImporting ? 'Syncing...' : 'Sync Now'}
+                      aria-label={isCreating ? 'Syncing...' : 'Sync Now'}
                     >
                       <ImportIcon />
                     </IconButton>

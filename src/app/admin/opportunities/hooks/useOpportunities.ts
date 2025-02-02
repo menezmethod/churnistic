@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAuth } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
 import {
   collection,
   getDocs,
@@ -7,15 +7,10 @@ import {
   doc,
   writeBatch,
   query,
-  orderBy,
-  limit,
-  startAfter,
   where,
   deleteDoc,
-  DocumentData,
-  QueryDocumentSnapshot,
 } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { db } from '@/lib/firebase/config';
 
@@ -291,8 +286,7 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
 };
 
 const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
-  // Use our proxy endpoint instead of calling the BankRewards API directly
-  const response = await fetch('/api/opportunities/bankrewards', {
+  const response = await fetch('/api/proxy/bankrewards?format=detailed', {
     method: 'GET',
     credentials: 'include',
   });
@@ -309,48 +303,89 @@ const fetchPaginatedOpportunities = async (
   hasMore: boolean;
 }> => {
   const { page, pageSize, sortBy, sortDirection, filters } = pagination;
+
+  // Get both collections
   const opportunitiesRef = collection(db, 'opportunities');
+  const stagedOffersRef = collection(db, 'staged_offers');
 
-  // Build query with filters
-  let baseQuery = query(opportunitiesRef);
+  // Build base queries for both collections
+  let opportunitiesQuery = query(opportunitiesRef);
+  let stagedQuery = query(stagedOffersRef);
 
-  // Apply filters to both total count and paginated queries
+  // Apply filters to both queries
   if (filters.status) {
-    baseQuery = query(baseQuery, where('status', '==', filters.status));
+    opportunitiesQuery = query(opportunitiesQuery, where('status', '==', filters.status));
+    stagedQuery = query(stagedQuery, where('status', '==', filters.status));
   }
   if (filters.type) {
-    baseQuery = query(baseQuery, where('type', '==', filters.type));
+    opportunitiesQuery = query(opportunitiesQuery, where('type', '==', filters.type));
+    stagedQuery = query(stagedQuery, where('type', '==', filters.type));
   }
   if (filters.minValue) {
-    baseQuery = query(baseQuery, where('value', '>=', filters.minValue));
+    opportunitiesQuery = query(
+      opportunitiesQuery,
+      where('value', '>=', filters.minValue)
+    );
+    stagedQuery = query(stagedQuery, where('value', '>=', filters.minValue));
   }
   if (filters.maxValue) {
-    baseQuery = query(baseQuery, where('value', '<=', filters.maxValue));
+    opportunitiesQuery = query(
+      opportunitiesQuery,
+      where('value', '<=', filters.maxValue)
+    );
+    stagedQuery = query(stagedQuery, where('value', '<=', filters.maxValue));
   }
 
-  // Get total count with filters applied
-  const totalSnapshot = await getDocs(baseQuery);
-  const total = totalSnapshot.size;
+  // Get all documents from both collections
+  const [opportunitiesSnapshot, stagedSnapshot] = await Promise.all([
+    getDocs(opportunitiesQuery),
+    getDocs(stagedQuery),
+  ]);
 
-  // Add sorting and pagination to the query
-  let q = query(baseQuery, orderBy(sortBy, sortDirection));
-  q = query(q, limit(pageSize));
+  // Combine and transform all documents
+  const allOpportunities = [
+    ...opportunitiesSnapshot.docs.map((doc) => {
+      const data = doc.data() as Opportunity;
+      return {
+        ...data,
+        isStaged: false,
+        status: data.status || 'pending',
+      };
+    }),
+    ...stagedSnapshot.docs.map((doc) => {
+      const data = doc.data() as Opportunity;
+      return {
+        ...data,
+        status: 'staged' as const,
+        isStaged: true,
+      };
+    }),
+  ];
 
-  if (page > 1) {
-    const lastDoc = await getDocs(query(q, limit((page - 1) * pageSize)));
-    if (lastDoc.docs.length > 0) {
-      q = query(q, startAfter(lastDoc.docs[lastDoc.docs.length - 1]));
+  // Sort combined results
+  const sortedOpportunities = allOpportunities.sort((a, b) => {
+    const aValue = a[sortBy as keyof Opportunity];
+    const bValue = b[sortBy as keyof Opportunity];
+    const modifier = sortDirection === 'asc' ? 1 : -1;
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return aValue.localeCompare(bValue) * modifier;
     }
-  }
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return (aValue - bValue) * modifier;
+    }
+    return 0;
+  });
 
-  const snapshot = await getDocs(q);
+  // Calculate pagination
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedItems = sortedOpportunities.slice(startIndex, endIndex);
+
   return {
-    items: snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Opportunity[],
-    total,
-    hasMore: snapshot.docs.length === pageSize && snapshot.docs.length < total,
+    items: paginatedItems,
+    total: allOpportunities.length,
+    hasMore: endIndex < allOpportunities.length,
   };
 };
 
@@ -375,143 +410,264 @@ const fetchStagedOpportunities = async (): Promise<
   }
 };
 
+// Define the QueryKeys type first
+type QueryKeys = {
+  opportunities: {
+    all: readonly ['opportunities'];
+    paginated: (
+      pagination: PaginationState
+    ) => readonly ['opportunities', 'paginated', PaginationState];
+    stats: readonly ['opportunities', 'stats'];
+  };
+  staged: {
+    all: readonly ['staged_offers'];
+  };
+};
+
+// Then define the queryKeys constant with its type
+const queryKeys: QueryKeys = {
+  opportunities: {
+    all: ['opportunities'] as const,
+    paginated: (pagination: PaginationState) =>
+      ['opportunities', 'paginated', pagination] as const,
+    stats: ['opportunities', 'stats'] as const,
+  },
+  staged: {
+    all: ['staged_offers'] as const,
+  },
+} as const;
+
+type PaginatedResponse = {
+  items: Opportunity[];
+  total: number;
+  hasMore: boolean;
+};
+
 export function useOpportunities() {
   const queryClient = useQueryClient();
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     pageSize: ITEMS_PER_PAGE,
-    sortBy: 'createdAt',
+    sortBy: 'value',
     sortDirection: 'desc',
     filters: {},
   });
 
-  const [stats, setStats] = useState<{
-    total: number;
-    pending: number;
-    approved: number;
-    rejected: number;
-    avgValue: number;
-    highValue: number;
-    byType: {
-      bank: number;
-      credit_card: number;
-      brokerage: number;
-    };
-  }>({
-    total: 0,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    avgValue: 0,
-    highValue: 0,
-    byType: {
-      bank: 0,
-      credit_card: 0,
-      brokerage: 0,
-    },
-  });
-
-  // Fetch staged opportunities
+  // Fetch staged opportunities with proper query key
   const { data: stagedOpportunities = [] } = useQuery({
-    queryKey: ['staged_offers'],
+    queryKey: queryKeys.staged.all,
     queryFn: fetchStagedOpportunities,
+    staleTime: 1000 * 60, // 1 minute
   });
 
-  // Fetch paginated opportunities
+  // Fetch paginated opportunities with proper query key
   const {
     data: paginatedData,
     error: paginationError,
-    isLoading: isPaginationLoading,
+    status: paginationStatus,
+    isPending: isPaginationPending,
   } = useQuery({
-    queryKey: ['opportunities', 'paginated', pagination],
+    queryKey: queryKeys.opportunities.paginated(pagination),
     queryFn: () => fetchPaginatedOpportunities(pagination),
-    keepPreviousData: true,
+    staleTime: 1000 * 60, // 1 minute
   });
 
-  // Fetch total stats with detailed metrics
-  const { data: totalStats } = useQuery({
-    queryKey: ['opportunities', 'stats'],
-    queryFn: async () => {
-      const response = await fetch('/api/opportunities/stats');
-      if (!response.ok) {
-        throw new Error('Failed to fetch stats');
-      }
-      return response.json();
-    },
-  });
-
-  // Fetch and sync BankRewards offers
-  useQuery({
+  // Fetch and sync BankRewards offers with stats
+  const { data: bankRewardsData } = useQuery({
     queryKey: ['bankRewardsOffers'],
     queryFn: fetchBankRewardsOffers,
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
   });
 
-  // Import mutation to stage opportunities
-  const importMutation = useMutation({
-    mutationFn: async () => {
-      console.log('Starting import process');
-      const response = await fetchBankRewardsOffers();
-      console.log('Fetched offers:', response.data.offers.length);
+  // Fetch stats with proper query key and real-time updates
+  const { data: stats } = useQuery({
+    queryKey: queryKeys.opportunities.stats,
+    queryFn: async () => {
+      const response = await fetch('/api/opportunities/stats');
+      if (!response.ok) {
+        throw new Error('Failed to fetch stats');
+      }
+      const baseStats = await response.json();
 
-      // Transform offers
-      const newOffers = response.data.offers.map(transformBankRewardsOffer);
-      console.log('Transformed offers:', newOffers.length);
-
-      // Send to API endpoint
-      const importResponse = await fetch('/api/opportunities/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ offers: newOffers }),
-        credentials: 'include', // Include credentials for authentication
-      });
-
-      if (!importResponse.ok) {
-        const error = await importResponse.json();
-        console.error('Import error:', error);
-        throw new Error(error.details || error.error || 'Failed to import opportunities');
+      // Add BankRewards validation stats if available
+      if (bankRewardsData?.data?.stats) {
+        return {
+          ...baseStats, // baseStats already includes staged offers
+          bankRewards: bankRewardsData.data.stats,
+          processingRate:
+            ((baseStats.total / (bankRewardsData.data.stats.total || 1)) * 100).toFixed(1) + '%',
+        };
       }
 
-      const result = await importResponse.json();
-      console.log('Import result:', result);
+      return baseStats;
+    },
+    enabled: true,
+    staleTime: 1000 * 30, // 30 seconds
+    refetchOnWindowFocus: true,
+  });
 
-      return result.addedCount;
+  // Import mutation with proper invalidation
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      try {
+        // Get Firebase auth instance
+        const auth = getAuth();
+        
+        // Wait for auth state to be ready using Promise with proper typing
+        const user = await new Promise<User>((resolve, reject) => {
+          // Check if already signed in
+          if (auth.currentUser) {
+            resolve(auth.currentUser);
+            return;
+          }
+
+          // Set up auth state listener with timeout
+          const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+              unsubscribe();
+              resolve(user);
+            }
+          });
+
+          // Timeout after 5 seconds
+          setTimeout(() => {
+            unsubscribe();
+            reject(new Error('Auth state timeout - please sign in again'));
+          }, 5000);
+        });
+
+        // Get fresh ID token with force refresh
+        const idToken = await user.getIdToken(true);
+        
+        // Log auth state (redacted for security)
+        console.log('Auth state:', {
+          isAuthenticated: true,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          isEmulator: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true',
+        });
+
+        // Prepare headers with auth token
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        };
+
+        // Add emulator specific headers if using emulators
+        if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
+          console.log('Using Firebase emulators');
+          headers['X-Firebase-AppCheck-Debug-Token'] = 'debug-token';
+        }
+
+        // Fetch offers
+        console.log('Fetching BankRewards offers...');
+        const response = await fetchBankRewardsOffers();
+        const newOffers = response.data.offers.map(transformBankRewardsOffer);
+        console.log(`Transformed ${newOffers.length} offers`);
+
+        // Send import request with auth token
+        const importResponse = await fetch('/api/opportunities/import', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            offers: newOffers,
+            auth: {
+              uid: user.uid,
+              email: user.email || '',
+              token: idToken,
+            }
+          }),
+          credentials: 'include',
+        });
+
+        if (!importResponse.ok) {
+          const error = await importResponse.json();
+          console.error('Import error:', {
+            status: importResponse.status,
+            statusText: importResponse.statusText,
+            error,
+          });
+          throw new Error(error.details || error.error || `Import failed: ${importResponse.statusText}`);
+        }
+
+        const result = await importResponse.json();
+        console.log('Import successful:', result);
+
+        return result.addedCount;
+      } catch (error) {
+        console.error('Import error:', error);
+        // Enhance error message for auth-related errors
+        if (error instanceof Error) {
+          if (error.message.includes('auth') || error.message.includes('sign in')) {
+            throw new Error(`Authentication error: ${error.message}. Please sign in again.`);
+          }
+        }
+        throw error;
+      }
     },
     onSuccess: (count) => {
-      console.log(`Import completed successfully. Added ${count} new offers.`);
-      queryClient.invalidateQueries(['staged_offers']);
-      queryClient.invalidateQueries(['opportunities', 'stats']);
+      console.log(`Successfully imported ${count} offers`);
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.staged.all,
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.all,
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.stats,
+      });
     },
     onError: (error: Error) => {
-      console.error('Import error:', error);
-      // You can handle the error here, e.g., show a toast notification
+      console.error('Import mutation error:', error);
+    },
+    retry: (failureCount, error) => {
+      // Only retry if it's not an auth error
+      if (error instanceof Error && 
+          (error.message.includes('auth') || 
+           error.message.includes('sign in'))) {
+        return false;
+      }
+      return failureCount < 2;
     },
   });
 
-  // Approve mutation
+  // Approve mutation with optimistic updates
   const approveOpportunityMutation = useMutation({
     mutationFn: async (opportunityData: Opportunity) => {
       try {
-        // Get user first to ensure we have authentication
+        // Get Firebase auth instance
         const auth = getAuth();
         const user = auth.currentUser;
-        if (!user?.email) {
+
+        if (!user) {
           throw new Error('No authenticated user found');
         }
+
+        // Get fresh ID token
+        const idToken = await user.getIdToken(true);
+        console.log('Got fresh ID token for approval');
 
         // Send to server-side API endpoint for Firebase operations
         const approveResponse = await fetch('/api/opportunities/approve', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
           },
-          body: JSON.stringify(opportunityData),
+          body: JSON.stringify({
+            ...opportunityData,
+            user: {
+              email: user.email,
+              uid: user.uid,
+            },
+          }),
+          credentials: 'include',
         });
 
         if (!approveResponse.ok) {
           const errorData = await approveResponse.json();
+          console.error('Approval error response:', errorData);
           throw new Error(
             errorData.details || errorData.error || 'Failed to approve opportunity'
           );
@@ -614,15 +770,15 @@ export function useOpportunities() {
           },
         };
 
-        console.log('Sending to API:', JSON.stringify(formData, null, 2));
-
-        // Create external API endpoint entry
+        // Create external API endpoint entry with auth token
         const response = await fetch('/api/opportunities', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
           },
           body: JSON.stringify(formData),
+          credentials: 'include',
         });
 
         if (!response.ok) {
@@ -656,9 +812,54 @@ export function useOpportunities() {
         throw error;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-      queryClient.invalidateQueries({ queryKey: ['staged_offers'] });
+    onMutate: async (opportunityData) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.opportunities.all,
+      });
+
+      // Snapshot the previous value
+      const previousOpportunities = queryClient.getQueryData(
+        queryKeys.opportunities.paginated(pagination)
+      );
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(
+        queryKeys.opportunities.paginated(pagination),
+        (old: PaginatedResponse | undefined) => ({
+          ...old,
+          items:
+            old?.items?.map((item: Opportunity) =>
+              item.id === opportunityData.id ? { ...item, status: 'approved' } : item
+            ) ?? [],
+          total: old?.total ?? 0,
+          hasMore: old?.hasMore ?? false,
+        })
+      );
+
+      // Return a context object with the snapshotted value
+      return { previousOpportunities };
+    },
+    onError: (err, newOpportunity, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousOpportunities) {
+        queryClient.setQueryData(
+          queryKeys.opportunities.paginated(pagination),
+          context.previousOpportunities
+        );
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.all,
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.staged.all,
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.stats,
+      });
     },
   });
 
@@ -680,38 +881,11 @@ export function useOpportunities() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['opportunities']);
-      queryClient.invalidateQueries(['staged_offers']);
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.staged.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
     },
   });
-
-  // Combine staged and Firebase opportunities for display
-  const allOpportunities = [
-    ...stagedOpportunities,
-    ...(paginatedData?.items || []).map((opp) => ({
-      ...opp,
-      isStaged: false,
-    })),
-  ];
-
-  // Update stats to include staged opportunities
-  useEffect(() => {
-    if (totalStats) {
-      setStats({
-        ...totalStats,
-        total: totalStats.total + stagedOpportunities.length,
-        pending: totalStats.pending + stagedOpportunities.length,
-      });
-    }
-  }, [totalStats, stagedOpportunities]);
-
-  const updatePagination = (updates: Partial<PaginationState>) => {
-    setPagination((prev: PaginationState) => ({
-      ...prev,
-      ...updates,
-      page: 'page' in updates ? updates.page! : 1,
-    }));
-  };
 
   // Bulk approve mutation
   const bulkApproveOpportunitiesMutation = useMutation({
@@ -746,8 +920,9 @@ export function useOpportunities() {
       total: number;
     }) => {
       console.log('Bulk approval completed:', result);
-      queryClient.invalidateQueries(['opportunities']);
-      queryClient.invalidateQueries(['staged_offers']);
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.staged.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
     },
   });
 
@@ -767,8 +942,8 @@ export function useOpportunities() {
       return stagedSnapshot.size;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['staged_offers']);
-      queryClient.invalidateQueries(['opportunities', 'stats']);
+      queryClient.invalidateQueries({ queryKey: ['staged_offers'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'stats'] });
     },
   });
 
@@ -803,30 +978,61 @@ export function useOpportunities() {
       };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['staged_offers']);
-      queryClient.invalidateQueries(['opportunities']);
-      queryClient.invalidateQueries(['opportunities', 'stats']);
+      queryClient.invalidateQueries({ queryKey: ['staged_offers'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'stats'] });
     },
   });
 
   return {
-    opportunities: allOpportunities,
-    pagination,
-    updatePagination,
+    opportunities: (paginatedData?.items || []).map((opp) => ({
+      ...opp,
+      isStaged: opp.status === 'staged',
+    })),
+    total: paginatedData?.total || 0,
     hasMore: paginatedData?.hasMore || false,
-    error: paginationError ? (paginationError as Error).message : null,
-    loading: isPaginationLoading,
+    isLoading: isPaginationPending,
+    error: paginationStatus === 'error' ? paginationError : null,
+    refetch: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.paginated(pagination),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.staged.all,
+      });
+    },
+    isCreating: importMutation.isPending,
+    isUpdating: approveOpportunityMutation.isPending,
+    isDeleting: rejectOpportunityMutation.isPending,
+    createError: importMutation.error,
+    updateError: approveOpportunityMutation.error,
+    deleteError: rejectOpportunityMutation.error,
     approveOpportunity: approveOpportunityMutation.mutate,
     rejectOpportunity: rejectOpportunityMutation.mutate,
     bulkApproveOpportunities: bulkApproveOpportunitiesMutation.mutate,
-    isBulkApproving: bulkApproveOpportunitiesMutation.isLoading,
-    stats,
+    isBulkApproving: bulkApproveOpportunitiesMutation.isPending,
+    stats: stats || {
+      total: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      avgValue: 0,
+      highValue: 0,
+      byType: {
+        bank: 0,
+        credit_card: 0,
+        brokerage: 0,
+      },
+    },
     importOpportunities: importMutation.mutate,
-    isImporting: importMutation.isLoading,
     hasStagedOpportunities: stagedOpportunities.length > 0,
     resetStagedOffers: resetStagedOffersMutation.mutate,
-    isResettingStagedOffers: resetStagedOffersMutation.isLoading,
+    isResettingStagedOffers: resetStagedOffersMutation.isPending,
     resetOpportunities: resetOpportunitiesMutation.mutate,
-    isResettingOpportunities: resetOpportunitiesMutation.isLoading,
+    isResettingOpportunities: resetOpportunitiesMutation.isPending,
+    pagination,
+    setPagination: (updates: Partial<PaginationState>) => {
+      setPagination((prev: PaginationState) => ({ ...prev, ...updates }));
+    },
   };
 }

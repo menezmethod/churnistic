@@ -25,6 +25,7 @@ import {
   Typography,
   alpha,
   useTheme,
+  Alert,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -98,8 +99,7 @@ export default function OpportunitiesSection({
   const {
     opportunities: filteredOpportunities,
     isLoading,
-    isError,
-    error: useOpportunitiesError,
+    error: opportunitiesError,
     refetch,
   } = useOpportunities({
     searchTerm,
@@ -195,6 +195,10 @@ export default function OpportunitiesSection({
     handleSortClose();
   };
 
+  if (opportunitiesError instanceof Error) {
+    return <Alert severity="error">{opportunitiesError.message}</Alert>;
+  }
+
   if (isLoading) {
     return (
       <Box
@@ -245,49 +249,6 @@ export default function OpportunitiesSection({
           </motion.span>
         </Typography>
       </Box>
-    );
-  }
-
-  if (isError) {
-    return (
-      <Container
-        maxWidth="lg"
-        sx={{
-          py: { xs: 2, md: 4 },
-          mt: { xs: '64px', md: '72px' },
-        }}
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: 2,
-              bgcolor: isDark
-                ? alpha(theme.palette.background.paper, 0.6)
-                : 'background.paper',
-              border: '1px solid',
-              borderColor: alpha(theme.palette.error.main, 0.2),
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <Typography variant="h5" color="error" sx={{ fontWeight: 600 }}>
-                Error Loading Opportunities
-              </Typography>
-            </Box>
-            <Typography color="text.secondary">
-              {useOpportunitiesError instanceof Error
-                ? useOpportunitiesError.message
-                : 'Unknown error'}
-            </Typography>
-          </Paper>
-        </motion.div>
-      </Container>
     );
   }
 

@@ -30,8 +30,7 @@ A modern credit card churning tracker built with Next.js, TypeScript, and Materi
 
 ### Developer Experience
 
-- Type-safe API contracts with tRPC
-- React Query for state management
+- React Query v5 for state management
 - Comprehensive test coverage
 - CI/CD pipeline with GitHub Actions
 - Automated code quality checks
@@ -141,7 +140,7 @@ Regular maintenance tasks:
 ### Tech Stack
 
 - **Frontend**: Next.js, React, Material-UI
-- **State Management**: React Query, tRPC
+- **State Management**: React Query
 - **Backend**: Firebase (Firestore, Authentication)
 - **AI Integration**: Groq SDK
 - **Testing**: Jest, Cypress, React Testing Library

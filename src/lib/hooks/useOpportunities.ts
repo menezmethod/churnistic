@@ -118,16 +118,13 @@ export function useOpportunities(params?: {
   });
 
   const createMutation = useMutation({
+    mutationKey: ['opportunities'],
     mutationFn: createOpportunity,
     onSuccess: (newOpportunity) => {
-      // Optimistically update the cache
       queryClient.setQueryData<FirestoreOpportunity[]>(
         ['opportunities', params],
-        (old) => {
-          return old ? [newOpportunity, ...old] : [newOpportunity];
-        }
+        (old) => (old ? [newOpportunity, ...old] : [newOpportunity])
       );
-      // Then invalidate to ensure we have the latest data
       queryClient.invalidateQueries({ queryKey: ['opportunities', params] });
     },
   });
@@ -202,15 +199,15 @@ export function useOpportunities(params?: {
   return {
     opportunities: query.data ?? [],
     isLoading: query.isLoading,
-    isError: query.isError,
+    isError: query.status === 'error',
     error: query.error,
     refetch: query.refetch,
     createOpportunity: createMutation.mutate,
     updateOpportunity: updateMutation.mutate,
     deleteOpportunity: deleteMutation.mutate,
-    isCreating: createMutation.isLoading,
-    isUpdating: updateMutation.isLoading,
-    isDeleting: deleteMutation.isLoading,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
     createError: createMutation.error,
     updateError: updateMutation.error,
     deleteError: deleteMutation.error,
