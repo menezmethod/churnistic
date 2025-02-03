@@ -22,7 +22,6 @@ import {
   useTheme,
 } from '@mui/material';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 import { OpportunityCard, OpportunityCardSkeleton } from './components/OpportunityCard';
@@ -33,19 +32,19 @@ import { StatCard, StatCardSkeleton } from './components/StatCard';
 import WelcomeSection from './components/WelcomeSection';
 import { useDashboardData, type DashboardOpportunity } from './hooks/useDashboardData';
 import { TrackedOpportunity } from './types';
+
 export default function DashboardPage() {
   const theme = useTheme();
-  const router = useRouter();
   const { user, profile, stats, quickOpportunities, trackedOpportunities, loading } =
     useDashboardData();
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/auth/signin');
+      window.location.href = '/auth/signin?redirect=/dashboard';
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
-  if (loading || !stats) {
+  if (loading) {
     return (
       <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
         {/* Stats Section */}

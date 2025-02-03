@@ -31,16 +31,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Validate base URL
+    try {
+      new URL(baseUrl);
+    } catch {
+      console.error('Invalid base URL:', baseUrl);
+      return NextResponse.json(
+        { error: 'Invalid scraper URL configuration' },
+        { status: 500, headers: corsHeaders }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'detailed';
 
-    const apiUrl = `${baseUrl}/api/bankrewards?format=${format}`;
-    console.log('🔍 Proxy - Fetching from URL:', apiUrl);
+    // Construct and validate API URL
+    const apiUrl = new URL('/api/bankrewards', baseUrl);
+    apiUrl.searchParams.set('format', format);
+
+    console.log('🔍 Proxy - Fetching from URL:', apiUrl.toString());
     console.log('🔑 Proxy - Using base URL:', baseUrl);
 
-    const response = await fetch(apiUrl, {
+    const response = await fetch(apiUrl.toString(), {
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
       cache: 'no-store',
     });
@@ -50,7 +65,7 @@ export async function GET(request: NextRequest) {
       console.error('❌ Proxy - Scraper API error:', {
         status: response.status,
         statusText: response.statusText,
-        url: apiUrl,
+        url: apiUrl.toString(),
         response: errorText,
       });
 
@@ -61,8 +76,6 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-
-    // Log the raw response
     console.log('📦 Proxy - Raw scraper response:', JSON.stringify(data, null, 2));
 
     // Transform the response if needed
@@ -93,6 +106,7 @@ export async function GET(request: NextRequest) {
       {
         error:
           error instanceof Error ? error.message : 'Failed to fetch from BankRewards API',
+        details: error instanceof Error ? error.stack : undefined,
       },
       { status: 500, headers: corsHeaders }
     );
