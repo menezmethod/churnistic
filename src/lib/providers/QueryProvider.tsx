@@ -1,3 +1,9 @@
+// TODO: Routes to be implemented in future versions:
+// - /admin/analytics: Analytics dashboard for admins
+// - /admin/reports: Report generation and management
+// - /admin/logs: System logs and activity tracking
+// - /help: Help and documentation center
+
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -19,6 +25,8 @@ export function QueryProvider({ children }: QueryProviderProps) {
             refetchOnWindowFocus: false,
             retry: 1,
             networkMode: 'offlineFirst',
+            refetchOnMount: false, // Prevent aggressive refetching
+            refetchOnReconnect: false, // Prevent aggressive refetching
           },
         },
       })

@@ -29,7 +29,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
@@ -95,7 +95,7 @@ export default function OpportunitiesSection({
     return CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null;
   });
 
-  // Use the enhanced useOpportunities hook
+  // Use the enhanced useOpportunities hook with proper params
   const {
     opportunities: filteredOpportunities,
     isLoading,
@@ -107,6 +107,36 @@ export default function OpportunitiesSection({
     sortBy,
     sortDirection,
   });
+
+  // Log the opportunities data for debugging
+  useEffect(() => {
+    console.log('OpportunitiesSection - Current state:', {
+      opportunities: {
+        count: filteredOpportunities.length,
+        sample: filteredOpportunities[0]
+          ? {
+              id: filteredOpportunities[0].id,
+              name: filteredOpportunities[0].name,
+              type: filteredOpportunities[0].type,
+            }
+          : null,
+      },
+      searchTerm,
+      selectedType,
+      sortBy,
+      sortDirection,
+      isLoading,
+      error: opportunitiesError,
+    });
+  }, [
+    filteredOpportunities,
+    searchTerm,
+    selectedType,
+    sortBy,
+    sortDirection,
+    isLoading,
+    opportunitiesError,
+  ]);
 
   // Handle type selection
   const handleTypeClick = (type: string | null) => {

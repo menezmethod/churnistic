@@ -7,6 +7,7 @@ import type { FirestoreOpportunity } from '@/types/opportunity';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 const isPreviewEnvironment = process.env.VERCEL_ENV === 'preview';
+const isPublicRoute = true; // Make the GET endpoint public
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,42 +16,47 @@ export async function GET(request: NextRequest) {
       useEmulator,
       isPreviewEnvironment,
       vercelEnv: process.env.VERCEL_ENV,
+      isPublicRoute,
     });
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
     const limitParam = searchParams.get('limit');
     const limitNum = limitParam ? Number(limitParam) : undefined;
+    const sortBy = searchParams.get('sortBy');
+    const sortDirection = searchParams.get('sortDirection') as 'asc' | 'desc' | null;
 
-    console.log('Query params:', { type, limitNum });
+    console.log('Query params:', { type, limitNum, sortBy, sortDirection });
 
     const db = getAdminDb();
-    const opportunitiesRef = db.collection(
-      'opportunities'
-    ) as FirebaseFirestore.CollectionReference;
-
-    // Skip auth check in emulator or preview environment
-    if (!useEmulator && !isPreviewEnvironment) {
-      const { session } = await createAuthContext(request);
-      if (!session?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
+    if (!db) {
+      console.error('Failed to initialize Firebase Admin');
+      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
 
+    const opportunitiesRef = db.collection('opportunities');
     console.log('Building Firestore query...');
-    let queryRef: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> =
-      opportunitiesRef;
 
+    let queryRef: FirebaseFirestore.Query = opportunitiesRef;
+
+    // Apply filters
     if (type) {
       queryRef = queryRef.where('type', '==', type);
     }
 
-    // Only apply limit if explicitly requested
-    if (limitNum) {
+    // Apply sorting
+    if (sortBy) {
+      queryRef = queryRef.orderBy(sortBy, sortDirection || 'desc');
+    }
+
+    // Apply limit
+    if (limitNum && limitNum > 0) {
       queryRef = queryRef.limit(limitNum);
     }
 
+    console.log('Executing Firestore query...');
     const snapshot = await queryRef.get();
+
     console.log('Query snapshot:', {
       size: snapshot.size,
       empty: snapshot.empty,
@@ -70,12 +76,26 @@ export async function GET(request: NextRequest) {
       } as FirestoreOpportunity;
     });
 
+    console.log('Processed opportunities:', {
+      count: opportunities.length,
+      sample: opportunities[0]
+        ? {
+            id: opportunities[0].id,
+            name: opportunities[0].name,
+            type: opportunities[0].type,
+          }
+        : null,
+    });
+
     return NextResponse.json(opportunities);
   } catch (error) {
     console.error('Error fetching opportunities:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error details:', errorMessage);
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json(
+      { error: errorMessage, details: 'Failed to fetch opportunities' },
+      { status: 500 }
+    );
   }
 }
 
