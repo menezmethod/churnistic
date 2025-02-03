@@ -2,7 +2,29 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['firebasestorage.googleapis.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.gstatic.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'bankrewards.io',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.googleusercontent.com',
+        pathname: '/**',
+      }
+    ],
+    unoptimized: true
   },
   experimental: {
     serverActions: {

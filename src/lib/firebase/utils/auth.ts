@@ -9,9 +9,10 @@ import {
   type User,
   type Unsubscribe,
   type AuthError as FirebaseAuthError,
+  Auth,
 } from 'firebase/auth';
 
-import { auth } from './config';
+import { getFirebaseServices } from '../config';
 
 export interface AuthError {
   code: string;
@@ -47,6 +48,16 @@ const createAuthError = (
   };
 };
 
+let auth: Auth;
+
+async function getAuth(): Promise<Auth> {
+  if (!auth) {
+    const services = await getFirebaseServices();
+    auth = services.auth;
+  }
+  return auth;
+}
+
 export const signInWithEmail = async (
   email: string,
   password: string
@@ -76,8 +87,9 @@ export const signInWithEmail = async (
       };
     }
 
+    const authInstance = await getAuth();
     console.log('Attempting to sign in with email:', email);
-    const userCredential = await firebaseSignInWithEmail(auth, email, password);
+    const userCredential = await firebaseSignInWithEmail(authInstance, email, password);
     console.log('Sign in successful:', userCredential.user.email);
     return {
       user: userCredential.user,
@@ -126,7 +138,12 @@ export const signUpWithEmail = async (
       };
     }
 
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const authInstance = await getAuth();
+    const userCredential = await createUserWithEmailAndPassword(
+      authInstance,
+      email,
+      password
+    );
     return { user: userCredential.user, error: null };
   } catch (error: unknown) {
     const firebaseError = error as FirebaseAuthError;
@@ -143,7 +160,8 @@ export const signUpWithEmail = async (
 
 export const signOut = async (): Promise<{ error: AuthError | null }> => {
   try {
-    await firebaseSignOut(auth);
+    const authInstance = await getAuth();
+    await firebaseSignOut(authInstance);
     return { error: null };
   } catch (error: unknown) {
     const firebaseError = error as FirebaseAuthError;
@@ -164,8 +182,9 @@ export const signInWithGoogle = async (): Promise<AuthResponse> => {
       prompt: 'select_account',
     });
 
+    const authInstance = await getAuth();
     console.log('Starting Google sign in...');
-    const userCredential = await signInWithPopup(auth, provider);
+    const userCredential = await signInWithPopup(authInstance, provider);
     console.log('Google sign in successful:', {
       uid: userCredential.user.uid,
       email: userCredential.user.email,
@@ -209,7 +228,8 @@ export const resetPassword = async (
       };
     }
 
-    await sendPasswordResetEmail(auth, email);
+    const authInstance = await getAuth();
+    await sendPasswordResetEmail(authInstance, email);
     return { error: null };
   } catch (error: unknown) {
     const firebaseError = error as FirebaseAuthError;
@@ -223,12 +243,14 @@ export const resetPassword = async (
   }
 };
 
-export const getCurrentUser = (): User | null => {
-  return auth.currentUser;
+export const getCurrentUser = async (): Promise<User | null> => {
+  const authInstance = await getAuth();
+  return authInstance.currentUser;
 };
 
-export const subscribeToAuthChanges = (handler: AuthStateHandler): Unsubscribe => {
-  return onAuthStateChanged(auth, handler);
+export const subscribeToAuthChanges = async (
+  handler: AuthStateHandler
+): Promise<Unsubscribe> => {
+  const authInstance = await getAuth();
+  return onAuthStateChanged(authInstance, handler);
 };
-
-export { auth };

@@ -3,7 +3,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import { db } from '@/lib/firebase/config';
+import { getFirebaseServices } from '@/lib/firebase/config';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 export interface UserProfile {
@@ -55,7 +55,8 @@ export function useDashboardData() {
 
     const fetchProfile = async () => {
       try {
-        const docRef = doc(db, 'users', user.uid);
+        const { firestore } = await getFirebaseServices();
+        const docRef = doc(firestore, 'users', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setProfile(docSnap.data() as UserProfile);

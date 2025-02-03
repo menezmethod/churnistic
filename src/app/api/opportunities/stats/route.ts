@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 
 import { getAdminDb } from '@/lib/firebase/admin';
 import { formatCurrency } from '@/lib/utils/formatters';
-import { Opportunity } from '@/types/opportunity';
+import { DashboardOpportunity, Opportunity } from '@/types/opportunity';
 
 export const dynamic = 'force-dynamic'; // Ensure this route is always dynamic
+export const revalidate = 300; // Revalidate every 5 minutes
 
 // Helper function to round to nearest 5
 function roundToNearest5(num: number): number {
@@ -24,78 +25,60 @@ function parseNumericValue(value: string | number | null): number {
 export async function GET() {
   try {
     const db = getAdminDb();
-    if (!db) {
-      throw new Error('Firebase admin not initialized');
-    }
 
+    // Fetch opportunities in parallel
     const [opportunities, tracked] = await Promise.all([
       db.collection('opportunities').get(),
       db.collection('tracked_opportunities').get(),
     ]);
 
-    // Get all opportunities
+    // Get all opportunities with processed data
     const allOpportunities = opportunities.docs.map((doc) => {
       const data = doc.data() as Opportunity;
+      const status =
+        data.metadata?.status !== 'inactive' && data.status !== 'rejected'
+          ? 'active'
+          : 'inactive';
+
       return {
         ...data,
         id: doc.id,
-        value: parseNumericValue(data.value), // Ensure value is numeric
-      };
+        value: parseNumericValue(data.value),
+        status,
+        metadata: {
+          ...data.metadata,
+          tracked: tracked.docs.some((t) => t.id === doc.id),
+        },
+        source: data.metadata?.source?.name || 'Unknown',
+        sourceLink: data.offer_link || '#',
+        postedDate: data.metadata?.created_at || new Date().toISOString(),
+        confidence: data.ai_insights?.confidence_score ?? 0,
+        title: data.name || data.title || 'Untitled Opportunity',
+        bank: data.bank || 'Unknown Bank',
+        description: data.description || '',
+      } as DashboardOpportunity;
     });
 
-    console.log('Total opportunities:', allOpportunities.length);
-    console.log('Sample opportunity fields:', Object.keys(allOpportunities[0] || {}));
-    console.log('Sample opportunity metadata:', allOpportunities[0]?.metadata);
-
-    // Get active opportunities - adjust filter based on actual data structure
-    const activeOpportunities = allOpportunities.filter((opp) => {
-      const isActive =
-        opp.metadata?.status !== 'inactive' && opp.status !== 'rejected' && opp.value > 0;
-
-      if (isActive) {
-        console.log('Found active opportunity:', {
-          id: opp.id,
-          name: opp.name,
-          value: opp.value,
-          status: opp.status,
-          metadataStatus: opp.metadata?.status,
-        });
-      }
-
-      return isActive;
-    });
-
-    console.log('Active opportunities:', activeOpportunities.length);
-    if (activeOpportunities.length > 0) {
-      console.log('Sample active opportunity:', {
-        id: activeOpportunities[0].id,
-        name: activeOpportunities[0].name,
-        value: activeOpportunities[0].value,
-        type: activeOpportunities[0].type,
-      });
-    }
+    // Get active opportunities
+    const activeOpportunities = allOpportunities.filter(
+      (opp) => opp.status === 'active' && opp.value > 0
+    );
 
     // Calculate stats
     const activeCount = activeOpportunities.length;
     const roundedActiveCount = roundToNearest5(activeCount);
     const trackedCount = tracked.docs.length;
 
-    const totalPotentialValue = activeOpportunities.reduce((sum, opp) => {
-      const value =
-        typeof opp.value === 'string' ? parseFloat(opp.value) : opp.value || 0;
-      console.log('Adding value:', { id: opp.id, name: opp.name, value });
-      return sum + value;
-    }, 0);
+    const totalPotentialValue = activeOpportunities.reduce(
+      (sum, opp) => sum + opp.value,
+      0
+    );
 
     const averageValue =
       activeCount > 0 ? Math.round(totalPotentialValue / activeCount) : 0;
 
     // High value opportunities (over $500)
-    const highValue = activeOpportunities.filter((opp) => {
-      const value =
-        typeof opp.value === 'string' ? parseFloat(opp.value) : opp.value || 0;
-      return value >= 500;
-    }).length;
+    const highValue = activeOpportunities.filter((opp) => opp.value >= 500).length;
 
     // Calculate type distribution
     const byType = {
@@ -123,10 +106,21 @@ export async function GET() {
       lastUpdated: new Date().toISOString(),
     };
 
-    console.log('Final response:', response);
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+      },
+    });
   } catch (error) {
     console.error('Error fetching stats:', error);
-    return NextResponse.json({ error: 'Failed to fetch statistics' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch statistics' },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
   }
 }

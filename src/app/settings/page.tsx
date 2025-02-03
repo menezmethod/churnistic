@@ -24,7 +24,7 @@ import { JSX, useCallback, useEffect, useState } from 'react';
 
 import { useTheme } from '@/app/styles/theme/ThemeContext';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { db, storage } from '@/lib/firebase/config';
+import { getFirebaseServices } from '@/lib/firebase/config';
 
 import { AccountSection } from './components/AccountSection';
 import { NotificationsSection } from './components/NotificationsSection';
@@ -183,7 +183,8 @@ const SettingsPage = (): JSX.Element => {
     }
 
     try {
-      const docRef = doc(db, 'users', user.uid);
+      const { firestore } = await getFirebaseServices();
+      const docRef = doc(firestore, 'users', user.uid);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
@@ -250,14 +251,10 @@ const SettingsPage = (): JSX.Element => {
     if (!user || !profile) return;
 
     try {
-      const docRef = doc(db, 'users', user.uid);
-      await updateDoc(docRef, {
-        ...updates,
-        updatedAt: new Date().toISOString(),
-      });
-
-      setProfile((prev) => (prev ? { ...prev, ...updates } : null));
-
+      const { firestore } = await getFirebaseServices();
+      const docRef = doc(firestore, 'users', user.uid);
+      await updateDoc(docRef, updates);
+      setProfile({ ...profile, ...updates });
       setSnackbar({
         open: true,
         message: 'Profile updated successfully',
@@ -274,25 +271,21 @@ const SettingsPage = (): JSX.Element => {
   };
 
   const handlePhotoChange = async (file: File): Promise<void> => {
-    if (!user || !profile) {
-      setSnackbar({
-        open: true,
-        message: 'Please sign in to upload a photo',
-        severity: 'error',
-      });
-      return;
-    }
+    if (!user) return;
 
     try {
-      const storageRef = ref(storage, `users/${user.uid}/profile-photo`);
+      const { storage } = await getFirebaseServices();
+      const storageRef = ref(storage, `profile_photos/${user.uid}`);
       await uploadBytes(storageRef, file);
       const photoURL = await getDownloadURL(storageRef);
 
+      await updateProfile(user, { photoURL });
       await handleProfileUpdate({ photoURL });
-    } catch (err) {
+    } catch (error) {
+      console.error('Error updating photo:', error);
       setSnackbar({
         open: true,
-        message: err instanceof Error ? err.message : 'Failed to upload photo',
+        message: 'Failed to update photo',
         severity: 'error',
       });
     }
@@ -316,7 +309,8 @@ const SettingsPage = (): JSX.Element => {
     if (!user) return;
 
     try {
-      const docRef = doc(db, 'users', user.uid);
+      const { firestore } = await getFirebaseServices();
+      const docRef = doc(firestore, 'users', user.uid);
       await updateDoc(docRef, { deleted: true });
       await deleteUser(user);
       window.location.href = '/';

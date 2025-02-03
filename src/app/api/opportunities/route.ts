@@ -3,21 +3,12 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { getAdminDb } from '@/lib/firebase/admin';
+import { shouldUseEmulators } from '@/lib/firebase/utils/environment';
 import type { FirestoreOpportunity } from '@/types/opportunity';
-
-const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-const isPreviewEnvironment = process.env.VERCEL_ENV === 'preview';
-const isPublicRoute = true; // Make the GET endpoint public
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('GET /api/opportunities - Starting request');
-    console.log('Environment:', {
-      useEmulator,
-      isPreviewEnvironment,
-      vercelEnv: process.env.VERCEL_ENV,
-      isPublicRoute,
-    });
+    console.log('📥 GET /api/opportunities - Starting request');
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
@@ -25,17 +16,27 @@ export async function GET(request: NextRequest) {
     const limitNum = limitParam ? Number(limitParam) : undefined;
     const sortBy = searchParams.get('sortBy');
     const sortDirection = searchParams.get('sortDirection') as 'asc' | 'desc' | null;
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
 
-    console.log('Query params:', { type, limitNum, sortBy, sortDirection });
+    console.log('🔍 Query params:', {
+      type,
+      limitNum,
+      sortBy,
+      sortDirection,
+      page,
+      pageSize,
+      isEmulator: shouldUseEmulators(),
+    });
 
     const db = getAdminDb();
     if (!db) {
-      console.error('Failed to initialize Firebase Admin');
+      console.error('❌ Failed to initialize Firebase Admin');
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
 
     const opportunitiesRef = db.collection('opportunities');
-    console.log('Building Firestore query...');
+    console.log('🏗️ Building Firestore query...');
 
     let queryRef: FirebaseFirestore.Query = opportunitiesRef;
 
@@ -49,22 +50,24 @@ export async function GET(request: NextRequest) {
       queryRef = queryRef.orderBy(sortBy, sortDirection || 'desc');
     }
 
-    // Apply limit
-    if (limitNum && limitNum > 0) {
-      queryRef = queryRef.limit(limitNum);
+    // Apply pagination
+    const startIndex = (page - 1) * pageSize;
+    if (startIndex > 0) {
+      queryRef = queryRef.offset(startIndex);
     }
+    queryRef = queryRef.limit(pageSize);
 
-    console.log('Executing Firestore query...');
+    console.log('🚀 Executing Firestore query...');
     const snapshot = await queryRef.get();
 
-    console.log('Query snapshot:', {
+    console.log('📊 Query snapshot:', {
       size: snapshot.size,
       empty: snapshot.empty,
       docs: snapshot.docs.length,
     });
 
     if (snapshot.empty) {
-      console.log('No opportunities found');
+      console.log('ℹ️ No opportunities found');
       return NextResponse.json([]);
     }
 
@@ -76,7 +79,7 @@ export async function GET(request: NextRequest) {
       } as FirestoreOpportunity;
     });
 
-    console.log('Processed opportunities:', {
+    console.log('✅ Processed opportunities:', {
       count: opportunities.length,
       sample: opportunities[0]
         ? {
@@ -89,9 +92,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(opportunities);
   } catch (error) {
-    console.error('Error fetching opportunities:', error);
+    console.error('❌ Error fetching opportunities:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error details:', errorMessage);
+    console.error('❌ Error details:', errorMessage);
     return NextResponse.json(
       { error: errorMessage, details: 'Failed to fetch opportunities' },
       { status: 500 }
@@ -101,19 +104,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    console.log('POST /api/opportunities - Starting request');
-    console.log('Environment:', {
-      useEmulator,
-      isPreviewEnvironment,
-      vercelEnv: process.env.VERCEL_ENV,
-    });
+    console.log('📥 POST /api/opportunities - Starting request');
 
-    // Always get the auth context
-    const { session } = await createAuthContext(req);
-
-    // In production, require authentication
-    if (!useEmulator && !isPreviewEnvironment && !session?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Skip auth check in emulator mode
+    if (!shouldUseEmulators()) {
+      const { session } = await createAuthContext(req);
+      if (!session?.email) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     // Parse and validate request body
@@ -124,9 +122,9 @@ export async function POST(req: NextRequest) {
     let body;
     try {
       body = await req.json();
-      console.log('Received data:', JSON.stringify(body, null, 2));
+      console.log('📦 Received data:', JSON.stringify(body, null, 2));
     } catch (error) {
-      console.error('Error parsing request body:', error);
+      console.error('❌ Error parsing request body:', error);
       return NextResponse.json(
         { error: 'Invalid JSON in request body' },
         { status: 400 }
@@ -134,28 +132,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate required fields
-    if (!body.name || !body.type || !body.id || !body.metadata?.created_by) {
-      console.error('Missing required fields:', {
+    if (!body.name || !body.type || !body.id) {
+      console.error('❌ Missing required fields:', {
         name: body.name,
         type: body.type,
         id: body.id,
-        created_by: body.metadata?.created_by,
       });
       return NextResponse.json(
-        { error: 'Name, type, id, and metadata.created_by are required fields' },
+        { error: 'Name, type, and id are required fields' },
         { status: 400 }
-      );
-    }
-
-    // In production, ensure the user can only use their own email
-    if (
-      !useEmulator &&
-      !isPreviewEnvironment &&
-      session?.email !== body.metadata.created_by
-    ) {
-      return NextResponse.json(
-        { error: 'Cannot create opportunities on behalf of other users' },
-        { status: 403 }
       );
     }
 
@@ -224,8 +209,8 @@ export async function POST(req: NextRequest) {
         ...(body.metadata || {}),
         created_at: body.metadata?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        created_by: body.metadata.created_by,
-        updated_by: body.metadata.created_by,
+        created_by: body.metadata?.created_by || 'system',
+        updated_by: body.metadata?.created_by || 'system',
         status: body.metadata?.status || 'active',
         environment: process.env.NODE_ENV || 'development',
       },
@@ -234,20 +219,20 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date().toISOString(),
     };
 
-    console.log('Processed opportunity:', JSON.stringify(opportunity, null, 2));
+    console.log('🏗️ Processed opportunity:', JSON.stringify(opportunity, null, 2));
 
     try {
       const db = getAdminDb();
       // Use the provided ID instead of generating a new one
       await db.collection('opportunities').doc(body.id).set(opportunity);
-      console.log('Opportunity created with ID:', body.id);
+      console.log('✅ Opportunity created with ID:', body.id);
 
       return NextResponse.json({
         id: body.id,
         message: 'Opportunity created successfully',
       });
     } catch (dbError) {
-      console.error('Database error:', dbError);
+      console.error('❌ Database error:', dbError);
       return NextResponse.json(
         {
           error: 'Database error',
@@ -257,9 +242,9 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Error creating opportunity:', error);
+    console.error('❌ Error creating opportunity:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error details:', errorMessage);
+    console.error('❌ Error details:', errorMessage);
     return NextResponse.json(
       { error: 'Failed to create opportunity', details: errorMessage },
       { status: 500 }

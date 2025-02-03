@@ -1,15 +1,14 @@
-import { type Auth } from 'firebase/auth';
-import { type Firestore } from 'firebase/firestore';
-import { type FirebaseStorage } from 'firebase/storage';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
+import { getStorage } from 'firebase/storage';
 
-import { auth, db, storage } from './config';
+import { initializeFirebaseApp } from './config';
 
-if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-  console.log('🔧 Using Firebase Emulator Suite');
-  console.log('🔑 Connecting to Auth Emulator at: localhost:9099');
-  console.log('📚 Connecting to Firestore Emulator at: localhost:8080');
-  console.log('📦 Connecting to Storage Emulator at: localhost:9199');
-}
+// Initialize Firebase app and services
+const app = await initializeFirebaseApp();
 
-export { auth, db, storage };
-export type { Auth, Firestore, FirebaseStorage };
+export const auth = getAuth(app);
+export const firestore = getFirestore(app);
+export const storage = getStorage(app);
+export const functions = getFunctions(app);

@@ -6,8 +6,8 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { auth, db } from '@/lib/firebase/client-app';
-import { manageSessionCookie } from '@/lib/firebase/config';
+import { getFirebaseServices } from '@/lib/firebase/config';
+import { manageSessionCookie } from '@/lib/firebase/utils/session';
 import { UserProfile } from '@/types/user';
 
 export function FirebaseAuth() {
@@ -20,24 +20,25 @@ export function FirebaseAuth() {
       setLoading(true);
       setError(null);
 
+      const { auth, firestore } = await getFirebaseServices();
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const { user } = result;
+      const { user } = await signInWithPopup(auth, provider);
 
-      // Get or create user profile
-      const userRef = doc(db, 'users', user.uid);
+      // Check if user profile exists
+      const userRef = doc(firestore, 'users', user.uid);
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
+        // Create new user profile
         const newProfile: UserProfile = {
           id: user.uid,
-          role: 'user',
           email: user.email || '',
           status: 'active',
           displayName: user.displayName || user.email?.split('@')[0] || '',
           customDisplayName: user.displayName || user.email?.split('@')[0] || '',
           photoURL: user.photoURL || '',
           firebaseUid: user.uid,
+          role: 'user',
           creditScore: null,
           monthlyIncome: null,
           businessVerified: false,
@@ -48,12 +49,14 @@ export function FirebaseAuth() {
         await setDoc(userRef, newProfile);
       }
 
-      // Create session
+      // Set session cookie
       await manageSessionCookie(user);
+
+      // Redirect to dashboard
       router.push('/dashboard');
-    } catch (error) {
-      console.error('Authentication error:', error);
-      setError('Failed to sign in with Google. Please try again.');
+    } catch (err) {
+      console.error('Google sign in error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred during sign in');
     } finally {
       setLoading(false);
     }

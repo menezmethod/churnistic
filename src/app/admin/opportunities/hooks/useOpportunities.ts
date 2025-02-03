@@ -9,10 +9,9 @@ import {
   query,
   where,
   deleteDoc,
+  getFirestore,
 } from 'firebase/firestore';
 import { useState } from 'react';
-
-import { db } from '@/lib/firebase/config';
 
 import {
   Details,
@@ -314,8 +313,8 @@ const fetchPaginatedOpportunities = async (
   const { page, pageSize, sortBy, sortDirection, filters } = pagination;
 
   // Get both collections
-  const opportunitiesRef = collection(db, 'opportunities');
-  const stagedOffersRef = collection(db, 'staged_offers');
+  const opportunitiesRef = collection(getFirestore(), 'opportunities');
+  const stagedOffersRef = collection(getFirestore(), 'staged_offers');
 
   // Build base queries for both collections
   let opportunitiesQuery = query(opportunitiesRef);
@@ -564,8 +563,8 @@ export function useOpportunities() {
     queryFn: async () => {
       // Get all opportunities and staged offers
       const [opportunitiesSnapshot, stagedSnapshot] = await Promise.all([
-        getDocs(collection(db, 'opportunities')),
-        getDocs(collection(db, 'staged_offers')),
+        getDocs(collection(getFirestore(), 'opportunities')),
+        getDocs(collection(getFirestore(), 'staged_offers')),
       ]);
 
       // Calculate base stats
@@ -1024,11 +1023,11 @@ export function useOpportunities() {
     mutationFn: async (opportunityData: Opportunity & { isStaged?: boolean }) => {
       if (opportunityData.isStaged) {
         // Just remove from staged_offers
-        await deleteDoc(doc(db, 'staged_offers', opportunityData.id));
+        await deleteDoc(doc(getFirestore(), 'staged_offers', opportunityData.id));
         return null;
       } else {
         // Update existing opportunity
-        const opportunityRef = doc(db, 'opportunities', opportunityData.id);
+        const opportunityRef = doc(getFirestore(), 'opportunities', opportunityData.id);
         await updateDoc(opportunityRef, {
           status: 'rejected',
           updatedAt: new Date().toISOString(),
@@ -1079,7 +1078,7 @@ export function useOpportunities() {
       console.log('Starting bulk approval process for all staged offers');
 
       // Get all staged offers first
-      const stagedSnapshot = await getDocs(collection(db, 'staged_offers'));
+      const stagedSnapshot = await getDocs(collection(getFirestore(), 'staged_offers'));
       const allStagedOpportunities = stagedSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -1106,12 +1105,12 @@ export function useOpportunities() {
         console.log(`Processing batch ${index + 1} of ${batches.length}`);
 
         // Create a new batch write
-        const batchWriter = writeBatch(db);
+        const batchWriter = writeBatch(getFirestore());
 
         // Add all operations to the batch
         for (const opportunity of batch) {
-          const stagedRef = doc(db, 'staged_offers', opportunity.id);
-          const approvedRef = doc(db, 'opportunities', opportunity.id);
+          const stagedRef = doc(getFirestore(), 'staged_offers', opportunity.id);
+          const approvedRef = doc(getFirestore(), 'opportunities', opportunity.id);
 
           // Delete from staged_offers and add to opportunities
           batchWriter.delete(stagedRef);
@@ -1196,8 +1195,8 @@ export function useOpportunities() {
   const resetStagedOffersMutation = useMutation({
     mutationFn: async () => {
       console.log('Starting reset of staged offers');
-      const stagedSnapshot = await getDocs(collection(db, 'staged_offers'));
-      const batch = writeBatch(db);
+      const stagedSnapshot = await getDocs(collection(getFirestore(), 'staged_offers'));
+      const batch = writeBatch(getFirestore());
 
       stagedSnapshot.docs.forEach((doc) => {
         batch.delete(doc.ref);
@@ -1218,11 +1217,11 @@ export function useOpportunities() {
     mutationFn: async () => {
       console.log('Starting reset of all opportunities');
       const [stagedSnapshot, opportunitiesSnapshot] = await Promise.all([
-        getDocs(collection(db, 'staged_offers')),
-        getDocs(collection(db, 'opportunities')),
+        getDocs(collection(getFirestore(), 'staged_offers')),
+        getDocs(collection(getFirestore(), 'opportunities')),
       ]);
 
-      const batch = writeBatch(db);
+      const batch = writeBatch(getFirestore());
 
       // Delete all staged offers
       stagedSnapshot.docs.forEach((doc) => {
