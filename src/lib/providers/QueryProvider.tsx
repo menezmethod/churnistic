@@ -1,3 +1,9 @@
+// TODO: Routes to be implemented in future versions:
+// - /admin/analytics: Analytics dashboard for admins
+// - /admin/reports: Report generation and management
+// - /admin/logs: System logs and activity tracking
+// - /help: Help and documentation center
+
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,11 +15,29 @@ interface QueryProviderProps {
 }
 
 export function QueryProvider({ children }: QueryProviderProps) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 5 * 60 * 1000, // 5 minutes
+            gcTime: 10 * 60 * 1000, // 10 minutes
+            refetchOnWindowFocus: false,
+            retry: 1,
+            networkMode: 'offlineFirst',
+            refetchOnMount: false, // Prevent aggressive refetching
+            refetchOnReconnect: false, // Prevent aggressive refetching
+          },
+        },
+      })
+  );
+
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
+      {process.env.NODE_ENV === 'development' && (
+        <ReactQueryDevtools initialIsOpen={false} />
+      )}
     </QueryClientProvider>
   );
 }

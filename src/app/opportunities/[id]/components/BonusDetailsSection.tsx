@@ -97,11 +97,11 @@ export default function BonusDetailsSection({ bonus }: BonusDetailsSectionProps)
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Assignment sx={{ color: theme.palette.primary.main }} />
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                {bonus.requirements.title || 'Requirements'}
+                {bonus.requirements[0].title || 'Requirements'}
               </Typography>
             </Box>
 
-            {bonus.requirements.description && (
+            {bonus.requirements[0].description && (
               <Typography
                 variant="body1"
                 color="text.secondary"
@@ -110,7 +110,7 @@ export default function BonusDetailsSection({ bonus }: BonusDetailsSectionProps)
                   borderLeft: `2px solid ${alpha(theme.palette.primary.main, 0.2)}`,
                 }}
               >
-                {bonus.requirements.description}
+                {bonus.requirements[0].description}
               </Typography>
             )}
           </Stack>

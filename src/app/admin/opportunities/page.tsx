@@ -130,53 +130,60 @@ const OpportunitiesPage = () => {
   );
   const [resetStagedDialogOpen, setResetStagedDialogOpen] = useState(false);
   const [resetAllDialogOpen, setResetAllDialogOpen] = useState(false);
+  const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
+
   const {
     opportunities,
-    pagination,
-    updatePagination,
     hasMore,
+    refetch,
+    pagination,
+    setPagination,
+    isCreating,
     approveOpportunity,
     rejectOpportunity,
     bulkApproveOpportunities,
     isBulkApproving,
     stats,
     importOpportunities,
-    isImporting,
+    hasStagedOpportunities,
     resetStagedOffers,
     isResettingStagedOffers,
     resetOpportunities,
     isResettingOpportunities,
-    hasStagedOpportunities,
   } = useOpportunities();
 
   const handleSort = (field: string) => {
-    updatePagination({
+    setPagination({
       sortBy: field,
       sortDirection:
         pagination.sortBy === field && pagination.sortDirection === 'asc'
           ? 'desc'
           : 'asc',
     });
+    refetch();
   };
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
-    updatePagination({
+    setPagination({
       filters: {
         ...pagination.filters,
         search: value || undefined,
       },
     });
+    refetch();
   };
 
   const handleChangePage = (_: unknown, newPage: number) => {
-    updatePagination({ page: newPage + 1 });
+    setPagination({ page: newPage + 1 });
+    refetch();
   };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    updatePagination({
+    setPagination({
       pageSize: parseInt(event.target.value, 10),
     });
+    refetch();
   };
 
   const handleSync = async () => {
@@ -188,17 +195,9 @@ const OpportunitiesPage = () => {
   };
 
   const handleBulkApprove = async () => {
-    // Get all staged opportunities that haven't been approved or rejected
-    const eligibleOpportunities = opportunities.filter(
-      (opp) => opp.isStaged && opp.status !== 'approved' && opp.status !== 'rejected'
-    );
-
-    if (eligibleOpportunities.length === 0) {
-      return;
-    }
-
     try {
-      await bulkApproveOpportunities(eligibleOpportunities);
+      await bulkApproveOpportunities();
+      setBulkApproveDialogOpen(false);
     } catch (error) {
       console.error('Failed to bulk approve opportunities:', error);
     }
@@ -304,6 +303,24 @@ const OpportunitiesPage = () => {
         <Button onClick={() => setResetAllDialogOpen(false)}>Cancel</Button>
         <Button onClick={handleResetAll} color="error" variant="contained">
           Reset All
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  const BulkApproveDialog = () => (
+    <Dialog open={bulkApproveDialogOpen} onClose={() => setBulkApproveDialogOpen(false)}>
+      <DialogTitle>Approve All Staged Opportunities</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Are you sure you want to approve all staged opportunities? This will process all
+          pending opportunities in the system.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setBulkApproveDialogOpen(false)}>Cancel</Button>
+        <Button onClick={handleBulkApprove} color="success" variant="contained">
+          Approve All
         </Button>
       </DialogActions>
     </Dialog>
@@ -488,9 +505,9 @@ const OpportunitiesPage = () => {
                     <IconButton
                       color="primary"
                       onClick={handleSync}
-                      disabled={isImporting}
+                      disabled={isCreating}
                       sx={{ borderRadius: 2 }}
-                      aria-label={isImporting ? 'Syncing...' : 'Sync Now'}
+                      aria-label={isCreating ? 'Syncing...' : 'Sync Now'}
                     >
                       <ImportIcon />
                     </IconButton>
@@ -501,16 +518,8 @@ const OpportunitiesPage = () => {
                   <span>
                     <IconButton
                       color="success"
-                      onClick={handleBulkApprove}
-                      disabled={
-                        isBulkApproving ||
-                        !opportunities.some(
-                          (opp) =>
-                            opp.isStaged &&
-                            opp.status !== 'approved' &&
-                            opp.status !== 'rejected'
-                        )
-                      }
+                      onClick={() => setBulkApproveDialogOpen(true)}
+                      disabled={isBulkApproving || stats.pending === 0}
                       sx={{ borderRadius: 2 }}
                       aria-label={isBulkApproving ? 'Approving All...' : 'Approve All'}
                     >
@@ -692,6 +701,7 @@ const OpportunitiesPage = () => {
 
       <ResetStagedDialog />
       <ResetAllDialog />
+      <BulkApproveDialog />
     </Container>
   );
 };

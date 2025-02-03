@@ -90,17 +90,16 @@ export interface FirestoreOpportunity {
   bonus?: {
     title?: string;
     description?: string;
-    requirements?: {
-      title?: string;
-      description?: string;
-      minimum_deposit?: number;
-      trading_requirements?: string;
-      holding_period?: string;
-      spending_requirement?: {
+    requirements?: Array<{
+      type: string;
+      details: {
         amount: number;
-        timeframe: string;
+        period: number;
+        count?: number;
       };
-    };
+      description: string;
+      title: string;
+    }>;
     additional_info?: string;
     tiers?: Array<{
       reward: string;
@@ -179,6 +178,21 @@ export interface FirestoreOpportunity {
     network?: string;
     color?: string;
     badge?: string;
+  };
+  processing_status?: {
+    source_validation: boolean;
+    ai_processed: boolean;
+    duplicate_checked: boolean;
+    needs_review: boolean;
+  };
+  ai_insights?: {
+    confidence_score: number;
+    validation_warnings: string[];
+    potential_duplicates: Array<{
+      id: string;
+      name: string;
+      similarity: number;
+    }>;
   };
 }
 
@@ -270,6 +284,31 @@ export interface Opportunity {
   offer_link: string;
   value: number;
   status: 'pending' | 'approved' | 'rejected' | 'staged';
+  isStaged: boolean;
+  bank?: string;
+  description?: string;
+  title?: string;
+  source_id?: string;
+  metadata?: {
+    created_at: string;
+    updated_at: string;
+    created_by: string;
+    status: 'active' | 'inactive';
+    timing?: {
+      bonus_posting_time?: string;
+    };
+    availability?: {
+      is_nationwide?: boolean;
+      regions?: string[];
+    };
+    credit?: {
+      inquiry?: 'soft_pull' | 'hard_pull';
+    };
+    source?: {
+      name: string;
+      original_id: string;
+    };
+  };
   bonus?: {
     title?: string;
     description?: string;
@@ -361,15 +400,6 @@ export interface Opportunity {
     color?: string;
     badge?: string;
   };
-  metadata?: {
-    created_at: string;
-    updated_at: string;
-    created_by: string;
-    status: 'active' | 'inactive';
-  };
-  bank?: string;
-  description?: string;
-  title?: string;
   processing_status?: string;
   ai_insights?: string;
 }

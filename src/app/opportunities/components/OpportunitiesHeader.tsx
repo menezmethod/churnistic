@@ -1,7 +1,7 @@
 'use client';
 
 import { Add as AddIcon } from '@mui/icons-material';
-import { Box, Typography, Button, useTheme, alpha } from '@mui/material';
+import { Box, Typography, IconButton, useTheme, alpha } from '@mui/material';
 
 interface OpportunitiesHeaderProps {
   onAddOpportunity: () => void;
@@ -25,25 +25,25 @@ const OpportunitiesHeader: React.FC<OpportunitiesHeaderProps> = ({
       <Typography variant="h4" component="h2" sx={{ fontWeight: 600 }}>
         Opportunities
       </Typography>
-      <Button
-        variant="contained"
+      <IconButton
         color="primary"
-        startIcon={<AddIcon />}
         onClick={onAddOpportunity}
         sx={{
-          borderRadius: 2,
-          bgcolor: isDark
-            ? alpha(theme.palette.primary.main, 0.8)
-            : theme.palette.primary.main,
+          p: 1.2,
+          transition: 'all 0.2s ease',
           '&:hover': {
             bgcolor: isDark
-              ? alpha(theme.palette.primary.main, 0.9)
-              : theme.palette.primary.dark,
+              ? alpha(theme.palette.primary.main, 0.08)
+              : alpha(theme.palette.primary.main, 0.06),
+            transform: 'scale(1.1)',
+          },
+          '&:active': {
+            transform: 'scale(0.95)',
           },
         }}
       >
-        Add Opportunity
-      </Button>
+        <AddIcon fontSize="small" sx={{ opacity: 0.8 }} />
+      </IconButton>
     </Box>
   );
 };

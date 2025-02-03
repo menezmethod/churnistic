@@ -22,6 +22,7 @@ export function useOpportunity(id: string) {
     queryKey: ['opportunity', id],
     queryFn: () => getOpportunityById(id),
     enabled: !!id,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 5, // Changed from staleTime
+    staleTime: 1000 * 60 * 1, // Added explicit staleTime
   });
 }

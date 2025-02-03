@@ -240,37 +240,37 @@ export function FeaturedOpportunities() {
                         Requirements
                       </Typography>
                       <List dense disablePadding>
-                        {(offer.bonus?.requirements?.description?.split('\n') || []).map(
-                          (req: string, idx: number) => (
-                            <ListItem
-                              key={idx}
-                              sx={{
-                                px: 0,
-                                py: 0.5,
-                                '&:hover': {
-                                  bgcolor: 'transparent',
-                                },
-                              }}
-                            >
-                              <ListItemIcon sx={{ minWidth: 32 }}>
-                                <CheckCircle
-                                  sx={{
-                                    color: colors.primary,
-                                    fontSize: '1.2rem',
-                                  }}
-                                />
-                              </ListItemIcon>
-                              <ListItemText
-                                primary={req}
-                                primaryTypographyProps={{
-                                  variant: 'body2',
-                                  color: 'text.secondary',
-                                  sx: { fontWeight: 500 },
+                        {(
+                          offer.bonus?.requirements?.[0]?.description?.split('\n') || []
+                        ).map((req: string, idx: number) => (
+                          <ListItem
+                            key={idx}
+                            sx={{
+                              px: 0,
+                              py: 0.5,
+                              '&:hover': {
+                                bgcolor: 'transparent',
+                              },
+                            }}
+                          >
+                            <ListItemIcon sx={{ minWidth: 32 }}>
+                              <CheckCircle
+                                sx={{
+                                  color: colors.primary,
+                                  fontSize: '1.2rem',
                                 }}
                               />
-                            </ListItem>
-                          )
-                        )}
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={req}
+                              primaryTypographyProps={{
+                                variant: 'body2',
+                                color: 'text.secondary',
+                                sx: { fontWeight: 500 },
+                              }}
+                            />
+                          </ListItem>
+                        ))}
                       </List>
                     </Box>
 
