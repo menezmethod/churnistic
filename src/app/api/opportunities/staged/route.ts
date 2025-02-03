@@ -14,18 +14,23 @@ export async function GET() {
       empty: snapshot.empty,
     });
 
-    const opportunities = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    } as Opportunity));
+    const opportunities = snapshot.docs.map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        }) as Opportunity
+    );
 
     console.log('Processed opportunities:', {
       count: opportunities.length,
-      sample: opportunities[0] ? {
-        id: opportunities[0].id,
-        name: opportunities[0].name,
-        type: opportunities[0].type,
-      } : null,
+      sample: opportunities[0]
+        ? {
+            id: opportunities[0].id,
+            name: opportunities[0].name,
+            type: opportunities[0].type,
+          }
+        : null,
     });
 
     return NextResponse.json({
