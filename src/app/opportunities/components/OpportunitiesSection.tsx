@@ -29,7 +29,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
@@ -43,12 +43,8 @@ import OpportunityList from './OpportunityList';
 import { getTypeColors } from '../utils/colorUtils';
 
 interface OpportunitiesSectionProps {
-  opportunities: FirestoreOpportunity[];
-  loading: boolean;
-  error: Error | null;
   onDeleteAction: (id: string) => Promise<void>;
   onAddOpportunityAction: () => void;
-  initialCategory: string | null;
 }
 
 const CATEGORY_MAP = {
@@ -97,7 +93,7 @@ export default function OpportunitiesSection({
 
   // Use the enhanced useOpportunities hook with proper params
   const {
-    opportunities: filteredOpportunities,
+    opportunities: fetchedOpportunities,
     isLoading,
     error: opportunitiesError,
     refetch,
@@ -108,10 +104,34 @@ export default function OpportunitiesSection({
     sortDirection,
   });
 
+  // Filter opportunities based on search term
+  const filteredOpportunities = useMemo(() => {
+    if (!fetchedOpportunities) return [];
+
+    return fetchedOpportunities.filter((opp) => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        opp.name.toLowerCase().includes(searchLower) ||
+        opp.type.toLowerCase().includes(searchLower) ||
+        (opp.description && opp.description.toLowerCase().includes(searchLower))
+      );
+    });
+  }, [fetchedOpportunities, searchTerm]);
+
   // Log the opportunities data for debugging
   useEffect(() => {
     console.log('OpportunitiesSection - Current state:', {
-      opportunities: {
+      fetchedOpportunities: {
+        count: fetchedOpportunities.length,
+        sample: fetchedOpportunities[0]
+          ? {
+              id: fetchedOpportunities[0].id,
+              name: fetchedOpportunities[0].name,
+              type: fetchedOpportunities[0].type,
+            }
+          : null,
+      },
+      filteredOpportunities: {
         count: filteredOpportunities.length,
         sample: filteredOpportunities[0]
           ? {
@@ -129,6 +149,7 @@ export default function OpportunitiesSection({
       error: opportunitiesError,
     });
   }, [
+    fetchedOpportunities,
     filteredOpportunities,
     searchTerm,
     selectedType,
@@ -626,7 +647,24 @@ export default function OpportunitiesSection({
           </Paper>
 
           {/* Opportunities List/Grid */}
-          {viewMode === 'grid' ? (
+          {filteredOpportunities.length === 0 && !isLoading ? (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+                py: 8,
+              }}
+            >
+              <Typography variant="h6" color="text.secondary">
+                No opportunities found
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Try adjusting your search or filters
+              </Typography>
+            </Box>
+          ) : viewMode === 'grid' ? (
             <OpportunityGrid
               opportunities={filteredOpportunities}
               onDeleteClick={handleDeleteClick}

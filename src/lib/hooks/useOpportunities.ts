@@ -18,7 +18,24 @@ async function handleResponse<T>(response: Response): Promise<T> {
     }
   }
   try {
-    return await response.json();
+    const data = await response.json();
+    console.log('API Response:', {
+      status: response.status,
+      url: response.url,
+      data: Array.isArray(data)
+        ? {
+            count: data.length,
+            sample: data[0]
+              ? {
+                  id: data[0].id,
+                  name: data[0].name,
+                  type: data[0].type,
+                }
+              : null,
+          }
+        : data,
+    });
+    return data;
   } catch (e) {
     if (e instanceof SyntaxError) {
       throw new Error('Invalid JSON response from server');
@@ -142,6 +159,19 @@ export function useOpportunities(params?: {
     refetchOnWindowFocus: false,
     retry: 1,
     networkMode: 'offlineFirst',
+    select: (data) => {
+      console.log('Processing opportunities data:', {
+        count: data.length,
+        sample: data[0]
+          ? {
+              id: data[0].id,
+              name: data[0].name,
+              type: data[0].type,
+            }
+          : null,
+      });
+      return data;
+    },
   });
 
   const createMutation = useMutation({
