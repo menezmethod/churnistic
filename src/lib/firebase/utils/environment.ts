@@ -28,13 +28,22 @@ export function isProduction(): boolean {
  * @returns boolean indicating if emulators should be used
  */
 export function shouldUseEmulators(): boolean {
-  // In browser, check if we're on localhost
-  if (typeof window !== 'undefined') {
-    return window.location.hostname === 'localhost';
+  // Never use emulators in production environment
+  if (isProduction()) {
+    return false;
   }
 
-  // In Node.js (SSR), check if we're in development
-  return process.env.NODE_ENV === 'development';
+  // Check for explicit emulator configuration
+  if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+    return true;
+  }
+
+  // In development, use emulators by default
+  if (process.env.NODE_ENV === 'development') {
+    return true;
+  }
+
+  return false;
 }
 
 /**
