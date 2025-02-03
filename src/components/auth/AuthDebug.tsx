@@ -6,7 +6,7 @@ import { useUser, useLogout } from '@/lib/auth/authConfig';
 
 export function AuthDebug() {
   const { data: user, isLoading, error } = useUser();
-  const { mutate: logout, isLoading: isLoggingOut } = useLogout();
+  const { mutate: logout, isPending: isLoggingOut } = useLogout();
 
   if (isLoading) {
     return <CircularProgress />;

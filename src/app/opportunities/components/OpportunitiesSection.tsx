@@ -25,10 +25,11 @@ import {
   Typography,
   alpha,
   useTheme,
+  Alert,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
@@ -42,12 +43,8 @@ import OpportunityList from './OpportunityList';
 import { getTypeColors } from '../utils/colorUtils';
 
 interface OpportunitiesSectionProps {
-  opportunities: FirestoreOpportunity[];
-  loading: boolean;
-  error: Error | null;
   onDeleteAction: (id: string) => Promise<void>;
   onAddOpportunityAction: () => void;
-  initialCategory: string | null;
 }
 
 const CATEGORY_MAP = {
@@ -66,10 +63,24 @@ export default function OpportunitiesSection({
   onDeleteAction,
   onAddOpportunityAction,
 }: OpportunitiesSectionProps) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <OpportunitiesSectionContent
+        onDeleteAction={onDeleteAction}
+        onAddOpportunityAction={onAddOpportunityAction}
+      />
+    </Suspense>
+  );
+}
+
+function OpportunitiesSectionContent({
+  onDeleteAction,
+  onAddOpportunityAction,
+}: OpportunitiesSectionProps) {
   const theme = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const isDark = theme.palette.mode === 'dark';
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -94,12 +105,11 @@ export default function OpportunitiesSection({
     return CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null;
   });
 
-  // Use the enhanced useOpportunities hook
+  // Use the enhanced useOpportunities hook with proper params
   const {
-    opportunities: filteredOpportunities,
+    opportunities: fetchedOpportunities,
     isLoading,
-    isError,
-    error: useOpportunitiesError,
+    error: opportunitiesError,
     refetch,
   } = useOpportunities({
     searchTerm,
@@ -107,6 +117,61 @@ export default function OpportunitiesSection({
     sortBy,
     sortDirection,
   });
+
+  // Filter opportunities based on search term
+  const filteredOpportunities = useMemo(() => {
+    if (!fetchedOpportunities) return [];
+
+    return fetchedOpportunities.filter((opp) => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        opp.name.toLowerCase().includes(searchLower) ||
+        opp.type.toLowerCase().includes(searchLower) ||
+        (opp.description && opp.description.toLowerCase().includes(searchLower))
+      );
+    });
+  }, [fetchedOpportunities, searchTerm]);
+
+  // Log the opportunities data for debugging
+  useEffect(() => {
+    console.log('OpportunitiesSection - Current state:', {
+      fetchedOpportunities: {
+        count: fetchedOpportunities.length,
+        sample: fetchedOpportunities[0]
+          ? {
+              id: fetchedOpportunities[0].id,
+              name: fetchedOpportunities[0].name,
+              type: fetchedOpportunities[0].type,
+            }
+          : null,
+      },
+      filteredOpportunities: {
+        count: filteredOpportunities.length,
+        sample: filteredOpportunities[0]
+          ? {
+              id: filteredOpportunities[0].id,
+              name: filteredOpportunities[0].name,
+              type: filteredOpportunities[0].type,
+            }
+          : null,
+      },
+      searchTerm,
+      selectedType,
+      sortBy,
+      sortDirection,
+      isLoading,
+      error: opportunitiesError,
+    });
+  }, [
+    fetchedOpportunities,
+    filteredOpportunities,
+    searchTerm,
+    selectedType,
+    sortBy,
+    sortDirection,
+    isLoading,
+    opportunitiesError,
+  ]);
 
   // Handle type selection
   const handleTypeClick = (type: string | null) => {
@@ -195,6 +260,18 @@ export default function OpportunitiesSection({
     handleSortClose();
   };
 
+  if (authLoading) {
+    return <div>Authenticating...</div>;
+  }
+
+  if (opportunitiesError) {
+    return (
+      <Alert severity="error" sx={{ mt: 4 }}>
+        Failed to load opportunities: {opportunitiesError.message}
+      </Alert>
+    );
+  }
+
   if (isLoading) {
     return (
       <Box
@@ -245,49 +322,6 @@ export default function OpportunitiesSection({
           </motion.span>
         </Typography>
       </Box>
-    );
-  }
-
-  if (isError) {
-    return (
-      <Container
-        maxWidth="lg"
-        sx={{
-          py: { xs: 2, md: 4 },
-          mt: { xs: '64px', md: '72px' },
-        }}
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: 2,
-              bgcolor: isDark
-                ? alpha(theme.palette.background.paper, 0.6)
-                : 'background.paper',
-              border: '1px solid',
-              borderColor: alpha(theme.palette.error.main, 0.2),
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <Typography variant="h5" color="error" sx={{ fontWeight: 600 }}>
-                Error Loading Opportunities
-              </Typography>
-            </Box>
-            <Typography color="text.secondary">
-              {useOpportunitiesError instanceof Error
-                ? useOpportunitiesError.message
-                : 'Unknown error'}
-            </Typography>
-          </Paper>
-        </motion.div>
-      </Container>
     );
   }
 
@@ -635,7 +669,24 @@ export default function OpportunitiesSection({
           </Paper>
 
           {/* Opportunities List/Grid */}
-          {viewMode === 'grid' ? (
+          {filteredOpportunities.length === 0 && !isLoading ? (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+                py: 8,
+              }}
+            >
+              <Typography variant="h6" color="text.secondary">
+                No opportunities found
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Try adjusting your search or filters
+              </Typography>
+            </Box>
+          ) : viewMode === 'grid' ? (
             <OpportunityGrid
               opportunities={filteredOpportunities}
               onDeleteClick={handleDeleteClick}

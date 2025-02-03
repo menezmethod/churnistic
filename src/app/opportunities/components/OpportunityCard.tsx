@@ -91,8 +91,8 @@ export default function OpportunityCard({
   };
 
   const renderRequirements = () => {
-    if (!opportunity.bonus?.requirements?.description) return null;
-    const requirements = opportunity.bonus.requirements.description.split('\n');
+    if (!opportunity.bonus?.requirements?.[0]?.description) return null;
+    const requirements = opportunity.bonus.requirements[0].description.split('\n');
 
     return (
       <Stack spacing={1}>

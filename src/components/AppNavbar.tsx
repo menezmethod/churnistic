@@ -9,7 +9,6 @@ import {
   Notifications,
   AccountBalanceWallet,
   TrendingUp,
-  Assessment,
   Help,
   PersonAdd,
   Login,
@@ -26,7 +25,6 @@ import {
   Verified,
   NotificationsActive,
   History,
-  VpnKey,
   VerifiedUser,
 } from '@mui/icons-material';
 import {
@@ -56,7 +54,7 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useState, type JSX, useEffect, ReactElement, Fragment } from 'react';
+import { useState, type JSX, useEffect, ReactElement, Fragment, Suspense } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
@@ -80,6 +78,12 @@ interface SectionMenuItem {
 }
 
 type MenuItemType = RegularMenuItem | SectionMenuItem;
+
+// TODO: Implement these admin routes in future versions
+// - /admin/analytics: Analytics dashboard for admins
+// - /admin/reports: Report generation and management
+// - /admin/logs: System logs and activity tracking
+// - /help: Help and documentation center
 
 const mainMenuItems: MenuItemType[] = [
   {
@@ -201,31 +205,14 @@ const offersMenuItems: MenuItemType[] = [
 
 const analyticsMenuItems: MenuItemType[] = [
   {
-    text: 'Analytics Dashboard',
-    icon: <Analytics />,
-    path: '/admin/analytics',
+    text: 'Offer Validation',
+    icon: <AdminPanelSettings />,
+    path: '/admin/opportunities',
     roles: [UserRole.ADMIN],
     requiresAuth: true,
     hideWhenAuth: false,
-    description: 'View comprehensive analytics and insights',
-  },
-  {
-    text: 'Reports',
-    icon: <Assessment />,
-    path: '/admin/reports',
-    roles: [UserRole.ADMIN],
-    requiresAuth: true,
-    hideWhenAuth: false,
-    description: 'Generate and view detailed reports',
-  },
-  {
-    text: 'System Logs',
-    icon: <History />,
-    path: '/admin/logs',
-    roles: [UserRole.ADMIN],
-    requiresAuth: true,
-    hideWhenAuth: false,
-    description: 'View system logs and activity',
+    description: 'Review and validate scraped rewards and offers',
+    badge: 5,
   },
 ];
 
@@ -240,16 +227,6 @@ const managementMenuItems: MenuItemType[] = [
     description: 'Manage users, roles, and permissions',
   },
   {
-    text: 'Offer Validation',
-    icon: <AdminPanelSettings />,
-    path: '/admin/opportunities',
-    roles: [UserRole.ADMIN],
-    requiresAuth: true,
-    hideWhenAuth: false,
-    description: 'Review and validate scraped rewards and offers',
-    badge: 5,
-  },
-  {
     text: 'System Settings',
     icon: <Settings />,
     path: '/admin/settings',
@@ -257,15 +234,6 @@ const managementMenuItems: MenuItemType[] = [
     requiresAuth: true,
     hideWhenAuth: false,
     description: 'Configure system-wide settings and features',
-  },
-  {
-    text: 'API Management',
-    icon: <VpnKey />,
-    path: '/admin/api',
-    roles: [UserRole.ADMIN],
-    requiresAuth: true,
-    hideWhenAuth: false,
-    description: 'Manage API keys and access',
   },
 ];
 
@@ -289,6 +257,14 @@ const accountMenuItems: MenuItemType[] = [
 ];
 
 export default function AppNavbar() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AppNavbarContent />
+    </Suspense>
+  );
+}
+
+function AppNavbarContent() {
   const { user, signOut, hasRole, isSuperAdmin } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -343,7 +319,7 @@ export default function AppNavbar() {
   const handleLogout = async () => {
     try {
       await signOut();
-      router.push('/signin');
+      router.push('/auth/signin');
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -932,14 +908,19 @@ export default function AppNavbar() {
           boxShadow: `0 1px 3px ${alpha(theme.palette.common.black, 0.02)}`,
         }}
       >
-        <Toolbar sx={{ minHeight: { xs: 64, md: 72 } }}>
+        <Toolbar
+          sx={{
+            minHeight: { xs: 56, md: 72 },
+            px: { xs: 1, sm: 2 },
+          }}
+        >
           <IconButton
             edge="start"
             color="inherit"
             aria-label="menu"
             onClick={handleDrawerToggle}
             sx={{
-              mr: 2,
+              mr: 1,
               transition: 'all 0.2s ease',
               '&:hover': {
                 transform: 'scale(1.1)',
@@ -947,7 +928,7 @@ export default function AppNavbar() {
               },
             }}
           >
-            <MenuIcon />
+            <MenuIcon fontSize="small" />
           </IconButton>
           <Typography
             variant="h5"
@@ -957,7 +938,7 @@ export default function AppNavbar() {
               flexGrow: 0,
               textDecoration: 'none',
               color: 'inherit',
-              mr: 4,
+              mr: { xs: 2, md: 4 },
               fontWeight: 800,
               letterSpacing: '-0.5px',
               background: isUserSuperAdmin
@@ -971,13 +952,20 @@ export default function AppNavbar() {
               '&:hover': {
                 opacity: 0.85,
               },
+              fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
             }}
           >
             Churnistic
           </Typography>
 
           {/* Top Navigation Menu */}
-          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' }, gap: 1 }}>
+          <Box
+            sx={{
+              flexGrow: 1,
+              display: { xs: 'none', md: 'flex' },
+              gap: { md: 1, lg: 2 },
+            }}
+          >
             <Button
               onClick={handleOffersMenu}
               sx={{
@@ -1044,7 +1032,13 @@ export default function AppNavbar() {
           </Box>
 
           {user ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: { xs: 1, sm: 2 },
+              }}
+            >
               <Tooltip
                 title="Notifications"
                 TransitionComponent={Fade}
@@ -1176,18 +1170,25 @@ export default function AppNavbar() {
               </Menu>
             </Box>
           ) : (
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: { xs: 1, sm: 2 },
+                '& .MuiButton-root': {
+                  fontSize: { xs: '0.8rem', sm: '0.95rem' },
+                  px: { xs: 1.5, sm: 3 },
+                  py: { xs: 0.5, sm: 1 },
+                },
+              }}
+            >
               <Button
                 component={Link}
                 href="/auth/signin"
                 variant="outlined"
-                startIcon={<Login />}
+                startIcon={<Login fontSize="small" />}
                 sx={{
-                  borderRadius: 2,
-                  px: 3,
-                  py: 1,
+                  borderRadius: 1,
                   borderWidth: 1.5,
-                  fontSize: '0.95rem',
                   fontWeight: 600,
                   transition: 'all 0.2s ease',
                   '&:hover': {
@@ -1203,12 +1204,9 @@ export default function AppNavbar() {
                 component={Link}
                 href="/auth/signup"
                 variant="contained"
-                startIcon={<PersonAdd />}
+                startIcon={<PersonAdd fontSize="small" />}
                 sx={{
-                  borderRadius: 2,
-                  px: 3,
-                  py: 1,
-                  fontSize: '0.95rem',
+                  borderRadius: 1,
                   fontWeight: 600,
                   transition: 'all 0.2s ease',
                   background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
@@ -1235,7 +1233,7 @@ export default function AppNavbar() {
         PaperProps={{
           elevation: 0,
           sx: {
-            width: 280,
+            width: { xs: 260, sm: 280 },
             boxSizing: 'border-box',
             top: { xs: '64px', md: '72px' },
             height: { xs: 'calc(100% - 64px)', md: 'calc(100% - 72px)' },

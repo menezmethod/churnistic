@@ -1,34 +1,75 @@
 'use client';
 
 import { Box, Container, Typography, useTheme } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import { motion } from 'framer-motion';
 
 import { LogoImage } from '@/app/opportunities/components/LogoImage';
 import { getTypeColors } from '@/app/opportunities/utils/colorUtils';
+import {
+  usePublicOpportunities,
+  PublicOpportunity,
+} from '@/lib/hooks/usePublicOpportunities';
 
-const MAJOR_BANKS = [
-  { name: 'Chase', type: 'bank' },
-  { name: 'American Express', type: 'credit_card' },
-  { name: 'Capital One', type: 'credit_card' },
-  { name: 'Wells Fargo', type: 'bank' },
-  { name: 'Citi', type: 'credit_card' },
-  { name: 'Bank of America', type: 'bank' },
-  { name: 'US Bank', type: 'bank' },
-  { name: 'Charles Schwab', type: 'brokerage' },
-  { name: 'Fidelity', type: 'brokerage' },
-];
+interface Bank {
+  name: string;
+  type: string;
+  logo: {
+    url: string;
+    type: string;
+  };
+}
+
+// Helper function to validate image URL
+function isValidImageUrl(url: string): boolean {
+  // Basic URL validation without network request
+  return (
+    url.startsWith('https://') &&
+    url.length > 10 &&
+    !url.includes('placeholder') &&
+    !url.includes('default') &&
+    !url.includes('unknown') &&
+    !url.includes('null')
+  );
+}
 
 export function BankLogos() {
   const theme = useTheme();
+  const { opportunities = [] } = usePublicOpportunities();
+
+  // Get unique banks with high-quality logos
+  const uniqueBanks = opportunities
+    .filter((opp: PublicOpportunity) => {
+      // Only include opportunities with valid logos and names
+      return opp.logo?.url && opp.name && isValidImageUrl(opp.logo.url);
+    })
+    .reduce((acc: Bank[], opp: PublicOpportunity) => {
+      if (!acc.some((bank: Bank) => bank.name === opp.name) && opp.logo?.url) {
+        acc.push({
+          name: opp.name,
+          type: opp.type || 'bank', // Default to 'bank' if type is missing
+          logo: {
+            url: opp.logo.url,
+            type: 'icon', // Always use icon type for consistency
+          },
+        });
+      }
+      return acc;
+    }, [])
+    .slice(0, 10);
+
+  // Duplicate the banks for infinite scroll effect
+  const scrollingBanks = [...uniqueBanks, ...uniqueBanks];
+
+  if (uniqueBanks.length === 0) {
+    return null;
+  }
 
   return (
     <Box
       sx={{
         py: 6,
-        bgcolor: theme.palette.mode === 'dark' ? 'background.paper' : 'grey.50',
-        borderTop: `1px solid ${theme.palette.divider}`,
-        borderBottom: `1px solid ${theme.palette.divider}`,
+        bgcolor: 'transparent',
+        overflow: 'hidden',
       }}
     >
       <Container maxWidth="lg">
@@ -38,32 +79,55 @@ export function BankLogos() {
           sx={{
             mb: 4,
             fontWeight: 700,
-            background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
+            color: theme.palette.mode === 'dark' ? 'white' : 'text.primary',
           }}
         >
           Track Offers From Leading Banks
         </Typography>
+
+        {/* Scrolling container */}
         <Box
           sx={{
-            display: 'flex',
-            gap: 4,
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            alignItems: 'center',
+            position: 'relative',
+            '&::before, &::after': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              width: '100px',
+              zIndex: 2,
+              pointerEvents: 'none',
+            },
+            '&::before': {
+              left: 0,
+              background: `linear-gradient(to right, ${theme.palette.background.default}, transparent)`,
+            },
+            '&::after': {
+              right: 0,
+              background: `linear-gradient(to left, ${theme.palette.background.default}, transparent)`,
+            },
           }}
         >
-          {MAJOR_BANKS.map((bank, index) => {
-            const colors = getTypeColors(bank.type, theme);
-            return (
-              <motion.div
-                key={bank.name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
+          <motion.div
+            initial={{ x: 0 }}
+            animate={{ x: '-50%' }}
+            transition={{
+              duration: 30,
+              repeat: Infinity,
+              ease: 'linear',
+            }}
+            style={{
+              display: 'flex',
+              gap: '32px',
+              width: 'fit-content',
+              padding: '16px 0',
+            }}
+          >
+            {scrollingBanks.map((bank, index) => {
+              const colors = getTypeColors(bank.type, theme);
+              return (
                 <Box
+                  key={`${bank.name}-${index}`}
                   sx={{
                     width: 100,
                     height: 100,
@@ -72,19 +136,21 @@ export function BankLogos() {
                     justifyContent: 'center',
                     p: 2,
                     borderRadius: 2,
-                    bgcolor: alpha(colors.primary, 0.1),
-                    transition: 'all 0.3s ease',
+                    bgcolor:
+                      theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.05)'
+                        : 'rgba(0, 0, 0, 0.03)',
+                    transition: 'transform 0.2s ease',
                     '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: `0 8px 16px ${alpha(colors.primary, 0.2)}`,
+                      transform: 'translateY(-2px)',
                     },
                   }}
                 >
-                  <LogoImage name={bank.name} colors={colors} logo={{ type: 'icon' }} />
+                  <LogoImage name={bank.name} colors={colors} logo={bank.logo} />
                 </Box>
-              </motion.div>
-            );
-          })}
+              );
+            })}
+          </motion.div>
         </Box>
       </Container>
     </Box>

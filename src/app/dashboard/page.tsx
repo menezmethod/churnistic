@@ -22,7 +22,6 @@ import {
   useTheme,
 } from '@mui/material';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 import { OpportunityCard, OpportunityCardSkeleton } from './components/OpportunityCard';
@@ -31,19 +30,19 @@ import QuickActions from './components/QuickActions';
 import RecentActivity from './components/RecentActivity';
 import { StatCard, StatCardSkeleton } from './components/StatCard';
 import WelcomeSection from './components/WelcomeSection';
-import { useDashboardData } from './hooks/useDashboardData';
+import { useDashboardData, type DashboardOpportunity } from './hooks/useDashboardData';
+import { TrackedOpportunity } from './types';
 
 export default function DashboardPage() {
   const theme = useTheme();
-  const router = useRouter();
   const { user, profile, stats, quickOpportunities, trackedOpportunities, loading } =
     useDashboardData();
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/auth/signin');
+      window.location.href = '/auth/signin?redirect=/dashboard';
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
   if (loading) {
     return (
@@ -92,29 +91,38 @@ export default function DashboardPage() {
     {
       icon: MonetizationOnIcon,
       title: 'TRACKED VALUE',
-      value: stats.trackedValue,
-      trend: stats.trends.trackedValue,
+      value: stats?.trackedValue || '$0',
+      trend: stats?.trends?.trackedValue || {
+        value: 0,
+        label: 'opportunities in progress',
+      },
       color: 'primary' as const,
     },
     {
       icon: TrendingUpIcon,
       title: 'POTENTIAL VALUE',
-      value: stats.potentialValue,
-      trend: stats.trends.potentialValue,
+      value: stats?.potentialValue || '$0',
+      trend: stats?.trends?.potentialValue || { value: 0, label: 'avg per opportunity' },
       color: 'warning' as const,
     },
     {
       icon: AccountBalanceWalletIcon,
       title: 'Active Opportunities',
-      value: stats.activeOpportunities,
-      trend: stats.trends.activeOpportunities,
+      value: stats?.activeOpportunities || '0',
+      trend: stats?.trends?.activeOpportunities || {
+        value: 0,
+        label: 'of total opportunities',
+      },
       color: 'info' as const,
     },
     {
       icon: CheckCircleIcon,
       title: 'Average Value',
-      value: stats.averageValue,
-      trend: stats.trends.averageValue,
+      value: stats?.averageValue || '$0',
+      trend: stats?.trends?.averageValue || {
+        value: 0,
+        label: 'high-value opportunities',
+      },
       color: 'success' as const,
     },
   ];
@@ -210,13 +218,28 @@ export default function DashboardPage() {
               </Box>
               {quickOpportunities.length > 0 ? (
                 <Stack spacing={2}>
-                  {quickOpportunities.map((opp) => {
+                  {quickOpportunities.map((opp: DashboardOpportunity) => {
                     const transformedOpp = {
                       ...opp,
-                      type:
-                        opp.type === 'bank_account'
-                          ? 'bank_account'
-                          : (opp.type as 'credit_card' | 'bank_account'),
+                      type: (opp.type === 'bank' ? 'bank_account' : 'credit_card') as
+                        | 'credit_card'
+                        | 'bank_account',
+                      source: opp.source,
+                      sourceLink: opp.sourceLink,
+                      postedDate: opp.postedDate,
+                      confidence: opp.confidence,
+                      title: opp.title || opp.name || 'Untitled Opportunity',
+                      bank: opp.bank || 'Unknown Bank',
+                      description: opp.description || 'No description available',
+                      requirements: opp.requirements || [],
+                      metadata: opp.metadata
+                        ? {
+                            progress: opp.metadata.progress as number | undefined,
+                            target: opp.metadata.target as number | undefined,
+                            riskLevel: opp.metadata.riskLevel as number | undefined,
+                            riskFactors: opp.metadata.riskFactors as string[] | undefined,
+                          }
+                        : undefined,
                     };
                     return <OpportunityCard key={opp.id} opportunity={transformedOpp} />;
                   })}
@@ -300,7 +323,7 @@ export default function DashboardPage() {
               </Box>
               {trackedOpportunities.length > 0 ? (
                 <Stack spacing={2}>
-                  {trackedOpportunities.map((opp) => (
+                  {trackedOpportunities.map((opp: TrackedOpportunity) => (
                     <ProgressCard key={opp.id} opportunity={opp} />
                   ))}
                 </Stack>

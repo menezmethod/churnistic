@@ -33,6 +33,15 @@ function getAdminConfig(): AppOptions {
 
   const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (!serviceAccountKey) {
+    // Instead of throwing an error, return a basic config for development
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        'Warning: Using development fallback for Firebase Admin initialization'
+      );
+      return {
+        projectId,
+      };
+    }
     throw new Error(
       'FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set. Please check your .env file.'
     );
@@ -43,11 +52,25 @@ function getAdminConfig(): AppOptions {
     const decodedKey = Buffer.from(serviceAccountKey, 'base64').toString('utf-8');
     const serviceAccount = JSON.parse(decodedKey);
 
+    // Validate the service account object has required fields
+    if (!serviceAccount || typeof serviceAccount !== 'object') {
+      throw new Error('Invalid service account format');
+    }
+
     return {
       credential: cert(serviceAccount),
       projectId,
     };
   } catch (error) {
+    // Handle parsing errors gracefully in development
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        'Warning: Failed to parse service account key, using development fallback'
+      );
+      return {
+        projectId,
+      };
+    }
     console.error('Error parsing service account key:', error);
     throw new Error(
       'Invalid service account key format. Ensure key is base64 encoded JSON.'
@@ -83,7 +106,23 @@ export function initializeAdminDb(): Firestore {
 
     return adminDb;
   } catch (error) {
+    // Handle initialization errors gracefully
     console.error('Failed to initialize Admin Firestore:', error);
+    if (
+      process.env.NODE_ENV === 'development' ||
+      process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true'
+    ) {
+      console.warn(
+        'Warning: Using fallback initialization for development/emulator environment'
+      );
+      adminDb = getFirestore(
+        adminApp ||
+          initializeApp({
+            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic',
+          })
+      );
+      return adminDb;
+    }
     throw error;
   }
 }
