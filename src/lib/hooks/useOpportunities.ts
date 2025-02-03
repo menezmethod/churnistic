@@ -52,7 +52,9 @@ const getOpportunities = async (params?: {
   sortDirection?: 'asc' | 'desc';
 }): Promise<FirestoreOpportunity[]> => {
   console.log('Fetching opportunities with params:', params);
-  const url = new URL(API_BASE, window.location.origin);
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+  const url = new URL(`${baseUrl}/opportunities`);
+
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
