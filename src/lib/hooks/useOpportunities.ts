@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getAuth } from 'firebase/auth';
 
 import { FirestoreOpportunity } from '@/types/opportunity';
 
@@ -15,7 +16,6 @@ async function handleResponse<T>(response: Response): Promise<T> {
       const error = await response.json();
       throw new Error(error.message || error.error || 'Request failed');
     } catch (e) {
-      // If parsing the error response fails, throw a generic error
       if (e instanceof SyntaxError) {
         throw new Error(`Request failed with status ${response.status}`);
       }
@@ -74,8 +74,20 @@ const getOpportunities = async (params?: {
     });
   }
 
+  // Get auth token
+  const auth = getAuth();
+  const user = auth.currentUser;
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (user) {
+    const token = await user.getIdToken();
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { headers });
     console.log('Opportunities API response:', {
       status: response.status,
       statusText: response.statusText,
@@ -103,12 +115,27 @@ const getOpportunities = async (params?: {
 const createOpportunity = async (
   data: Omit<FirestoreOpportunity, 'id'>
 ): Promise<FirestoreOpportunity> => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('No authenticated user found');
+  }
+
+  const token = await user.getIdToken();
   const response = await fetch(API_BASE, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      ...data,
+      metadata: {
+        ...data.metadata,
+        created_by: user.email,
+        updated_by: user.email,
+      },
+    }),
   });
   return handleResponse<FirestoreOpportunity>(response);
 };
@@ -118,18 +145,27 @@ const updateOpportunity = async (params: {
   data: Partial<FirestoreOpportunity>;
 }): Promise<FirestoreOpportunity> => {
   const { id, data } = params;
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('No authenticated user found');
+  }
 
-  // Prepare payload with proper metadata handling
-  const payload = data.metadata
-    ? { ...data, metadata: { ...data.metadata, updated_at: new Date().toISOString() } }
-    : { ...data, metadata: { updated_at: new Date().toISOString() } };
-
+  const token = await user.getIdToken();
   const response = await fetch(`${API_BASE}/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...data,
+      metadata: {
+        ...data.metadata,
+        updated_by: user.email,
+        updated_at: new Date().toISOString(),
+      },
+    }),
   });
   return handleResponse<FirestoreOpportunity>(response);
 };
@@ -145,9 +181,20 @@ function isFirestoreOpportunity(response: unknown): response is FirestoreOpportu
 }
 
 const deleteOpportunity = async (id: string): Promise<void> => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('No authenticated user found');
+  }
+
+  const token = await user.getIdToken();
   const response = await fetch(`${API_BASE}/${id}`, {
     method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
+
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.message || 'Failed to delete opportunity');
