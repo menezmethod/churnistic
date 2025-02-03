@@ -302,6 +302,7 @@ const fetchPaginatedOpportunities = async (
   total: number;
   hasMore: boolean;
 }> => {
+  console.log('Fetching paginated opportunities:', pagination);
   const { page, pageSize, sortBy, sortDirection, filters } = pagination;
 
   // Get both collections
@@ -342,6 +343,17 @@ const fetchPaginatedOpportunities = async (
     getDocs(stagedQuery),
   ]);
 
+  console.log('Fetched snapshots:', {
+    opportunities: {
+      size: opportunitiesSnapshot.size,
+      empty: opportunitiesSnapshot.empty,
+    },
+    staged: {
+      size: stagedSnapshot.size,
+      empty: stagedSnapshot.empty,
+    },
+  });
+
   // Combine and transform all documents
   const allOpportunities = [
     ...opportunitiesSnapshot.docs.map((doc) => {
@@ -361,6 +373,12 @@ const fetchPaginatedOpportunities = async (
       };
     }),
   ];
+
+  console.log('Combined opportunities:', {
+    total: allOpportunities.length,
+    staged: allOpportunities.filter((opp) => opp.isStaged).length,
+    regular: allOpportunities.filter((opp) => !opp.isStaged).length,
+  });
 
   // Sort combined results
   const sortedOpportunities = allOpportunities.sort((a, b) => {
@@ -382,6 +400,14 @@ const fetchPaginatedOpportunities = async (
   const endIndex = startIndex + pageSize;
   const paginatedItems = sortedOpportunities.slice(startIndex, endIndex);
 
+  console.log('Pagination results:', {
+    startIndex,
+    endIndex,
+    pageSize,
+    totalItems: sortedOpportunities.length,
+    returnedItems: paginatedItems.length,
+  });
+
   return {
     items: paginatedItems,
     total: allOpportunities.length,
@@ -396,9 +422,26 @@ const fetchStagedOpportunities = async (): Promise<
   try {
     const response = await fetch('/api/opportunities/staged');
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to fetch staged opportunities:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      });
       throw new Error('Failed to fetch staged opportunities');
     }
     const data = await response.json();
+    console.log('Staged opportunities response:', {
+      success: data.success,
+      count: data.opportunities?.length,
+      sample: data.opportunities?.[0]
+        ? {
+            id: data.opportunities[0].id,
+            name: data.opportunities[0].name,
+            type: data.opportunities[0].type,
+          }
+        : null,
+    });
     return data.opportunities.map((doc: Omit<Opportunity, 'status' | 'isStaged'>) => ({
       ...doc,
       status: 'staged' as const,
@@ -1197,10 +1240,18 @@ export function useOpportunities() {
   });
 
   return {
-    opportunities: (paginatedData?.items || []).map((opp) => ({
-      ...opp,
-      isStaged: opp.status === 'staged',
-    })),
+    opportunities: (paginatedData?.items || []).map((opp) => {
+      console.log('Processing opportunity:', {
+        id: opp.id,
+        name: opp.name,
+        type: opp.type,
+        isStaged: opp.status === 'staged',
+      });
+      return {
+        ...opp,
+        isStaged: opp.status === 'staged',
+      };
+    }),
     total: paginatedData?.total || 0,
     hasMore: paginatedData?.hasMore || false,
     isLoading: isPaginationPending,
