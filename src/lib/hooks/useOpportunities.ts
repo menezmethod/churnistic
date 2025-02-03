@@ -58,9 +58,13 @@ const getOpportunities = async (params?: {
 }): Promise<FirestoreOpportunity[]> => {
   console.log('Fetching opportunities with params:', params);
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
-    ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api`
-    : '/api';
-  const url = new URL(`${baseUrl}/opportunities`);
+    ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/opportunities`
+    : '/api/opportunities';
+
+  // Create URL using window.location.origin for relative paths
+  const url = new URL(
+    baseUrl.startsWith('http') ? baseUrl : `${window.location.origin}${baseUrl}`
+  );
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
