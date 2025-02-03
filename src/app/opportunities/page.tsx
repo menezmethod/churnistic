@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 
@@ -19,7 +19,13 @@ export default function OpportunitiesPage() {
 
 function OpportunitiesPageContent() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      window.location.href = '/auth/signin?redirect=/opportunities';
+    }
+  }, [user, authLoading]);
 
   const handleAddOpportunity = () => {
     if (!user) {

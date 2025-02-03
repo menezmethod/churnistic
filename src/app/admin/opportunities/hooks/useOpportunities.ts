@@ -286,13 +286,21 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
 };
 
 const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
-  const response = await fetch('/api/proxy/bankrewards?format=detailed', {
-    method: 'GET',
-    credentials: 'include',
-  });
-  if (!response.ok) throw new Error('Failed to fetch from BankRewards API');
-  const data = await response.json();
-  return data as BankRewardsResponse;
+  try {
+    const response = await fetch('/api/proxy/bankrewards?format=detailed', {
+      method: 'GET',
+      credentials: 'include',
+      // Add timeout for production environment
+      signal: AbortSignal.timeout(process.env.NODE_ENV === 'production' ? 10000 : 30000),
+    });
+    if (!response.ok)
+      throw new Error(`BankRewards API failed with status ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error('BankRewards API error:', error);
+    // Return empty data to prevent UI blockage
+    return { data: { offers: [], stats: { total: 0, active: 0, expired: 0 } } };
+  }
 };
 
 const fetchPaginatedOpportunities = async (
@@ -532,9 +540,12 @@ export function useOpportunities() {
   } = useQuery({
     queryKey: queryKeys.opportunities.paginated(pagination),
     queryFn: () => fetchPaginatedOpportunities(pagination),
-    staleTime: 1000 * 30, // 30 seconds
-    gcTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: true,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+    retry: 2,
+    retryDelay: 1000,
+    refetchOnWindowFocus: process.env.NODE_ENV === 'development',
+    refetchOnReconnect: true,
     refetchOnMount: true,
   });
 

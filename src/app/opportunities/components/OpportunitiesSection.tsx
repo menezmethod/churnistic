@@ -80,7 +80,7 @@ function OpportunitiesSectionContent({
   const theme = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const isDark = theme.palette.mode === 'dark';
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -260,8 +260,16 @@ function OpportunitiesSectionContent({
     handleSortClose();
   };
 
-  if (opportunitiesError instanceof Error) {
-    return <Alert severity="error">{opportunitiesError.message}</Alert>;
+  if (authLoading) {
+    return <div>Authenticating...</div>;
+  }
+
+  if (opportunitiesError) {
+    return (
+      <Alert severity="error" sx={{ mt: 4 }}>
+        Failed to load opportunities: {opportunitiesError.message}
+      </Alert>
+    );
   }
 
   if (isLoading) {
