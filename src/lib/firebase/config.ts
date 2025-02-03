@@ -1,4 +1,4 @@
-import { getApps, initializeApp } from 'firebase/app';
+import { getApps, initializeApp, getApp } from 'firebase/app';
 import {
   type User,
   connectAuthEmulator,
@@ -31,11 +31,19 @@ export const firebaseConfig = {
 };
 
 // Initialize Firebase - ensure single instance
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const functions = getFunctions(app);
+export const db = (() => {
+  try {
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    return getFirestore(app);
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+    throw new Error('Failed to initialize Firebase');
+  }
+})();
+
+export const auth = getAuth(db.app);
+export const storage = getStorage(db.app);
+export const functions = getFunctions(db.app);
 
 // Connect to emulators if enabled
 if (USE_EMULATOR) {

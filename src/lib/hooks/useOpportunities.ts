@@ -6,6 +6,11 @@ const API_BASE = '/api/opportunities';
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
+    console.error('API Error:', {
+      status: response.status,
+      url: response.url,
+      headers: Object.fromEntries(response.headers.entries()),
+    });
     try {
       const error = await response.json();
       throw new Error(error.message || error.error || 'Request failed');
@@ -52,7 +57,9 @@ const getOpportunities = async (params?: {
   sortDirection?: 'asc' | 'desc';
 }): Promise<FirestoreOpportunity[]> => {
   console.log('Fetching opportunities with params:', params);
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
+    ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api`
+    : '/api';
   const url = new URL(`${baseUrl}/opportunities`);
 
   if (params) {
@@ -155,25 +162,15 @@ export function useOpportunities(params?: {
   const query = useQuery<FirestoreOpportunity[]>({
     queryKey: ['opportunities', params],
     queryFn: () => getOpportunities(params),
-    staleTime: 1000 * 30, // 30 seconds
-    gcTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
     refetchOnMount: true,
-    refetchOnWindowFocus: false,
-    retry: 1,
-    networkMode: 'offlineFirst',
-    select: (data) => {
-      console.log('Processing opportunities data:', {
-        count: data.length,
-        sample: data[0]
-          ? {
-              id: data[0].id,
-              name: data[0].name,
-              type: data[0].type,
-            }
-          : null,
-      });
-      return data;
+    refetchOnWindowFocus: process.env.NODE_ENV === 'development',
+    retry: (failureCount, error) => {
+      if (error.message.includes('Failed to fetch')) return true;
+      return failureCount < 2;
     },
+    networkMode: 'online',
   });
 
   const createMutation = useMutation({
