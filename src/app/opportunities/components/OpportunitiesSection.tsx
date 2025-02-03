@@ -29,7 +29,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
@@ -60,6 +60,20 @@ const REVERSE_CATEGORY_MAP = {
 } as const;
 
 export default function OpportunitiesSection({
+  onDeleteAction,
+  onAddOpportunityAction,
+}: OpportunitiesSectionProps) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <OpportunitiesSectionContent
+        onDeleteAction={onDeleteAction}
+        onAddOpportunityAction={onAddOpportunityAction}
+      />
+    </Suspense>
+  );
+}
+
+function OpportunitiesSectionContent({
   onDeleteAction,
   onAddOpportunityAction,
 }: OpportunitiesSectionProps) {

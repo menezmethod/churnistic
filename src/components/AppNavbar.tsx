@@ -54,7 +54,7 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useState, type JSX, useEffect, ReactElement, Fragment } from 'react';
+import { useState, type JSX, useEffect, ReactElement, Fragment, Suspense } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
@@ -257,6 +257,14 @@ const accountMenuItems: MenuItemType[] = [
 ];
 
 export default function AppNavbar() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AppNavbarContent />
+    </Suspense>
+  );
+}
+
+function AppNavbarContent() {
   const { user, signOut, hasRole, isSuperAdmin } = useAuth();
   const router = useRouter();
   const pathname = usePathname();

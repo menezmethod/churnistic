@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 
@@ -9,6 +10,14 @@ import OpportunitiesSection from './components/OpportunitiesSection';
 const API_BASE_URL = '/api/opportunities';
 
 export default function OpportunitiesPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <OpportunitiesPageContent />
+    </Suspense>
+  );
+}
+
+function OpportunitiesPageContent() {
   const router = useRouter();
   const { user } = useAuth();
 
