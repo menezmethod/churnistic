@@ -9,7 +9,6 @@ import {
   Notifications,
   AccountBalanceWallet,
   TrendingUp,
-  Assessment,
   Help,
   PersonAdd,
   Login,
@@ -26,7 +25,6 @@ import {
   Verified,
   NotificationsActive,
   History,
-  VpnKey,
   VerifiedUser,
 } from '@mui/icons-material';
 import {
@@ -80,6 +78,12 @@ interface SectionMenuItem {
 }
 
 type MenuItemType = RegularMenuItem | SectionMenuItem;
+
+// TODO: Implement these admin routes in future versions
+// - /admin/analytics: Analytics dashboard for admins
+// - /admin/reports: Report generation and management
+// - /admin/logs: System logs and activity tracking
+// - /help: Help and documentation center
 
 const mainMenuItems: MenuItemType[] = [
   {
@@ -201,31 +205,14 @@ const offersMenuItems: MenuItemType[] = [
 
 const analyticsMenuItems: MenuItemType[] = [
   {
-    text: 'Analytics Dashboard',
-    icon: <Analytics />,
-    path: '/admin/analytics',
+    text: 'Offer Validation',
+    icon: <AdminPanelSettings />,
+    path: '/admin/opportunities',
     roles: [UserRole.ADMIN],
     requiresAuth: true,
     hideWhenAuth: false,
-    description: 'View comprehensive analytics and insights',
-  },
-  {
-    text: 'Reports',
-    icon: <Assessment />,
-    path: '/admin/reports',
-    roles: [UserRole.ADMIN],
-    requiresAuth: true,
-    hideWhenAuth: false,
-    description: 'Generate and view detailed reports',
-  },
-  {
-    text: 'System Logs',
-    icon: <History />,
-    path: '/admin/logs',
-    roles: [UserRole.ADMIN],
-    requiresAuth: true,
-    hideWhenAuth: false,
-    description: 'View system logs and activity',
+    description: 'Review and validate scraped rewards and offers',
+    badge: 5,
   },
 ];
 
@@ -240,16 +227,6 @@ const managementMenuItems: MenuItemType[] = [
     description: 'Manage users, roles, and permissions',
   },
   {
-    text: 'Offer Validation',
-    icon: <AdminPanelSettings />,
-    path: '/admin/opportunities',
-    roles: [UserRole.ADMIN],
-    requiresAuth: true,
-    hideWhenAuth: false,
-    description: 'Review and validate scraped rewards and offers',
-    badge: 5,
-  },
-  {
     text: 'System Settings',
     icon: <Settings />,
     path: '/admin/settings',
@@ -257,15 +234,6 @@ const managementMenuItems: MenuItemType[] = [
     requiresAuth: true,
     hideWhenAuth: false,
     description: 'Configure system-wide settings and features',
-  },
-  {
-    text: 'API Management',
-    icon: <VpnKey />,
-    path: '/admin/api',
-    roles: [UserRole.ADMIN],
-    requiresAuth: true,
-    hideWhenAuth: false,
-    description: 'Manage API keys and access',
   },
 ];
 
