@@ -45,6 +45,7 @@ const OpportunitiesPage = () => {
     setPagination,
     stats,
     importOpportunities,
+    isImporting,
     isResettingStagedOffers,
     isResettingOpportunities,
     stagedOpportunities,
@@ -203,6 +204,7 @@ const OpportunitiesPage = () => {
     >
       <OpportunitiesHeader
         isLoading={isLoading}
+        isImporting={isImporting}
         isBulkApproving={isBulkApproving}
         isResettingStagedOffers={isResettingStagedOffers}
         isResettingOpportunities={isResettingOpportunities}
@@ -425,12 +427,14 @@ const OpportunitiesPage = () => {
         open={resetStagedDialogOpen}
         onClose={() => setResetStagedDialogOpen(false)}
         onConfirm={handleResetStaged}
+        isResetting={isResettingStagedOffers}
       />
 
       <ResetAllDialog
         open={resetAllDialogOpen}
         onClose={() => setResetAllDialogOpen(false)}
         onConfirm={handleResetAll}
+        isResetting={isResettingOpportunities}
       />
     </Container>
   );

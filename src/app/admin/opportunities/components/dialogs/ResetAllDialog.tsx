@@ -7,17 +7,24 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  CircularProgress,
 } from '@mui/material';
 
 interface ResetAllDialogProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  isResetting: boolean;
 }
 
-export const ResetAllDialog = ({ open, onClose, onConfirm }: ResetAllDialogProps) => {
+export const ResetAllDialog = ({
+  open,
+  onClose,
+  onConfirm,
+  isResetting,
+}: ResetAllDialogProps) => {
   return (
-    <Dialog open={open} onClose={onClose}>
+    <Dialog open={open} onClose={isResetting ? undefined : onClose}>
       <DialogTitle>Reset All Opportunities</DialogTitle>
       <DialogContent>
         <DialogContentText>
@@ -26,9 +33,17 @@ export const ResetAllDialog = ({ open, onClose, onConfirm }: ResetAllDialogProps
         </DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={onConfirm} color="error" variant="contained">
-          Reset All
+        <Button onClick={onClose} disabled={isResetting}>
+          Cancel
+        </Button>
+        <Button
+          onClick={onConfirm}
+          color="error"
+          variant="contained"
+          disabled={isResetting}
+          startIcon={isResetting ? <CircularProgress size={20} /> : undefined}
+        >
+          {isResetting ? 'Resetting...' : 'Reset All'}
         </Button>
       </DialogActions>
     </Dialog>

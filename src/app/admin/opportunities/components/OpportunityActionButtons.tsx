@@ -3,105 +3,102 @@
 import {
   CheckCircle as ApproveIcon,
   Close as RejectIcon,
-  Visibility as PreviewIcon,
-  Flag as FlagIcon,
+  RemoveRedEye as PreviewIcon,
 } from '@mui/icons-material';
-import { IconButton, Stack, Tooltip, alpha, useTheme } from '@mui/material';
-import { useState } from 'react';
+import { IconButton, Tooltip, Stack, CircularProgress } from '@mui/material';
 
-import { MarkForReviewDialog } from './dialogs/MarkForReviewDialog';
+import { useOpportunities } from '../hooks/useOpportunities';
+import { Opportunity } from '../types/opportunity';
 
 interface OpportunityActionButtonsProps {
-  onPreview: () => void;
-  onApprove?: () => void;
-  onReject: () => void;
-  onMarkForReview?: (reason: string) => void;
+  opportunity: Opportunity;
+  onPreview?: (opportunity: Opportunity) => void;
+  onApprove?: (opportunity: Opportunity) => void;
+  onReject?: (opportunity: Opportunity) => void;
   showApprove?: boolean;
+  showReject?: boolean;
+  showPreview?: boolean;
   rejectTooltip?: string;
 }
 
 export const OpportunityActionButtons = ({
+  opportunity,
   onPreview,
   onApprove,
   onReject,
-  onMarkForReview,
   showApprove = true,
+  showReject = true,
+  showPreview = true,
   rejectTooltip = 'Reject',
 }: OpportunityActionButtonsProps) => {
-  const theme = useTheme();
-  const [markForReviewOpen, setMarkForReviewOpen] = useState(false);
+  const { loadingStates } = useOpportunities();
+
+  // Early return if opportunity is not defined or doesn't have an id
+  if (!opportunity?.id) {
+    return null;
+  }
+
+  const isLoading = loadingStates[opportunity.id] || false;
 
   return (
-    <>
-      <Stack direction="row" spacing={1}>
-        <Tooltip title="Preview opportunity details" arrow>
-          <IconButton
-            onClick={onPreview}
-            color="primary"
-            size="small"
-            sx={{
-              '&:hover': {
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-              },
-            }}
-          >
-            <PreviewIcon />
-          </IconButton>
-        </Tooltip>
-
-        {showApprove && onApprove && (
-          <Tooltip title="Approve opportunity" arrow>
+    <Stack direction="row" spacing={1} alignItems="center">
+      {showPreview && onPreview && (
+        <Tooltip title="Preview">
+          <span>
+            {' '}
+            {/* Wrap disabled button in span for tooltip to work */}
             <IconButton
-              onClick={onApprove}
+              onClick={() => onPreview(opportunity)}
+              size="small"
+              disabled={isLoading}
+            >
+              <PreviewIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      )}
+
+      {showApprove && onApprove && (
+        <Tooltip title="Approve">
+          <span>
+            {' '}
+            {/* Wrap disabled button in span for tooltip to work */}
+            <IconButton
+              onClick={() => onApprove(opportunity)}
+              size="small"
               color="success"
-              size="small"
-              sx={{
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.success.main, 0.1),
-                },
-              }}
+              disabled={isLoading}
             >
-              <ApproveIcon />
+              {isLoading ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                <ApproveIcon fontSize="small" />
+              )}
             </IconButton>
-          </Tooltip>
-        )}
-
-        <Tooltip title={rejectTooltip} arrow>
-          <IconButton
-            onClick={onReject}
-            color="error"
-            size="small"
-            sx={{
-              '&:hover': {
-                backgroundColor: alpha(theme.palette.error.main, 0.1),
-              },
-            }}
-          >
-            <RejectIcon />
-          </IconButton>
+          </span>
         </Tooltip>
+      )}
 
-        {onMarkForReview && (
-          <Tooltip title="Mark for Review">
+      {showReject && onReject && (
+        <Tooltip title={rejectTooltip}>
+          <span>
+            {' '}
+            {/* Wrap disabled button in span for tooltip to work */}
             <IconButton
-              onClick={() => setMarkForReviewOpen(true)}
+              onClick={() => onReject(opportunity)}
               size="small"
-              sx={{ color: 'warning.main' }}
+              color="error"
+              disabled={isLoading}
             >
-              <FlagIcon />
+              {isLoading ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                <RejectIcon fontSize="small" />
+              )}
             </IconButton>
-          </Tooltip>
-        )}
-      </Stack>
-
-      <MarkForReviewDialog
-        open={markForReviewOpen}
-        onClose={() => setMarkForReviewOpen(false)}
-        onConfirm={(reason) => {
-          onMarkForReview?.(reason);
-          setMarkForReviewOpen(false);
-        }}
-      />
-    </>
+          </span>
+        </Tooltip>
+      )}
+    </Stack>
   );
 };

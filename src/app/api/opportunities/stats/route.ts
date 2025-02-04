@@ -11,63 +11,72 @@ if (getApps().length === 0) {
   });
 }
 
-const firestore = getFirestore();
-
 export const dynamic = 'force-dynamic';
 export const revalidate = 300; // 5 minutes
 
 export async function GET() {
   try {
-    // Add timeout protection
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
     try {
-      // Only fetch from opportunities collection
-      const opportunitiesSnapshot = await firestore.collection('opportunities').get();
+      const db = getFirestore();
+      // Fetch from both collections
+      const [opportunitiesSnapshot, stagedSnapshot] = await Promise.all([
+        db.collection('opportunities').get(),
+        db.collection('staged_offers').get(),
+      ]);
 
-      const total = opportunitiesSnapshot.size;
-      const byType = { bank: 0, credit_card: 0, brokerage: 0 };
-      let totalValue = 0;
-      let highValue = 0;
-      let approvedCount = 0;
-      let pendingCount = 0;
+      // Initialize counters
+      const stats = {
+        total: opportunitiesSnapshot.size + stagedSnapshot.size,
+        pending: stagedSnapshot.size,
+        approved: 0,
+        byType: { bank: 0, credit_card: 0, brokerage: 0 },
+        totalValue: 0,
+        approvedValue: 0,
+        approvedCount: 0,
+        highValueCount: 0,
+      };
 
+      // Process opportunities collection
       opportunitiesSnapshot.forEach((doc) => {
         const data = doc.data();
         const value = parseFloat(data.value) || 0;
-        const status = data.status;
 
-        // Count by status
-        if (status === 'approved') approvedCount++;
-        if (status === 'pending') pendingCount++;
+        if (data.status === 'approved') {
+          stats.approved++;
+          stats.approvedValue += value;
 
-        // Calculate totals
-        totalValue += value;
-        if (value >= 500) highValue++;
-        if (data.type === 'bank') byType.bank++;
-        if (data.type === 'credit_card') byType.credit_card++;
-        if (data.type === 'brokerage') byType.brokerage++;
+          // Count by type for approved offers only
+          if (data.type === 'bank') stats.byType.bank++;
+          if (data.type === 'credit_card') stats.byType.credit_card++;
+          if (data.type === 'brokerage') stats.byType.brokerage++;
+
+          // Count high value approved offers
+          if (value >= 500) stats.highValueCount++;
+        }
+
+        stats.totalValue += value;
       });
 
-      // Calculate average value
-      const avgValue = total > 0 ? Math.round(totalValue / total) : 0;
+      // Calculate averages and rates
+      const avgValue =
+        stats.approvedCount > 0
+          ? Math.round(stats.approvedValue / stats.approvedCount)
+          : 0;
+
+      const processingRate =
+        stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0;
 
       const result = {
-        // Basic stats for splash page
-        activeCount: approvedCount,
-        totalPotentialValue: totalValue,
-        averageValue: avgValue,
-
-        // Detailed stats for admin
-        total,
-        pending: pendingCount,
-        approved: approvedCount,
+        total: stats.total,
+        pending: stats.pending,
+        approved: stats.approved,
         avgValue,
-        byType,
-        highValue,
-
-        // Metadata
+        processingRate,
+        byType: stats.byType,
+        highValue: stats.highValueCount,
         lastUpdated: new Date().toISOString(),
       };
 

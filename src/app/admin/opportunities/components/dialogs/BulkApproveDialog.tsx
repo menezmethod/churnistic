@@ -12,6 +12,7 @@ import {
   Alert,
   Box,
   Typography,
+  CircularProgress,
 } from '@mui/material';
 import { useState } from 'react';
 
@@ -51,7 +52,12 @@ export const BulkApproveDialog = ({ open, onClose }: BulkApproveDialogProps) => 
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog
+      open={open}
+      onClose={isApproving ? undefined : handleClose}
+      maxWidth="sm"
+      fullWidth
+    >
       <DialogTitle>
         {result ? 'Approval Results' : 'Approve All Staged Opportunities'}
       </DialogTitle>
@@ -75,6 +81,7 @@ export const BulkApproveDialog = ({ open, onClose }: BulkApproveDialogProps) => 
                   checked={force}
                   onChange={(e) => setForce(e.target.checked)}
                   color="warning"
+                  disabled={isApproving}
                 />
               }
               label="Force approve (includes opportunities that need review)"
@@ -120,7 +127,7 @@ export const BulkApproveDialog = ({ open, onClose }: BulkApproveDialogProps) => 
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose}>
+        <Button onClick={handleClose} disabled={isApproving}>
           {result?.skippedOffers.length ? 'Close' : 'Cancel'}
         </Button>
         {!result && (
@@ -129,6 +136,7 @@ export const BulkApproveDialog = ({ open, onClose }: BulkApproveDialogProps) => 
             color={force ? 'warning' : 'primary'}
             variant="contained"
             disabled={isApproving}
+            startIcon={isApproving ? <CircularProgress size={20} /> : undefined}
           >
             {isApproving
               ? 'Approving...'

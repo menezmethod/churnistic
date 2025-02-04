@@ -18,6 +18,7 @@ import {
 
 interface OpportunitiesHeaderProps {
   isLoading: boolean;
+  isImporting: boolean;
   isBulkApproving: boolean;
   isResettingStagedOffers: boolean;
   isResettingOpportunities: boolean;
@@ -35,7 +36,7 @@ interface OpportunitiesHeaderProps {
 }
 
 export const OpportunitiesHeader = ({
-  isLoading,
+  isImporting,
   isBulkApproving,
   isResettingStagedOffers,
   isResettingOpportunities,
@@ -84,7 +85,7 @@ export const OpportunitiesHeader = ({
           }}
         >
           <Tooltip
-            title={isLoading ? 'Importing...' : 'Import new opportunities'}
+            title={isImporting ? 'Importing...' : 'Import new opportunities'}
             arrow
             placement="bottom"
           >
@@ -92,7 +93,7 @@ export const OpportunitiesHeader = ({
               <IconButton
                 color="primary"
                 onClick={onImport}
-                disabled={isLoading}
+                disabled={isImporting}
                 sx={{
                   borderRadius: 1,
                   position: 'relative',
@@ -102,7 +103,7 @@ export const OpportunitiesHeader = ({
                   },
                 }}
               >
-                {isLoading ? (
+                {isImporting ? (
                   <CircularProgress size={20} color="primary" />
                 ) : (
                   <ImportIcon sx={{ fontSize: 20 }} />

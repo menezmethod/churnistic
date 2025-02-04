@@ -82,6 +82,7 @@ export const getColumns = ({
       sortable: false,
       renderCell: (params) => (
         <OpportunityActionButtons
+          opportunity={params.row}
           onPreview={() => onPreview(params.row)}
           onApprove={onApprove ? () => onApprove(params.row) : undefined}
           onReject={() => onReject(params.row)}

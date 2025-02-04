@@ -349,6 +349,7 @@ interface UseOpportunitiesReturn {
   approvedOpportunities: Opportunity[];
   rejectedOpportunities: Opportunity[];
   isLoading: boolean;
+  isFetching: boolean;
   error: Error | null;
   approveOpportunity: (opportunity: Opportunity) => void;
   rejectOpportunity: (opportunity: Opportunity & { isStaged?: boolean }) => void;
@@ -362,10 +363,14 @@ interface UseOpportunitiesReturn {
   resetOpportunities: () => void;
   isResettingOpportunities: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
+  loadingStates: {
+    [key: string]: boolean; // Track loading state for individual items
+  };
 }
 
 export function useOpportunities(): UseOpportunitiesReturn {
   const queryClient = useQueryClient();
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     pageSize: ITEMS_PER_PAGE,
@@ -374,7 +379,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
     filters: {},
   });
 
-  // Fetch paginated opportunities
+  // Fetch paginated opportunities with better options
   const { error: paginatedError, isLoading: isLoadingPaginated } = useQuery({
     queryKey: queryKeys.opportunities.paginated(pagination),
     queryFn: async () => {
@@ -403,9 +408,13 @@ export function useOpportunities(): UseOpportunitiesReturn {
       return response.json() as Promise<PaginatedResponse>;
     },
     placeholderData: keepPreviousData,
+    staleTime: 1000 * 30, // 30 seconds
+    gcTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: true,
+    retry: 2,
   });
 
-  // Fetch stats
+  // Fetch stats with better options
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
     queryKey: ['opportunities', 'stats'],
     queryFn: async () => {
@@ -414,6 +423,9 @@ export function useOpportunities(): UseOpportunitiesReturn {
       return response.json();
     },
     staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: true,
+    retry: 2,
   });
 
   // Fetch staged opportunities
@@ -455,19 +467,14 @@ export function useOpportunities(): UseOpportunitiesReturn {
 
   // Update stats calculation
   const calculatedStats: Stats = {
-    total: (statsData?.total || 0) + (stagedOpportunities?.length || 0), // Include both collections
-    pending: stagedOpportunities?.length || 0,
+    total: statsData?.total || 0,
+    pending: statsData?.pending || 0,
     approved: statsData?.approved || 0,
     rejected: rejectedOpportunities.length,
     avgValue: statsData?.avgValue || 0,
     byType: statsData?.byType || { bank: 0, credit_card: 0, brokerage: 0 },
     highValue: statsData?.highValue || 0,
-    processingRate: `${Math.round(
-      (statsData?.approved /
-        Math.max((statsData?.total || 0) + (stagedOpportunities?.length || 0), 1)) *
-        100
-    )}%`,
-    bankRewards: statsData?.bankRewards,
+    processingRate: statsData?.processingRate || 0,
   };
 
   // Fetch all approved opportunities
@@ -503,36 +510,43 @@ export function useOpportunities(): UseOpportunitiesReturn {
     }
   };
 
-  // Update mutations with error handling
+  // Update mutations with loading states
   const importOpportunitiesMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetchBankRewardsOffers();
-      const transformedOffers = response.data.offers.map(transformBankRewardsOffer);
+      setLoadingStates((prev) => ({ ...prev, import: true }));
+      try {
+        const response = await fetchBankRewardsOffers();
+        const transformedOffers = response.data.offers.map(transformBankRewardsOffer);
 
-      // Import opportunities
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
+        // Import opportunities
+        const auth = getAuth();
+        const idToken = await auth.currentUser?.getIdToken(true);
 
-      if (!idToken) {
-        throw new Error('No authenticated user found');
+        if (!idToken) {
+          throw new Error('No authenticated user found');
+        }
+
+        const importResponse = await fetch('/api/opportunities/import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ offers: transformedOffers }),
+          credentials: 'include',
+        });
+
+        if (!importResponse.ok) {
+          const error = await importResponse.json();
+          throw new Error(
+            error.details || error.error || 'Failed to import opportunities'
+          );
+        }
+
+        return importResponse.json();
+      } finally {
+        setLoadingStates((prev) => ({ ...prev, import: false }));
       }
-
-      const importResponse = await fetch('/api/opportunities/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ offers: transformedOffers }),
-        credentials: 'include',
-      });
-
-      if (!importResponse.ok) {
-        const error = await importResponse.json();
-        throw new Error(error.details || error.error || 'Failed to import opportunities');
-      }
-
-      return importResponse.json();
     },
     onError: handleMutationError,
     onSuccess: () => {
@@ -545,29 +559,33 @@ export function useOpportunities(): UseOpportunitiesReturn {
   // Approve mutation with optimistic updates
   const approveOpportunityMutation = useMutation({
     mutationFn: async (opportunity: Opportunity) => {
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
+      setLoadingStates((prev) => ({ ...prev, [opportunity.id]: true }));
+      try {
+        const auth = getAuth();
+        const idToken = await auth.currentUser?.getIdToken(true);
+        if (!idToken) throw new Error('No authenticated user found');
 
-      if (!idToken) {
-        throw new Error('No authenticated user found');
+        const response = await fetch('/api/opportunities/approve', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify(opportunity),
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(
+            error.details || error.error || 'Failed to approve opportunity'
+          );
+        }
+
+        return response.json();
+      } finally {
+        setLoadingStates((prev) => ({ ...prev, [opportunity.id]: false }));
       }
-
-      const response = await fetch('/api/opportunities/approve', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify(opportunity),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.details || error.error || 'Failed to approve opportunity');
-      }
-
-      return response.json();
     },
     onMutate: async (opportunity) => {
       await Promise.all([
@@ -611,28 +629,33 @@ export function useOpportunities(): UseOpportunitiesReturn {
   // Reject mutation with optimistic updates
   const rejectOpportunityMutation = useMutation({
     mutationFn: async (opportunity: Opportunity & { isStaged?: boolean }) => {
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
+      setLoadingStates((prev) => ({ ...prev, [opportunity.id]: true }));
+      try {
+        const auth = getAuth();
+        const idToken = await auth.currentUser?.getIdToken(true);
+        if (!idToken) throw new Error('No authenticated user found');
 
-      if (!idToken) {
-        throw new Error('No authenticated user found');
+        const response = await fetch(
+          `/api/opportunities/${opportunity.id}?action=reject`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            credentials: 'include',
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.details || error.error || 'Failed to reject opportunity');
+        }
+
+        return response.json();
+      } finally {
+        setLoadingStates((prev) => ({ ...prev, [opportunity.id]: false }));
       }
-
-      const response = await fetch(`/api/opportunities/${opportunity.id}?action=reject`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.details || error.error || 'Failed to reject opportunity');
-      }
-
-      return response.json();
     },
     onMutate: async (opportunity) => {
       await Promise.all([
@@ -677,27 +700,29 @@ export function useOpportunities(): UseOpportunitiesReturn {
   // Bulk approve mutation with optimistic updates
   const bulkApproveOpportunitiesMutation = useMutation({
     mutationFn: async () => {
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
+      setLoadingStates((prev) => ({ ...prev, bulkApprove: true }));
+      try {
+        const auth = getAuth();
+        const idToken = await auth.currentUser?.getIdToken(true);
+        if (!idToken) throw new Error('No authenticated user found');
 
-      if (!idToken) {
-        throw new Error('No authenticated user found');
+        const response = await fetch('/api/opportunities/approve/bulk', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to bulk approve opportunities');
+        }
+
+        return response.json();
+      } finally {
+        setLoadingStates((prev) => ({ ...prev, bulkApprove: false }));
       }
-
-      const response = await fetch('/api/opportunities/approve/bulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to bulk approve opportunities');
-      }
-
-      return response.json();
     },
     onMutate: async () => {
       await Promise.all([
@@ -738,29 +763,33 @@ export function useOpportunities(): UseOpportunitiesReturn {
   // Reset staged offers mutation
   const resetStagedOffersMutation = useMutation({
     mutationFn: async () => {
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
+      setLoadingStates((prev) => ({ ...prev, resetStagedOffers: true }));
+      try {
+        const auth = getAuth();
+        const idToken = await auth.currentUser?.getIdToken(true);
+        if (!idToken) throw new Error('No authenticated user found');
 
-      if (!idToken) {
-        throw new Error('No authenticated user found');
+        const response = await fetch('/api/opportunities/reset', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ collection: 'staged_offers' }),
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(
+            error.details || error.error || 'Failed to reset staged offers'
+          );
+        }
+
+        return response.json();
+      } finally {
+        setLoadingStates((prev) => ({ ...prev, resetStagedOffers: false }));
       }
-
-      const response = await fetch('/api/opportunities/reset', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ collection: 'staged_offers' }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.details || error.error || 'Failed to reset staged offers');
-      }
-
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
@@ -813,6 +842,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
     approvedOpportunities,
     rejectedOpportunities,
     isLoading,
+    isFetching: isLoading,
     error: paginatedError || stagedError,
     approveOpportunity: approveOpportunityMutation.mutate,
     rejectOpportunity: rejectOpportunityMutation.mutate,
@@ -826,5 +856,6 @@ export function useOpportunities(): UseOpportunitiesReturn {
     resetOpportunities: resetOpportunitiesMutation.mutate,
     isResettingOpportunities: resetOpportunitiesMutation.isPending,
     queryClient,
+    loadingStates,
   };
 }

@@ -1,7 +1,15 @@
 'use client';
 
-import { KeyboardArrowDown as KeyboardArrowDownIcon } from '@mui/icons-material';
-import { Box, IconButton, Paper, Typography, alpha, useTheme } from '@mui/material';
+import { ExpandMore as ExpandIcon } from '@mui/icons-material';
+import {
+  Box,
+  IconButton,
+  Stack,
+  Typography,
+  alpha,
+  useTheme,
+  CircularProgress,
+} from '@mui/material';
 import { ReactNode } from 'react';
 
 interface OpportunitySectionProps {
@@ -14,6 +22,7 @@ interface OpportunitySectionProps {
   onToggle: () => void;
   children: ReactNode;
   flex?: boolean;
+  isLoading?: boolean;
 }
 
 export const OpportunitySection = ({
@@ -21,77 +30,99 @@ export const OpportunitySection = ({
   subtitle,
   count,
   icon,
+  iconColor,
   expanded,
   onToggle,
   children,
-  flex = false,
+  flex,
+  isLoading = false,
 }: OpportunitySectionProps) => {
   const theme = useTheme();
 
   return (
-    <Paper
-      elevation={0}
+    <Box
       sx={{
         borderRadius: 2,
         border: `1px solid ${theme.palette.divider}`,
         bgcolor: alpha(theme.palette.background.paper, 0.6),
         overflow: 'hidden',
-        flex: flex && expanded ? 1 : 'auto',
-        display: 'flex',
+        display: flex ? 'flex' : 'block',
         flexDirection: 'column',
       }}
     >
-      <Box
-        onClick={onToggle}
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={2}
         sx={{
           p: { xs: 1.5, sm: 2 },
           borderBottom: expanded ? `1px solid ${theme.palette.divider}` : 'none',
-          bgcolor: alpha(theme.palette.background.paper, 0.8),
+          bgcolor: alpha(theme.palette.background.default, 0.4),
           cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          '&:hover': {
-            bgcolor: alpha(theme.palette.background.paper, 0.9),
-          },
         }}
+        onClick={onToggle}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {icon}
-          <Box>
-            <Typography variant="h6" component="h2">
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            color: iconColor,
+          }}
+        >
+          {isLoading ? <CircularProgress size={24} color="inherit" /> : icon}
+        </Box>
+
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack direction="row" alignItems="baseline" spacing={1}>
+            <Typography
+              variant="h6"
+              sx={{
+                fontSize: { xs: '1rem', sm: '1.125rem' },
+                fontWeight: 500,
+              }}
+            >
               {title}
             </Typography>
-            {subtitle && (
-              <Typography variant="body2" color="text.secondary">
-                {subtitle}
-              </Typography>
-            )}
-          </Box>
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              {count} {count === 1 ? 'item' : 'items'}
-            </Typography>
-            <IconButton
-              onClick={onToggle}
-              size="small"
-              sx={{ transform: expanded ? 'rotate(180deg)' : 'none' }}
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              }}
             >
-              <KeyboardArrowDownIcon />
-            </IconButton>
-          </Box>
+              ({count})
+            </Typography>
+          </Stack>
+          {subtitle && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                mt: 0.5,
+              }}
+            >
+              {subtitle}
+            </Typography>
+          )}
         </Box>
-      </Box>
-      <Box
-        sx={{
-          height: expanded ? '100%' : 0,
-          overflow: 'hidden',
-          transition: 'height 0.3s ease',
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {expanded && children}
-      </Box>
-    </Paper>
+
+        <IconButton
+          size="small"
+          sx={{
+            transform: expanded ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.2s',
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+        >
+          <ExpandIcon />
+        </IconButton>
+      </Stack>
+
+      {expanded && <Box sx={{ flex: flex ? 1 : 'none' }}>{children}</Box>}
+    </Box>
   );
 };
