@@ -6,90 +6,78 @@ import { NextResponse } from 'next/server';
 // Proper singleton initialization
 if (getApps().length === 0) {
   initializeApp({
-    credential: applicationDefault(), // Ensure service account credentials
+    credential: applicationDefault(),
     databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
   });
 }
 
 const firestore = getFirestore();
 
-export const dynamic = 'force-dynamic'; // Ensure this route is always dynamic
-export const revalidate = 300; // Revalidate every 5 minutes
+export const dynamic = 'force-dynamic';
+export const revalidate = 300; // 5 minutes
 
 export async function GET() {
   try {
-    // Replace document fetching with count queries
-    const [approvedCount, stagedCount] = await Promise.all([
-      firestore
+    // Add timeout protection
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+    try {
+      // Fetch only approved opportunities in a single query
+      const approvedSnapshot = await firestore
         .collection('opportunities')
         .where('status', '==', 'approved')
-        .count()
-        .get(),
-      firestore.collection('staged_offers').count().get(),
-    ]);
+        .get();
 
-    const totalApproved = approvedCount.data().count;
-    const totalStaged = stagedCount.data().count;
+      // Fetch staged offers count separately (usually smaller)
+      const stagedSnapshot = await firestore.collection('staged_offers').get();
 
-    // Calculate core metrics
-    const total = totalApproved + totalStaged;
+      const totalApproved = approvedSnapshot.size;
+      const totalStaged = stagedSnapshot.size;
+      const total = totalApproved + totalStaged;
 
-    // Calculate average value and high value offers
-    const [approvedValues, stagedValues] = await Promise.all([
-      firestore
-        .collection('opportunities')
-        .where('status', '==', 'approved')
-        .get()
-        .then((snapshot) =>
-          snapshot.docs.map((doc) => {
-            const value = parseFloat(doc.data().value) || 0;
-            return { value, type: doc.data().type };
-          })
-        ),
-      firestore
-        .collection('staged_offers')
-        .get()
-        .then((snapshot) =>
-          snapshot.docs.map((doc) => {
-            const value = parseFloat(doc.data().value) || 0;
-            return { value, type: doc.data().type };
-          })
-        ),
-    ]);
+      // Process approved opportunities
+      const byType = { bank: 0, credit_card: 0, brokerage: 0 };
+      let totalValue = 0;
+      let highValue = 0;
 
-    const allValues = [...approvedValues, ...stagedValues];
-    const avgValue =
-      allValues.length > 0
-        ? allValues.reduce((a, b) => a + b.value, 0) / allValues.length
-        : 0;
+      approvedSnapshot.forEach((doc) => {
+        const data = doc.data();
+        const value = parseFloat(data.value) || 0;
+        totalValue += value;
 
-    // Calculate type counts and high value offers
-    const byType = { bank: 0, credit_card: 0, brokerage: 0 };
-    let highValue = 0;
+        if (value >= 500) highValue++;
+        if (data.type === 'bank') byType.bank++;
+        if (data.type === 'credit_card') byType.credit_card++;
+        if (data.type === 'brokerage') byType.brokerage++;
+      });
 
-    allValues.forEach(({ value, type }) => {
-      if (value >= 500) highValue++;
-      if (type === 'bank') byType.bank++;
-      if (type === 'credit_card') byType.credit_card++;
-      if (type === 'brokerage') byType.brokerage++;
-    });
+      // Calculate average value
+      const avgValue = totalApproved > 0 ? Math.round(totalValue / totalApproved) : 0;
 
-    // Use Next.js native cache headers
-    const result = {
-      total,
-      pending: totalStaged,
-      approved: totalApproved,
-      avgValue: Math.round(avgValue),
-      byType,
-      highValue,
-    };
+      const result = {
+        total,
+        pending: totalStaged,
+        approved: totalApproved,
+        avgValue,
+        byType,
+        highValue,
+      };
 
-    return NextResponse.json(result, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
-      },
-    });
+      return NextResponse.json(result, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+          'CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+          'Vercel-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+        },
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return NextResponse.json({ error: 'Stats request timed out' }, { status: 504 });
+    }
     console.error('Stats endpoint error:', error);
     return NextResponse.json({ error: 'Failed to fetch statistics' }, { status: 500 });
   }
