@@ -49,7 +49,7 @@ import {
   Button,
   Tooltip,
 } from '@mui/material';
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 
 import { OpportunityPreviewModal } from './components/OpportunityPreviewModal';
 import { useOpportunities } from './hooks/useOpportunities';
@@ -133,12 +133,11 @@ const OpportunitiesPage = () => {
   const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
 
   const {
-    paginatedData,
+    total,
     hasMore,
-    refetch,
+    isLoading,
     pagination,
     setPagination,
-    isCreating,
     approveOpportunity,
     rejectOpportunity,
     bulkApproveOpportunities,
@@ -150,41 +149,49 @@ const OpportunitiesPage = () => {
     isResettingStagedOffers,
     resetOpportunities,
     isResettingOpportunities,
+    paginatedData,
+    stagedOpportunities,
   } = useOpportunities();
 
-  const handleSort = (field: string) => {
-    setPagination({
-      sortBy: field,
-      sortDirection:
-        pagination.sortBy === field && pagination.sortDirection === 'asc'
-          ? 'desc'
-          : 'asc',
-    });
-    refetch();
+  // Replace the memoized split with:
+  const approvedOpportunities = useMemo(
+    () => (paginatedData?.items || []).filter((opp) => opp.status === 'approved'),
+    [paginatedData]
+  );
+
+  const pendingOpportunities = useMemo(
+    () => [
+      ...stagedOpportunities,
+      ...(paginatedData?.items || []).filter(
+        (opp) => opp.status === 'pending' || opp.status === 'staged'
+      ),
+    ],
+    [stagedOpportunities, paginatedData]
+  );
+
+  const handlePageChange = (_: unknown, newPage: number) => {
+    setPagination({ ...pagination, page: newPage + 1 });
   };
 
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
+  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setPagination({
-      filters: {
-        ...pagination.filters,
-        search: value || undefined,
-      },
-    });
-    refetch();
-  };
-
-  const handleChangePage = (_: unknown, newPage: number) => {
-    setPagination({ page: newPage + 1 });
-    refetch();
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setPagination({
+      ...pagination,
       pageSize: parseInt(event.target.value, 10),
+      page: 1,
     });
-    refetch();
   };
+
+  const handleSearch = useCallback(
+    (value: string) => {
+      setPagination({
+        ...pagination,
+        page: 1,
+        filters: { ...pagination.filters, search: value },
+      });
+      setSearchTerm(value);
+    },
+    [pagination, setPagination]
+  );
 
   const handleSync = async () => {
     try {
@@ -250,10 +257,10 @@ const OpportunitiesPage = () => {
     }
   };
 
-  const processingSpeed =
-    stats.total > 0
-      ? (((stats.approved + stats.rejected) / stats.total) * 100).toFixed(1)
-      : '0';
+  const processingSpeed = useMemo(() => {
+    const totalProcessed = stats.approved + stats.rejected;
+    return stats.total > 0 ? ((totalProcessed / stats.total) * 100).toFixed(1) : '0';
+  }, [stats]);
 
   const handleResetStaged = async () => {
     try {
@@ -505,9 +512,9 @@ const OpportunitiesPage = () => {
                     <IconButton
                       color="primary"
                       onClick={handleSync}
-                      disabled={isCreating}
+                      disabled={isLoading}
                       sx={{ borderRadius: 2 }}
-                      aria-label={isCreating ? 'Syncing...' : 'Sync Now'}
+                      aria-label={isLoading ? 'Syncing...' : 'Sync Now'}
                     >
                       <ImportIcon />
                     </IconButton>
@@ -560,8 +567,11 @@ const OpportunitiesPage = () => {
           </Paper>
         </Grid>
 
-        {/* Opportunities Table */}
+        {/* Non-Approved Opportunities Table */}
         <Grid item xs={12}>
+          <Typography variant="h6" gutterBottom>
+            Pending Opportunities ({pendingOpportunities.length})
+          </Typography>
           <TableContainer component={Paper}>
             <Table>
               <TableHead>
@@ -570,7 +580,14 @@ const OpportunitiesPage = () => {
                     <TableSortLabel
                       active={pagination.sortBy === 'name'}
                       direction={pagination.sortDirection}
-                      onClick={() => handleSort('name')}
+                      onClick={() =>
+                        setPagination({
+                          ...pagination,
+                          sortBy: 'name',
+                          sortDirection:
+                            pagination.sortDirection === 'asc' ? 'desc' : 'asc',
+                        })
+                      }
                     >
                       Name
                     </TableSortLabel>
@@ -580,7 +597,14 @@ const OpportunitiesPage = () => {
                     <TableSortLabel
                       active={pagination.sortBy === 'value'}
                       direction={pagination.sortDirection}
-                      onClick={() => handleSort('value')}
+                      onClick={() =>
+                        setPagination({
+                          ...pagination,
+                          sortBy: 'value',
+                          sortDirection:
+                            pagination.sortDirection === 'asc' ? 'desc' : 'asc',
+                        })
+                      }
                     >
                       Value
                     </TableSortLabel>
@@ -590,7 +614,7 @@ const OpportunitiesPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(paginatedData?.items || []).map((opportunity: Opportunity) => (
+                {pendingOpportunities.map((opportunity) => (
                   <TableRow
                     key={opportunity.id}
                     hover
@@ -672,15 +696,126 @@ const OpportunitiesPage = () => {
             </Table>
             <TablePagination
               component="div"
-              count={stats.total || 0}
+              count={total}
               page={pagination.page - 1}
               rowsPerPage={pagination.pageSize}
               rowsPerPageOptions={[10, 20, 50]}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
+              onPageChange={handlePageChange}
+              onRowsPerPageChange={handleRowsPerPageChange}
               nextIconButtonProps={{
                 disabled: !hasMore,
               }}
+            />
+          </TableContainer>
+        </Grid>
+
+        {/* Approved Opportunities Table */}
+        <Grid item xs={12} sx={{ mt: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Approved Opportunities ({approvedOpportunities.length})
+          </Typography>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>
+                    <TableSortLabel
+                      active={pagination.sortBy === 'name'}
+                      direction={pagination.sortDirection}
+                      onClick={() =>
+                        setPagination({
+                          ...pagination,
+                          sortBy: 'name',
+                          sortDirection:
+                            pagination.sortDirection === 'asc' ? 'desc' : 'asc',
+                        })
+                      }
+                    >
+                      Name
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>
+                    <TableSortLabel
+                      active={pagination.sortBy === 'value'}
+                      direction={pagination.sortDirection}
+                      onClick={() =>
+                        setPagination({
+                          ...pagination,
+                          sortBy: 'value',
+                          sortDirection:
+                            pagination.sortDirection === 'asc' ? 'desc' : 'asc',
+                        })
+                      }
+                    >
+                      Value
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {approvedOpportunities.map((opportunity) => (
+                  <TableRow
+                    key={opportunity.id}
+                    hover
+                    sx={
+                      (opportunity as Opportunity & { isStaged?: boolean }).isStaged
+                        ? { bgcolor: 'action.hover' }
+                        : undefined
+                    }
+                  >
+                    <TableCell>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        {opportunity.logo && (
+                          <Box
+                            component="img"
+                            src={opportunity.logo.url}
+                            alt={opportunity.name}
+                            sx={{ width: 24, height: 24, objectFit: 'contain' }}
+                          />
+                        )}
+                        <Typography>{opportunity.name}</Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={opportunity.type}
+                        size="small"
+                        color={opportunity.type === 'bank' ? 'success' : 'info'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography color="success.main" fontWeight="bold">
+                        ${opportunity.value}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{getStatusChip(opportunity.status)}</TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Preview opportunity details" arrow>
+                        <span>
+                          <IconButton
+                            onClick={() => handlePreview(opportunity)}
+                            color="primary"
+                          >
+                            <PreviewIcon />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <TablePagination
+              component="div"
+              count={stats.approved}
+              page={0}
+              rowsPerPage={pagination.pageSize}
+              rowsPerPageOptions={[10, 20, 50]}
+              onPageChange={() => console.log('Implement approved pagination')}
+              onRowsPerPageChange={handleRowsPerPageChange}
             />
           </TableContainer>
         </Grid>

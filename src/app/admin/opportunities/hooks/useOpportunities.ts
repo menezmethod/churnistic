@@ -5,7 +5,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import {
   Details,
@@ -356,15 +356,22 @@ export const queryKeys: QueryKeys = {
   },
 };
 
-export function useOpportunities() {
+export function useOpportunities(paginationState?: PaginationState) {
   const queryClient = useQueryClient();
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     pageSize: ITEMS_PER_PAGE,
-    sortBy: 'value',
+    sortBy: 'createdAt',
     sortDirection: 'desc',
     filters: {},
   });
+
+  // Update pagination when paginationState changes
+  useEffect(() => {
+    if (paginationState) {
+      setPagination(paginationState);
+    }
+  }, [paginationState]);
 
   // Fetch staged opportunities with proper query key and configuration
   const { data: stagedOpportunities = [] } = useQuery({
@@ -382,20 +389,41 @@ export function useOpportunities() {
     error: paginationError,
     status: paginationStatus,
     isPending: isPaginationPending,
+    refetch,
   } = useQuery<PaginatedResponse>({
     queryKey: queryKeys.opportunities.paginated(pagination),
     queryFn: async () => {
       const params = new URLSearchParams({
         page: pagination.page.toString(),
         pageSize: pagination.pageSize.toString(),
-        sortBy: pagination.sortBy,
-        sortDirection: pagination.sortDirection,
-        status: 'approved',
+        sortBy: pagination.sortBy || 'createdAt',
+        sortDirection: pagination.sortDirection || 'desc',
       });
 
+      // Add optional filters
+      if (pagination.filters.search) {
+        params.append('search', pagination.filters.search);
+      }
+      if (pagination.filters.status) {
+        params.append('status', pagination.filters.status);
+      }
+      if (pagination.filters.type) {
+        params.append('type', pagination.filters.type);
+      }
+      if (pagination.filters.minValue) {
+        params.append('minValue', pagination.filters.minValue.toString());
+      }
+      if (pagination.filters.maxValue) {
+        params.append('maxValue', pagination.filters.maxValue.toString());
+      }
+
       const response = await fetch(`/api/opportunities?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch');
-      return response.json() as Promise<PaginatedResponse>;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.details || error.error || 'Failed to fetch opportunities');
+      }
+      const data = await response.json();
+      return data as PaginatedResponse;
     },
     placeholderData: keepPreviousData,
     staleTime: 1000 * 30,
@@ -699,16 +727,19 @@ export function useOpportunities() {
         throw new Error('No authenticated user found');
       }
 
-      const response = await fetch('/api/opportunities/staged/reset', {
+      const response = await fetch('/api/opportunities/reset', {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${idToken}`,
         },
+        body: JSON.stringify({ collection: 'staged_offers' }),
         credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to reset staged offers');
+        const error = await response.json();
+        throw new Error(error.details || error.error || 'Failed to reset staged offers');
       }
 
       return response.json();
@@ -731,13 +762,16 @@ export function useOpportunities() {
       const response = await fetch('/api/opportunities/reset', {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${idToken}`,
         },
+        body: JSON.stringify({ collection: 'opportunities' }),
         credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to reset opportunities');
+        const error = await response.json();
+        throw new Error(error.details || error.error || 'Failed to reset opportunities');
       }
 
       return response.json();
@@ -748,20 +782,16 @@ export function useOpportunities() {
   });
 
   return {
-    opportunities: [...stagedOpportunities, ...(paginatedData?.items ?? [])],
+    opportunities: paginatedData?.items || [],
+    stagedOpportunities,
     paginatedData,
     total: paginatedData?.total ?? 0,
     hasMore: paginatedData?.hasMore ?? false,
     isLoading: isPaginationPending,
     error: paginationStatus === 'error' ? paginationError : null,
-    refetch: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opportunities.paginated(pagination),
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opportunities.staged,
-      });
-    },
+    pagination,
+    setPagination,
+    refetch,
     isCreating: importMutation.isPending,
     isUpdating: approveOpportunityMutation.isPending,
     isDeleting: rejectOpportunityMutation.isPending,
@@ -779,9 +809,5 @@ export function useOpportunities() {
     isResettingStagedOffers: resetStagedOffersMutation.isPending,
     resetOpportunities: resetOpportunitiesMutation.mutate,
     isResettingOpportunities: resetOpportunitiesMutation.isPending,
-    pagination,
-    setPagination: (updates: Partial<PaginationState>) => {
-      setPagination((prev) => ({ ...prev, ...updates }));
-    },
   } as const;
 }

@@ -1,34 +1,40 @@
-import { QueryDocumentSnapshot } from 'firebase-admin/firestore';
+import { Query } from 'firebase-admin/firestore';
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { shouldUseEmulators } from '@/lib/firebase/utils/environment';
-import type { FirestoreOpportunity } from '@/types/opportunity';
+import { type Opportunity } from '@/types/opportunity';
 
 export async function GET(request: NextRequest) {
   try {
     console.log('📥 GET /api/opportunities - Starting request');
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
-    const limitParam = searchParams.get('limit');
-    const limitNum = limitParam ? Number(limitParam) : undefined;
-    const sortBy = searchParams.get('sortBy');
-    const sortDirection = searchParams.get('sortDirection') as 'asc' | 'desc' | null;
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortDirection = (searchParams.get('sortDirection') as 'asc' | 'desc') || 'desc';
+    const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || 'approved';
+    const type = searchParams.get('type');
+    const minValue = searchParams.get('minValue')
+      ? parseInt(searchParams.get('minValue')!, 10)
+      : undefined;
+    const maxValue = searchParams.get('maxValue')
+      ? parseInt(searchParams.get('maxValue')!, 10)
+      : undefined;
 
     console.log('🔍 Query params:', {
-      type,
-      limitNum,
-      sortBy,
-      sortDirection,
       page,
       pageSize,
-      isEmulator: shouldUseEmulators(),
+      sortBy,
+      sortDirection,
+      search,
       status,
+      type,
+      minValue,
+      maxValue,
     });
 
     const db = getAdminDb();
@@ -37,17 +43,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
 
-    const opportunitiesRef = db.collection('opportunities');
-    console.log('🏗️ Building Firestore query...');
-
-    let queryRef: FirebaseFirestore.Query = opportunitiesRef
-      .where('status', '==', status)
-      .orderBy(sortBy || 'createdAt', sortDirection || 'desc');
+    const collectionRef = db.collection('opportunities');
+    let queryRef: Query = collectionRef;
 
     // Apply filters
+    if (status) {
+      const statuses = status.split(',');
+      if (statuses.length > 0) {
+        queryRef = queryRef.where('status', 'in', statuses);
+      }
+    }
+
     if (type) {
       queryRef = queryRef.where('type', '==', type);
     }
+
+    if (minValue !== undefined) {
+      queryRef = queryRef.where('value', '>=', minValue);
+    }
+
+    if (maxValue !== undefined) {
+      queryRef = queryRef.where('value', '<=', maxValue);
+    }
+
+    // Apply search filter if provided
+    if (search) {
+      queryRef = queryRef
+        .where('name', '>=', search)
+        .where('name', '<=', search + '\uf8ff');
+    }
+
+    // Get total count before applying pagination
+    const totalCountSnapshot = await queryRef.count().get();
+    const total = totalCountSnapshot.data().count;
+
+    // Apply sorting
+    queryRef = queryRef.orderBy(sortBy, sortDirection);
 
     // Apply pagination
     const startIndex = (page - 1) * pageSize;
@@ -63,33 +94,41 @@ export async function GET(request: NextRequest) {
       size: snapshot.size,
       empty: snapshot.empty,
       docs: snapshot.docs.length,
+      total,
     });
 
     if (snapshot.empty) {
       console.log('ℹ️ No opportunities found');
-      return NextResponse.json([]);
+      return NextResponse.json({
+        items: [],
+        total: 0,
+        hasMore: false,
+      });
     }
 
-    const opportunities = snapshot.docs.map((doc: QueryDocumentSnapshot) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-      } as FirestoreOpportunity;
-    });
+    const opportunities = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Opportunity[];
+
+    const hasMore = total > startIndex + opportunities.length;
 
     console.log('✅ Processed opportunities:', {
       count: opportunities.length,
-      sample: opportunities[0]
-        ? {
+      total,
+      hasMore,
+      sample: opportunities[0] && {
             id: opportunities[0].id,
             name: opportunities[0].name,
             type: opportunities[0].type,
           }
-        : null,
     });
 
-    return NextResponse.json(opportunities);
+    return NextResponse.json({
+      items: opportunities,
+      total,
+      hasMore,
+    });
   } catch (error) {
     console.error('❌ Error fetching opportunities:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
