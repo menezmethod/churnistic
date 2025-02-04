@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
 import { useState } from 'react';
 
@@ -43,6 +48,12 @@ interface Stats {
     expired: number;
   };
   processingRate: string;
+}
+
+interface PaginatedResponse {
+  items: Opportunity[];
+  total: number;
+  hasMore: boolean;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -291,62 +302,6 @@ const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
   }
 };
 
-const fetchPaginatedOpportunities = async (
-  pagination: PaginationState
-): Promise<{
-  items: Opportunity[];
-  total: number;
-  hasMore: boolean;
-  approved: number;
-  rejected: number;
-  avgValue: number;
-  byType: {
-    bank: number;
-    credit_card: number;
-    brokerage: number;
-  };
-  highValue: number;
-}> => {
-  const { page, pageSize, sortBy, sortDirection, filters } = pagination;
-
-  // Construct URL with query parameters
-  const params = new URLSearchParams({
-    page: page.toString(),
-    pageSize: pageSize.toString(),
-    sortBy: sortBy,
-    sortDirection: sortDirection,
-    ...(filters.status && { status: filters.status }),
-    ...(filters.type && { type: filters.type }),
-    ...(filters.minValue && { minValue: filters.minValue.toString() }),
-    ...(filters.maxValue && { maxValue: filters.maxValue.toString() }),
-    ...(filters.search && { search: filters.search }),
-  });
-
-  const response = await fetch(`/api/opportunities?${params}`, {
-    credentials: 'include',
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch opportunities');
-  }
-
-  const data = await response.json();
-  return {
-    items: data.opportunities || [],
-    total: data.total || 0,
-    hasMore: data.hasMore || false,
-    approved: data.approved || 0,
-    rejected: data.rejected || 0,
-    avgValue: data.avgValue || 0,
-    byType: {
-      bank: data.byType?.bank || 0,
-      credit_card: data.byType?.credit_card || 0,
-      brokerage: data.byType?.brokerage || 0,
-    },
-    highValue: data.highValue || 0,
-  };
-};
-
 const fetchStagedOpportunities = async (): Promise<
   (Opportunity & { isStaged: boolean })[]
 > => {
@@ -373,7 +328,7 @@ const fetchStagedOpportunities = async (): Promise<
   }));
 };
 
-// Define the QueryKeys type first
+// Update QueryKeys type to match React Query's expectations
 type QueryKeys = {
   opportunities: {
     all: readonly ['opportunities'];
@@ -388,7 +343,7 @@ type QueryKeys = {
   };
 };
 
-const queryKeys: QueryKeys = {
+export const queryKeys: QueryKeys = {
   opportunities: {
     all: ['opportunities'] as const,
     paginated: (pagination: PaginationState) =>
@@ -427,16 +382,24 @@ export function useOpportunities() {
     error: paginationError,
     status: paginationStatus,
     isPending: isPaginationPending,
-  } = useQuery({
+  } = useQuery<PaginatedResponse>({
     queryKey: queryKeys.opportunities.paginated(pagination),
-    queryFn: () => fetchPaginatedOpportunities(pagination),
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: pagination.page.toString(),
+        pageSize: pagination.pageSize.toString(),
+        sortBy: pagination.sortBy,
+        sortDirection: pagination.sortDirection,
+        status: 'approved',
+      });
+
+      const response = await fetch(`/api/opportunities?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      return response.json() as Promise<PaginatedResponse>;
+    },
+    placeholderData: keepPreviousData,
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 5,
-    retry: 2,
-    retryDelay: 1000,
-    refetchOnWindowFocus: process.env.NODE_ENV === 'development',
-    refetchOnReconnect: true,
-    refetchOnMount: true,
   });
 
   // Add stats query
@@ -785,9 +748,10 @@ export function useOpportunities() {
   });
 
   return {
-    opportunities: [...stagedOpportunities, ...(paginatedData?.items || [])],
-    total: paginatedData?.total || 0,
-    hasMore: paginatedData?.hasMore || false,
+    opportunities: [...stagedOpportunities, ...(paginatedData?.items ?? [])],
+    paginatedData,
+    total: paginatedData?.total ?? 0,
+    hasMore: paginatedData?.hasMore ?? false,
     isLoading: isPaginationPending,
     error: paginationStatus === 'error' ? paginationError : null,
     refetch: () => {
@@ -819,5 +783,5 @@ export function useOpportunities() {
     setPagination: (updates: Partial<PaginationState>) => {
       setPagination((prev) => ({ ...prev, ...updates }));
     },
-  };
+  } as const;
 }

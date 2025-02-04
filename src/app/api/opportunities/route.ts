@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const sortDirection = searchParams.get('sortDirection') as 'asc' | 'desc' | null;
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
+    const status = searchParams.get('status') || 'approved';
 
     console.log('🔍 Query params:', {
       type,
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
       page,
       pageSize,
       isEmulator: shouldUseEmulators(),
+      status,
     });
 
     const db = getAdminDb();
@@ -38,16 +40,13 @@ export async function GET(request: NextRequest) {
     const opportunitiesRef = db.collection('opportunities');
     console.log('🏗️ Building Firestore query...');
 
-    let queryRef: FirebaseFirestore.Query = opportunitiesRef;
+    let queryRef: FirebaseFirestore.Query = opportunitiesRef
+      .where('status', '==', status)
+      .orderBy(sortBy || 'createdAt', sortDirection || 'desc');
 
     // Apply filters
     if (type) {
       queryRef = queryRef.where('type', '==', type);
-    }
-
-    // Apply sorting
-    if (sortBy) {
-      queryRef = queryRef.orderBy(sortBy, sortDirection || 'desc');
     }
 
     // Apply pagination
