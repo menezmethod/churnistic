@@ -118,10 +118,10 @@ export async function GET(request: NextRequest) {
       total,
       hasMore,
       sample: opportunities[0] && {
-            id: opportunities[0].id,
-            name: opportunities[0].name,
-            type: opportunities[0].type,
-          }
+        id: opportunities[0].id,
+        name: opportunities[0].name,
+        type: opportunities[0].type,
+      },
     });
 
     return NextResponse.json({

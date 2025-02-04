@@ -33,7 +33,7 @@ export function FeaturedOpportunities() {
   const { opportunities } = useOpportunities({ limit: 100 });
 
   // Get top 3 opportunities with highest value
-  const featuredOffers = opportunities
+  const featuredOffers = (opportunities || [])
     .sort(
       (a: FirestoreOpportunity, b: FirestoreOpportunity) =>
         (b.value || 0) - (a.value || 0)

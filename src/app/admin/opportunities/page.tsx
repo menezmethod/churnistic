@@ -49,12 +49,19 @@ import {
   Button,
   Tooltip,
 } from '@mui/material';
+import { getAuth } from 'firebase/auth';
 import { useState, useMemo, useCallback } from 'react';
 
 import { OpportunityPreviewModal } from './components/OpportunityPreviewModal';
 import { useOpportunities } from './hooks/useOpportunities';
 import { Opportunity } from './types/opportunity';
 import { ScraperControlPanel } from '../components/ScraperControlPanel';
+
+interface PaginatedOpportunities {
+  items: Opportunity[];
+  total: number;
+  hasMore: boolean;
+}
 
 const StatsCard = ({
   title,
@@ -133,7 +140,6 @@ const OpportunitiesPage = () => {
   const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
 
   const {
-    total,
     hasMore,
     isLoading,
     pagination,
@@ -151,22 +157,13 @@ const OpportunitiesPage = () => {
     isResettingOpportunities,
     paginatedData,
     stagedOpportunities,
+    queryClient,
   } = useOpportunities();
 
   // Replace the memoized split with:
   const approvedOpportunities = useMemo(
     () => (paginatedData?.items || []).filter((opp) => opp.status === 'approved'),
     [paginatedData]
-  );
-
-  const pendingOpportunities = useMemo(
-    () => [
-      ...stagedOpportunities,
-      ...(paginatedData?.items || []).filter(
-        (opp) => opp.status === 'pending' || opp.status === 'staged'
-      ),
-    ],
-    [stagedOpportunities, paginatedData]
   );
 
   const handlePageChange = (_: unknown, newPage: number) => {
@@ -245,15 +242,76 @@ const OpportunitiesPage = () => {
   };
 
   const handleReject = async (opportunity: Opportunity & { isStaged?: boolean }) => {
-    if (opportunity.isStaged) {
-      await rejectOpportunity(opportunity);
-    } else {
-      // Get the full opportunity data for non-staged opportunities
-      const fullOpportunity = {
-        ...opportunity,
-        isStaged: false,
-      };
-      await rejectOpportunity(fullOpportunity);
+    try {
+      if (opportunity.status === 'approved') {
+        const auth = getAuth();
+        const idToken = await auth.currentUser?.getIdToken(true);
+
+        if (!idToken) {
+          throw new Error('No authenticated user found');
+        }
+
+        await queryClient.cancelQueries({ queryKey: ['opportunities'] });
+        await queryClient.cancelQueries({ queryKey: ['opportunities', 'staged'] });
+
+        // Optimistic update
+        const previousApproved = queryClient.getQueryData(['opportunities']);
+        const previousStaged = queryClient.getQueryData(['opportunities', 'staged']);
+
+        // Remove from approved list
+        if (previousApproved) {
+          queryClient.setQueryData(['opportunities'], {
+            ...previousApproved,
+            items: (previousApproved as PaginatedOpportunities).items.filter(
+              (opp) => opp.id !== opportunity.id
+            ),
+          });
+        }
+
+        // Add to staged list
+        if (previousStaged) {
+          queryClient.setQueryData(
+            ['opportunities', 'staged'],
+            [...(previousStaged as Opportunity[]), { ...opportunity, status: 'staged' }]
+          );
+        }
+
+        try {
+          const response = await fetch('/api/opportunities/reject', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({ id: opportunity.id }),
+            credentials: 'include',
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(
+              error.details || error.error || 'Failed to reject opportunity'
+            );
+          }
+
+          // Invalidate queries to ensure data is fresh
+          await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+          await queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
+        } catch (error) {
+          // Revert optimistic updates on error
+          if (previousApproved) {
+            queryClient.setQueryData(['opportunities'], previousApproved);
+          }
+          if (previousStaged) {
+            queryClient.setQueryData(['opportunities', 'staged'], previousStaged);
+          }
+          throw error;
+        }
+      } else {
+        await rejectOpportunity(opportunity);
+      }
+    } catch (error) {
+      console.error('Failed to reject opportunity:', error);
     }
   };
 
@@ -570,7 +628,7 @@ const OpportunitiesPage = () => {
         {/* Non-Approved Opportunities Table */}
         <Grid item xs={12}>
           <Typography variant="h6" gutterBottom>
-            Pending Opportunities ({pendingOpportunities.length})
+            Staged Opportunities ({stagedOpportunities.length})
           </Typography>
           <TableContainer component={Paper}>
             <Table>
@@ -614,7 +672,7 @@ const OpportunitiesPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {pendingOpportunities.map((opportunity) => (
+                {stagedOpportunities.map((opportunity) => (
                   <TableRow
                     key={opportunity.id}
                     hover
@@ -666,10 +724,6 @@ const OpportunitiesPage = () => {
                           <IconButton
                             color="success"
                             onClick={() => handleApprove(opportunity)}
-                            disabled={
-                              opportunity.status === 'approved' ||
-                              opportunity.status === 'rejected'
-                            }
                           >
                             <ApproveIcon />
                           </IconButton>
@@ -680,10 +734,6 @@ const OpportunitiesPage = () => {
                           <IconButton
                             color="error"
                             onClick={() => handleReject(opportunity)}
-                            disabled={
-                              opportunity.status === 'approved' ||
-                              opportunity.status === 'rejected'
-                            }
                           >
                             <RejectIcon />
                           </IconButton>
@@ -696,14 +746,18 @@ const OpportunitiesPage = () => {
             </Table>
             <TablePagination
               component="div"
-              count={total}
-              page={pagination.page - 1}
+              count={stagedOpportunities.length}
+              page={0}
               rowsPerPage={pagination.pageSize}
               rowsPerPageOptions={[10, 20, 50]}
               onPageChange={handlePageChange}
               onRowsPerPageChange={handleRowsPerPageChange}
-              nextIconButtonProps={{
-                disabled: !hasMore,
+              slotProps={{
+                actions: {
+                  nextButton: {
+                    disabled: !hasMore,
+                  },
+                },
               }}
             />
           </TableContainer>
@@ -712,7 +766,7 @@ const OpportunitiesPage = () => {
         {/* Approved Opportunities Table */}
         <Grid item xs={12} sx={{ mt: 4 }}>
           <Typography variant="h6" gutterBottom>
-            Approved Opportunities ({approvedOpportunities.length})
+            Approved Opportunities ({stats.approved})
           </Typography>
           <TableContainer component={Paper}>
             <Table>
@@ -800,6 +854,16 @@ const OpportunitiesPage = () => {
                             color="primary"
                           >
                             <PreviewIcon />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Move back to staged" arrow>
+                        <span>
+                          <IconButton
+                            onClick={() => handleReject(opportunity)}
+                            color="warning"
+                          >
+                            <RejectIcon />
                           </IconButton>
                         </span>
                       </Tooltip>

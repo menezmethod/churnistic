@@ -809,5 +809,6 @@ export function useOpportunities(paginationState?: PaginationState) {
     isResettingStagedOffers: resetStagedOffersMutation.isPending,
     resetOpportunities: resetOpportunitiesMutation.mutate,
     isResettingOpportunities: resetOpportunitiesMutation.isPending,
+    queryClient,
   } as const;
 }
