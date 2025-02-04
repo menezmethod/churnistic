@@ -480,7 +480,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
       const response = await fetchBankRewardsOffers();
       const transformedOffers = response.data.offers.map(transformBankRewardsOffer);
 
-      // Bulk create opportunities
+      // Import opportunities
       const auth = getAuth();
       const idToken = await auth.currentUser?.getIdToken(true);
 
@@ -488,22 +488,22 @@ export function useOpportunities(): UseOpportunitiesReturn {
         throw new Error('No authenticated user found');
       }
 
-      const bulkResponse = await fetch('/api/opportunities/bulk', {
+      const importResponse = await fetch('/api/opportunities/import', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({ opportunities: transformedOffers }),
+        body: JSON.stringify({ offers: transformedOffers }),
         credentials: 'include',
       });
 
-      if (!bulkResponse.ok) {
-        const error = await bulkResponse.json();
+      if (!importResponse.ok) {
+        const error = await importResponse.json();
         throw new Error(error.details || error.error || 'Failed to import opportunities');
       }
 
-      return bulkResponse.json();
+      return importResponse.json();
     },
     onError: handleMutationError,
     onSuccess: () => {

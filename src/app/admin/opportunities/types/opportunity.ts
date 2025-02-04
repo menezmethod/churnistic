@@ -1,3 +1,17 @@
+export interface PaginationState {
+  page: number;
+  pageSize: number;
+  sortBy: string;
+  sortDirection: 'asc' | 'desc';
+  filters: {
+    status?: 'pending' | 'approved' | 'rejected';
+    type?: string;
+    minValue?: number;
+    maxValue?: number;
+    search?: string;
+  };
+}
+
 export type RequirementType =
   | 'spending'
   | 'direct_deposit'
