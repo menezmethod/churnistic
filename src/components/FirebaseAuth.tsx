@@ -49,8 +49,18 @@ export function FirebaseAuth() {
         await setDoc(userRef, newProfile);
       }
 
-      // Set session cookie
+      // Set session cookie and wait for it to be set
       await manageSessionCookie(user);
+
+      // Wait for auth state to be fully updated
+      await new Promise<void>((resolve) => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+          if (user) {
+            unsubscribe();
+            resolve();
+          }
+        });
+      });
 
       // Redirect to dashboard
       router.push('/dashboard');
