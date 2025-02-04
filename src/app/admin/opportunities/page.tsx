@@ -994,7 +994,7 @@ const OpportunitiesPage = () => {
                   <Box sx={{ p: 1 }}>
                     <StatsCard
                       title="Pending Review"
-                      value={stats.pending}
+                      value={stagedOpportunities.length}
                       icon={
                         <PendingIcon
                           sx={{
