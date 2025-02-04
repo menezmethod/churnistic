@@ -16,6 +16,7 @@ import {
   DoneAll as BulkApproveIcon,
   RestartAlt as ResetIcon,
   DeleteForever as ResetAllIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -43,7 +44,7 @@ import {
 } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { getAuth } from 'firebase/auth';
-import { useState, useMemo, useCallback, JSX } from 'react';
+import { useState, useMemo, useCallback, JSX, useEffect } from 'react';
 
 import { OpportunityPreviewModal } from './components/OpportunityPreviewModal';
 import { useOpportunities } from './hooks/useOpportunities';
@@ -107,25 +108,35 @@ const StatsCard = ({
         },
       }}
     >
-      <CardContent>
-        <Stack direction="row" alignItems="center" spacing={2}>
+      <CardContent
+        sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}
+      >
+        <Stack direction="row" alignItems="center" spacing={{ xs: 1.5, sm: 2 }}>
           <Box
             sx={{
-              p: 2,
+              p: { xs: 1.5, sm: 2 },
               borderRadius: 2,
               bgcolor: alpha(color, 0.15),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              width: { xs: 40, sm: 48 },
+              height: { xs: 40, sm: 48 },
+              flexShrink: 0,
             }}
           >
             {icon}
           </Box>
-          <Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography
               variant="h4"
               fontWeight="bold"
-              sx={{ color: theme.palette.text.primary }}
+              sx={{
+                color: theme.palette.text.primary,
+                fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                lineHeight: 1.2,
+                mb: 0.5,
+              }}
             >
               {prefix && <span style={{ opacity: 0.7 }}>{prefix}</span>}
               {(value || 0).toLocaleString()}
@@ -133,7 +144,13 @@ const StatsCard = ({
             </Typography>
             <Typography
               variant="body2"
-              sx={{ color: theme.palette.text.secondary, mt: 0.5 }}
+              sx={{
+                color: theme.palette.text.secondary,
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
             >
               {title}
             </Typography>
@@ -155,6 +172,7 @@ const OpportunitiesTable = ({
   onReject,
   showApproveButton = true,
   rejectTooltip = 'Reject opportunity',
+  searchTerm = '',
 }: {
   opportunities: Opportunity[];
   totalCount: number;
@@ -166,8 +184,34 @@ const OpportunitiesTable = ({
   onReject: (opportunity: Opportunity) => void;
   showApproveButton?: boolean;
   rejectTooltip?: string;
+  searchTerm?: string;
 }) => {
   const theme = useTheme();
+
+  const filteredOpportunities = useMemo(() => {
+    if (!searchTerm) return opportunities;
+
+    const searchLower = searchTerm.toLowerCase().trim();
+    return opportunities.filter((opp) => {
+      return (
+        opp.name?.toLowerCase().includes(searchLower) ||
+        opp.type?.toLowerCase().includes(searchLower) ||
+        opp.description?.toLowerCase().includes(searchLower) ||
+        opp.status?.toLowerCase().includes(searchLower) ||
+        opp.value?.toString().toLowerCase().includes(searchLower) ||
+        (opp.details?.credit_score &&
+          typeof (opp.details.credit_score as { min?: number }).min !== 'undefined' &&
+          (opp.details.credit_score as { min?: number }).min
+            ?.toString()
+            .toLowerCase()
+            .includes(searchLower)) ||
+        (opp.details?.minimum_deposit &&
+          opp.details.minimum_deposit.toString().toLowerCase().includes(searchLower)) ||
+        (opp.details?.account_type &&
+          opp.details.account_type.toLowerCase().includes(searchLower))
+      );
+    });
+  }, [opportunities, searchTerm]);
 
   const columns: GridColDef[] = [
     {
@@ -417,7 +461,7 @@ const OpportunitiesTable = ({
       }}
     >
       <DataGrid
-        rows={opportunities}
+        rows={filteredOpportunities}
         columns={columns}
         rowCount={totalCount}
         pageSizeOptions={[10, 20, 50]}
@@ -463,6 +507,8 @@ const OpportunitiesPage = () => {
   const [resetStagedDialogOpen, setResetStagedDialogOpen] = useState(false);
   const [resetAllDialogOpen, setResetAllDialogOpen] = useState(false);
   const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
+  const [stagedExpanded, setStagedExpanded] = useState(false);
+  const [approvedExpanded, setApprovedExpanded] = useState(false);
 
   const {
     isLoading,
@@ -484,7 +530,6 @@ const OpportunitiesPage = () => {
     queryClient,
   } = useOpportunities();
 
-  // Replace the memoized split with:
   const approvedOpportunities = useMemo(
     () => (paginatedData?.items || []).filter((opp) => opp.status === 'approved'),
     [paginatedData]
@@ -504,12 +549,12 @@ const OpportunitiesPage = () => {
 
   const handleSearch = useCallback(
     (value: string) => {
+      setSearchTerm(value);
       setPagination({
         ...pagination,
         page: 1,
         filters: { ...pagination.filters, search: value },
       });
-      setSearchTerm(value);
     },
     [pagination, setPagination]
   );
@@ -698,375 +743,532 @@ const OpportunitiesPage = () => {
     </Dialog>
   );
 
+  useEffect(() => {
+    if (stagedOpportunities.length === 0) {
+      setStagedExpanded(false);
+    } else {
+      setStagedExpanded(true);
+    }
+  }, [stagedOpportunities.length]);
+
+  useEffect(() => {
+    if (stats.approved === 0) {
+      setApprovedExpanded(false);
+    } else {
+      setApprovedExpanded(true);
+    }
+  }, [stats.approved]);
+
   return (
-    <Container maxWidth={false} sx={{ py: 4, px: { xs: 2, md: 4 } }}>
-      <Stack spacing={3}>
-        {/* Main Header */}
+    <Container
+      maxWidth={false}
+      sx={{
+        py: { xs: 2, sm: 3 },
+        px: { xs: 1.5, sm: 2, md: 3 },
+        minHeight: '100vh',
+      }}
+    >
+      <Box sx={{ mb: { xs: 2, sm: 3 } }}>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
           alignItems={{ xs: 'flex-start', sm: 'center' }}
-          spacing={2}
+          spacing={{ xs: 2, sm: 0 }}
         >
-          <Stack spacing={1}>
-            <Typography variant="h4" fontWeight="500" color="text.primary">
+          <Stack spacing={0.5}>
+            <Typography
+              variant="h4"
+              fontWeight="500"
+              color="text.primary"
+              sx={{
+                letterSpacing: -0.5,
+                fontSize: { xs: '1.5rem', sm: '2rem' },
+              }}
+            >
               Opportunities
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+            >
               Manage and review financial opportunities
             </Typography>
           </Stack>
+
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              width: { xs: '100%', sm: 'auto' },
+              justifyContent: { xs: 'space-between', sm: 'flex-start' },
+            }}
+          >
+            <Tooltip
+              title={isLoading ? 'Importing...' : 'Import new opportunities'}
+              arrow
+              placement="bottom"
+            >
+              <span>
+                <IconButton
+                  color="primary"
+                  onClick={handleSync}
+                  disabled={isLoading}
+                  sx={{
+                    borderRadius: 1,
+                    position: 'relative',
+                    p: 1.5,
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    },
+                  }}
+                >
+                  {isLoading ? (
+                    <CircularProgress size={20} color="primary" />
+                  ) : (
+                    <ImportIcon sx={{ fontSize: 20 }} />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip
+              title={isBulkApproving ? 'Processing...' : 'Approve all staged'}
+              arrow
+              placement="bottom"
+            >
+              <span>
+                <IconButton
+                  color="success"
+                  onClick={() => setBulkApproveDialogOpen(true)}
+                  disabled={isBulkApproving || stats.pending === 0}
+                  sx={{
+                    borderRadius: 1,
+                    position: 'relative',
+                    p: 1.5,
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.success.main, 0.08),
+                    },
+                  }}
+                >
+                  {isBulkApproving ? (
+                    <CircularProgress size={20} color="success" />
+                  ) : (
+                    <BulkApproveIcon sx={{ fontSize: 20 }} />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip
+              title={isResettingStagedOffers ? 'Clearing...' : 'Clear staged offers'}
+              arrow
+              placement="bottom"
+            >
+              <span>
+                <IconButton
+                  color="warning"
+                  onClick={() => setResetStagedDialogOpen(true)}
+                  disabled={isResettingStagedOffers || !hasStagedOpportunities}
+                  sx={{
+                    borderRadius: 1,
+                    position: 'relative',
+                    p: 1.5,
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.warning.main, 0.08),
+                    },
+                  }}
+                >
+                  {isResettingStagedOffers ? (
+                    <CircularProgress size={20} color="warning" />
+                  ) : (
+                    <ResetIcon sx={{ fontSize: 20 }} />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip
+              title={isResettingOpportunities ? 'Resetting...' : 'Reset all data'}
+              arrow
+              placement="bottom"
+            >
+              <span>
+                <IconButton
+                  color="error"
+                  onClick={() => setResetAllDialogOpen(true)}
+                  disabled={isResettingOpportunities || stats.total === 0}
+                  sx={{
+                    borderRadius: 1,
+                    position: 'relative',
+                    p: 1.5,
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.error.main, 0.08),
+                    },
+                  }}
+                >
+                  {isResettingOpportunities ? (
+                    <CircularProgress size={20} color="error" />
+                  ) : (
+                    <ResetAllIcon sx={{ fontSize: 20 }} />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
         </Stack>
+      </Box>
 
-        {/* Quick Stats */}
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard
-              title="Total Opportunities"
-              value={stats.total}
-              icon={
-                <TrendingUpIcon
-                  sx={{ fontSize: 20, color: theme.palette.primary.main }}
-                />
-              }
-              color={theme.palette.primary.main}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard
-              title="Pending Review"
-              value={stats.pending}
-              icon={
-                <PendingIcon sx={{ fontSize: 20, color: theme.palette.warning.main }} />
-              }
-              color={theme.palette.warning.main}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard
-              title="Processing Rate"
-              value={Number(processingSpeed)}
-              icon={<SpeedIcon sx={{ fontSize: 20, color: theme.palette.info.main }} />}
-              color={theme.palette.info.main}
-              suffix="%"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard
-              title="Avg. Bonus Value"
-              value={stats.avgValue}
-              icon={
-                <ValueIcon sx={{ fontSize: 20, color: theme.palette.success.main }} />
-              }
-              color={theme.palette.success.main}
-              prefix="$"
-            />
-          </Grid>
-
-          {/* Distribution Stats */}
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard
-              title="Bank Offers"
-              value={stats.byType.bank}
-              icon={<BankIcon sx={{ fontSize: 20, color: theme.palette.success.main }} />}
-              color={theme.palette.success.main}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard
-              title="Credit Card Offers"
-              value={stats.byType.credit_card}
-              icon={<CardIcon sx={{ fontSize: 20, color: theme.palette.info.main }} />}
-              color={theme.palette.info.main}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard
-              title="Brokerage Offers"
-              value={stats.byType.brokerage}
-              icon={
-                <BrokerageIcon
-                  sx={{ fontSize: 20, color: theme.palette.secondary.main }}
-                />
-              }
-              color={theme.palette.secondary.main}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard
-              title="High Value ($500+)"
-              value={stats.highValue}
-              icon={<ValueIcon sx={{ fontSize: 20, color: theme.palette.error.main }} />}
-              color={theme.palette.error.main}
-            />
-          </Grid>
-        </Grid>
-
-        {/* Search and Actions Bar */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            border: `1px solid ${theme.palette.divider}`,
-            bgcolor: alpha(theme.palette.background.paper, 0.6),
-          }}
-        >
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Search opportunities..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon
-                      sx={{ fontSize: 20, color: theme.palette.text.secondary }}
-                    />
-                  </InputAdornment>
-                ),
-              }}
+      <Grid container spacing={{ xs: 2, sm: 3 }}>
+        <Grid item xs={12} lg={4}>
+          <Stack spacing={{ xs: 2, sm: 3 }}>
+            <Paper
+              elevation={0}
               sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  bgcolor: 'background.paper',
-                  transition: 'all 0.2s',
-                  '&:hover, &.Mui-focused': {
+                p: { xs: 1.5, sm: 2 },
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.divider}`,
+                bgcolor: alpha(theme.palette.background.paper, 0.6),
+              }}
+            >
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search opportunities..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon
+                        sx={{
+                          fontSize: { xs: 18, sm: 20 },
+                          color: theme.palette.text.secondary,
+                        }}
+                      />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     bgcolor: 'background.paper',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: theme.palette.primary.main,
+                    transition: 'all 0.2s',
+                    '&:hover, &.Mui-focused': {
+                      bgcolor: 'background.paper',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: theme.palette.primary.main,
+                      },
                     },
                   },
-                },
+                }}
+              />
+            </Paper>
+
+            <Box sx={{ mx: -1 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <Box sx={{ p: 1 }}>
+                    <StatsCard
+                      title="Total Opportunities"
+                      value={stats.total}
+                      icon={
+                        <TrendingUpIcon
+                          sx={{
+                            fontSize: { xs: 20, sm: 24 },
+                            color: theme.palette.primary.main,
+                          }}
+                        />
+                      }
+                      color={theme.palette.primary.main}
+                    />
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ p: 1 }}>
+                    <StatsCard
+                      title="Pending Review"
+                      value={stats.pending}
+                      icon={
+                        <PendingIcon
+                          sx={{
+                            fontSize: { xs: 20, sm: 24 },
+                            color: theme.palette.warning.main,
+                          }}
+                        />
+                      }
+                      color={theme.palette.warning.main}
+                    />
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ p: 1 }}>
+                    <StatsCard
+                      title="Processing Rate"
+                      value={Number(processingSpeed)}
+                      icon={
+                        <SpeedIcon
+                          sx={{
+                            fontSize: { xs: 20, sm: 24 },
+                            color: theme.palette.info.main,
+                          }}
+                        />
+                      }
+                      color={theme.palette.info.main}
+                      suffix="%"
+                    />
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ p: 1 }}>
+                    <StatsCard
+                      title="Avg. Bonus Value"
+                      value={stats.avgValue}
+                      icon={
+                        <ValueIcon
+                          sx={{
+                            fontSize: { xs: 20, sm: 24 },
+                            color: theme.palette.success.main,
+                          }}
+                        />
+                      }
+                      color={theme.palette.success.main}
+                      prefix="$"
+                    />
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 1.5, sm: 2 },
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.divider}`,
+                bgcolor: alpha(theme.palette.background.paper, 0.6),
               }}
-            />
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ minWidth: { xs: '100%', sm: 'auto' } }}
             >
-              <Tooltip
-                title={isLoading ? 'Importing...' : 'Import new opportunities'}
-                arrow
+              <Typography
+                variant="h6"
+                fontWeight="500"
+                sx={{
+                  mb: { xs: 1.5, sm: 2 },
+                  fontSize: { xs: '1rem', sm: '1.25rem' },
+                }}
               >
-                <span>
-                  <IconButton
-                    color="primary"
-                    onClick={handleSync}
-                    disabled={isLoading}
-                    sx={{
-                      borderRadius: 1,
-                      position: 'relative',
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette.primary.main, 0.08),
-                      },
-                    }}
-                  >
-                    {isLoading ? (
-                      <CircularProgress
-                        size={16}
-                        sx={{
-                          color: theme.palette.primary.main,
-                          position: 'absolute',
-                        }}
-                      />
-                    ) : (
-                      <ImportIcon sx={{ fontSize: 20 }} />
-                    )}
-                  </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip
-                title={isBulkApproving ? 'Processing...' : 'Approve all staged'}
-                arrow
+                Distribution
+              </Typography>
+              <Stack spacing={{ xs: 1.5, sm: 2 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <BankIcon sx={{ fontSize: 20, color: theme.palette.success.main }} />
+                    <Typography>Bank Offers</Typography>
+                  </Stack>
+                  <Typography fontWeight="500">{stats.byType.bank}</Typography>
+                </Stack>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <CardIcon sx={{ fontSize: 20, color: theme.palette.info.main }} />
+                    <Typography>Credit Card Offers</Typography>
+                  </Stack>
+                  <Typography fontWeight="500">{stats.byType.credit_card}</Typography>
+                </Stack>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <BrokerageIcon
+                      sx={{ fontSize: 20, color: theme.palette.secondary.main }}
+                    />
+                    <Typography>Brokerage Offers</Typography>
+                  </Stack>
+                  <Typography fontWeight="500">{stats.byType.brokerage}</Typography>
+                </Stack>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <ValueIcon sx={{ fontSize: 20, color: theme.palette.error.main }} />
+                    <Typography>High Value ($500+)</Typography>
+                  </Stack>
+                  <Typography fontWeight="500">{stats.highValue}</Typography>
+                </Stack>
+              </Stack>
+            </Paper>
+
+            <Paper
+              elevation={0}
+              sx={{
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.divider}`,
+                bgcolor: alpha(theme.palette.background.paper, 0.6),
+                overflow: 'hidden',
+              }}
+            >
+              <Box
+                sx={{
+                  p: { xs: 1.5, sm: 2 },
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                  bgcolor: alpha(theme.palette.background.paper, 0.8),
+                }}
               >
-                <span>
-                  <IconButton
-                    color="success"
-                    onClick={() => setBulkApproveDialogOpen(true)}
-                    disabled={isBulkApproving || stats.pending === 0}
-                    sx={{
-                      borderRadius: 1,
-                      position: 'relative',
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette.success.main, 0.08),
-                      },
-                    }}
-                  >
-                    {isBulkApproving ? (
-                      <CircularProgress
-                        size={16}
-                        sx={{
-                          color: theme.palette.success.main,
-                          position: 'absolute',
-                        }}
-                      />
-                    ) : (
-                      <BulkApproveIcon sx={{ fontSize: 20 }} />
-                    )}
-                  </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip
-                title={isResettingStagedOffers ? 'Clearing...' : 'Clear staged offers'}
-                arrow
-              >
-                <span>
-                  <IconButton
-                    color="warning"
-                    onClick={() => setResetStagedDialogOpen(true)}
-                    disabled={isResettingStagedOffers || !hasStagedOpportunities}
-                    sx={{
-                      borderRadius: 1,
-                      position: 'relative',
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette.warning.main, 0.08),
-                      },
-                    }}
-                  >
-                    {isResettingStagedOffers ? (
-                      <CircularProgress
-                        size={16}
-                        sx={{
-                          color: theme.palette.warning.main,
-                          position: 'absolute',
-                        }}
-                      />
-                    ) : (
-                      <ResetIcon sx={{ fontSize: 20 }} />
-                    )}
-                  </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip
-                title={isResettingOpportunities ? 'Resetting...' : 'Reset all data'}
-                arrow
-              >
-                <span>
-                  <IconButton
-                    color="error"
-                    onClick={() => setResetAllDialogOpen(true)}
-                    disabled={isResettingOpportunities || stats.total === 0}
-                    sx={{
-                      borderRadius: 1,
-                      position: 'relative',
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette.error.main, 0.08),
-                      },
-                    }}
-                  >
-                    {isResettingOpportunities ? (
-                      <CircularProgress
-                        size={16}
-                        sx={{
-                          color: theme.palette.error.main,
-                          position: 'absolute',
-                        }}
-                      />
-                    ) : (
-                      <ResetAllIcon sx={{ fontSize: 20 }} />
-                    )}
-                  </IconButton>
-                </span>
-              </Tooltip>
-            </Stack>
+                <Typography
+                  variant="h6"
+                  fontWeight="500"
+                  sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                >
+                  Scraper Status
+                </Typography>
+              </Box>
+              <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
+                <ScraperControlPanel />
+              </Box>
+            </Paper>
           </Stack>
-        </Paper>
+        </Grid>
 
-        {/* Scraper Status */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            borderRadius: 2,
-            border: `1px solid ${theme.palette.divider}`,
-            bgcolor: alpha(theme.palette.background.paper, 0.6),
-          }}
-        >
-          <ScraperControlPanel />
-        </Paper>
-
-        {/* Opportunities Tables */}
-        <Stack spacing={3}>
-          {/* Staged Opportunities */}
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: 2,
-              border: `1px solid ${theme.palette.divider}`,
-              bgcolor: alpha(theme.palette.background.paper, 0.6),
-              overflow: 'hidden',
-            }}
-          >
-            <Box
+        <Grid item xs={12} lg={8}>
+          <Stack spacing={{ xs: 2, sm: 3 }}>
+            <Paper
+              elevation={0}
               sx={{
-                p: 2.5,
-                borderBottom: `1px solid ${theme.palette.divider}`,
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.divider}`,
                 bgcolor: alpha(theme.palette.background.paper, 0.6),
+                overflow: 'hidden',
               }}
             >
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <PendingIcon sx={{ fontSize: 20, color: theme.palette.warning.main }} />
-                <Typography variant="h6" fontWeight="500">
-                  Staged Opportunities ({stagedOpportunities.length})
-                </Typography>
-              </Stack>
-            </Box>
-            <OpportunitiesTable
-              opportunities={stagedOpportunities}
-              totalCount={stagedOpportunities.length}
-              pagination={pagination}
-              onPageChange={handlePageChange}
-              onRowsPerPageChange={handleRowsPerPageChange}
-              onPreview={handlePreview}
-              onApprove={handleApprove}
-              onReject={handleReject}
-            />
-          </Paper>
+              <Box
+                onClick={() => setStagedExpanded(!stagedExpanded)}
+                sx={{
+                  p: { xs: 1.5, sm: 2 },
+                  borderBottom: stagedExpanded
+                    ? `1px solid ${theme.palette.divider}`
+                    : 'none',
+                  bgcolor: alpha(theme.palette.background.paper, 0.8),
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.background.paper, 0.9),
+                  },
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: 1 }}>
+                    <PendingIcon
+                      sx={{
+                        fontSize: { xs: 20, sm: 24 },
+                        color: theme.palette.warning.main,
+                      }}
+                    />
+                    <Typography
+                      variant="h6"
+                      fontWeight="500"
+                      sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                    >
+                      Staged Opportunities ({stagedOpportunities.length})
+                    </Typography>
+                  </Stack>
+                  <IconButton
+                    size="small"
+                    sx={{
+                      transform: stagedExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s ease',
+                    }}
+                  >
+                    <KeyboardArrowDownIcon sx={{ fontSize: { xs: 20, sm: 24 } }} />
+                  </IconButton>
+                </Stack>
+              </Box>
+              <Box
+                sx={{
+                  height: stagedExpanded ? 'auto' : 0,
+                  overflow: 'hidden',
+                  transition: 'height 0.3s ease',
+                }}
+              >
+                {stagedExpanded && (
+                  <OpportunitiesTable
+                    opportunities={stagedOpportunities}
+                    totalCount={stagedOpportunities.length}
+                    pagination={pagination}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    onPreview={handlePreview}
+                    onApprove={handleApprove}
+                    onReject={handleReject}
+                    searchTerm={searchTerm}
+                  />
+                )}
+              </Box>
+            </Paper>
 
-          {/* Approved Opportunities */}
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: 2,
-              border: `1px solid ${theme.palette.divider}`,
-              bgcolor: alpha(theme.palette.background.paper, 0.6),
-              overflow: 'hidden',
-            }}
-          >
-            <Box
+            <Paper
+              elevation={0}
               sx={{
-                p: 2.5,
-                borderBottom: `1px solid ${theme.palette.divider}`,
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.divider}`,
                 bgcolor: alpha(theme.palette.background.paper, 0.6),
+                overflow: 'hidden',
               }}
             >
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <ApproveIcon sx={{ fontSize: 20, color: theme.palette.success.main }} />
-                <Typography variant="h6" fontWeight="500">
-                  Approved Opportunities ({stats.approved})
-                </Typography>
-              </Stack>
-            </Box>
-            <OpportunitiesTable
-              opportunities={approvedOpportunities}
-              totalCount={stats.approved}
-              pagination={pagination}
-              onPageChange={handlePageChange}
-              onRowsPerPageChange={handleRowsPerPageChange}
-              onPreview={handlePreview}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              showApproveButton={false}
-              rejectTooltip="Move back to staged"
-            />
-          </Paper>
-        </Stack>
-      </Stack>
+              <Box
+                onClick={() => setApprovedExpanded(!approvedExpanded)}
+                sx={{
+                  p: 2,
+                  borderBottom: approvedExpanded
+                    ? `1px solid ${theme.palette.divider}`
+                    : 'none',
+                  bgcolor: alpha(theme.palette.background.paper, 0.8),
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.background.paper, 0.9),
+                  },
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: 1 }}>
+                    <ApproveIcon
+                      sx={{ fontSize: 24, color: theme.palette.success.main }}
+                    />
+                    <Typography variant="h6" fontWeight="500">
+                      Approved Opportunities ({stats.approved})
+                    </Typography>
+                  </Stack>
+                  <IconButton
+                    size="small"
+                    sx={{
+                      transform: approvedExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s ease',
+                    }}
+                  >
+                    <KeyboardArrowDownIcon />
+                  </IconButton>
+                </Stack>
+              </Box>
+              <Box
+                sx={{
+                  height: approvedExpanded ? 'auto' : 0,
+                  overflow: 'hidden',
+                  transition: 'height 0.3s ease',
+                }}
+              >
+                {approvedExpanded && (
+                  <OpportunitiesTable
+                    opportunities={approvedOpportunities}
+                    totalCount={stats.approved}
+                    pagination={pagination}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    onPreview={handlePreview}
+                    onApprove={handleApprove}
+                    onReject={handleReject}
+                    showApproveButton={false}
+                    rejectTooltip="Move back to staged"
+                    searchTerm={searchTerm}
+                  />
+                )}
+              </Box>
+            </Paper>
+          </Stack>
+        </Grid>
+      </Grid>
 
-      {/* Modals */}
       {selectedOpportunity && (
         <OpportunityPreviewModal
           opportunity={selectedOpportunity}
