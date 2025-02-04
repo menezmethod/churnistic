@@ -1,9 +1,18 @@
-import { getApp } from 'firebase-admin/app';
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 
-const app = getApp();
-const firestore = getFirestore(app);
+// Initialize Firebase Admin SDK if not already initialized
+if (getApps().length === 0) {
+  initializeApp({
+    // Add your Firebase config here or ensure it's in environment variables
+    credential: applicationDefault(),
+    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  });
+}
+
+const firestore = getFirestore();
 
 export const dynamic = 'force-dynamic'; // Ensure this route is always dynamic
 export const revalidate = 300; // Revalidate every 5 minutes

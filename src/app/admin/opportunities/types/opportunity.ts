@@ -170,6 +170,7 @@ export interface Opportunity {
   ai_insights: AIInsights;
   createdAt: string;
   updatedAt: string;
+  isStaged?: boolean;
 }
 
 // BankRewards API Types

@@ -600,7 +600,11 @@ const OpportunitiesPage = () => {
                     <TableRow
                       key={opportunity.id}
                       hover
-                      sx={opportunity.isStaged ? { bgcolor: 'action.hover' } : undefined}
+                      sx={
+                        (opportunity as Opportunity & { isStaged?: boolean }).isStaged
+                          ? { bgcolor: 'action.hover' }
+                          : undefined
+                      }
                     >
                       <TableCell>
                         <Stack direction="row" alignItems="center" spacing={2}>
