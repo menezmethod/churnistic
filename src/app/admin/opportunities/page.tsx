@@ -607,16 +607,18 @@ const OpportunitiesPage = () => {
         await queryClient.cancelQueries({ queryKey: ['opportunities', 'staged'] });
 
         // Optimistic update
-        const previousApproved = queryClient.getQueryData(['opportunities']);
-        const previousStaged = queryClient.getQueryData(['opportunities', 'staged']);
+        const previousApproved = queryClient.getQueryData(['opportunities']) as
+          | PaginatedOpportunities
+          | undefined;
+        const previousStaged = queryClient.getQueryData(['opportunities', 'staged']) as
+          | Opportunity[]
+          | undefined;
 
         // Remove from approved list
-        if (previousApproved) {
+        if (previousApproved?.items) {
           queryClient.setQueryData(['opportunities'], {
             ...previousApproved,
-            items: (previousApproved as PaginatedOpportunities).items.filter(
-              (opp) => opp.id !== opportunity.id
-            ),
+            items: previousApproved.items.filter((opp) => opp.id !== opportunity.id),
           });
         }
 
@@ -624,7 +626,7 @@ const OpportunitiesPage = () => {
         if (previousStaged) {
           queryClient.setQueryData(
             ['opportunities', 'staged'],
-            [...(previousStaged as Opportunity[]), { ...opportunity, status: 'staged' }]
+            [...previousStaged, { ...opportunity, status: 'staged' }]
           );
         }
 
@@ -668,9 +670,16 @@ const OpportunitiesPage = () => {
   };
 
   const processingSpeed = useMemo(() => {
-    const totalProcessed = stats.approved + stats.rejected;
-    return stats.total > 0 ? ((totalProcessed / stats.total) * 100).toFixed(1) : '0';
-  }, [stats]);
+    // Total opportunities that need action = staged + approved
+    const totalToProcess = stagedOpportunities.length + stats.approved;
+    // Only approved count as processed
+    const totalProcessed = stats.approved;
+
+    // Calculate percentage of opportunities that have been processed
+    return totalToProcess > 0
+      ? ((totalProcessed / totalToProcess) * 100).toFixed(1)
+      : '0';
+  }, [stats.approved, stagedOpportunities.length]);
 
   const handleResetStaged = async () => {
     try {
