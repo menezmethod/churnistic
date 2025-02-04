@@ -15,6 +15,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Parse request body to check for force mode
+    const { force = false } = await request.json();
+
     const db = getAdminDb();
     const stagedOffersRef = db.collection('staged_offers');
     const opportunitiesRef = db.collection('opportunities');
@@ -35,45 +38,59 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Process in batches of 500 (Firestore limit)
-      let processed = 0;
+      // If not in force mode, filter out offers that need review
+      if (!force) {
+        const filteredDocs = stagedSnapshot.docs.filter(
+          (doc) => !doc.data().processing_status?.needs_review
+        );
 
-      while (processed < stagedSnapshot.size) {
-        const batch = db.batch();
-        const batchDocs = stagedSnapshot.docs.slice(processed, processed + batchSize);
+        if (filteredDocs.length === 0) {
+          return NextResponse.json({
+            message: 'No eligible offers found to approve (all need review)',
+            approvedCount: 0,
+          });
+        }
 
-        batchDocs.forEach((doc) => {
-          const data = doc.data();
+        // Process in batches of 500 (Firestore limit)
+        let processed = 0;
 
-          // Add to opportunities collection with approved status
-          const opportunityRef = opportunitiesRef.doc(doc.id);
-          batch.set(opportunityRef, {
-            ...data,
-            status: 'approved',
-            metadata: {
-              ...data.metadata,
-              updated_at: new Date().toISOString(),
-              updated_by: session.email,
-              status: 'active',
-            },
-            processing_status: {
-              ...data.processing_status,
-              needs_review: false,
-            },
+        while (processed < filteredDocs.length) {
+          const batch = db.batch();
+          const batchDocs = filteredDocs.slice(processed, processed + batchSize);
+
+          batchDocs.forEach((doc) => {
+            const data = doc.data();
+
+            // Add to opportunities collection with approved status
+            const opportunityRef = opportunitiesRef.doc(doc.id);
+            batch.set(opportunityRef, {
+              ...data,
+              status: 'approved',
+              metadata: {
+                ...data.metadata,
+                updated_at: new Date().toISOString(),
+                updated_by: session.email,
+                status: 'active',
+              },
+              processing_status: {
+                ...data.processing_status,
+                needs_review: false,
+              },
+            });
+
+            // Delete from staged_offers
+            batch.delete(stagedOffersRef.doc(doc.id));
           });
 
-          // Delete from staged_offers
-          batch.delete(stagedOffersRef.doc(doc.id));
+          await batch.commit();
+          processed += batchSize;
+        }
+
+        return NextResponse.json({
+          message: `Successfully approved ${filteredDocs.length} ${force ? 'offers (force mode)' : 'eligible offers'}`,
+          approvedCount: filteredDocs.length,
         });
-
-        await batch.commit();
-        processed += batchSize;
       }
-
-      return NextResponse.json({
-        message: 'Successfully approved all staged offers',
-        approvedCount: stagedSnapshot.size,
-      });
     } finally {
       clearTimeout(timeout);
     }

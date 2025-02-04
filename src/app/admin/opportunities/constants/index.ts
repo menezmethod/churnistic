@@ -18,7 +18,7 @@ export const API_ENDPOINTS = {
     base: '/api/opportunities',
     staged: '/api/opportunities/staged',
     approve: '/api/opportunities/approve',
-    reject: '/api/opportunities/reject',
+    reject: (id: string) => `/api/opportunities/${id}?action=reject`,
     bulkApprove: '/api/opportunities/approve/bulk',
     reset: '/api/opportunities/reset',
     stats: '/api/opportunities/stats',

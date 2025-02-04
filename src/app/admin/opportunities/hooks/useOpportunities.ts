@@ -328,6 +328,29 @@ const fetchStagedOpportunities = async (): Promise<
   }));
 };
 
+const fetchRejectedOpportunities = async (): Promise<Opportunity[]> => {
+  const auth = getAuth();
+  const idToken = await auth.currentUser?.getIdToken(true);
+
+  if (!idToken) {
+    throw new Error('No authenticated user found');
+  }
+
+  const response = await fetch('/api/opportunities?status=rejected', {
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch rejected opportunities');
+  }
+
+  const data = await response.json();
+  return data.items;
+};
+
 // Query keys for React Query
 const queryKeys = {
   opportunities: {
@@ -346,6 +369,7 @@ interface UseOpportunitiesReturn {
   stats: Stats;
   stagedOpportunities: (Opportunity & { isStaged: boolean })[];
   approvedOpportunities: Opportunity[];
+  rejectedOpportunities: Opportunity[];
   isLoading: boolean;
   error: Error | null;
   approveOpportunity: (opportunity: Opportunity) => void;
@@ -424,12 +448,19 @@ export function useOpportunities(): UseOpportunitiesReturn {
     queryFn: fetchStagedOpportunities,
   });
 
+  // Fetch rejected opportunities
+  const { data: rejectedOpportunities = [], isLoading: isLoadingRejected } = useQuery({
+    queryKey: ['opportunities', 'rejected'],
+    queryFn: fetchRejectedOpportunities,
+    placeholderData: keepPreviousData,
+  });
+
   // Update stats calculation
   const calculatedStats: Stats = {
     total: (statsData?.total || 0) + (stagedOpportunities?.length || 0), // Include both collections
     pending: stagedOpportunities?.length || 0,
     approved: statsData?.approved || 0,
-    rejected: 0,
+    rejected: rejectedOpportunities.length,
     avgValue: statsData?.avgValue || 0,
     byType: statsData?.byType || { bank: 0, credit_card: 0, brokerage: 0 },
     highValue: statsData?.highValue || 0,
@@ -768,13 +799,16 @@ export function useOpportunities(): UseOpportunitiesReturn {
     },
   });
 
+  const isLoading = isLoadingPaginated || isLoadingStaged || isLoadingRejected;
+
   return {
     pagination,
     setPagination,
     stats: calculatedStats,
     stagedOpportunities,
     approvedOpportunities,
-    isLoading: isLoadingPaginated || isLoadingStaged,
+    rejectedOpportunities,
+    isLoading,
     error: paginatedError || stagedError,
     approveOpportunity: approveOpportunityMutation.mutate,
     rejectOpportunity: rejectOpportunityMutation.mutate,

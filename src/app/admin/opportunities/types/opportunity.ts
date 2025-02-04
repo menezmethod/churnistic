@@ -147,6 +147,7 @@ export interface ProcessingStatus {
   ai_processed: boolean;
   duplicate_checked: boolean;
   needs_review: boolean;
+  review_reason?: string;
 }
 
 export interface AIInsights {

@@ -18,6 +18,7 @@ interface GetColumnsProps {
   onReject: (opportunity: Opportunity) => void;
   showApprove?: boolean;
   rejectTooltip?: string;
+  showReviewReason?: boolean;
 }
 
 export const getColumns = ({
@@ -26,64 +27,93 @@ export const getColumns = ({
   onReject,
   showApprove = true,
   rejectTooltip,
-}: GetColumnsProps): GridColDef[] => [
-  {
-    field: 'name',
-    headerName: 'Institution',
-    flex: 1,
-    minWidth: 250,
-    renderCell: (params) => (
-      <InstitutionCell
-        name={params.row.name}
-        description={params.row.description}
-        logo={params.row.logo}
-      />
-    ),
-  },
-  {
-    field: 'type',
-    headerName: 'Type',
-    width: 130,
-    renderCell: (params) => <TypeCell type={params.value} />,
-  },
-  {
-    field: 'value',
-    headerName: 'Bonus Value',
-    width: 130,
-    renderCell: (params) => (
-      <ValueCell value={params.value} spendRequirement={params.row.spend_requirement} />
-    ),
-  },
-  {
-    field: 'expiry',
-    headerName: 'Expiry',
-    width: 120,
-    renderCell: (params) => (
-      <ExpiryCell
-        expiration={params.row.details?.expiration}
-        bonusPostingTime={params.row.metadata?.timing?.bonus_posting_time}
-      />
-    ),
-  },
-  {
-    field: 'status',
-    headerName: 'Status',
-    width: 120,
-    renderCell: (params) => <OpportunityStatusChip status={params.value} />,
-  },
-  {
-    field: 'actions',
-    headerName: 'Actions',
-    width: 180,
-    sortable: false,
-    renderCell: (params) => (
-      <OpportunityActionButtons
-        onPreview={() => onPreview(params.row)}
-        onApprove={onApprove ? () => onApprove(params.row) : undefined}
-        onReject={() => onReject(params.row)}
-        showApprove={showApprove}
-        rejectTooltip={rejectTooltip}
-      />
-    ),
-  },
-];
+  showReviewReason = false,
+}: GetColumnsProps): GridColDef[] => {
+  const baseColumns: GridColDef[] = [
+    {
+      field: 'name',
+      headerName: 'Institution',
+      flex: 1,
+      minWidth: 250,
+      renderCell: (params) => (
+        <InstitutionCell
+          name={params.row.name}
+          description={params.row.description}
+          logo={params.row.logo}
+        />
+      ),
+    },
+    {
+      field: 'type',
+      headerName: 'Type',
+      width: 130,
+      renderCell: (params) => <TypeCell type={params.value} />,
+    },
+    {
+      field: 'value',
+      headerName: 'Bonus Value',
+      width: 130,
+      renderCell: (params) => (
+        <ValueCell value={params.value} spendRequirement={params.row.spend_requirement} />
+      ),
+    },
+    {
+      field: 'expiry',
+      headerName: 'Expiry',
+      width: 120,
+      renderCell: (params) => (
+        <ExpiryCell
+          expiration={params.row.details?.expiration}
+          bonusPostingTime={params.row.metadata?.timing?.bonus_posting_time}
+        />
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 120,
+      renderCell: (params) => <OpportunityStatusChip status={params.value} />,
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 180,
+      sortable: false,
+      renderCell: (params) => (
+        <OpportunityActionButtons
+          onPreview={() => onPreview(params.row)}
+          onApprove={onApprove ? () => onApprove(params.row) : undefined}
+          onReject={() => onReject(params.row)}
+          showApprove={showApprove}
+          rejectTooltip={rejectTooltip}
+        />
+      ),
+    },
+  ];
+
+  if (showReviewReason) {
+    baseColumns.splice(baseColumns.length - 1, 0, {
+      field: 'problem',
+      headerName: 'Problem',
+      width: 200,
+      renderCell: (params) => {
+        const opportunity = params.row as Opportunity;
+        const expiryDate = opportunity.details?.expiration;
+        if (!expiryDate) return 'Missing expiration date';
+
+        const today = new Date();
+        const expiry = new Date(expiryDate);
+        const diffDays = Math.ceil(
+          (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        if (diffDays < 0) {
+          return `Offer expired ${Math.abs(diffDays)} days ago - needs removal or update`;
+        }
+        return `No issues detected`;
+      },
+    });
+  }
+
+  return baseColumns;
+};

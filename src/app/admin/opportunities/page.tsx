@@ -6,8 +6,9 @@ import {
   PendingActions as PendingIcon,
   Speed as SpeedIcon,
   AttachMoney as ValueIcon,
+  Close as RejectIcon,
 } from '@mui/icons-material';
-import { Box, Container, Grid, Stack, Typography, useTheme, alpha } from '@mui/material';
+import { Box, Container, Grid, Stack, useTheme } from '@mui/material';
 import { useState, useCallback, useEffect } from 'react';
 
 import {
@@ -33,6 +34,8 @@ const OpportunitiesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [stagedExpanded, setStagedExpanded] = useState(false);
   const [approvedExpanded, setApprovedExpanded] = useState(false);
+  const [reviewExpanded, setReviewExpanded] = useState(true);
+  const [rejectedExpanded, setRejectedExpanded] = useState(false);
 
   const {
     isLoading,
@@ -45,9 +48,20 @@ const OpportunitiesPage = () => {
     isResettingOpportunities,
     stagedOpportunities,
     approvedOpportunities,
+    rejectedOpportunities,
     queryClient,
     isBulkApproving,
   } = useOpportunities();
+
+  const reviewOpportunities = [...stagedOpportunities, ...approvedOpportunities].filter(
+    (opp) => {
+      const expiryDate = opp.details?.expiration;
+      if (!expiryDate) return false;
+      const today = new Date();
+      const expiry = new Date(expiryDate);
+      return expiry < today;
+    }
+  );
 
   const {
     selectedOpportunity,
@@ -123,6 +137,20 @@ const OpportunitiesPage = () => {
     onReject: handleReject,
     showApprove: false,
     rejectTooltip: 'Move back to staged',
+  });
+
+  const expiredColumns = getColumns({
+    onPreview: setSelectedOpportunity,
+    onApprove: handleApprove,
+    onReject: handleReject,
+    showReviewReason: true,
+  });
+
+  const rejectedColumns = getColumns({
+    onPreview: setSelectedOpportunity,
+    onReject: handleReject,
+    showApprove: true,
+    rejectTooltip: 'Delete permanently',
   });
 
   return (
@@ -231,38 +259,12 @@ const OpportunitiesPage = () => {
 
             <DistributionStats stats={stats} />
 
-            <Box
-              sx={{
-                borderRadius: 2,
-                border: `1px solid ${theme.palette.divider}`,
-                bgcolor: alpha(theme.palette.background.paper, 0.6),
-                overflow: 'hidden',
-              }}
-            >
-              <Box
-                sx={{
-                  p: { xs: 1.5, sm: 2 },
-                  borderBottom: `1px solid ${theme.palette.divider}`,
-                  bgcolor: alpha(theme.palette.background.paper, 0.8),
-                }}
-              >
-                <Typography
-                  variant="h6"
-                  fontWeight="500"
-                  sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
-                >
-                  Scraper Status
-                </Typography>
-              </Box>
-              <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-                <ScraperControlPanel />
-              </Box>
-            </Box>
+            <ScraperControlPanel />
           </Stack>
         </Grid>
 
-        <Grid item xs={12} lg={8} sx={{ height: '100%' }}>
-          <Stack spacing={{ xs: 2, sm: 3 }} sx={{ height: '100%' }}>
+        <Grid item xs={12} lg={8}>
+          <Stack spacing={{ xs: 2, sm: 3 }}>
             <OpportunitySection
               title="Staged Opportunities"
               count={stagedOpportunities.length}
@@ -272,60 +274,122 @@ const OpportunitiesPage = () => {
               onToggle={() => setStagedExpanded(!stagedExpanded)}
               flex
             >
-              <OpportunityDataGrid
-                rows={stagedOpportunities}
-                columns={stagedColumns}
-                loading={isLoading}
-                autoHeight={stagedOpportunities.length <= 7}
-                getRowClassName={(params) => `opportunity-row-${params.row.status}`}
-              />
+              <Box sx={{ p: { xs: 1.5, sm: 2 }, flex: 1 }}>
+                <OpportunityDataGrid
+                  rows={stagedOpportunities}
+                  columns={stagedColumns}
+                  loading={isLoading}
+                  autoHeight={stagedOpportunities.length <= 7}
+                  getRowClassName={(params) => `opportunity-row-${params.row.status}`}
+                  disableColumnMenu
+                  disableColumnFilter
+                  disableColumnSelector
+                  disableDensitySelector
+                  hideFooterSelectedRowCount
+                />
+              </Box>
             </OpportunitySection>
 
             <OpportunitySection
               title="Approved Opportunities"
-              count={approvedOpportunities.length}
+              count={stats.approved}
               icon={<ApproveIcon />}
               iconColor={theme.palette.success.main}
               expanded={approvedExpanded}
               onToggle={() => setApprovedExpanded(!approvedExpanded)}
               flex
             >
-              <OpportunityDataGrid
-                rows={approvedOpportunities}
-                columns={approvedColumns}
-                loading={isLoading}
-                autoHeight={approvedOpportunities.length <= 7}
-                getRowClassName={(params) => `opportunity-row-${params.row.status}`}
-              />
+              <Box sx={{ p: { xs: 1.5, sm: 2 }, flex: 1 }}>
+                <OpportunityDataGrid
+                  rows={approvedOpportunities}
+                  columns={approvedColumns}
+                  loading={isLoading}
+                  autoHeight={approvedOpportunities.length <= 7}
+                  getRowClassName={(params) => `opportunity-row-${params.row.status}`}
+                  disableColumnMenu
+                  disableColumnFilter
+                  disableColumnSelector
+                  disableDensitySelector
+                  hideFooterSelectedRowCount
+                />
+              </Box>
+            </OpportunitySection>
+
+            <OpportunitySection
+              title="Needs Extra Review"
+              count={reviewOpportunities.length}
+              icon={<PendingIcon />}
+              iconColor={theme.palette.warning.main}
+              expanded={reviewExpanded}
+              onToggle={() => setReviewExpanded(!reviewExpanded)}
+              flex
+            >
+              <Box sx={{ p: { xs: 1.5, sm: 2 }, flex: 1 }}>
+                <OpportunityDataGrid
+                  rows={reviewOpportunities}
+                  columns={expiredColumns}
+                  loading={isLoading}
+                  autoHeight={reviewOpportunities.length <= 7}
+                  getRowClassName={(params) => `opportunity-row-${params.row.status}`}
+                  disableColumnMenu
+                  disableColumnFilter
+                  disableColumnSelector
+                  disableDensitySelector
+                  hideFooterSelectedRowCount
+                />
+              </Box>
+            </OpportunitySection>
+
+            <OpportunitySection
+              title="Rejected Opportunities"
+              count={rejectedOpportunities?.length || 0}
+              icon={<RejectIcon />}
+              iconColor={theme.palette.error.main}
+              expanded={rejectedExpanded}
+              onToggle={() => setRejectedExpanded(!rejectedExpanded)}
+              flex
+            >
+              <Box sx={{ p: { xs: 1.5, sm: 2 }, flex: 1 }}>
+                <OpportunityDataGrid
+                  rows={rejectedOpportunities || []}
+                  columns={rejectedColumns}
+                  loading={isLoading}
+                  autoHeight={(rejectedOpportunities?.length || 0) <= 7}
+                  getRowClassName={(params) => `opportunity-row-${params.row.status}`}
+                  disableColumnMenu
+                  disableColumnFilter
+                  disableColumnSelector
+                  disableDensitySelector
+                  hideFooterSelectedRowCount
+                />
+              </Box>
             </OpportunitySection>
           </Stack>
         </Grid>
       </Grid>
 
-      {selectedOpportunity && (
-        <OpportunityPreviewModal
-          opportunity={selectedOpportunity}
-          open={true}
-          onClose={() => setSelectedOpportunity(null)}
-          onApprove={() => handleApprove(selectedOpportunity)}
-          onReject={() => handleReject(selectedOpportunity)}
-        />
-      )}
+      <OpportunityPreviewModal
+        opportunity={selectedOpportunity}
+        onClose={() => setSelectedOpportunity(null)}
+        open={selectedOpportunity !== null}
+      />
+
+      <BulkApproveDialog
+        open={bulkApproveDialogOpen}
+        onClose={() => setBulkApproveDialogOpen(false)}
+        onConfirm={handleBulkApprove}
+      />
 
       <ResetStagedDialog
         open={resetStagedDialogOpen}
         onClose={() => setResetStagedDialogOpen(false)}
         onConfirm={handleResetStaged}
       />
+
       <ResetAllDialog
         open={resetAllDialogOpen}
         onClose={() => setResetAllDialogOpen(false)}
         onConfirm={handleResetAll}
-      />
-      <BulkApproveDialog
-        open={bulkApproveDialogOpen}
-        onClose={() => setBulkApproveDialogOpen(false)}
-        onConfirm={handleBulkApprove}
       />
     </Container>
   );

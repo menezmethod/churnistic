@@ -49,9 +49,10 @@ export async function PUT(
     return NextResponse.json({ error: 'Missing opportunity ID' }, { status: 400 });
   }
   try {
+    const { session } = await createAuthContext(request);
+
     // Skip auth check in emulator mode
     if (!useEmulator) {
-      const { session } = await createAuthContext(request);
       if (!session?.email) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
@@ -76,6 +77,48 @@ export async function PUT(
       }
     }
 
+    // Check for special actions in query params
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+
+    if (action === 'reject') {
+      const db = getAdminDb();
+      await db
+        .collection('opportunities')
+        .doc(id)
+        .update({
+          status: 'rejected',
+          updatedAt: new Date().toISOString(),
+          metadata: {
+            updated_by: session?.email || '',
+            updated_at: new Date().toISOString(),
+            status: 'rejected',
+          },
+        });
+
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'mark-for-review') {
+      const { reason } = await request.json();
+      const db = getAdminDb();
+      await db
+        .collection('opportunities')
+        .doc(id)
+        .update({
+          'processing_status.needs_review': true,
+          'processing_status.review_reason': reason,
+          updatedAt: new Date().toISOString(),
+          metadata: {
+            updated_by: session?.email || '',
+            updated_at: new Date().toISOString(),
+          },
+        });
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Regular update logic continues here...
     let body;
     try {
       body = await request.json();

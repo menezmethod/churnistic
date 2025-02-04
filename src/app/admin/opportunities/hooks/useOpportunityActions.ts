@@ -5,7 +5,7 @@ import { getAuth } from 'firebase/auth';
 import { useState, useCallback } from 'react';
 
 import { useOpportunities } from './useOpportunities';
-import { Opportunity, OpportunityStatus } from '../types/opportunity';
+import { Opportunity } from '../types/opportunity';
 
 export const useOpportunityActions = () => {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(
@@ -16,16 +16,11 @@ export const useOpportunityActions = () => {
   const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
 
   const queryClient = useQueryClient();
-  const {
-    approveOpportunity,
-    rejectOpportunity,
-    bulkApproveOpportunities,
-    resetStagedOffers,
-    resetOpportunities,
-  } = useOpportunities();
+  const { approveOpportunity, rejectOpportunity, resetStagedOffers, resetOpportunities } =
+    useOpportunities();
 
   const updateOptimisticData = useCallback(
-    (opportunityId: string, newStatus: OpportunityStatus) => {
+    (opportunityId: string, updates: Partial<Opportunity>) => {
       queryClient.setQueryData<
         { items: Opportunity[]; total: number; hasMore: boolean } | undefined
       >(['opportunities'], (old) => {
@@ -33,7 +28,7 @@ export const useOpportunityActions = () => {
         return {
           ...old,
           items: old.items.map((opp: Opportunity) =>
-            opp.id === opportunityId ? { ...opp, status: newStatus } : opp
+            opp.id === opportunityId ? { ...opp, ...updates } : opp
           ),
         };
       });
@@ -43,7 +38,17 @@ export const useOpportunityActions = () => {
         (old) => {
           if (!old) return old;
           return old.map((opp) =>
-            opp.id === opportunityId ? { ...opp, status: newStatus } : opp
+            opp.id === opportunityId ? { ...opp, ...updates } : opp
+          );
+        }
+      );
+
+      queryClient.setQueryData<Opportunity[] | undefined>(
+        ['opportunities', 'approved'],
+        (old) => {
+          if (!old) return old;
+          return old.map((opp) =>
+            opp.id === opportunityId ? { ...opp, ...updates } : opp
           );
         }
       );
@@ -58,7 +63,7 @@ export const useOpportunityActions = () => {
         staged: queryClient.getQueryData(['opportunities', 'staged']),
       };
 
-      updateOptimisticData(opportunity.id, 'staged');
+      updateOptimisticData(opportunity.id, { status: 'staged' });
 
       if (opportunity.status === 'approved') {
         const auth = getAuth();
@@ -69,15 +74,17 @@ export const useOpportunityActions = () => {
         }
 
         try {
-          const response = await fetch('/api/opportunities/reject', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${idToken}`,
-            },
-            body: JSON.stringify({ id: opportunity.id }),
-            credentials: 'include',
-          });
+          const response = await fetch(
+            `/api/opportunities/${opportunity.id}?action=reject`,
+            {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${idToken}`,
+              },
+              credentials: 'include',
+            }
+          );
 
           if (!response.ok) {
             const error = await response.json();
@@ -113,9 +120,34 @@ export const useOpportunityActions = () => {
     }
   };
 
-  const handleBulkApprove = async () => {
+  const handleBulkApprove = async (force: boolean = false) => {
     try {
-      await bulkApproveOpportunities();
+      const auth = getAuth();
+      const idToken = await auth.currentUser?.getIdToken(true);
+
+      if (!idToken) {
+        throw new Error('No authenticated user found');
+      }
+
+      const response = await fetch('/api/opportunities/approve/bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ force }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          error.details || error.error || 'Failed to bulk approve opportunities'
+        );
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      await queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
       setBulkApproveDialogOpen(false);
     } catch (error) {
       console.error('Failed to bulk approve opportunities:', error);
@@ -140,6 +172,55 @@ export const useOpportunityActions = () => {
     }
   };
 
+  const handleMarkForReview = async (opportunity: Opportunity, reason: string) => {
+    try {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
+
+      updateOptimisticData(opportunity.id, {
+        processing_status: {
+          ...opportunity.processing_status,
+          needs_review: true,
+          review_reason: reason,
+        },
+      });
+
+      const auth = getAuth();
+      const idToken = await auth.currentUser?.getIdToken(true);
+
+      if (!idToken) {
+        throw new Error('No authenticated user found');
+      }
+
+      const response = await fetch(
+        `/api/opportunities/${opportunity.id}?action=mark-for-review`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ reason }),
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          error.details || error.error || 'Failed to mark opportunity for review'
+        );
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      await queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
+      await queryClient.invalidateQueries({ queryKey: ['opportunities', 'approved'] });
+    } catch (error) {
+      console.error('Failed to mark opportunity for review:', error);
+      throw error;
+    }
+  };
+
   return {
     selectedOpportunity,
     setSelectedOpportunity,
@@ -154,5 +235,6 @@ export const useOpportunityActions = () => {
     handleBulkApprove,
     handleResetStaged,
     handleResetAll,
+    handleMarkForReview,
   };
 };

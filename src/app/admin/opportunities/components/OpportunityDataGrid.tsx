@@ -5,20 +5,30 @@ import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 
 import { Opportunity } from '../types/opportunity';
 
-interface OpportunityDataGridProps {
+export interface OpportunityDataGridProps {
   rows: Opportunity[];
   columns: GridColDef[];
-  loading: boolean;
+  loading?: boolean;
   autoHeight?: boolean;
   getRowClassName?: (params: GridRowParams<Opportunity>) => string;
+  disableColumnMenu?: boolean;
+  disableColumnFilter?: boolean;
+  disableColumnSelector?: boolean;
+  disableDensitySelector?: boolean;
+  hideFooterSelectedRowCount?: boolean;
 }
 
 export const OpportunityDataGrid = ({
   rows,
   columns,
-  loading,
+  loading = false,
   autoHeight = false,
   getRowClassName,
+  disableColumnMenu = true,
+  disableColumnFilter = true,
+  disableColumnSelector = true,
+  disableDensitySelector = true,
+  hideFooterSelectedRowCount = true,
 }: OpportunityDataGridProps) => {
   const theme = useTheme();
 
@@ -36,7 +46,11 @@ export const OpportunityDataGrid = ({
         disableRowSelectionOnClick
         getRowId={(row) => row.id}
         loading={loading}
-        disableColumnMenu
+        disableColumnMenu={disableColumnMenu}
+        disableColumnFilter={disableColumnFilter}
+        disableColumnSelector={disableColumnSelector}
+        disableDensitySelector={disableDensitySelector}
+        hideFooterSelectedRowCount={hideFooterSelectedRowCount}
         autoHeight={autoHeight}
         getRowClassName={getRowClassName}
         sx={{
