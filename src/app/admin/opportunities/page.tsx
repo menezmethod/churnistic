@@ -106,7 +106,7 @@ const StatsCard = ({
               sx={{ color: theme.palette.text.primary }}
             >
               {prefix && <span style={{ opacity: 0.7 }}>{prefix}</span>}
-              {value.toLocaleString()}
+              {(value || 0).toLocaleString()}
               {suffix && <span style={{ opacity: 0.7 }}>{suffix}</span>}
             </Typography>
             <Typography
