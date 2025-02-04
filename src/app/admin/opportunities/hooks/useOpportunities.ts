@@ -434,7 +434,8 @@ export function useOpportunities(paginationState?: PaginationState) {
   const { data: statsData } = useQuery({
     queryKey: queryKeys.opportunities.stats,
     queryFn: async () => {
-      const response = await fetch('/api/opportunities/stats');
+      const baseUrl = window.location.origin;
+      const response = await fetch(`${baseUrl}/api/opportunities/stats`);
       if (!response.ok) throw new Error('Failed to fetch stats');
       return response.json();
     },

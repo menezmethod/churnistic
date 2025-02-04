@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { getFirebaseServices } from '@/lib/firebase/config';
+import { formatCurrency } from '@/lib/utils/formatters';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 export interface UserProfile {
@@ -81,15 +82,19 @@ export function useDashboardData() {
       }
       const data = await response.json();
 
+      // Format currency values
+      const formattedTotalValue = formatCurrency(data.totalPotentialValue || 0);
+      const formattedAvgValue = formatCurrency(data.averageValue || 0);
+
       // Transform API response to match dashboard format
       return {
-        trackedValue: data.totalPotentialValue || '$0',
-        potentialValue: data.totalPotentialValue || '$0',
+        trackedValue: formattedTotalValue,
+        potentialValue: formattedTotalValue,
         activeOpportunities: `${data.activeCount || 0}`,
-        averageValue: data.averageValue || '$0',
+        averageValue: formattedAvgValue,
         trends: {
           trackedValue: {
-            value: data.trackedCount || 0,
+            value: data.approved || 0,
             label: 'opportunities in progress',
           },
           potentialValue: {
@@ -101,9 +106,7 @@ export function useDashboardData() {
             label: 'active opportunities',
           },
           averageValue: {
-            value: data.averageValue
-              ? parseInt(data.averageValue.replace(/[^0-9]/g, ''))
-              : 0,
+            value: data.averageValue || 0,
             label: 'average bonus value',
           },
         },

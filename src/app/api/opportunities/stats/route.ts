@@ -23,29 +23,27 @@ export async function GET() {
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
     try {
-      // Fetch only approved opportunities in a single query
-      const approvedSnapshot = await firestore
-        .collection('opportunities')
-        .where('status', '==', 'approved')
-        .get();
+      // Only fetch from opportunities collection
+      const opportunitiesSnapshot = await firestore.collection('opportunities').get();
 
-      // Fetch staged offers count separately (usually smaller)
-      const stagedSnapshot = await firestore.collection('staged_offers').get();
-
-      const totalApproved = approvedSnapshot.size;
-      const totalStaged = stagedSnapshot.size;
-      const total = totalApproved + totalStaged;
-
-      // Process approved opportunities
+      const total = opportunitiesSnapshot.size;
       const byType = { bank: 0, credit_card: 0, brokerage: 0 };
       let totalValue = 0;
       let highValue = 0;
+      let approvedCount = 0;
+      let pendingCount = 0;
 
-      approvedSnapshot.forEach((doc) => {
+      opportunitiesSnapshot.forEach((doc) => {
         const data = doc.data();
         const value = parseFloat(data.value) || 0;
-        totalValue += value;
+        const status = data.status;
 
+        // Count by status
+        if (status === 'approved') approvedCount++;
+        if (status === 'pending') pendingCount++;
+
+        // Calculate totals
+        totalValue += value;
         if (value >= 500) highValue++;
         if (data.type === 'bank') byType.bank++;
         if (data.type === 'credit_card') byType.credit_card++;
@@ -53,15 +51,24 @@ export async function GET() {
       });
 
       // Calculate average value
-      const avgValue = totalApproved > 0 ? Math.round(totalValue / totalApproved) : 0;
+      const avgValue = total > 0 ? Math.round(totalValue / total) : 0;
 
       const result = {
+        // Basic stats for splash page
+        activeCount: approvedCount,
+        totalPotentialValue: totalValue,
+        averageValue: avgValue,
+
+        // Detailed stats for admin
         total,
-        pending: totalStaged,
-        approved: totalApproved,
+        pending: pendingCount,
+        approved: approvedCount,
         avgValue,
         byType,
         highValue,
+
+        // Metadata
+        lastUpdated: new Date().toISOString(),
       };
 
       return NextResponse.json(result, {
