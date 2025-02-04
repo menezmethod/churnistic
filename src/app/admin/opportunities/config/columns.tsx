@@ -11,6 +11,7 @@ import {
   ValueCell,
 } from '../components/OpportunityTableCells';
 import { Opportunity } from '../types/opportunity';
+import { checkOpportunityForReview } from '../utils/reviewRules';
 
 interface GetColumnsProps {
   onPreview: (opportunity: Opportunity) => void;
@@ -98,19 +99,8 @@ export const getColumns = ({
       width: 200,
       renderCell: (params) => {
         const opportunity = params.row as Opportunity;
-        const expiryDate = opportunity.details?.expiration;
-        if (!expiryDate) return 'Missing expiration date';
-
-        const today = new Date();
-        const expiry = new Date(expiryDate);
-        const diffDays = Math.ceil(
-          (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-        );
-
-        if (diffDays < 0) {
-          return `Offer expired ${Math.abs(diffDays)} days ago - needs removal or update`;
-        }
-        return `No issues detected`;
+        const { needsReview, message } = checkOpportunityForReview(opportunity);
+        return needsReview ? message : null;
       },
     });
   }

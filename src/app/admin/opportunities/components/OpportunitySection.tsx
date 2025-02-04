@@ -1,19 +1,12 @@
 'use client';
 
 import { KeyboardArrowDown as KeyboardArrowDownIcon } from '@mui/icons-material';
-import {
-  Box,
-  IconButton,
-  Paper,
-  Stack,
-  Typography,
-  alpha,
-  useTheme,
-} from '@mui/material';
+import { Box, IconButton, Paper, Typography, alpha, useTheme } from '@mui/material';
 import { ReactNode } from 'react';
 
 interface OpportunitySectionProps {
   title: string;
+  subtitle?: string;
   count: number;
   icon: ReactNode;
   iconColor: string;
@@ -25,9 +18,9 @@ interface OpportunitySectionProps {
 
 export const OpportunitySection = ({
   title,
+  subtitle,
   count,
   icon,
-  iconColor,
   expanded,
   onToggle,
   children,
@@ -61,36 +54,31 @@ export const OpportunitySection = ({
           },
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: 1 }}>
-            <Box
-              sx={{
-                fontSize: { xs: 20, sm: 24 },
-                color: iconColor,
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              {icon}
-            </Box>
-            <Typography
-              variant="h6"
-              fontWeight="500"
-              sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
-            >
-              {title} ({count})
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {icon}
+          <Box>
+            <Typography variant="h6" component="h2">
+              {title}
             </Typography>
-          </Stack>
-          <IconButton
-            size="small"
-            sx={{
-              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.2s ease',
-            }}
-          >
-            <KeyboardArrowDownIcon sx={{ fontSize: { xs: 20, sm: 24 } }} />
-          </IconButton>
-        </Stack>
+            {subtitle && (
+              <Typography variant="body2" color="text.secondary">
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {count} {count === 1 ? 'item' : 'items'}
+            </Typography>
+            <IconButton
+              onClick={onToggle}
+              size="small"
+              sx={{ transform: expanded ? 'rotate(180deg)' : 'none' }}
+            >
+              <KeyboardArrowDownIcon />
+            </IconButton>
+          </Box>
+        </Box>
       </Box>
       <Box
         sx={{

@@ -22,7 +22,12 @@ interface OpportunitiesHeaderProps {
   isResettingStagedOffers: boolean;
   isResettingOpportunities: boolean;
   hasStagedOpportunities: boolean;
-  stats: { total: number };
+  stats: {
+    total: number;
+    staged?: number;
+    needsReview?: number;
+    avgValue?: number;
+  };
   onImport: () => void;
   onBulkApprove: () => void;
   onResetStaged: () => void;

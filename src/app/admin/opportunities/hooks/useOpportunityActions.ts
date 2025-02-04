@@ -1,6 +1,6 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { getAuth } from 'firebase/auth';
 import { useState, useCallback } from 'react';
 
@@ -16,8 +16,7 @@ export const useOpportunityActions = () => {
   const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
 
   const queryClient = useQueryClient();
-  const { approveOpportunity, rejectOpportunity, resetStagedOffers, resetOpportunities } =
-    useOpportunities();
+  const { approveOpportunity, resetStagedOffers } = useOpportunities();
 
   const updateOptimisticData = useCallback(
     (opportunityId: string, updates: Partial<Opportunity>) => {
@@ -58,53 +57,53 @@ export const useOpportunityActions = () => {
 
   const handleReject = async (opportunity: Opportunity & { isStaged?: boolean }) => {
     try {
+      const auth = getAuth();
+      const idToken = await auth.currentUser?.getIdToken(true);
+
+      if (!idToken) {
+        throw new Error('No authenticated user found');
+      }
+
+      // Store previous data for rollback
       const previousData = {
-        approved: queryClient.getQueryData(['opportunities']),
+        opportunities: queryClient.getQueryData(['opportunities']),
         staged: queryClient.getQueryData(['opportunities', 'staged']),
+        approved: queryClient.getQueryData(['opportunities', 'approved']),
       };
 
-      updateOptimisticData(opportunity.id, { status: 'staged' });
+      // Optimistically update UI
+      updateOptimisticData(opportunity.id, { status: 'rejected' });
 
-      if (opportunity.status === 'approved') {
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
+      try {
+        const response = await fetch(`/api/opportunities/${opportunity.id}/reject`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          credentials: 'include',
+        });
 
-        if (!idToken) {
-          throw new Error('No authenticated user found');
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.details || error.error || 'Failed to reject opportunity');
         }
 
-        try {
-          const response = await fetch(
-            `/api/opportunities/${opportunity.id}?action=reject`,
-            {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${idToken}`,
-              },
-              credentials: 'include',
-            }
-          );
-
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(
-              error.details || error.error || 'Failed to reject opportunity'
-            );
-          }
-
-          await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-          await queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
-        } catch (error) {
-          queryClient.setQueryData(['opportunities'], previousData.approved);
-          queryClient.setQueryData(['opportunities', 'staged'], previousData.staged);
-          throw error;
-        }
-      } else {
-        await rejectOpportunity(opportunity);
+        // Invalidate relevant queries after successful rejection
+        await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+        await queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
+        await queryClient.invalidateQueries({ queryKey: ['opportunities', 'approved'] });
+        await queryClient.invalidateQueries({ queryKey: ['opportunities', 'rejected'] });
+      } catch (error) {
+        // Rollback on error
+        queryClient.setQueryData(['opportunities'], previousData.opportunities);
+        queryClient.setQueryData(['opportunities', 'staged'], previousData.staged);
+        queryClient.setQueryData(['opportunities', 'approved'], previousData.approved);
+        throw error;
       }
     } catch (error) {
       console.error('Failed to reject opportunity:', error);
+      throw error;
     }
   };
 
@@ -154,21 +153,46 @@ export const useOpportunityActions = () => {
     }
   };
 
+  const resetMutation = useMutation({
+    mutationFn: async (collection: 'opportunities' | 'staged_offers') => {
+      const response = await fetch('/api/opportunities/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ collection }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reset opportunities');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'approved'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'stats'] });
+    },
+  });
+
+  const handleResetAll = useCallback(async () => {
+    try {
+      await resetMutation.mutateAsync('staged_offers');
+      await resetMutation.mutateAsync('opportunities');
+      setResetAllDialogOpen(false);
+    } catch (error) {
+      console.error('Error resetting all:', error);
+    }
+  }, [resetMutation, setResetAllDialogOpen]);
+
   const handleResetStaged = async () => {
     try {
       await resetStagedOffers();
       setResetStagedDialogOpen(false);
     } catch (error) {
       console.error('Failed to reset staged offers:', error);
-    }
-  };
-
-  const handleResetAll = async () => {
-    try {
-      await resetOpportunities();
-      setResetAllDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to reset opportunities:', error);
     }
   };
 

@@ -11,7 +11,10 @@ export async function POST(request: NextRequest) {
     if (!useEmulator) {
       const { session } = await createAuthContext(request);
       if (!session?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return NextResponse.json(
+          { error: 'Unauthorized', details: 'User not authenticated' },
+          { status: 401 }
+        );
       }
     }
 
@@ -29,11 +32,29 @@ export async function POST(request: NextRequest) {
     const snapshot = await collectionRef.get();
     const batch = adminDb.batch();
 
+    // Delete all documents in the collection
     snapshot.docs.forEach((doc) => {
       batch.delete(collectionRef.doc(doc.id));
     });
 
     await batch.commit();
+
+    // If we're resetting staged offers, also reset the opportunities collection
+    if (collection === 'staged_offers') {
+      const opportunitiesRef = adminDb.collection('opportunities');
+      const opportunitiesSnapshot = await opportunitiesRef.get();
+      const opportunitiesBatch = adminDb.batch();
+
+      opportunitiesSnapshot.docs.forEach((doc) => {
+        opportunitiesBatch.delete(opportunitiesRef.doc(doc.id));
+      });
+
+      await opportunitiesBatch.commit();
+      return NextResponse.json({
+        message: 'Successfully reset all offers',
+        deletedCount: snapshot.size + opportunitiesSnapshot.size,
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -41,7 +62,7 @@ export async function POST(request: NextRequest) {
       message: `Successfully reset ${collection}`,
     });
   } catch (error) {
-    console.error(`Error resetting collection:`, error);
+    console.error('Error resetting collection:', error);
     return NextResponse.json(
       {
         error: 'Failed to reset collection',

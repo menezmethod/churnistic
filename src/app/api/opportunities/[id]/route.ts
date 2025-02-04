@@ -83,18 +83,42 @@ export async function PUT(
 
     if (action === 'reject') {
       const db = getAdminDb();
-      await db
-        .collection('opportunities')
-        .doc(id)
-        .update({
+      const batch = db.batch();
+
+      // Get the opportunity from either staged or approved collection
+      const stagedRef = db.collection('staged_offers').doc(id);
+      const approvedRef = db.collection('opportunities').doc(id);
+      const rejectedRef = db.collection('rejected_offers').doc(id);
+
+      const [stagedDoc, approvedDoc] = await Promise.all([
+        stagedRef.get(),
+        approvedRef.get(),
+      ]);
+
+      let opportunityData;
+      if (stagedDoc.exists) {
+        opportunityData = stagedDoc.data() as FirestoreOpportunity;
+        batch.delete(stagedRef);
+      } else if (approvedDoc.exists) {
+        opportunityData = approvedDoc.data() as FirestoreOpportunity;
+        batch.delete(approvedRef);
+      } else {
+        return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
+      }
+
+      // Add to rejected collection with metadata
+      batch.set(rejectedRef, {
+        ...opportunityData,
+        status: 'rejected',
+        metadata: {
+          ...opportunityData.metadata,
+          updated: new Date().toISOString(),
+          updated_by: session?.email || '',
           status: 'rejected',
-          updatedAt: new Date().toISOString(),
-          metadata: {
-            updated_by: session?.email || '',
-            updated_at: new Date().toISOString(),
-            status: 'rejected',
-          },
-        });
+        },
+      });
+
+      await batch.commit();
 
       return NextResponse.json({ success: true });
     }

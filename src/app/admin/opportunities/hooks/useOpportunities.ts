@@ -328,29 +328,6 @@ const fetchStagedOpportunities = async (): Promise<
   }));
 };
 
-const fetchRejectedOpportunities = async (): Promise<Opportunity[]> => {
-  const auth = getAuth();
-  const idToken = await auth.currentUser?.getIdToken(true);
-
-  if (!idToken) {
-    throw new Error('No authenticated user found');
-  }
-
-  const response = await fetch('/api/opportunities?status=rejected', {
-    headers: {
-      Authorization: `Bearer ${idToken}`,
-    },
-    credentials: 'include',
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch rejected opportunities');
-  }
-
-  const data = await response.json();
-  return data.items;
-};
-
 // Query keys for React Query
 const queryKeys = {
   opportunities: {
@@ -359,6 +336,7 @@ const queryKeys = {
       ['opportunities', 'paginated', pagination] as const,
     staged: ['opportunities', 'staged'] as const,
     approved: ['opportunities', 'approved'] as const,
+    rejected: ['opportunities', 'rejected'] as const,
     stats: ['opportunities', 'stats'] as const,
   },
 };
@@ -428,8 +406,8 @@ export function useOpportunities(): UseOpportunitiesReturn {
   });
 
   // Fetch stats
-  const { data: statsData } = useQuery({
-    queryKey: queryKeys.opportunities.stats,
+  const { data: statsData, isLoading: isLoadingStats } = useQuery({
+    queryKey: ['opportunities', 'stats'],
     queryFn: async () => {
       const response = await fetch('/api/opportunities/stats');
       if (!response.ok) throw new Error('Failed to fetch stats');
@@ -450,9 +428,29 @@ export function useOpportunities(): UseOpportunitiesReturn {
 
   // Fetch rejected opportunities
   const { data: rejectedOpportunities = [], isLoading: isLoadingRejected } = useQuery({
-    queryKey: ['opportunities', 'rejected'],
-    queryFn: fetchRejectedOpportunities,
-    placeholderData: keepPreviousData,
+    queryKey: queryKeys.opportunities.rejected,
+    queryFn: async () => {
+      const auth = getAuth();
+      const idToken = await auth.currentUser?.getIdToken(true);
+
+      if (!idToken) {
+        throw new Error('No authenticated user found');
+      }
+
+      const response = await fetch('/api/opportunities/rejected', {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch rejected opportunities');
+      }
+
+      const data = await response.json();
+      return data.items;
+    },
   });
 
   // Update stats calculation
@@ -620,24 +618,27 @@ export function useOpportunities(): UseOpportunitiesReturn {
         throw new Error('No authenticated user found');
       }
 
-      const response = await fetch(`/api/opportunities/${opportunity.id}`, {
-        method: 'DELETE',
+      const response = await fetch(`/api/opportunities/${opportunity.id}?action=reject`, {
+        method: 'PUT',
         headers: {
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${idToken}`,
         },
         credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to reject opportunity');
+        const error = await response.json();
+        throw new Error(error.details || error.error || 'Failed to reject opportunity');
       }
 
-      return opportunity.id;
+      return response.json();
     },
     onMutate: async (opportunity) => {
       await Promise.all([
         queryClient.cancelQueries({ queryKey: queryKeys.opportunities.all }),
         queryClient.cancelQueries({ queryKey: queryKeys.opportunities.staged }),
+        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.rejected }),
       ]);
 
       const previousPaginated = queryClient.getQueryData(
@@ -668,6 +669,8 @@ export function useOpportunities(): UseOpportunitiesReturn {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.rejected });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
     },
   });
 
@@ -799,7 +802,8 @@ export function useOpportunities(): UseOpportunitiesReturn {
     },
   });
 
-  const isLoading = isLoadingPaginated || isLoadingStaged || isLoadingRejected;
+  const isLoading =
+    isLoadingPaginated || isLoadingStaged || isLoadingStats || isLoadingRejected;
 
   return {
     pagination,

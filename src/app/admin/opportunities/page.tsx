@@ -7,6 +7,7 @@ import {
   Speed as SpeedIcon,
   AttachMoney as ValueIcon,
   Close as RejectIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { Box, Container, Grid, Stack, useTheme } from '@mui/material';
 import { useState, useCallback, useEffect } from 'react';
@@ -27,6 +28,7 @@ import { OpportunityStatsCard } from './components/OpportunityStatsCard';
 import { SearchSection } from './components/SearchSection';
 import { getColumns } from './config/columns';
 import { useOpportunityActions } from './hooks/useOpportunityActions';
+import { Opportunity } from './types/opportunity';
 import { calculateProcessingRate } from './utils';
 
 const OpportunitiesPage = () => {
@@ -43,7 +45,6 @@ const OpportunitiesPage = () => {
     setPagination,
     stats,
     importOpportunities,
-    hasStagedOpportunities,
     isResettingStagedOffers,
     isResettingOpportunities,
     stagedOpportunities,
@@ -53,14 +54,36 @@ const OpportunitiesPage = () => {
     isBulkApproving,
   } = useOpportunities();
 
-  const reviewOpportunities = [...stagedOpportunities, ...approvedOpportunities].filter(
-    (opp) => {
+  const { needsReviewOffers, regularStagedOffers } = stagedOpportunities.reduce<{
+    needsReviewOffers: Array<Opportunity & { isStaged: boolean }>;
+    regularStagedOffers: Array<Opportunity & { isStaged: boolean }>;
+  }>(
+    (acc, opp) => {
       const expiryDate = opp.details?.expiration;
-      if (!expiryDate) return false;
+      if (!expiryDate) {
+        acc.regularStagedOffers.push(opp);
+        return acc;
+      }
+
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
       const expiry = new Date(expiryDate);
-      return expiry < today;
-    }
+      expiry.setHours(0, 0, 0, 0);
+
+      const diffDays = Math.ceil(
+        (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (diffDays < 0) {
+        acc.needsReviewOffers.push(opp);
+      } else {
+        acc.regularStagedOffers.push(opp);
+      }
+
+      return acc;
+    },
+    { needsReviewOffers: [], regularStagedOffers: [] }
   );
 
   const {
@@ -74,7 +97,6 @@ const OpportunitiesPage = () => {
     setBulkApproveDialogOpen,
     handleReject,
     handleApprove,
-    handleBulkApprove,
     handleResetStaged,
     handleResetAll,
   } = useOpportunityActions();
@@ -94,20 +116,35 @@ const OpportunitiesPage = () => {
   }, [queryClient]);
 
   useEffect(() => {
-    if (stagedOpportunities.length === 0) {
+    // Auto collapse empty sections and expand non-empty ones (except rejected)
+    if (regularStagedOffers.length === 0) {
       setStagedExpanded(false);
-    } else {
+    } else if (regularStagedOffers.length > 0) {
       setStagedExpanded(true);
     }
-  }, [stagedOpportunities.length]);
 
-  useEffect(() => {
-    if (stats.approved === 0) {
+    if (needsReviewOffers.length === 0) {
+      setReviewExpanded(false);
+    } else if (needsReviewOffers.length > 0) {
+      setReviewExpanded(true);
+    }
+
+    if (approvedOpportunities.length === 0) {
       setApprovedExpanded(false);
-    } else {
+    } else if (approvedOpportunities.length > 0) {
       setApprovedExpanded(true);
     }
-  }, [stats.approved]);
+
+    // For rejected, only auto-collapse when empty
+    if (!rejectedOpportunities?.length) {
+      setRejectedExpanded(false);
+    }
+  }, [
+    regularStagedOffers.length,
+    needsReviewOffers.length,
+    approvedOpportunities.length,
+    rejectedOpportunities?.length,
+  ]);
 
   const handleSearch = useCallback(
     (value: string) => {
@@ -169,8 +206,12 @@ const OpportunitiesPage = () => {
         isBulkApproving={isBulkApproving}
         isResettingStagedOffers={isResettingStagedOffers}
         isResettingOpportunities={isResettingOpportunities}
-        hasStagedOpportunities={hasStagedOpportunities}
-        stats={stats}
+        hasStagedOpportunities={regularStagedOffers.length > 0}
+        stats={{
+          ...stats,
+          staged: regularStagedOffers.length,
+          needsReview: needsReviewOffers.length,
+        }}
         onImport={importOpportunities}
         onBulkApprove={() => setBulkApproveDialogOpen(true)}
         onResetStaged={() => setResetStagedDialogOpen(true)}
@@ -266,20 +307,20 @@ const OpportunitiesPage = () => {
         <Grid item xs={12} lg={8}>
           <Stack spacing={{ xs: 2, sm: 3 }}>
             <OpportunitySection
-              title="Staged Opportunities"
-              count={stagedOpportunities.length}
+              title="Ready for Review"
+              count={regularStagedOffers.length}
               icon={<PendingIcon />}
-              iconColor={theme.palette.warning.main}
+              iconColor={theme.palette.info.main}
               expanded={stagedExpanded}
               onToggle={() => setStagedExpanded(!stagedExpanded)}
               flex
             >
               <Box sx={{ p: { xs: 1.5, sm: 2 }, flex: 1 }}>
                 <OpportunityDataGrid
-                  rows={stagedOpportunities}
+                  rows={regularStagedOffers}
                   columns={stagedColumns}
                   loading={isLoading}
-                  autoHeight={stagedOpportunities.length <= 7}
+                  autoHeight={regularStagedOffers.length <= 7}
                   getRowClassName={(params) => `opportunity-row-${params.row.status}`}
                   disableColumnMenu
                   disableColumnFilter
@@ -291,8 +332,34 @@ const OpportunitiesPage = () => {
             </OpportunitySection>
 
             <OpportunitySection
-              title="Approved Opportunities"
-              count={stats.approved}
+              title="Needs Attention"
+              subtitle="These offers require additional review before approval"
+              count={needsReviewOffers.length}
+              icon={<WarningIcon />}
+              iconColor={theme.palette.warning.main}
+              expanded={reviewExpanded}
+              onToggle={() => setReviewExpanded(!reviewExpanded)}
+              flex
+            >
+              <Box sx={{ p: { xs: 1.5, sm: 2 }, flex: 1 }}>
+                <OpportunityDataGrid
+                  rows={needsReviewOffers}
+                  columns={expiredColumns}
+                  loading={isLoading}
+                  autoHeight={needsReviewOffers.length <= 7}
+                  getRowClassName={(params) => `opportunity-row-${params.row.status}`}
+                  disableColumnMenu
+                  disableColumnFilter
+                  disableColumnSelector
+                  disableDensitySelector
+                  hideFooterSelectedRowCount
+                />
+              </Box>
+            </OpportunitySection>
+
+            <OpportunitySection
+              title="Approved"
+              count={approvedOpportunities.length}
               icon={<ApproveIcon />}
               iconColor={theme.palette.success.main}
               expanded={approvedExpanded}
@@ -316,32 +383,7 @@ const OpportunitiesPage = () => {
             </OpportunitySection>
 
             <OpportunitySection
-              title="Needs Extra Review"
-              count={reviewOpportunities.length}
-              icon={<PendingIcon />}
-              iconColor={theme.palette.warning.main}
-              expanded={reviewExpanded}
-              onToggle={() => setReviewExpanded(!reviewExpanded)}
-              flex
-            >
-              <Box sx={{ p: { xs: 1.5, sm: 2 }, flex: 1 }}>
-                <OpportunityDataGrid
-                  rows={reviewOpportunities}
-                  columns={expiredColumns}
-                  loading={isLoading}
-                  autoHeight={reviewOpportunities.length <= 7}
-                  getRowClassName={(params) => `opportunity-row-${params.row.status}`}
-                  disableColumnMenu
-                  disableColumnFilter
-                  disableColumnSelector
-                  disableDensitySelector
-                  hideFooterSelectedRowCount
-                />
-              </Box>
-            </OpportunitySection>
-
-            <OpportunitySection
-              title="Rejected Opportunities"
+              title="Rejected"
               count={rejectedOpportunities?.length || 0}
               icon={<RejectIcon />}
               iconColor={theme.palette.error.main}
@@ -377,7 +419,6 @@ const OpportunitiesPage = () => {
       <BulkApproveDialog
         open={bulkApproveDialogOpen}
         onClose={() => setBulkApproveDialogOpen(false)}
-        onConfirm={handleBulkApprove}
       />
 
       <ResetStagedDialog
