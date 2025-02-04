@@ -189,7 +189,7 @@ const OpportunitiesTable = ({
   const theme = useTheme();
 
   const filteredOpportunities = useMemo(() => {
-    if (!searchTerm) return opportunities;
+    if (!opportunities) return [];
 
     const searchLower = searchTerm.toLowerCase().trim();
     return opportunities.filter((opp) => {

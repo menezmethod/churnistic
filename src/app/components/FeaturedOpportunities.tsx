@@ -30,7 +30,7 @@ export function FeaturedOpportunities() {
     threshold: 0.1,
     triggerOnce: true,
   });
-  const { opportunities } = useOpportunities({ limit: 100 });
+  const { opportunities } = useOpportunities();
 
   // Get top 3 opportunities with highest value
   const featuredOffers = (opportunities || [])
