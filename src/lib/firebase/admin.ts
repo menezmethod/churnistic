@@ -4,6 +4,7 @@ import {
   cert,
   getApps,
   initializeApp,
+  applicationDefault,
 } from 'firebase-admin/app';
 import { type Auth, getAuth } from 'firebase-admin/auth';
 import { type Firestore, getFirestore } from 'firebase-admin/firestore';
@@ -176,3 +177,17 @@ void initializeAdmin();
 
 export { adminApp as app, adminAuth as auth, adminDb as db };
 export type { App, Auth, Firestore };
+
+export const getFirebaseAdmin = () => {
+  if (!adminApp) {
+    if (getApps().length > 0) {
+      adminApp = getApps()[0];
+    } else {
+      adminApp = initializeApp({
+        credential: applicationDefault(),
+        databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+      });
+    }
+  }
+  return adminApp;
+};

@@ -3,11 +3,10 @@ import { applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 
-// Initialize Firebase Admin SDK if not already initialized
+// Proper singleton initialization
 if (getApps().length === 0) {
   initializeApp({
-    // Add your Firebase config here or ensure it's in environment variables
-    credential: applicationDefault(),
+    credential: applicationDefault(), // Ensure service account credentials
     databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
   });
 }
@@ -19,25 +18,33 @@ export const revalidate = 300; // Revalidate every 5 minutes
 
 export async function GET() {
   try {
-    // Get approved opportunities
-    const approvedSnapshot = await firestore
-      .collection('opportunities')
-      .where('status', '==', 'approved')
-      .get();
+    // Replace document fetching with count queries
+    const [approvedCount, stagedCount] = await Promise.all([
+      firestore
+        .collection('opportunities')
+        .where('status', '==', 'approved')
+        .count()
+        .get(),
+      firestore.collection('staged_offers').count().get(),
+    ]);
 
-    // Get staged offers count
-    const stagedSnapshot = await firestore.collection('staged_offers').count().get();
+    const totalApproved = approvedCount.data().count;
+    const totalStaged = stagedCount.data().count;
 
     // Calculate core metrics
-    const totalApproved = approvedSnapshot.size;
-    const totalStaged = stagedSnapshot.data().count;
     const total = totalApproved + totalStaged;
 
     // Calculate average value and high value offers
-    const approvedValues = approvedSnapshot.docs.map((doc) => {
-      const value = parseFloat(doc.data().value) || 0;
-      return { value, type: doc.data().type };
-    });
+    const approvedValues = await firestore
+      .collection('opportunities')
+      .where('status', '==', 'approved')
+      .get()
+      .then((snapshot) =>
+        snapshot.docs.map((doc) => {
+          const value = parseFloat(doc.data().value) || 0;
+          return { value, type: doc.data().type };
+        })
+      );
 
     const avgValue =
       approvedValues.length > 0
@@ -55,13 +62,20 @@ export async function GET() {
       if (type === 'brokerage') byType.brokerage++;
     });
 
-    return NextResponse.json({
+    // Use Next.js native cache headers
+    const result = {
       total,
       pending: totalStaged,
       approved: totalApproved,
       avgValue: Math.round(avgValue),
       byType,
       highValue,
+    };
+
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+      },
     });
   } catch (error) {
     console.error('Stats endpoint error:', error);
