@@ -35,27 +35,39 @@ export async function GET() {
     const total = totalApproved + totalStaged;
 
     // Calculate average value and high value offers
-    const approvedValues = await firestore
-      .collection('opportunities')
-      .where('status', '==', 'approved')
-      .get()
-      .then((snapshot) =>
-        snapshot.docs.map((doc) => {
-          const value = parseFloat(doc.data().value) || 0;
-          return { value, type: doc.data().type };
-        })
-      );
+    const [approvedValues, stagedValues] = await Promise.all([
+      firestore
+        .collection('opportunities')
+        .where('status', '==', 'approved')
+        .get()
+        .then((snapshot) =>
+          snapshot.docs.map((doc) => {
+            const value = parseFloat(doc.data().value) || 0;
+            return { value, type: doc.data().type };
+          })
+        ),
+      firestore
+        .collection('staged_offers')
+        .get()
+        .then((snapshot) =>
+          snapshot.docs.map((doc) => {
+            const value = parseFloat(doc.data().value) || 0;
+            return { value, type: doc.data().type };
+          })
+        ),
+    ]);
 
+    const allValues = [...approvedValues, ...stagedValues];
     const avgValue =
-      approvedValues.length > 0
-        ? approvedValues.reduce((a, b) => a + b.value, 0) / approvedValues.length
+      allValues.length > 0
+        ? allValues.reduce((a, b) => a + b.value, 0) / allValues.length
         : 0;
 
     // Calculate type counts and high value offers
     const byType = { bank: 0, credit_card: 0, brokerage: 0 };
     let highValue = 0;
 
-    approvedValues.forEach(({ value, type }) => {
+    allValues.forEach(({ value, type }) => {
       if (value >= 500) highValue++;
       if (type === 'bank') byType.bank++;
       if (type === 'credit_card') byType.credit_card++;
