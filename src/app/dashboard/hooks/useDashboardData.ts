@@ -50,6 +50,9 @@ export function useDashboardData() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
+  // Get base URL for API calls
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+
   // Fetch profile data
   useEffect(() => {
     if (!user) return;
@@ -76,7 +79,7 @@ export function useDashboardData() {
   const { data: stats, error: statsError } = useQuery({
     queryKey: ['stats'],
     queryFn: async () => {
-      const response = await fetch('/api/opportunities/stats');
+      const response = await fetch(`${baseUrl}/api/opportunities/stats`);
       if (!response.ok) {
         throw new Error('Failed to fetch stats');
       }
@@ -112,7 +115,7 @@ export function useDashboardData() {
         },
       };
     },
-    enabled: !!user,
+    enabled: !!user && !!baseUrl,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
@@ -120,14 +123,14 @@ export function useDashboardData() {
   const { data: opportunities = [] } = useQuery({
     queryKey: ['opportunities'],
     queryFn: async () => {
-      const response = await fetch('/api/opportunities/stats');
+      const response = await fetch(`${baseUrl}/api/opportunities`);
       if (!response.ok) {
         throw new Error('Failed to fetch opportunities');
       }
       const data = await response.json();
       return data.opportunities || [];
     },
-    enabled: !!user,
+    enabled: !!user && !!baseUrl,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 

@@ -27,7 +27,7 @@ interface OpportunityStats {
 }
 
 const fetchStats = async (): Promise<OpportunityStats> => {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const response = await fetch(`${baseUrl}/api/opportunities/stats`, {
     next: { revalidate: 300 }, // Cache for 5 minutes
   });
