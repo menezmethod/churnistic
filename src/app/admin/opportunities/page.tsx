@@ -840,7 +840,7 @@ const OpportunitiesPage = () => {
                 <IconButton
                   color="success"
                   onClick={() => setBulkApproveDialogOpen(true)}
-                  disabled={isBulkApproving || stats.pending === 0}
+                  disabled={isBulkApproving || stagedOpportunities.length === 0}
                   sx={{
                     borderRadius: 1,
                     position: 'relative',
