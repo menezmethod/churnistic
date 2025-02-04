@@ -4,8 +4,8 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
-import { useState, useEffect } from 'react';
+import { getAuth } from 'firebase/auth';
+import { useState } from 'react';
 
 import {
   Details,
@@ -328,207 +328,188 @@ const fetchStagedOpportunities = async (): Promise<
   }));
 };
 
-// Update QueryKeys type to match React Query's expectations
-type QueryKeys = {
-  opportunities: {
-    all: readonly ['opportunities'];
-    paginated: (
-      pagination: PaginationState
-    ) => readonly ['opportunities', 'paginated', PaginationState];
-    stats: readonly ['opportunities', 'stats'];
-    staged: readonly ['opportunities', 'staged'];
-  };
-  bankRewards: {
-    all: readonly ['bankRewardsOffers'];
-  };
-};
-
-export const queryKeys: QueryKeys = {
+// Query keys for React Query
+const queryKeys = {
   opportunities: {
     all: ['opportunities'] as const,
     paginated: (pagination: PaginationState) =>
       ['opportunities', 'paginated', pagination] as const,
-    stats: ['opportunities', 'stats'] as const,
     staged: ['opportunities', 'staged'] as const,
-  },
-  bankRewards: {
-    all: ['bankRewardsOffers'] as const,
+    approved: ['opportunities', 'approved'] as const,
+    stats: ['opportunities', 'stats'] as const,
   },
 };
 
-export function useOpportunities(paginationState?: PaginationState) {
+interface UseOpportunitiesReturn {
+  pagination: PaginationState;
+  setPagination: (pagination: PaginationState) => void;
+  stats: Stats;
+  stagedOpportunities: (Opportunity & { isStaged: boolean })[];
+  approvedOpportunities: Opportunity[];
+  isLoading: boolean;
+  error: Error | null;
+  approveOpportunity: (opportunity: Opportunity) => void;
+  rejectOpportunity: (opportunity: Opportunity & { isStaged?: boolean }) => void;
+  bulkApproveOpportunities: () => void;
+  isBulkApproving: boolean;
+  importOpportunities: () => void;
+  isImporting: boolean;
+  hasStagedOpportunities: boolean;
+  resetStagedOffers: () => void;
+  isResettingStagedOffers: boolean;
+  resetOpportunities: () => void;
+  isResettingOpportunities: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+}
+
+export function useOpportunities(): UseOpportunitiesReturn {
   const queryClient = useQueryClient();
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     pageSize: ITEMS_PER_PAGE,
-    sortBy: 'createdAt',
+    sortBy: 'value',
     sortDirection: 'desc',
     filters: {},
   });
 
-  // Update pagination when paginationState changes
-  useEffect(() => {
-    if (paginationState) {
-      setPagination(paginationState);
-    }
-  }, [paginationState]);
-
-  // Fetch staged opportunities with proper query key and configuration
-  const { data: stagedOpportunities = [] } = useQuery({
-    queryKey: queryKeys.opportunities.staged,
-    queryFn: fetchStagedOpportunities,
-    staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-  });
-
-  // Fetch paginated opportunities with proper query key and configuration
-  const {
-    data: paginatedData,
-    error: paginationError,
-    status: paginationStatus,
-    isPending: isPaginationPending,
-    refetch,
-  } = useQuery<PaginatedResponse>({
+  // Fetch paginated opportunities
+  const { error: paginatedError, isLoading: isLoadingPaginated } = useQuery({
     queryKey: queryKeys.opportunities.paginated(pagination),
     queryFn: async () => {
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        pageSize: pagination.pageSize.toString(),
-        sortBy: pagination.sortBy || 'createdAt',
-        sortDirection: pagination.sortDirection || 'desc',
-      });
+      const params = new URLSearchParams();
 
-      // Add optional filters
-      if (pagination.filters.search) {
-        params.append('search', pagination.filters.search);
-      }
-      if (pagination.filters.status) {
-        params.append('status', pagination.filters.status);
-      }
-      if (pagination.filters.type) {
-        params.append('type', pagination.filters.type);
-      }
-      if (pagination.filters.minValue) {
-        params.append('minValue', pagination.filters.minValue.toString());
-      }
-      if (pagination.filters.maxValue) {
-        params.append('maxValue', pagination.filters.maxValue.toString());
-      }
+      // Add base pagination params
+      params.set('page', pagination.page.toString());
+      params.set('pageSize', pagination.pageSize.toString());
+      params.set('sortBy', pagination.sortBy);
+      params.set('sortDirection', pagination.sortDirection);
+
+      // Add filters, converting numbers to strings
+      if (pagination.filters.status) params.set('status', pagination.filters.status);
+      if (pagination.filters.type) params.set('type', pagination.filters.type);
+      if (pagination.filters.minValue)
+        params.set('minValue', pagination.filters.minValue.toString());
+      if (pagination.filters.maxValue)
+        params.set('maxValue', pagination.filters.maxValue.toString());
+      if (pagination.filters.search) params.set('search', pagination.filters.search);
 
       const response = await fetch(`/api/opportunities?${params}`);
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.details || error.error || 'Failed to fetch opportunities');
       }
-      const data = await response.json();
-      return data as PaginatedResponse;
+      return response.json() as Promise<PaginatedResponse>;
     },
     placeholderData: keepPreviousData,
-    staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 5,
   });
 
-  // Add stats query
+  // Fetch stats
   const { data: statsData } = useQuery({
     queryKey: queryKeys.opportunities.stats,
     queryFn: async () => {
-      const baseUrl = window.location.origin;
-      const response = await fetch(`${baseUrl}/api/opportunities/stats`);
+      const response = await fetch('/api/opportunities/stats');
       if (!response.ok) throw new Error('Failed to fetch stats');
       return response.json();
     },
     staleTime: 1000 * 30,
   });
 
+  // Fetch staged opportunities
+  const {
+    data: stagedOpportunities = [],
+    error: stagedError,
+    isLoading: isLoadingStaged,
+  } = useQuery({
+    queryKey: queryKeys.opportunities.staged,
+    queryFn: fetchStagedOpportunities,
+  });
+
   // Update stats calculation
   const calculatedStats: Stats = {
-    total: statsData?.total || 0,
-    pending: statsData?.pending || 0,
+    total: (statsData?.total || 0) + (stagedOpportunities?.length || 0), // Include both collections
+    pending: stagedOpportunities?.length || 0,
     approved: statsData?.approved || 0,
-    rejected: 0, // Remove if not used
+    rejected: 0,
     avgValue: statsData?.avgValue || 0,
     byType: statsData?.byType || { bank: 0, credit_card: 0, brokerage: 0 },
     highValue: statsData?.highValue || 0,
     processingRate: `${Math.round(
-      (statsData?.approved / Math.max(statsData?.total, 1)) * 100
+      (statsData?.approved /
+        Math.max((statsData?.total || 0) + (stagedOpportunities?.length || 0), 1)) *
+        100
     )}%`,
-    bankRewards: undefined,
+    bankRewards: statsData?.bankRewards,
   };
 
-  // Import mutation with proper invalidation
-  const importMutation = useMutation({
-    mutationFn: async () => {
-      try {
-        // Get Firebase auth instance for token
-        const auth = getAuth();
-        const user = await new Promise<User>((resolve, reject) => {
-          if (auth.currentUser) {
-            resolve(auth.currentUser);
-            return;
-          }
+  // Fetch all approved opportunities
+  const { data: approvedOpportunities = [] } = useQuery({
+    queryKey: queryKeys.opportunities.approved,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        status: 'approved',
+        pageSize: '1000', // Large enough to get all approved opportunities
+      });
 
-          const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
-              unsubscribe();
-              resolve(user);
-            }
-          });
-
-          setTimeout(() => {
-            unsubscribe();
-            reject(new Error('Auth state timeout - please sign in again'));
-          }, 5000);
-        });
-
-        const idToken = await user.getIdToken(true);
-
-        // Fetch offers
-        const response = await fetchBankRewardsOffers();
-        const newOffers = response.data.offers.map(transformBankRewardsOffer);
-
-        // Send import request
-        const importResponse = await fetch('/api/opportunities/import', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({
-            offers: newOffers,
-            auth: {
-              uid: user.uid,
-              email: user.email || '',
-              token: idToken,
-            },
-          }),
-          credentials: 'include',
-        });
-
-        if (!importResponse.ok) {
-          const error = await importResponse.json();
-          throw new Error(
-            error.details || error.error || `Import failed: ${importResponse.statusText}`
-          );
-        }
-
-        const result = await importResponse.json();
-        return result.addedCount;
-      } catch (error) {
-        console.error('Import error:', error);
-        if (error instanceof Error) {
-          if (error.message.includes('auth') || error.message.includes('sign in')) {
-            throw new Error(
-              `Authentication error: ${error.message}. Please sign in again.`
-            );
-          }
-        }
-        throw error;
+      const response = await fetch(`/api/opportunities?${params}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          error.details || error.error || 'Failed to fetch approved opportunities'
+        );
       }
+      const data = await response.json();
+      return data.items as Opportunity[];
     },
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: true,
+  });
+
+  // Add error handling for mutations
+  const handleMutationError = (error: unknown) => {
+    console.error('Mutation error:', error);
+    if (error instanceof Error) {
+      // You can add toast notification or other error handling here
+      console.error(error.message);
+    }
+  };
+
+  // Update mutations with error handling
+  const importOpportunitiesMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetchBankRewardsOffers();
+      const transformedOffers = response.data.offers.map(transformBankRewardsOffer);
+
+      // Bulk create opportunities
+      const auth = getAuth();
+      const idToken = await auth.currentUser?.getIdToken(true);
+
+      if (!idToken) {
+        throw new Error('No authenticated user found');
+      }
+
+      const bulkResponse = await fetch('/api/opportunities/bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ opportunities: transformedOffers }),
+        credentials: 'include',
+      });
+
+      if (!bulkResponse.ok) {
+        const error = await bulkResponse.json();
+        throw new Error(error.details || error.error || 'Failed to import opportunities');
+      }
+
+      return bulkResponse.json();
+    },
+    onError: handleMutationError,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
     },
   });
 
@@ -593,6 +574,8 @@ export function useOpportunities(paginationState?: PaginationState) {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.approved });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
     },
   });
 
@@ -746,6 +729,7 @@ export function useOpportunities(paginationState?: PaginationState) {
       return response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
     },
   });
@@ -779,37 +763,30 @@ export function useOpportunities(paginationState?: PaginationState) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.approved });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
     },
   });
 
   return {
-    opportunities: paginatedData?.items || [],
-    stagedOpportunities,
-    paginatedData,
-    total: paginatedData?.total ?? 0,
-    hasMore: paginatedData?.hasMore ?? false,
-    isLoading: isPaginationPending,
-    error: paginationStatus === 'error' ? paginationError : null,
     pagination,
     setPagination,
-    refetch,
-    isCreating: importMutation.isPending,
-    isUpdating: approveOpportunityMutation.isPending,
-    isDeleting: rejectOpportunityMutation.isPending,
-    createError: importMutation.error,
-    updateError: approveOpportunityMutation.error,
-    deleteError: rejectOpportunityMutation.error,
+    stats: calculatedStats,
+    stagedOpportunities,
+    approvedOpportunities,
+    isLoading: isLoadingPaginated || isLoadingStaged,
+    error: paginatedError || stagedError,
     approveOpportunity: approveOpportunityMutation.mutate,
     rejectOpportunity: rejectOpportunityMutation.mutate,
     bulkApproveOpportunities: bulkApproveOpportunitiesMutation.mutate,
     isBulkApproving: bulkApproveOpportunitiesMutation.isPending,
-    stats: calculatedStats,
-    importOpportunities: importMutation.mutate,
+    importOpportunities: importOpportunitiesMutation.mutate,
+    isImporting: importOpportunitiesMutation.isPending,
     hasStagedOpportunities: stagedOpportunities.length > 0,
     resetStagedOffers: resetStagedOffersMutation.mutate,
     isResettingStagedOffers: resetStagedOffersMutation.isPending,
     resetOpportunities: resetOpportunitiesMutation.mutate,
     isResettingOpportunities: resetOpportunitiesMutation.isPending,
     queryClient,
-  } as const;
+  };
 }

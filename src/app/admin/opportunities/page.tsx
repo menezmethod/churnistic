@@ -51,26 +51,6 @@ import { useOpportunities } from './hooks/useOpportunities';
 import { Opportunity } from './types/opportunity';
 import { ScraperControlPanel } from '../components/ScraperControlPanel';
 
-interface PaginatedOpportunities {
-  items: Opportunity[];
-  total: number;
-}
-
-interface PaginationState {
-  page: number;
-  pageSize: number;
-  sortBy?: string;
-  sortDirection?: 'asc' | 'desc';
-  filters?: {
-    status?: 'pending' | 'approved' | 'rejected';
-    type?: string;
-    minValue?: number;
-    maxValue?: number;
-    search?: string;
-    [key: string]: string | number | undefined;
-  };
-}
-
 type OpportunityStatus = 'staged' | 'pending' | 'approved' | 'rejected';
 
 interface StatusConfig {
@@ -161,59 +141,275 @@ const StatsCard = ({
   );
 };
 
-const OpportunitiesTable = ({
-  opportunities,
-  totalCount,
-  pagination,
-  onPageChange,
-  onRowsPerPageChange,
-  onPreview,
-  onApprove,
-  onReject,
-  showApproveButton = true,
-  rejectTooltip = 'Reject opportunity',
-  searchTerm = '',
-}: {
-  opportunities: Opportunity[];
-  totalCount: number;
-  pagination: PaginationState;
-  onPageChange: (event: unknown, newPage: number) => void;
-  onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onPreview: (opportunity: Opportunity) => void;
-  onApprove: (opportunity: Opportunity) => void;
-  onReject: (opportunity: Opportunity) => void;
-  showApproveButton?: boolean;
-  rejectTooltip?: string;
-  searchTerm?: string;
-}) => {
+const OpportunitiesPage = () => {
   const theme = useTheme();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(
+    null
+  );
+  const [resetStagedDialogOpen, setResetStagedDialogOpen] = useState(false);
+  const [resetAllDialogOpen, setResetAllDialogOpen] = useState(false);
+  const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
+  const [stagedExpanded, setStagedExpanded] = useState(false);
+  const [approvedExpanded, setApprovedExpanded] = useState(false);
 
-  const filteredOpportunities = useMemo(() => {
-    if (!opportunities) return [];
+  const {
+    isLoading,
+    pagination,
+    setPagination,
+    approveOpportunity,
+    rejectOpportunity,
+    bulkApproveOpportunities,
+    isBulkApproving,
+    stats,
+    importOpportunities,
+    hasStagedOpportunities,
+    resetStagedOffers,
+    isResettingStagedOffers,
+    resetOpportunities,
+    isResettingOpportunities,
+    stagedOpportunities,
+    approvedOpportunities,
+    queryClient,
+  } = useOpportunities();
 
-    const searchLower = searchTerm.toLowerCase().trim();
-    return opportunities.filter((opp) => {
-      return (
-        opp.name?.toLowerCase().includes(searchLower) ||
-        opp.type?.toLowerCase().includes(searchLower) ||
-        opp.description?.toLowerCase().includes(searchLower) ||
-        opp.status?.toLowerCase().includes(searchLower) ||
-        opp.value?.toString().toLowerCase().includes(searchLower) ||
-        (opp.details?.credit_score &&
-          typeof (opp.details.credit_score as { min?: number }).min !== 'undefined' &&
-          (opp.details.credit_score as { min?: number }).min
-            ?.toString()
-            .toLowerCase()
-            .includes(searchLower)) ||
-        (opp.details?.minimum_deposit &&
-          opp.details.minimum_deposit.toString().toLowerCase().includes(searchLower)) ||
-        (opp.details?.account_type &&
-          opp.details.account_type.toLowerCase().includes(searchLower))
+  useEffect(() => {
+    const refetchOnFocus = async () => {
+      await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      await queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
+      await queryClient.invalidateQueries({ queryKey: ['opportunities', 'approved'] });
+      await queryClient.invalidateQueries({ queryKey: ['opportunities', 'stats'] });
+    };
+
+    window.addEventListener('focus', refetchOnFocus);
+    return () => {
+      window.removeEventListener('focus', refetchOnFocus);
+    };
+  }, [queryClient]);
+
+  const updateOptimisticData = useCallback(
+    (opportunityId: string, newStatus: OpportunityStatus) => {
+      queryClient.setQueryData<
+        { items: Opportunity[]; total: number; hasMore: boolean } | undefined
+      >(['opportunities'], (old) => {
+        if (!old?.items) return old;
+        return {
+          ...old,
+          items: old.items.map((opp: Opportunity) =>
+            opp.id === opportunityId ? { ...opp, status: newStatus } : opp
+          ),
+        };
+      });
+
+      queryClient.setQueryData<Opportunity[] | undefined>(
+        ['opportunities', 'staged'],
+        (old) => {
+          if (!old) return old;
+          return old.map((opp) =>
+            opp.id === opportunityId ? { ...opp, status: newStatus } : opp
+          );
+        }
       );
-    });
-  }, [opportunities, searchTerm]);
+    },
+    [queryClient]
+  );
 
-  const columns: GridColDef[] = [
+  const handleReject = async (opportunity: Opportunity & { isStaged?: boolean }) => {
+    try {
+      const previousData = {
+        approved: queryClient.getQueryData(['opportunities']),
+        staged: queryClient.getQueryData(['opportunities', 'staged']),
+      };
+
+      updateOptimisticData(opportunity.id, 'staged');
+
+      if (opportunity.status === 'approved') {
+        const auth = getAuth();
+        const idToken = await auth.currentUser?.getIdToken(true);
+
+        if (!idToken) {
+          throw new Error('No authenticated user found');
+        }
+
+        try {
+          const response = await fetch('/api/opportunities/reject', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({ id: opportunity.id }),
+            credentials: 'include',
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(
+              error.details || error.error || 'Failed to reject opportunity'
+            );
+          }
+
+          await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+          await queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
+        } catch (error) {
+          queryClient.setQueryData(['opportunities'], previousData.approved);
+          queryClient.setQueryData(['opportunities', 'staged'], previousData.staged);
+          throw error;
+        }
+      } else {
+        await rejectOpportunity(opportunity);
+      }
+    } catch (error) {
+      console.error('Failed to reject opportunity:', error);
+    }
+  };
+
+  const handleSearch = useCallback(
+    (value: string) => {
+      setSearchTerm(value);
+      setPagination({
+        ...pagination,
+        page: 1,
+        filters: { ...pagination.filters, search: value },
+      });
+    },
+    [pagination, setPagination]
+  );
+
+  const handleSync = async () => {
+    try {
+      await importOpportunities();
+    } catch (error) {
+      console.error('Failed to sync opportunities:', error);
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    try {
+      await bulkApproveOpportunities();
+      setBulkApproveDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to bulk approve opportunities:', error);
+    }
+  };
+
+  const handlePreview = (opportunity: Opportunity & { isStaged?: boolean }) => {
+    setSelectedOpportunity(opportunity);
+  };
+
+  const handleApprove = async (opportunity: Opportunity & { isStaged?: boolean }) => {
+    if (opportunity.isStaged) {
+      await approveOpportunity(opportunity);
+    } else {
+      // Get the full opportunity data for non-staged opportunities
+      const fullOpportunity = {
+        ...opportunity,
+        isStaged: false,
+      };
+      await approveOpportunity(fullOpportunity);
+    }
+  };
+
+  const processingSpeed = useMemo(() => {
+    // Total opportunities that need action = staged + approved
+    const totalToProcess = stagedOpportunities.length + stats.approved;
+    // Only approved count as processed
+    const totalProcessed = stats.approved;
+
+    // Calculate percentage of opportunities that have been processed
+    return totalToProcess > 0
+      ? ((totalProcessed / totalToProcess) * 100).toFixed(1)
+      : '0';
+  }, [stats.approved, stagedOpportunities.length]);
+
+  const handleResetStaged = async () => {
+    try {
+      await resetStagedOffers();
+      setResetStagedDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to reset staged offers:', error);
+    }
+  };
+
+  const handleResetAll = async () => {
+    try {
+      await resetOpportunities();
+      setResetAllDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to reset opportunities:', error);
+    }
+  };
+
+  const ResetStagedDialog = () => (
+    <Dialog open={resetStagedDialogOpen} onClose={() => setResetStagedDialogOpen(false)}>
+      <DialogTitle>Reset Staged Offers</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Are you sure you want to reset all staged offers? This action cannot be undone.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setResetStagedDialogOpen(false)}>Cancel</Button>
+        <Button onClick={handleResetStaged} color="error" variant="contained">
+          Reset Staged
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  const ResetAllDialog = () => (
+    <Dialog open={resetAllDialogOpen} onClose={() => setResetAllDialogOpen(false)}>
+      <DialogTitle>Reset All Opportunities</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Are you sure you want to reset all opportunities? This will delete all approved
+          and rejected opportunities. This action cannot be undone.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setResetAllDialogOpen(false)}>Cancel</Button>
+        <Button onClick={handleResetAll} color="error" variant="contained">
+          Reset All
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  const BulkApproveDialog = () => (
+    <Dialog open={bulkApproveDialogOpen} onClose={() => setBulkApproveDialogOpen(false)}>
+      <DialogTitle>Approve All Staged Opportunities</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Are you sure you want to approve all staged opportunities? This will process all
+          pending opportunities in the system.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setBulkApproveDialogOpen(false)}>Cancel</Button>
+        <Button onClick={handleBulkApprove} color="success" variant="contained">
+          Approve All
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  useEffect(() => {
+    if (stagedOpportunities.length === 0) {
+      setStagedExpanded(false);
+    } else {
+      setStagedExpanded(true);
+    }
+  }, [stagedOpportunities.length]);
+
+  useEffect(() => {
+    if (stats.approved === 0) {
+      setApprovedExpanded(false);
+    } else {
+      setApprovedExpanded(true);
+    }
+  }, [stats.approved]);
+
+  const stagedColumns: GridColDef[] = [
     {
       field: 'name',
       headerName: 'Institution',
@@ -379,7 +575,7 @@ const OpportunitiesTable = ({
         <Stack direction="row" spacing={1}>
           <Tooltip title="Preview opportunity details" arrow>
             <IconButton
-              onClick={() => onPreview(params.row)}
+              onClick={() => handlePreview(params.row)}
               color="primary"
               size="small"
               sx={{
@@ -391,27 +587,220 @@ const OpportunitiesTable = ({
               <PreviewIcon />
             </IconButton>
           </Tooltip>
-
-          {showApproveButton && (
-            <Tooltip title="Approve opportunity" arrow>
-              <IconButton
-                onClick={() => onApprove(params.row)}
-                color="success"
-                size="small"
-                sx={{
-                  '&:hover': {
-                    backgroundColor: alpha(theme.palette.success.main, 0.1),
-                  },
-                }}
-              >
-                <ApproveIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-
-          <Tooltip title={rejectTooltip} arrow>
+          <Tooltip title="Approve opportunity" arrow>
             <IconButton
-              onClick={() => onReject(params.row)}
+              onClick={() => handleApprove(params.row)}
+              color="success"
+              size="small"
+              sx={{
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.success.main, 0.1),
+                },
+              }}
+            >
+              <ApproveIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Reject opportunity" arrow>
+            <IconButton
+              onClick={() => handleReject(params.row)}
+              color="error"
+              size="small"
+              sx={{
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.error.main, 0.1),
+                },
+              }}
+            >
+              <RejectIcon />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      ),
+    },
+  ];
+
+  const approvedColumns: GridColDef[] = [
+    {
+      field: 'name',
+      headerName: 'Institution',
+      flex: 1,
+      minWidth: 250,
+      renderCell: (params: GridRenderCellParams) => (
+        <Stack direction="row" alignItems="center" spacing={2}>
+          {params.row.logo && (
+            <Box
+              component="img"
+              src={params.row.logo.url}
+              alt={params.row.name}
+              sx={{
+                width: 32,
+                height: 32,
+                objectFit: 'contain',
+                borderRadius: 1,
+                p: 0.5,
+                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                bgcolor: 'background.paper',
+              }}
+            />
+          )}
+          <Box>
+            <Typography fontWeight="medium">{params.row.name}</Typography>
+            {params.row.description && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block' }}
+              >
+                {params.row.description}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+      ),
+    },
+    {
+      field: 'type',
+      headerName: 'Type',
+      width: 130,
+      renderCell: (params: GridRenderCellParams) => (
+        <Chip
+          label={params.value}
+          size="small"
+          color={
+            params.value === 'bank'
+              ? 'success'
+              : params.value === 'credit_card'
+                ? 'info'
+                : 'warning'
+          }
+          sx={{
+            fontWeight: 500,
+            '& .MuiChip-label': { px: 2 },
+            textTransform: 'capitalize',
+          }}
+        />
+      ),
+    },
+    {
+      field: 'value',
+      headerName: 'Bonus Value',
+      width: 130,
+      renderCell: (params: GridRenderCellParams) => (
+        <Stack spacing={0.5}>
+          <Typography color="success.main" fontWeight="bold">
+            ${params.value}
+          </Typography>
+          {params.row.spend_requirement && (
+            <Typography variant="caption" color="text.secondary">
+              Min. Spend: ${params.row.spend_requirement}
+            </Typography>
+          )}
+        </Stack>
+      ),
+    },
+    {
+      field: 'expiry',
+      headerName: 'Expiry',
+      width: 120,
+      renderCell: (params: GridRenderCellParams) => {
+        const expiry =
+          params.row.details?.expiration ||
+          params.row.metadata?.timing?.bonus_posting_time;
+        if (!expiry) return '-';
+
+        const date = new Date(expiry);
+        // Check if date is valid
+        if (isNaN(date.getTime())) return '-';
+
+        return (
+          <Stack spacing={0.5}>
+            <Typography variant="caption" fontWeight="medium">
+              {date.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })}
+            </Typography>
+            {params.row.metadata?.timing?.bonus_posting_time && (
+              <Typography variant="caption" color="text.secondary">
+                Posts: {params.row.metadata.timing.bonus_posting_time}
+              </Typography>
+            )}
+          </Stack>
+        );
+      },
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 120,
+      renderCell: (params: GridRenderCellParams) => {
+        const status = params.value as OpportunityStatus;
+        const statusConfigs: Record<OpportunityStatus, StatusConfig> = {
+          staged: {
+            label: 'Staged',
+            color: 'info',
+            icon: <PendingIcon sx={{ fontSize: 16, mr: 0.5 }} />,
+          },
+          pending: {
+            label: 'Pending',
+            color: 'warning',
+            icon: <PendingIcon sx={{ fontSize: 16, mr: 0.5 }} />,
+          },
+          approved: {
+            label: 'Approved',
+            color: 'success',
+            icon: <ApproveIcon sx={{ fontSize: 16, mr: 0.5 }} />,
+          },
+          rejected: {
+            label: 'Rejected',
+            color: 'error',
+            icon: <RejectIcon sx={{ fontSize: 16, mr: 0.5 }} />,
+          },
+        };
+
+        const statusConfig = statusConfigs[status] || {
+          label: status,
+          color: 'default',
+          icon: null,
+        };
+
+        return (
+          <Chip
+            {...(statusConfig.icon ? { icon: statusConfig.icon } : {})}
+            label={statusConfig.label}
+            size="small"
+            color={statusConfig.color}
+            sx={{ fontWeight: 500 }}
+          />
+        );
+      },
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 180,
+      sortable: false,
+      renderCell: (params: GridRenderCellParams) => (
+        <Stack direction="row" spacing={1}>
+          <Tooltip title="Preview opportunity details" arrow>
+            <IconButton
+              onClick={() => handlePreview(params.row)}
+              color="primary"
+              size="small"
+              sx={{
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                },
+              }}
+            >
+              <PreviewIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Move back to staged" arrow>
+            <IconButton
+              onClick={() => handleReject(params.row)}
               color="error"
               size="small"
               sx={{
@@ -429,352 +818,14 @@ const OpportunitiesTable = ({
   ];
 
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        height: 600,
-        width: '100%',
-        borderRadius: 2,
-        border: `1px solid ${theme.palette.divider}`,
-        '& .MuiDataGrid-root': {
-          border: 'none',
-          '& .MuiDataGrid-cell:focus': {
-            outline: 'none',
-          },
-          '& .MuiDataGrid-row:hover': {
-            backgroundColor: alpha(theme.palette.primary.main, 0.04),
-          },
-          '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: alpha(theme.palette.background.default, 0.8),
-            borderBottom: `1px solid ${theme.palette.divider}`,
-          },
-          '& .MuiDataGrid-virtualScroller': {
-            backgroundColor: theme.palette.background.paper,
-          },
-          '& .MuiDataGrid-footerContainer': {
-            borderTop: `1px solid ${theme.palette.divider}`,
-          },
-          '& .MuiDataGrid-cell': {
-            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-          },
-        },
-      }}
-    >
-      <DataGrid
-        rows={filteredOpportunities}
-        columns={columns}
-        rowCount={totalCount}
-        pageSizeOptions={[10, 20, 50]}
-        paginationModel={{
-          page: pagination.page - 1,
-          pageSize: pagination.pageSize,
-        }}
-        paginationMode="server"
-        onPaginationModelChange={(model) => {
-          onPageChange(null, model.page);
-          if (model.pageSize !== pagination.pageSize) {
-            onRowsPerPageChange({
-              target: {
-                value: model.pageSize.toString(),
-              },
-            } as React.ChangeEvent<HTMLInputElement>);
-          }
-        }}
-        disableRowSelectionOnClick
-        getRowId={(row) => row.id}
-        loading={false}
-        disableColumnMenu
-        sx={{
-          '& .opportunity-row-staged': {
-            bgcolor: alpha(theme.palette.info.main, 0.04),
-          },
-          '& .opportunity-row-approved': {
-            bgcolor: alpha(theme.palette.success.main, 0.04),
-          },
-        }}
-        getRowClassName={(params) => `opportunity-row-${params.row.status}`}
-      />
-    </Paper>
-  );
-};
-
-const OpportunitiesPage = () => {
-  const theme = useTheme();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(
-    null
-  );
-  const [resetStagedDialogOpen, setResetStagedDialogOpen] = useState(false);
-  const [resetAllDialogOpen, setResetAllDialogOpen] = useState(false);
-  const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
-  const [stagedExpanded, setStagedExpanded] = useState(false);
-  const [approvedExpanded, setApprovedExpanded] = useState(false);
-
-  const {
-    isLoading,
-    pagination,
-    setPagination,
-    approveOpportunity,
-    rejectOpportunity,
-    bulkApproveOpportunities,
-    isBulkApproving,
-    stats,
-    importOpportunities,
-    hasStagedOpportunities,
-    resetStagedOffers,
-    isResettingStagedOffers,
-    resetOpportunities,
-    isResettingOpportunities,
-    paginatedData,
-    stagedOpportunities,
-    queryClient,
-  } = useOpportunities();
-
-  const approvedOpportunities = useMemo(
-    () => (paginatedData?.items || []).filter((opp) => opp.status === 'approved'),
-    [paginatedData]
-  );
-
-  const handlePageChange = (_: unknown, newPage: number) => {
-    setPagination({ ...pagination, page: newPage + 1 });
-  };
-
-  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setPagination({
-      ...pagination,
-      pageSize: parseInt(event.target.value, 10),
-      page: 1,
-    });
-  };
-
-  const handleSearch = useCallback(
-    (value: string) => {
-      setSearchTerm(value);
-      setPagination({
-        ...pagination,
-        page: 1,
-        filters: { ...pagination.filters, search: value },
-      });
-    },
-    [pagination, setPagination]
-  );
-
-  const handleSync = async () => {
-    try {
-      await importOpportunities();
-    } catch (error) {
-      console.error('Failed to sync opportunities:', error);
-    }
-  };
-
-  const handleBulkApprove = async () => {
-    try {
-      await bulkApproveOpportunities();
-      setBulkApproveDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to bulk approve opportunities:', error);
-    }
-  };
-
-  const handlePreview = (opportunity: Opportunity & { isStaged?: boolean }) => {
-    setSelectedOpportunity(opportunity);
-  };
-
-  const handleApprove = async (opportunity: Opportunity & { isStaged?: boolean }) => {
-    if (opportunity.isStaged) {
-      await approveOpportunity(opportunity);
-    } else {
-      // Get the full opportunity data for non-staged opportunities
-      const fullOpportunity = {
-        ...opportunity,
-        isStaged: false,
-      };
-      await approveOpportunity(fullOpportunity);
-    }
-  };
-
-  const handleReject = async (opportunity: Opportunity & { isStaged?: boolean }) => {
-    try {
-      if (opportunity.status === 'approved') {
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
-
-        if (!idToken) {
-          throw new Error('No authenticated user found');
-        }
-
-        await queryClient.cancelQueries({ queryKey: ['opportunities'] });
-        await queryClient.cancelQueries({ queryKey: ['opportunities', 'staged'] });
-
-        // Optimistic update
-        const previousApproved = queryClient.getQueryData(['opportunities']) as
-          | PaginatedOpportunities
-          | undefined;
-        const previousStaged = queryClient.getQueryData(['opportunities', 'staged']) as
-          | Opportunity[]
-          | undefined;
-
-        // Remove from approved list
-        if (previousApproved?.items) {
-          queryClient.setQueryData(['opportunities'], {
-            ...previousApproved,
-            items: previousApproved.items.filter((opp) => opp.id !== opportunity.id),
-          });
-        }
-
-        // Add to staged list
-        if (previousStaged) {
-          queryClient.setQueryData(
-            ['opportunities', 'staged'],
-            [...previousStaged, { ...opportunity, status: 'staged' }]
-          );
-        }
-
-        try {
-          const response = await fetch('/api/opportunities/reject', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${idToken}`,
-            },
-            body: JSON.stringify({ id: opportunity.id }),
-            credentials: 'include',
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(
-              error.details || error.error || 'Failed to reject opportunity'
-            );
-          }
-
-          // Invalidate queries to ensure data is fresh
-          await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-          await queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
-        } catch (error) {
-          // Revert optimistic updates on error
-          if (previousApproved) {
-            queryClient.setQueryData(['opportunities'], previousApproved);
-          }
-          if (previousStaged) {
-            queryClient.setQueryData(['opportunities', 'staged'], previousStaged);
-          }
-          throw error;
-        }
-      } else {
-        await rejectOpportunity(opportunity);
-      }
-    } catch (error) {
-      console.error('Failed to reject opportunity:', error);
-    }
-  };
-
-  const processingSpeed = useMemo(() => {
-    // Total opportunities that need action = staged + approved
-    const totalToProcess = stagedOpportunities.length + stats.approved;
-    // Only approved count as processed
-    const totalProcessed = stats.approved;
-
-    // Calculate percentage of opportunities that have been processed
-    return totalToProcess > 0
-      ? ((totalProcessed / totalToProcess) * 100).toFixed(1)
-      : '0';
-  }, [stats.approved, stagedOpportunities.length]);
-
-  const handleResetStaged = async () => {
-    try {
-      await resetStagedOffers();
-      setResetStagedDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to reset staged offers:', error);
-    }
-  };
-
-  const handleResetAll = async () => {
-    try {
-      await resetOpportunities();
-      setResetAllDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to reset opportunities:', error);
-    }
-  };
-
-  const ResetStagedDialog = () => (
-    <Dialog open={resetStagedDialogOpen} onClose={() => setResetStagedDialogOpen(false)}>
-      <DialogTitle>Reset Staged Offers</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Are you sure you want to reset all staged offers? This action cannot be undone.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setResetStagedDialogOpen(false)}>Cancel</Button>
-        <Button onClick={handleResetStaged} color="error" variant="contained">
-          Reset Staged
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-
-  const ResetAllDialog = () => (
-    <Dialog open={resetAllDialogOpen} onClose={() => setResetAllDialogOpen(false)}>
-      <DialogTitle>Reset All Opportunities</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Are you sure you want to reset all opportunities? This will delete all approved
-          and rejected opportunities. This action cannot be undone.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setResetAllDialogOpen(false)}>Cancel</Button>
-        <Button onClick={handleResetAll} color="error" variant="contained">
-          Reset All
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-
-  const BulkApproveDialog = () => (
-    <Dialog open={bulkApproveDialogOpen} onClose={() => setBulkApproveDialogOpen(false)}>
-      <DialogTitle>Approve All Staged Opportunities</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Are you sure you want to approve all staged opportunities? This will process all
-          pending opportunities in the system.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setBulkApproveDialogOpen(false)}>Cancel</Button>
-        <Button onClick={handleBulkApprove} color="success" variant="contained">
-          Approve All
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-
-  useEffect(() => {
-    if (stagedOpportunities.length === 0) {
-      setStagedExpanded(false);
-    } else {
-      setStagedExpanded(true);
-    }
-  }, [stagedOpportunities.length]);
-
-  useEffect(() => {
-    if (stats.approved === 0) {
-      setApprovedExpanded(false);
-    } else {
-      setApprovedExpanded(true);
-    }
-  }, [stats.approved]);
-
-  return (
     <Container
       maxWidth={false}
       sx={{
         py: { xs: 2, sm: 3 },
         px: { xs: 1.5, sm: 2, md: 3 },
         minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       <Box sx={{ mb: { xs: 2, sm: 3 } }}>
@@ -925,7 +976,7 @@ const OpportunitiesPage = () => {
         </Stack>
       </Box>
 
-      <Grid container spacing={{ xs: 2, sm: 3 }}>
+      <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ flex: 1 }}>
         <Grid item xs={12} lg={4}>
           <Stack spacing={{ xs: 2, sm: 3 }}>
             <Paper
@@ -1130,8 +1181,8 @@ const OpportunitiesPage = () => {
           </Stack>
         </Grid>
 
-        <Grid item xs={12} lg={8}>
-          <Stack spacing={{ xs: 2, sm: 3 }}>
+        <Grid item xs={12} lg={8} sx={{ height: '100%' }}>
+          <Stack spacing={{ xs: 2, sm: 3 }} sx={{ height: '100%' }}>
             <Paper
               elevation={0}
               sx={{
@@ -1139,6 +1190,9 @@ const OpportunitiesPage = () => {
                 border: `1px solid ${theme.palette.divider}`,
                 bgcolor: alpha(theme.palette.background.paper, 0.6),
                 overflow: 'hidden',
+                flex: stagedOpportunities.length > 0 ? 1 : 'auto',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               <Box
@@ -1185,23 +1239,64 @@ const OpportunitiesPage = () => {
               </Box>
               <Box
                 sx={{
-                  height: stagedExpanded ? 'auto' : 0,
+                  height: stagedExpanded ? '100%' : 0,
                   overflow: 'hidden',
                   transition: 'height 0.3s ease',
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
                 }}
               >
                 {stagedExpanded && (
-                  <OpportunitiesTable
-                    opportunities={stagedOpportunities}
-                    totalCount={stagedOpportunities.length}
-                    pagination={pagination}
-                    onPageChange={handlePageChange}
-                    onRowsPerPageChange={handleRowsPerPageChange}
-                    onPreview={handlePreview}
-                    onApprove={handleApprove}
-                    onReject={handleReject}
-                    searchTerm={searchTerm}
-                  />
+                  <Box sx={{ flex: 1, minHeight: 0 }}>
+                    <DataGrid
+                      rows={stagedOpportunities}
+                      columns={stagedColumns}
+                      initialState={{
+                        pagination: {
+                          paginationModel: { pageSize: 20, page: 0 },
+                        },
+                      }}
+                      pageSizeOptions={[10, 20, 50]}
+                      disableRowSelectionOnClick
+                      getRowId={(row) => row.id}
+                      loading={isLoading}
+                      disableColumnMenu
+                      autoHeight={stagedOpportunities.length <= 7}
+                      getRowClassName={(params) => `opportunity-row-${params.row.status}`}
+                      sx={{
+                        '& .opportunity-row-staged': {
+                          bgcolor: alpha(theme.palette.info.main, 0.04),
+                        },
+                        '& .opportunity-row-approved': {
+                          bgcolor: alpha(theme.palette.success.main, 0.04),
+                        },
+                        height: stagedOpportunities.length > 7 ? '100%' : 'auto',
+                        '& .MuiDataGrid-root': {
+                          border: 'none',
+                          '& .MuiDataGrid-cell:focus': {
+                            outline: 'none',
+                          },
+                          '& .MuiDataGrid-row:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                          },
+                          '& .MuiDataGrid-columnHeaders': {
+                            backgroundColor: alpha(theme.palette.background.default, 0.8),
+                            borderBottom: `1px solid ${theme.palette.divider}`,
+                          },
+                          '& .MuiDataGrid-virtualScroller': {
+                            backgroundColor: theme.palette.background.paper,
+                          },
+                          '& .MuiDataGrid-footerContainer': {
+                            borderTop: `1px solid ${theme.palette.divider}`,
+                          },
+                          '& .MuiDataGrid-cell': {
+                            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                          },
+                        },
+                      }}
+                    />
+                  </Box>
                 )}
               </Box>
             </Paper>
@@ -1213,6 +1308,9 @@ const OpportunitiesPage = () => {
                 border: `1px solid ${theme.palette.divider}`,
                 bgcolor: alpha(theme.palette.background.paper, 0.6),
                 overflow: 'hidden',
+                flex: stats.approved > 0 ? 1 : 'auto',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               <Box
@@ -1236,7 +1334,7 @@ const OpportunitiesPage = () => {
                       sx={{ fontSize: 24, color: theme.palette.success.main }}
                     />
                     <Typography variant="h6" fontWeight="500">
-                      Approved Opportunities ({stats.approved})
+                      Approved Opportunities ({approvedOpportunities.length})
                     </Typography>
                   </Stack>
                   <IconButton
@@ -1252,25 +1350,64 @@ const OpportunitiesPage = () => {
               </Box>
               <Box
                 sx={{
-                  height: approvedExpanded ? 'auto' : 0,
+                  height: approvedExpanded ? '100%' : 0,
                   overflow: 'hidden',
                   transition: 'height 0.3s ease',
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
                 }}
               >
                 {approvedExpanded && (
-                  <OpportunitiesTable
-                    opportunities={approvedOpportunities}
-                    totalCount={stats.approved}
-                    pagination={pagination}
-                    onPageChange={handlePageChange}
-                    onRowsPerPageChange={handleRowsPerPageChange}
-                    onPreview={handlePreview}
-                    onApprove={handleApprove}
-                    onReject={handleReject}
-                    showApproveButton={false}
-                    rejectTooltip="Move back to staged"
-                    searchTerm={searchTerm}
-                  />
+                  <Box sx={{ flex: 1, minHeight: 0 }}>
+                    <DataGrid
+                      rows={approvedOpportunities}
+                      columns={approvedColumns}
+                      initialState={{
+                        pagination: {
+                          paginationModel: { pageSize: 20, page: 0 },
+                        },
+                      }}
+                      pageSizeOptions={[10, 20, 50]}
+                      disableRowSelectionOnClick
+                      getRowId={(row) => row.id}
+                      loading={isLoading}
+                      disableColumnMenu
+                      autoHeight={approvedOpportunities.length <= 7}
+                      getRowClassName={(params) => `opportunity-row-${params.row.status}`}
+                      sx={{
+                        '& .opportunity-row-staged': {
+                          bgcolor: alpha(theme.palette.info.main, 0.04),
+                        },
+                        '& .opportunity-row-approved': {
+                          bgcolor: alpha(theme.palette.success.main, 0.04),
+                        },
+                        height: approvedOpportunities.length > 7 ? '100%' : 'auto',
+                        '& .MuiDataGrid-root': {
+                          border: 'none',
+                          '& .MuiDataGrid-cell:focus': {
+                            outline: 'none',
+                          },
+                          '& .MuiDataGrid-row:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                          },
+                          '& .MuiDataGrid-columnHeaders': {
+                            backgroundColor: alpha(theme.palette.background.default, 0.8),
+                            borderBottom: `1px solid ${theme.palette.divider}`,
+                          },
+                          '& .MuiDataGrid-virtualScroller': {
+                            backgroundColor: theme.palette.background.paper,
+                          },
+                          '& .MuiDataGrid-footerContainer': {
+                            borderTop: `1px solid ${theme.palette.divider}`,
+                          },
+                          '& .MuiDataGrid-cell': {
+                            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                          },
+                        },
+                      }}
+                    />
+                  </Box>
                 )}
               </Box>
             </Paper>
