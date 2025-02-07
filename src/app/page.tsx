@@ -450,8 +450,10 @@ export default function HomePage() {
       )}
 
       <HeroSection user={user} stats={stats || []} />
-      {/* TODO: Replace mock data with real data from API */}
-      <FeaturedOpportunities opportunities={MOCK_OPPORTUNITIES} />
+      {/* Using mock data only for now */}
+      <Box sx={{ py: 8 }}>
+        <FeaturedOpportunities opportunities={MOCK_OPPORTUNITIES} />
+      </Box>
       <Box
         component="section"
         sx={{
