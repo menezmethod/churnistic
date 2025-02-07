@@ -11,13 +11,13 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useSplashStats } from '@/lib/hooks/useSplashStats';
 
 import { BankLogos } from './components/BankLogos';
 import { FAQ } from './components/FAQ';
@@ -296,17 +296,7 @@ function HeroSection({
 export default function HomePage() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { data: stats, error } = useQuery({
-    queryKey: ['stats'],
-    queryFn: async () => {
-      const response = await fetch('/api/opportunities/stats');
-      if (!response.ok) {
-        throw new Error('Failed to fetch stats');
-      }
-      return response.json();
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
+  const { stats, error } = useSplashStats();
 
   // Add error state
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -317,21 +307,6 @@ export default function HomePage() {
     }
   }, [error]);
 
-  const displayStats = [
-    {
-      label: 'POTENTIAL BONUS EARNINGS',
-      value: stats?.totalPotentialValue || '$0',
-    },
-    {
-      label: 'BONUSES AVAILABLE',
-      value: `${stats?.activeCount || 0}+`,
-    },
-    {
-      label: 'AVERAGE BONUS VALUE',
-      value: stats?.averageValue || '$0',
-    },
-  ];
-
   return (
     <Box component="main">
       {errorMessage && (
@@ -340,7 +315,7 @@ export default function HomePage() {
         </Box>
       )}
 
-      <HeroSection user={user} stats={displayStats} />
+      <HeroSection user={user} stats={stats || []} />
       <BankLogos />
       <FeaturedOpportunities />
       <Box
