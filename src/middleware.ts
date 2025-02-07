@@ -11,11 +11,15 @@ const protectedPaths = [
   '/api/opportunities/staged',
   '/api/opportunities/approve',
   '/api/opportunities/reject',
-  '/api/opportunities/reset',
+  '/api/opportunities/reset'
 ];
 
-// Public API endpoints
-const publicEndpoints = ['/api/opportunities/public-stats', '/api/opportunities'];
+// Public API endpoints and paths
+const publicEndpoints = [
+  '/api/opportunities/public-stats',
+  '/api/opportunities',
+  '/opportunities'
+];
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
@@ -25,8 +29,8 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   console.log('Middleware - Processing request for path:', path);
 
-  // Check if path is public
-  if (publicEndpoints.includes(path)) {
+  // Check if path is public or starts with a public path
+  if (publicEndpoints.some(endpoint => path === endpoint || path.startsWith(`${endpoint}/`))) {
     console.log('Public endpoint accessed:', path);
     return NextResponse.next();
   }
