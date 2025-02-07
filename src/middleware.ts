@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Paths that require authentication
-const protectedPaths = ['/dashboard', '/admin', '/api/users', '/api/opportunities'];
+const protectedPaths = ['/dashboard', '/admin', '/api/users', '/api/opportunities', '/api/opportunities/stats'];
 
 // Public API endpoints
 const publicEndpoints = ['/api/opportunities/public-stats'];
