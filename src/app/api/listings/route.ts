@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { getAdminDb } from '@/lib/firebase/admin';
+import { getFullCollectionName } from '@/lib/firebase/utils/environment';
 import { type Opportunity } from '@/types/opportunity';
 
 export async function GET(request: NextRequest) {
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
 
-    const collectionRef = db.collection('opportunities');
+    const collectionRef = db.collection(getFullCollectionName('opportunities'));
     let queryRef: Query = collectionRef;
 
     // Apply filters
@@ -253,7 +254,10 @@ export async function POST(req: NextRequest) {
     try {
       const db = getAdminDb();
       // Use the provided ID instead of generating a new one
-      await db.collection('opportunities').doc(body.id).set(opportunity);
+      await db
+        .collection(getFullCollectionName('opportunities'))
+        .doc(body.id)
+        .set(opportunity);
       console.log('✅ Opportunity created with ID:', body.id);
 
       return NextResponse.json({
