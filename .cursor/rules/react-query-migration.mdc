@@ -1,0 +1,42 @@
+# React Query v4 to v5 Migration Rules
+
+## Core Changes
+- Replace QueryClient initialization with v5 syntax
+- Update import paths from '@tanstack/react-query' to '@tanstack/react-query'
+- Remove deprecated options (retry, retryDelay)
+- Update error types to unknown instead of Error
+
+## Hook Migrations
+- useQuery:
+  - Replace enabled with gcTime
+  - Update suspense handling
+  - Use proper error typing
+- useMutation:
+  - Update to new mutation object structure
+  - Replace mutate with mutateAsync when needed
+  - Update onMutate, onSuccess, onError signatures
+
+## Infinite Queries
+- Update getNextPageParam signature
+- Replace hasNextPage with proper checks
+- Update fetchNextPage implementation
+
+## DevTools
+- Update import from '@tanstack/react-query-devtools'
+- Configure new devtools options
+
+## Type Safety
+- Use proper generic types
+- Implement error boundaries with new types
+- Update QueryClient configuration types
+
+## Cache Behavior
+- Update staleTime configurations
+- Implement proper garbage collection
+- Use new cache tags feature
+
+## Best Practices
+- Use suspense mode appropriately
+- Implement proper error handling
+- Use proper prefetching strategies
+- Follow new cache invalidation patterns 

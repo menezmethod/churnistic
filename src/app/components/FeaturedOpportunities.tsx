@@ -20,25 +20,19 @@ import { useInView } from 'react-intersection-observer';
 
 import { LogoImage } from '@/app/opportunities/components/LogoImage';
 import { getTypeColors } from '@/app/opportunities/utils/colorUtils';
-import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { formatCurrency } from '@/lib/utils/formatters';
-import { FirestoreOpportunity } from '@/types/opportunity';
+import { Opportunity } from '@/types/opportunity';
 
-export function FeaturedOpportunities() {
+interface FeaturedOpportunitiesProps {
+  opportunities: Opportunity[];
+}
+
+export function FeaturedOpportunities({ opportunities }: FeaturedOpportunitiesProps) {
   const theme = useTheme();
   const [ref] = useInView({
     threshold: 0.1,
     triggerOnce: true,
   });
-  const { opportunities } = useOpportunities();
-
-  // Get top 3 opportunities with highest value
-  const featuredOffers = (opportunities || [])
-    .sort(
-      (a: FirestoreOpportunity, b: FirestoreOpportunity) =>
-        (b.value || 0) - (a.value || 0)
-    )
-    .slice(0, 3);
 
   return (
     <Container maxWidth="lg" sx={{ mb: 8 }}>
@@ -74,16 +68,16 @@ export function FeaturedOpportunities() {
           Discover our hand-picked selection of top-rated financial opportunities
         </Typography>
 
-        {featuredOffers.length > 0 ? (
+        {opportunities.length > 0 ? (
           <Grid container spacing={4}>
-            {featuredOffers.map((offer: FirestoreOpportunity, index: number) => {
-              const colors = getTypeColors(offer.type, theme);
+            {opportunities.map((opportunity: Opportunity, index: number) => {
+              const colors = getTypeColors(opportunity.type, theme);
               return (
                 <Grid
                   item
                   xs={12}
                   md={4}
-                  key={offer.id}
+                  key={opportunity.id}
                   component={motion.div}
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -191,26 +185,30 @@ export function FeaturedOpportunities() {
                           },
                         }}
                       >
-                        <LogoImage logo={offer.logo} name={offer.name} colors={colors} />
+                        <LogoImage
+                          logo={opportunity.logo || { url: '', type: 'image/png' }}
+                          name={opportunity.name}
+                          colors={colors}
+                        />
                       </Box>
                     </Box>
 
                     <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                      {offer.name}
+                      {opportunity.name}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      {offer.type.replace('_', ' ').toUpperCase()}
+                      {opportunity.type.replace('_', ' ').toUpperCase()}
                     </Typography>
 
                     <Typography
                       variant="h5"
                       sx={{ color: colors.primary, fontWeight: 600, mb: 2 }}
                     >
-                      {formatCurrency(offer.value)}
+                      {formatCurrency(opportunity.value)}
                     </Typography>
 
-                    {offer.description && (
+                    {opportunity.description && (
                       <Typography
                         variant="body2"
                         color="text.secondary"
@@ -222,7 +220,7 @@ export function FeaturedOpportunities() {
                           overflow: 'hidden',
                         }}
                       >
-                        {offer.description}
+                        {opportunity.description}
                       </Typography>
                     )}
 
@@ -241,7 +239,7 @@ export function FeaturedOpportunities() {
                       </Typography>
                       <List dense disablePadding>
                         {(
-                          offer.bonus?.requirements?.[0]?.description?.split('\n') || []
+                          opportunity.bonus?.requirements?.description?.split('\n') || []
                         ).map((req: string, idx: number) => (
                           <ListItem
                             key={idx}
@@ -276,7 +274,7 @@ export function FeaturedOpportunities() {
 
                     <Box sx={{ mt: 'auto', display: 'flex', gap: 1 }}>
                       <Link
-                        href={`/opportunities/${offer.id}`}
+                        href={`/opportunities/${opportunity.id}`}
                         style={{ textDecoration: 'none', flexGrow: 1 }}
                       >
                         <Button
@@ -316,10 +314,10 @@ export function FeaturedOpportunities() {
                           View Details
                         </Button>
                       </Link>
-                      {offer.offer_link && (
+                      {opportunity.offer_link && (
                         <Button
                           variant="outlined"
-                          href={offer.offer_link}
+                          href={opportunity.offer_link}
                           target="_blank"
                           rel="noopener noreferrer"
                           sx={{

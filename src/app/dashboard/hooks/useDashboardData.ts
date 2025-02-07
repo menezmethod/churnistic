@@ -75,49 +75,31 @@ export function useDashboardData() {
     void fetchProfile();
   }, [user]);
 
-  // Fetch stats from the API
-  const { data: stats, error: statsError } = useQuery({
-    queryKey: ['stats'],
-    queryFn: async () => {
-      const response = await fetch(`${baseUrl}/api/opportunities/stats`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch stats');
-      }
-      const data = await response.json();
-
-      // Format currency values
-      const formattedTotalValue = formatCurrency(data.totalPotentialValue || 0);
-      const formattedAvgValue = formatCurrency(data.averageValue || 0);
-
-      // Transform API response to match dashboard format
-      return {
-        trackedValue: formattedTotalValue,
-        potentialValue: formattedTotalValue,
-        activeOpportunities: `${data.activeCount || 0}`,
-        averageValue: formattedAvgValue,
-        trends: {
-          trackedValue: {
-            value: data.approved || 0,
-            label: 'opportunities in progress',
-          },
-          potentialValue: {
-            value: data.highValue || 0,
-            label: 'high-value opportunities',
-          },
-          activeOpportunities: {
-            value: data.activeCount || 0,
-            label: 'active opportunities',
-          },
-          averageValue: {
-            value: data.averageValue || 0,
-            label: 'average bonus value',
-          },
-        },
-      };
+  // TODO: Replace mock stats with real data after feature and tracking implementation
+  const stats = {
+    trackedValue: formatCurrency(1500),
+    potentialValue: formatCurrency(5000),
+    activeOpportunities: '3',
+    averageValue: formatCurrency(1200),
+    trends: {
+      trackedValue: {
+        value: 2,
+        label: 'opportunities in progress',
+      },
+      potentialValue: {
+        value: 1,
+        label: 'high-value opportunities',
+      },
+      activeOpportunities: {
+        value: 3,
+        label: 'active opportunities',
+      },
+      averageValue: {
+        value: 1200,
+        label: 'average bonus value',
+      },
     },
-    enabled: !!user && !!baseUrl,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
+  };
 
   // Fetch opportunities for the dashboard
   const { data: opportunities = [] } = useQuery({
@@ -160,8 +142,8 @@ export function useDashboardData() {
     stats,
     quickOpportunities,
     trackedOpportunities,
-    loading: authLoading || loadingProfile || !stats,
-    error: statsError,
+    loading: authLoading || loadingProfile,
+    error: null,
   };
 }
 
