@@ -91,10 +91,7 @@ const getOpportunities = async ({
   });
 
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
-  const url = new URL(
-    `/api/opportunities`,
-    baseUrl || window.location.origin
-  );
+  const url = new URL('/api/opportunities', baseUrl || window.location.origin);
 
   // Add query parameters
   url.searchParams.set('page', pageParam.toString());

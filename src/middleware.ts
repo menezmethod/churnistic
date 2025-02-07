@@ -14,7 +14,11 @@ const protectedPaths = [
 ];
 
 // Public API endpoints and paths
-const publicEndpoints = ['/api/opportunities/public-stats', '/api/opportunities', '/opportunities'];
+const publicEndpoints = [
+  '/api/opportunities/public-stats',
+  '/api/opportunities',
+  '/opportunities',
+];
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],

@@ -635,14 +635,17 @@ export function useOpportunities(): UseOpportunitiesReturn {
         const idToken = await auth.currentUser?.getIdToken(true);
         if (!idToken) throw new Error('No authenticated user found');
 
-        const response = await fetch(`/api/opportunities/${opportunity.id}?action=reject`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-          },
-          credentials: 'include',
-        });
+        const response = await fetch(
+          `/api/opportunities/${opportunity.id}?action=reject`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            credentials: 'include',
+          }
+        );
 
         if (!response.ok) {
           const error = await response.json();
