@@ -48,9 +48,13 @@ export async function GET(request: NextRequest) {
 
     // Apply filters
     if (status) {
-      const statuses = status.split(',');
+      const statuses = status.split(',').map((s) => s.trim());
       if (statuses.length > 0) {
-        queryRef = queryRef.where('status', 'in', statuses);
+        if (statuses.length === 1) {
+          queryRef = queryRef.where('status', '==', statuses[0]);
+        } else {
+          queryRef = queryRef.where('status', 'in', statuses);
+        }
       }
     }
 
