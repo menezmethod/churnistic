@@ -102,7 +102,7 @@ export function useDashboardData() {
   const { data: opportunities = [] } = useQuery({
     queryKey: ['opportunities'],
     queryFn: async () => {
-      const response = await fetch('/api/opportunities');
+      const response = await fetch('/api/listings');
       if (!response.ok) {
         throw new Error('Failed to fetch opportunities');
       }

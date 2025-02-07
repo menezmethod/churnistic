@@ -6,19 +6,15 @@ const protectedPaths = [
   '/dashboard',
   '/admin',
   '/api/users',
-  '/api/opportunities/import',
-  '/api/opportunities/staged',
-  '/api/opportunities/approve',
-  '/api/opportunities/reject',
-  '/api/opportunities/reset',
+  '/api/listings/import',
+  '/api/listings/staged',
+  '/api/listings/approve',
+  '/api/listings/reject',
+  '/api/listings/reset',
 ];
 
 // Public API endpoints and paths
-const publicEndpoints = [
-  '/api/opportunities/public-stats',
-  '/api/opportunities',
-  '/opportunities',
-];
+const publicEndpoints = ['/api/listings/public-stats', '/api/listings', '/opportunities'];
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],

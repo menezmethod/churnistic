@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 
 import OpportunitiesSection from './components/OpportunitiesSection';
 
-const API_BASE_URL = '/api/opportunities';
+const API_BASE_URL = '/api/listings';
 
 export default function OpportunitiesPage() {
   return (

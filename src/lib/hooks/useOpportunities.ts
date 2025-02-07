@@ -9,7 +9,7 @@ import { useMemo, useEffect } from 'react';
 
 import { FirestoreOpportunity } from '@/types/opportunity';
 
-const API_BASE = '/api/opportunities';
+const API_BASE = '/api/listings';
 const PAGE_SIZE = 20;
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -80,7 +80,7 @@ const getOpportunities = async ({
   total: number;
   hasMore: boolean;
 }> => {
-  console.log('Fetching opportunities with params:', {
+  console.log('Fetching items with params:', {
     page: pageParam,
     limit,
     searchTerm,
@@ -91,8 +91,8 @@ const getOpportunities = async ({
   });
 
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
-    ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/opportunities`
-    : '/api/opportunities';
+    ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/listings`
+    : '/api/listings';
 
   const url = new URL(
     baseUrl.startsWith('http') ? baseUrl : baseUrl,

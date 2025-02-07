@@ -38,7 +38,7 @@ export const useOpportunityApproval = () => {
         throw new Error('No authenticated user found');
       }
 
-      const response = await fetch('/api/opportunities/approve/bulk', {
+      const response = await fetch('/api/listings/approve/bulk', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

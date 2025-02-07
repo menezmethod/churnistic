@@ -7,7 +7,7 @@ import { type Opportunity } from '@/types/opportunity';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('📥 GET /api/opportunities - Starting request');
+    console.log('📥 GET /api/listings - Starting request');
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
@@ -129,14 +129,14 @@ export async function GET(request: NextRequest) {
       hasMore,
     });
   } catch (error) {
-    console.error('❌ Error in GET /api/opportunities:', error);
+    console.error('❌ Error in GET /api/listings:', error);
     return NextResponse.json({ error: 'Failed to fetch opportunities' }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    console.log('📥 POST /api/opportunities - Starting request');
+    console.log('📥 POST /api/listings - Starting request');
     const { session } = await createAuthContext(req);
 
     if (!session) {
@@ -271,7 +271,7 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('❌ Error in POST /api/opportunities:', error);
+    console.error('❌ Error in POST /api/listings:', error);
     return NextResponse.json({ error: 'Failed to create opportunity' }, { status: 500 });
   }
 }

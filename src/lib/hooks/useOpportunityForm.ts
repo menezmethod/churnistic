@@ -218,7 +218,7 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/opportunities', {
+      const response = await fetch('/api/listings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
