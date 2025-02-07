@@ -47,19 +47,10 @@ export function shouldUseEmulators(): boolean {
 }
 
 /**
- * Gets the appropriate collection prefix for the current environment
- * @returns Collection prefix string
- */
-export function getCollectionPrefix(): string {
-  const env = getCurrentEnvironment();
-  return env === FIREBASE_ENVIRONMENTS.production ? '' : `${env}_`;
-}
-
-/**
- * Gets the full collection name with environment prefix
+ * Gets the full collection name
  * @param baseCollectionName Base collection name
- * @returns Full collection name with environment prefix
+ * @returns The collection name
  */
 export function getFullCollectionName(baseCollectionName: string): string {
-  return `${getCollectionPrefix()}${baseCollectionName}`;
+  return baseCollectionName;
 }
