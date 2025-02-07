@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server';
 const protectedPaths = ['/dashboard', '/admin', '/api/users', '/api/opportunities'];
 
 // Public API endpoints
-const publicEndpoints = ['/api/opportunities/stats', '/api/opportunities/public-stats'];
+const publicEndpoints = ['/api/opportunities/public-stats'];
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
