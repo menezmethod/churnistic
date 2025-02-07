@@ -74,3 +74,10 @@ globs:
 - Use proper image optimization
 - Follow Core Web Vitals guidelines
 - Monitor and optimize bundle size
+
+## Project Management:
+- Reference /Users/luisgimenez/Development/churnistic/docs/project_milestones.md for all feature implementations
+- Ensure new code aligns with defined milestones
+- Follow the established database schema
+- Consider cost optimizations defined in metrics
+- Maintain consistency with existing components

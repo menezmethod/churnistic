@@ -27,8 +27,7 @@ interface OpportunityStats {
 }
 
 const fetchStats = async (): Promise<OpportunityStats> => {
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const response = await fetch(`${baseUrl}/api/opportunities/public-stats`, {
+  const response = await fetch('/api/opportunities/public-stats', {
     next: { revalidate: 300 }, // Cache for 5 minutes
   });
   if (!response.ok) throw new Error('Failed to fetch stats');

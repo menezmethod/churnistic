@@ -50,9 +50,6 @@ export function useDashboardData() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // Get base URL for API calls
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-
   // Fetch profile data
   useEffect(() => {
     if (!user) return;
@@ -105,14 +102,14 @@ export function useDashboardData() {
   const { data: opportunities = [] } = useQuery({
     queryKey: ['opportunities'],
     queryFn: async () => {
-      const response = await fetch(`${baseUrl}/api/opportunities`);
+      const response = await fetch('/api/opportunities');
       if (!response.ok) {
         throw new Error('Failed to fetch opportunities');
       }
       const data = await response.json();
       return data.opportunities || [];
     },
-    enabled: !!user && !!baseUrl,
+    enabled: !!user,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 

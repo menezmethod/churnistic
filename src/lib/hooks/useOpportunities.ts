@@ -95,7 +95,8 @@ const getOpportunities = async ({
     : '/api/opportunities';
 
   const url = new URL(
-    baseUrl.startsWith('http') ? baseUrl : `${window.location.origin}${baseUrl}`
+    baseUrl.startsWith('http') ? baseUrl : baseUrl,
+    process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'
   );
 
   // Add query parameters
