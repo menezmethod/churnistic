@@ -20,7 +20,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { useSplashStats } from '@/lib/hooks/useSplashStats';
 import { Opportunity } from '@/types/opportunity';
 
-import { BankLogos } from './components/BankLogos';
+// TODO: Re-implement bank logos and public opportunities after API is ready
 import { FAQ } from './components/FAQ';
 import { FeaturedOpportunities } from './components/FeaturedOpportunities';
 
@@ -450,7 +450,6 @@ export default function HomePage() {
       )}
 
       <HeroSection user={user} stats={stats || []} />
-      <BankLogos />
       {/* TODO: Replace mock data with real data from API */}
       <FeaturedOpportunities opportunities={MOCK_OPPORTUNITIES} />
       <Box
