@@ -312,7 +312,7 @@ const fetchStagedOpportunities = async (): Promise<
     throw new Error('No authenticated user found');
   }
 
-  const response = await fetch('/api/listings/staged', {
+  const response = await fetch('/api/opportunities/staged', {
     headers: {
       Authorization: `Bearer ${idToken}`,
     },
@@ -400,7 +400,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
         params.set('maxValue', pagination.filters.maxValue.toString());
       if (pagination.filters.search) params.set('search', pagination.filters.search);
 
-      const response = await fetch(`/api/listings?${params}`);
+      const response = await fetch(`/api/opportunities?${params}`);
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.details || error.error || 'Failed to fetch opportunities');
@@ -418,7 +418,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
     queryKey: ['opportunities', 'stats'],
     queryFn: async () => {
-      const response = await fetch('/api/listings/stats');
+      const response = await fetch('/api/opportunities/stats');
       if (!response.ok) throw new Error('Failed to fetch stats');
       return response.json();
     },
@@ -449,7 +449,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
         throw new Error('No authenticated user found');
       }
 
-      const response = await fetch('/api/listings/rejected', {
+      const response = await fetch('/api/opportunities/rejected', {
         headers: {
           Authorization: `Bearer ${idToken}`,
         },
@@ -486,7 +486,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
         pageSize: '1000', // Large enough to get all approved opportunities
       });
 
-      const response = await fetch(`/api/listings?${params}`);
+      const response = await fetch(`/api/opportunities?${params}`);
       if (!response.ok) {
         const error = await response.json();
         throw new Error(
@@ -526,7 +526,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
           throw new Error('No authenticated user found');
         }
 
-        const importResponse = await fetch('/api/listings/import', {
+        const importResponse = await fetch('/api/opportunities/import', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -565,7 +565,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
         const idToken = await auth.currentUser?.getIdToken(true);
         if (!idToken) throw new Error('No authenticated user found');
 
-        const response = await fetch('/api/listings/approve', {
+        const response = await fetch('/api/opportunities/approve', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -635,7 +635,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
         const idToken = await auth.currentUser?.getIdToken(true);
         if (!idToken) throw new Error('No authenticated user found');
 
-        const response = await fetch(`/api/listings/${opportunity.id}?action=reject`, {
+        const response = await fetch(`/api/opportunities/${opportunity.id}?action=reject`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -703,7 +703,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
         const idToken = await auth.currentUser?.getIdToken(true);
         if (!idToken) throw new Error('No authenticated user found');
 
-        const response = await fetch('/api/listings/approve/bulk', {
+        const response = await fetch('/api/opportunities/approve/bulk', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -766,7 +766,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
         const idToken = await auth.currentUser?.getIdToken(true);
         if (!idToken) throw new Error('No authenticated user found');
 
-        const response = await fetch('/api/listings/reset', {
+        const response = await fetch('/api/opportunities/reset', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -804,7 +804,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
         throw new Error('No authenticated user found');
       }
 
-      const response = await fetch('/api/listings/reset', {
+      const response = await fetch('/api/opportunities/reset', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

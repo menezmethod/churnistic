@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { FirestoreOpportunity } from '@/types/opportunity';
 
-const API_BASE = '/api/listings';
+const API_BASE = '/api/opportunities';
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {

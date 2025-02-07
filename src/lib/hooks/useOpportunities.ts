@@ -9,7 +9,7 @@ import { useMemo, useEffect } from 'react';
 
 import { FirestoreOpportunity } from '@/types/opportunity';
 
-const API_BASE = '/api/listings';
+const API_BASE = '/api/opportunities';
 const PAGE_SIZE = 20;
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -90,13 +90,10 @@ const getOpportunities = async ({
     status,
   });
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
-    ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/listings`
-    : '/api/listings';
-
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
   const url = new URL(
-    baseUrl.startsWith('http') ? baseUrl : baseUrl,
-    process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'
+    `/api/opportunities`,
+    baseUrl || window.location.origin
   );
 
   // Add query parameters

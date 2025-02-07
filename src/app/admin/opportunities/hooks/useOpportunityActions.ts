@@ -75,7 +75,7 @@ export const useOpportunityActions = () => {
       updateOptimisticData(opportunity.id, { status: 'rejected' });
 
       try {
-        const response = await fetch(`/api/listings/${opportunity.id}/reject`, {
+        const response = await fetch(`/api/opportunities/${opportunity.id}/reject`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -128,7 +128,7 @@ export const useOpportunityActions = () => {
         throw new Error('No authenticated user found');
       }
 
-      const response = await fetch('/api/listings/approve/bulk', {
+      const response = await fetch('/api/opportunities/approve/bulk', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -155,7 +155,7 @@ export const useOpportunityActions = () => {
 
   const resetMutation = useMutation({
     mutationFn: async (collection: 'opportunities' | 'staged_offers') => {
-      const response = await fetch('/api/listings/reset', {
+      const response = await fetch('/api/opportunities/reset', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -217,7 +217,7 @@ export const useOpportunityActions = () => {
       }
 
       const response = await fetch(
-        `/api/listings/${opportunity.id}?action=mark-for-review`,
+        `/api/opportunities/${opportunity.id}?action=mark-for-review`,
         {
           method: 'PUT',
           headers: {

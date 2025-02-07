@@ -48,7 +48,7 @@ function calculateSimilarity(
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('POST /api/listings/import - Starting request', {
+    console.log('POST /api/opportunities/import - Starting request', {
       useEmulator,
       vercelEnv: process.env.VERCEL_ENV,
       isPreviewEnvironment,

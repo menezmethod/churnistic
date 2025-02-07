@@ -15,13 +15,13 @@ export const QUERY_KEYS = {
 
 export const API_ENDPOINTS = {
   opportunities: {
-    base: '/api/listings',
-    staged: '/api/listings/staged',
-    approve: '/api/listings/approve',
-    reject: (id: string) => `/api/listings/${id}?action=reject`,
-    bulkApprove: '/api/listings/approve/bulk',
-    reset: '/api/listings/reset',
-    stats: '/api/listings/stats',
+    base: '/api/opportunities',
+    staged: '/api/opportunities/staged',
+    approve: '/api/opportunities/approve',
+    reject: (id: string) => `/api/opportunities/${id}?action=reject`,
+    bulkApprove: '/api/opportunities/approve/bulk',
+    reset: '/api/opportunities/reset',
+    stats: '/api/opportunities/stats',
   },
   proxy: {
     bankrewards: '/api/proxy/bankrewards',

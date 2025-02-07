@@ -27,7 +27,7 @@ interface OpportunityStats {
 }
 
 const fetchStats = async (): Promise<OpportunityStats> => {
-  const response = await fetch('/api/listings/public-stats', {
+  const response = await fetch('/api/opportunities/public-stats', {
     next: { revalidate: 300 }, // Cache for 5 minutes
   });
   if (!response.ok) throw new Error('Failed to fetch stats');

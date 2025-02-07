@@ -5,7 +5,7 @@ import { type Opportunity } from '@/types/opportunity';
 
 export async function GET() {
   try {
-    console.log('GET /api/listings/staged - Starting request');
+    console.log('GET /api/opportunities/staged - Starting request');
     const db = getAdminDb();
     const snapshot = await db.collection('staged_offers').get();
 
