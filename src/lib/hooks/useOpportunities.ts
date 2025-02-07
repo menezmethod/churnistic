@@ -108,17 +108,9 @@ const getOpportunities = async ({
   if (status) url.searchParams.set('status', status);
   if (type) url.searchParams.set('type', type);
 
-  // Get auth token
-  const auth = getAuth();
-  const user = auth.currentUser;
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
-
-  if (user) {
-    const token = await user.getIdToken();
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   try {
     const response = await fetch(url, { headers });

@@ -3,7 +3,6 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { getAdminDb } from '@/lib/firebase/admin';
-import { shouldUseEmulators } from '@/lib/firebase/utils/environment';
 import { type Opportunity } from '@/types/opportunity';
 
 export async function GET(request: NextRequest) {
@@ -130,26 +129,18 @@ export async function GET(request: NextRequest) {
       hasMore,
     });
   } catch (error) {
-    console.error('❌ Error fetching opportunities:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('❌ Error details:', errorMessage);
-    return NextResponse.json(
-      { error: errorMessage, details: 'Failed to fetch opportunities' },
-      { status: 500 }
-    );
+    console.error('❌ Error in GET /api/opportunities:', error);
+    return NextResponse.json({ error: 'Failed to fetch opportunities' }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
     console.log('📥 POST /api/opportunities - Starting request');
+    const { session } = await createAuthContext(req);
 
-    // Skip auth check in emulator mode
-    if (!shouldUseEmulators()) {
-      const { session } = await createAuthContext(req);
-      if (!session?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Parse and validate request body
@@ -280,12 +271,7 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('❌ Error creating opportunity:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('❌ Error details:', errorMessage);
-    return NextResponse.json(
-      { error: 'Failed to create opportunity', details: errorMessage },
-      { status: 500 }
-    );
+    console.error('❌ Error in POST /api/opportunities:', error);
+    return NextResponse.json({ error: 'Failed to create opportunity' }, { status: 500 });
   }
 }
