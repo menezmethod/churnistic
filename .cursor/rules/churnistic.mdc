@@ -2,112 +2,82 @@
 description: 
 globs: 
 ---
-{
-  "rules": {
-    "scopeManagement": {
-      "enabled": true,
-      "maxFeaturesPerSprint": 3,
-      "requireApprovalForLargeChanges": true
-    },
-    "testing": {
-      "enabled": true,
-      "minimumCoverage": {
-        "unit": 90,
-        "integration": 85,
-        "e2e": 80
-      },
-      "requireTestsForNewFeatures": true
-    },
-    "deployment": {
-      "enabled": true,
-      "stagingEnvironmentRequired": true,
-      "productionApprovalRequired": true
-    },
-    "security": {
-      "enabled": true,
-      "requireSecurityReview": true,
-      "minimumStandards": ["OWASP", "GDPR"]
-    },
-    "aiUsage": {
-      "enabled": true,
-      "codeReviewRequired": true,
-      "maxContextWindow": 8000,
-      "requireExplanationForChanges": true
-    },
-    "nextjsConventions": {
-      "bestPractices": [
-        "Use server components by default",
-        "Implement client components only when necessary",
-        "Utilize the new file-based routing system",
-        "Use layout.js for shared layouts",
-        "Implement loading.js for loading states",
-        "Use error.js for error handling",
-        "Utilize route handlers for API routes"
-      ],
-      "folderStructure": {
-        "required": [
-          "app/layout.js",
-          "app/page.js",
-          "app/components/",
-          "app/lib/",
-          "app/styles/",
-          "public/"
-        ],
-        "recommendedPatterns": [
-          "Group colocated files with route groups",
-          "Use _prefix for private folders",
-          "Follow Next.js special file naming conventions"
-        ]
-      },
-      "stylingStandards": [
-        "CSS Modules",
-        "Tailwind CSS",
-        "Styled JSX"
-      ],
-      "optimizationRequirements": [
-        "Next.js Image component",
-        "Automatic Font Optimization",
-        "Static Asset Optimization"
-      ]
-    }
-  },
-  "workflow": {
-    "featureDevelopment": {
-      "steps": [
-        "defineRequirements",
-        "writeTests",
-        "implementFeature",
-        "codeReview",
-        "deployToStaging",
-        "userTesting",
-        "deployToProduction"
-      ]
-    },
-    "bugFixes": {
-      "steps": [
-        "reproduceIssue",
-        "writeTest",
-        "implementFix",
-        "verifyFix",
-        "deployPatch"
-      ]
-    }
-  },
-  "documentation": {
-    "requiredSections": [
-      "overview",
-      "architecture",
-      "security",
-      "deployment",
-      "testing",
-      "contributing"
-    ],
-    "frameworkSpecificNotes": [
-      "TypeScript implementation guidelines",
-      "App Router migration path",
-      "Server Actions documentation",
-      "Caching strategies",
-      "Middleware configuration"
-    ]
-  }
-}
+# Churnistic Project Rules
+
+## Environment Configuration
+- Firebase Emulator must be used for local development (localhost)
+- Production environments must use regular Firebase services
+- Environment variables must be properly configured in .env.local for development and Vercel for production
+
+## Code Structure
+- Follow Next.js 15 App Router structure
+- Use /src directory for all application code
+- Maintain clear separation between server and client components
+- Group related features by domain in the app directory
+
+## TypeScript and ESLint
+- Strict TypeScript mode enabled
+- Follow ESLint configuration without exceptions
+- Use type-safe patterns throughout the codebase
+- Prefer interfaces over types for better extensibility
+
+## React Query Guidelines
+- Use React Query v5 patterns and hooks
+- Follow v4 to v5 migration plan for legacy code
+- Implement proper error boundaries and suspense
+- Use proper stale time and cache configurations
+
+## Component Architecture
+- Use React Server Components by default
+- Add 'use client' directive only when necessary
+- Implement proper error boundaries
+- Use Suspense for async operations
+- Follow atomic design principles
+
+## File Structure
+/src
+  /app                   # Next.js app directory
+    /api                 # API routes
+    /(routes)            # App routes
+    /components         # Shared components
+  /lib                  # Shared utilities
+    /firebase          # Firebase configuration
+    /hooks             # Custom hooks
+    /types             # TypeScript types
+  /config              # App configuration
+  /styles              # Global styles
+
+## Naming Conventions
+- React Components: PascalCase
+- Files: kebab-case
+- Functions: camelCase
+- Types/Interfaces: PascalCase
+- Constants: UPPER_SNAKE_CASE
+
+## Firebase Rules
+- Emulator Configuration:
+  - Must check process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATOR
+  - Only enable on localhost
+- Production:
+  - Use proper security rules
+  - Implement proper authentication checks
+  - Follow least privilege principle
+
+## Testing
+- Write unit tests for utilities
+- Write integration tests for API routes
+- Write E2E tests for critical flows
+- Maintain test coverage above 80%
+
+## Performance
+- Implement proper code splitting
+- Use proper image optimization
+- Follow Core Web Vitals guidelines
+- Monitor and optimize bundle size
+
+## Project Management:
+- Reference /Users/luisgimenez/Development/churnistic/docs/project_milestones.md for all feature implementations
+- Ensure new code aligns with defined milestones
+- Follow the established database schema
+- Consider cost optimizations defined in metrics
+- Maintain consistency with existing components

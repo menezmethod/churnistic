@@ -1,117 +1,116 @@
-import { getApps, initializeApp, getApp } from 'firebase/app';
-import {
-  type User,
-  connectAuthEmulator,
-  getAuth,
-  browserLocalPersistence,
-  setPersistence,
-} from 'firebase/auth';
-import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
-import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
-import { connectStorageEmulator, getStorage } from 'firebase/storage';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFunctions, Functions, connectFunctionsEmulator } from 'firebase/functions';
+import { getStorage, FirebaseStorage, connectStorageEmulator } from 'firebase/storage';
 
-const USE_EMULATOR = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+import { FirebaseConfigError } from '@/lib/errors/firebase';
+import { FirebaseServices } from '@/types/firebase';
 
-// In emulator mode, we can use any placeholder values
-export const firebaseConfig = {
-  apiKey: USE_EMULATOR ? 'fake-api-key' : process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: USE_EMULATOR ? 'localhost' : process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: USE_EMULATOR
-    ? 'demo-churnistic-local'
-    : process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: USE_EMULATOR
-    ? 'demo-churnistic-local'
-    : process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: USE_EMULATOR
-    ? '000000000000'
-    : process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: USE_EMULATOR
-    ? '1:000000000000:web:0000000000000000000000'
-    : process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
+import { DEFAULT_EMULATOR_CONFIG } from './constants';
+import { shouldUseEmulators } from './utils/environment';
+import { getValidatedFirebaseConfig } from './validation';
 
-// Initialize Firebase - ensure single instance
-export const db = (() => {
-  try {
-    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    return getFirestore(app);
-  } catch (error) {
-    console.error('Firebase initialization error:', error);
-    throw new Error('Failed to initialize Firebase');
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
+let firestore: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
+let functions: Functions | undefined;
+
+/**
+ * Initializes Firebase app if not already initialized
+ * @returns Initialized Firebase app instance
+ */
+export async function initializeFirebaseApp(): Promise<FirebaseApp> {
+  if (!app && getApps().length === 0) {
+    try {
+      const config = await getValidatedFirebaseConfig();
+      app = initializeApp(config);
+
+      // Connect to emulators in development
+      if (shouldUseEmulators()) {
+        console.log('🔧 Connecting to Firebase emulators...');
+        const { host, ports } = DEFAULT_EMULATOR_CONFIG;
+
+        // Initialize auth first
+        const auth = getAuth(app);
+        connectAuthEmulator(auth, `http://${host}:${ports.auth}`, {
+          disableWarnings: true,
+        });
+        console.log(`🔐 Connected to Auth emulator: http://${host}:${ports.auth}`);
+
+        // Then initialize Firestore
+        const firestore = getFirestore(app);
+        connectFirestoreEmulator(firestore, host, ports.firestore);
+        console.log(
+          `📚 Connected to Firestore emulator: http://${host}:${ports.firestore}`
+        );
+
+        // Initialize Storage
+        const storage = getStorage(app);
+        connectStorageEmulator(storage, host, ports.storage);
+        console.log(`📦 Connected to Storage emulator: http://${host}:${ports.storage}`);
+
+        // Initialize Functions
+        const functions = getFunctions(app);
+        connectFunctionsEmulator(functions, host, ports.functions);
+        console.log(
+          `⚡ Connected to Functions emulator: http://${host}:${ports.functions}`
+        );
+      }
+    } catch (error) {
+      console.error('Failed to initialize Firebase:', error);
+      throw new FirebaseConfigError(
+        'config/initialization-failed',
+        'Failed to initialize Firebase app',
+        error
+      );
+    }
   }
-})();
-
-export const auth = getAuth(db.app);
-export const storage = getStorage(db.app);
-export const functions = getFunctions(db.app);
-
-// Connect to emulators if enabled
-if (USE_EMULATOR) {
-  try {
-    console.log('🔧 Using Firebase Emulator Suite');
-
-    // Set auth persistence to browser local storage for persistence across refreshes
-    setPersistence(auth, browserLocalPersistence);
-
-    // Connect to Auth Emulator
-    console.log('🔑 Connecting to Auth Emulator at: localhost:9099');
-    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-
-    // Connect to Firestore Emulator
-    console.log('📚 Connecting to Firestore Emulator at: localhost:8080');
-    connectFirestoreEmulator(db, 'localhost', 8080);
-
-    // Connect to Storage Emulator
-    console.log('📦 Connecting to Storage Emulator at: localhost:9199');
-    connectStorageEmulator(storage, 'localhost', 9199);
-
-    // Connect to Functions Emulator
-    console.log('⚡ Connecting to Functions Emulator at: localhost:5001');
-    connectFunctionsEmulator(functions, 'localhost', 5001);
-
-    console.log('🎉 Successfully connected to all emulators!');
-  } catch (error) {
-    console.error('❌ Error connecting to emulators:', error);
-    throw error;
-  }
+  return app!;
 }
 
-// Session management
-export async function manageSessionCookie(user: User) {
-  try {
-    // Get the ID token with force refresh
-    const idToken = await user.getIdToken(true);
-    const idTokenResult = await user.getIdTokenResult(true);
-
-    // Add claims to the user object
-    Object.defineProperty(user, 'customClaims', {
-      value: {
-        role: idTokenResult.claims.role,
-        permissions: idTokenResult.claims.permissions,
-      },
-      writable: true,
-      configurable: true,
-    });
-
-    // Set session cookie
-    const response = await fetch('/api/auth/session', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ idToken }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to set session cookie');
-    }
-
-    // Set a local cookie for the emulator environment
-    if (USE_EMULATOR) {
-      document.cookie = `session=${idToken}; path=/; max-age=3600; SameSite=Strict`;
-    }
-  } catch (error) {
-    console.error('Error managing session:', error);
-    throw error;
+/**
+ * Gets Firebase services with proper initialization
+ * @returns Object containing initialized Firebase services
+ */
+export async function getFirebaseServices(): Promise<FirebaseServices> {
+  if (!app) {
+    app = await initializeFirebaseApp();
   }
+
+  if (!auth) {
+    auth = getAuth(app);
+  }
+
+  if (!firestore) {
+    firestore = getFirestore(app);
+  }
+
+  if (!storage) {
+    storage = getStorage(app);
+  }
+
+  if (!functions) {
+    functions = getFunctions(app);
+  }
+
+  return {
+    app,
+    auth,
+    firestore,
+    storage,
+    functions,
+  };
+}
+
+/**
+ * Resets Firebase services (useful for testing)
+ */
+export function resetFirebaseServices(): void {
+  app = undefined;
+  auth = undefined;
+  firestore = undefined;
+  storage = undefined;
+  functions = undefined;
 }

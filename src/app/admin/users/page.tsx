@@ -36,7 +36,7 @@ import { collection, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firesto
 import { useState, useEffect } from 'react';
 
 import { UserRole } from '@/lib/auth/types';
-import { db } from '@/lib/firebase/config';
+import { getFirebaseServices } from '@/lib/firebase/config';
 
 import UserDetailsModal from './components/UserDetailsModal';
 import type { User } from './hooks/useUsers';
@@ -137,7 +137,8 @@ export default function UsersPage() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const usersCollection = collection(db, 'users');
+        const { firestore } = await getFirebaseServices();
+        const usersCollection = collection(firestore, 'users');
         const usersSnapshot = await getDocs(usersCollection);
         const usersList = usersSnapshot.docs.map((doc) => ({
           id: doc.id,
@@ -154,7 +155,7 @@ export default function UsersPage() {
       }
     };
 
-    fetchUsers();
+    void fetchUsers();
   }, []);
 
   const handleRequestSort = (property: keyof User) => {
@@ -184,7 +185,8 @@ export default function UsersPage() {
     if (!deletingUser) return;
 
     try {
-      await deleteDoc(doc(db, 'users', deletingUser.id));
+      const { firestore } = await getFirebaseServices();
+      await deleteDoc(doc(firestore, 'users', deletingUser.id));
       setUsers(users.filter((user) => user.id !== deletingUser.id));
       setDeletingUser(null);
       setSnackbar({
@@ -211,7 +213,8 @@ export default function UsersPage() {
     data: { email?: string; displayName?: string; photoURL?: string; role?: string }
   ) => {
     try {
-      const userRef = doc(db, 'users', _user.id);
+      const { firestore } = await getFirebaseServices();
+      const userRef = doc(firestore, 'users', _user.id);
       await updateDoc(userRef, data);
       setUsers(
         users.map((user) =>

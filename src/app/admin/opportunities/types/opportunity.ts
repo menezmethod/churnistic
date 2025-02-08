@@ -1,3 +1,17 @@
+export interface PaginationState {
+  page: number;
+  pageSize: number;
+  sortBy: string;
+  sortDirection: 'asc' | 'desc';
+  filters: {
+    status?: 'pending' | 'approved' | 'rejected';
+    type?: string;
+    minValue?: number;
+    maxValue?: number;
+    search?: string;
+  };
+}
+
 export type RequirementType =
   | 'spending'
   | 'direct_deposit'
@@ -133,6 +147,7 @@ export interface ProcessingStatus {
   ai_processed: boolean;
   duplicate_checked: boolean;
   needs_review: boolean;
+  review_reason?: string;
 }
 
 export interface AIInsights {
@@ -170,6 +185,7 @@ export interface Opportunity {
   ai_insights: AIInsights;
   createdAt: string;
   updatedAt: string;
+  isStaged?: boolean;
 }
 
 // BankRewards API Types

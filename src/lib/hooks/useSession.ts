@@ -2,7 +2,7 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { auth } from '@/lib/firebase/client-app';
+import { getFirebaseAuth } from '@/lib/firebase/client-app';
 import { User } from '@/types/user';
 
 export function useSession() {
@@ -12,8 +12,11 @@ export function useSession() {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(
-      async (firebaseUser: FirebaseUser | null) => {
+    let unsubscribe = () => {};
+
+    const initAuth = async () => {
+      const auth = await getFirebaseAuth();
+      unsubscribe = auth.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
         setIsLoading(true);
         try {
           if (firebaseUser) {
@@ -50,9 +53,10 @@ export function useSession() {
         } finally {
           setIsLoading(false);
         }
-      }
-    );
+      });
+    };
 
+    initAuth();
     return () => unsubscribe();
   }, [router]);
 

@@ -4,17 +4,25 @@ import {
   cert,
   getApps,
   initializeApp,
+  applicationDefault,
 } from 'firebase-admin/app';
 import { type Auth, getAuth } from 'firebase-admin/auth';
 import { type Firestore, getFirestore } from 'firebase-admin/firestore';
-import './emulator-setup'; // Import emulator setup
+
+import { shouldUseEmulators } from './utils/environment';
 
 let adminApp: App | undefined;
 let adminAuth: Auth | undefined;
 let adminDb: Firestore | undefined;
 
+// Set emulator environment variables if needed
+if (shouldUseEmulators()) {
+  process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+  process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+  console.log('🔧 Emulator mode - setting up environment variables');
+}
+
 function getAdminConfig(): AppOptions {
-  const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic';
 
   if (!projectId) {
@@ -22,10 +30,8 @@ function getAdminConfig(): AppOptions {
   }
 
   // In emulator mode, we don't need real credentials
-  if (useEmulators) {
-    console.log('🔧 Initializing Admin App in Emulator mode');
-    process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-    process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+  if (shouldUseEmulators()) {
+    console.log('🔧 Initializing Admin App in Emulator mode for project:', projectId);
     return {
       projectId,
     };
@@ -38,9 +44,7 @@ function getAdminConfig(): AppOptions {
       console.warn(
         'Warning: Using development fallback for Firebase Admin initialization'
       );
-      return {
-        projectId,
-      };
+      return { projectId };
     }
     throw new Error(
       'FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set. Please check your .env file.'
@@ -67,9 +71,7 @@ function getAdminConfig(): AppOptions {
       console.warn(
         'Warning: Failed to parse service account key, using development fallback'
       );
-      return {
-        projectId,
-      };
+      return { projectId };
     }
     console.error('Error parsing service account key:', error);
     throw new Error(
@@ -87,42 +89,20 @@ export function initializeAdminDb(): Firestore {
 
     if (!adminDb) {
       adminDb = getFirestore(adminApp);
-      const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
-      if (useEmulators) {
+      if (shouldUseEmulators()) {
         adminDb.settings({
-          ignoreUndefinedProperties: true,
           host: 'localhost:8080',
           ssl: false,
+          experimentalForceLongPolling: true,
         });
         console.log('📚 Connected Admin to Firestore Emulator at: localhost:8080');
-      } else {
-        adminDb.settings({
-          ignoreUndefinedProperties: true,
-          preferRest: process.env.NODE_ENV === 'production',
-        });
       }
     }
 
     return adminDb;
   } catch (error) {
-    // Handle initialization errors gracefully
     console.error('Failed to initialize Admin Firestore:', error);
-    if (
-      process.env.NODE_ENV === 'development' ||
-      process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true'
-    ) {
-      console.warn(
-        'Warning: Using fallback initialization for development/emulator environment'
-      );
-      adminDb = getFirestore(
-        adminApp ||
-          initializeApp({
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic',
-          })
-      );
-      return adminDb;
-    }
     throw error;
   }
 }
@@ -136,8 +116,8 @@ export function initializeAdminAuth(): Auth {
 
     if (!adminAuth) {
       adminAuth = getAuth(adminApp);
-      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-        console.log('🔐 Connecting Admin to Auth Emulator at: localhost:9099');
+      if (shouldUseEmulators()) {
+        console.log('🔐 Connected Admin to Auth Emulator at: localhost:9099');
       }
     }
 
@@ -197,3 +177,17 @@ void initializeAdmin();
 
 export { adminApp as app, adminAuth as auth, adminDb as db };
 export type { App, Auth, Firestore };
+
+export const getFirebaseAdmin = () => {
+  if (!adminApp) {
+    if (getApps().length > 0) {
+      adminApp = getApps()[0];
+    } else {
+      adminApp = initializeApp({
+        credential: applicationDefault(),
+        databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+      });
+    }
+  }
+  return adminApp;
+};

@@ -2,706 +2,440 @@
 
 import {
   CheckCircle as ApproveIcon,
-  Cancel as RejectIcon,
-  Search as SearchIcon,
   TrendingUp as TrendingUpIcon,
-  AccountBalance as BankIcon,
-  CreditCard as CardIcon,
   PendingActions as PendingIcon,
-  Visibility as PreviewIcon,
-  ShowChart as BrokerageIcon,
-  AttachMoney as ValueIcon,
   Speed as SpeedIcon,
-  CloudDownload as ImportIcon,
-  DoneAll as BulkApproveIcon,
-  RestartAlt as ResetIcon,
-  DeleteForever as ResetAllIcon,
+  AttachMoney as ValueIcon,
+  Close as RejectIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
+import { Box, Container, Grid, Stack, useTheme } from '@mui/material';
+import { useState, useCallback, useEffect } from 'react';
+
 import {
-  Box,
-  Card,
-  CardContent,
-  Chip,
-  Container,
-  Grid,
-  IconButton,
-  InputAdornment,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TableSortLabel,
-  TextField,
-  Typography,
-  useTheme,
-  alpha,
-  Fade,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Button,
-  Tooltip,
-} from '@mui/material';
-import { useState } from 'react';
-
+  BulkApproveDialog,
+  ResetAllDialog,
+  ResetStagedDialog,
+} from './components/dialogs';
+import { DistributionStats } from './components/DistributionStats';
+import { OpportunitiesHeader } from './components/OpportunitiesHeader';
+import { OpportunityDataGrid } from './components/OpportunityDataGrid';
 import { OpportunityPreviewModal } from './components/OpportunityPreviewModal';
+import { OpportunitySection } from './components/OpportunitySection';
 import { useOpportunities } from './hooks/useOpportunities';
-import { Opportunity } from './types/opportunity';
 import { ScraperControlPanel } from '../components/ScraperControlPanel';
-
-const StatsCard = ({
-  title,
-  value,
-  icon,
-  color,
-  suffix,
-  prefix,
-}: {
-  title: string;
-  value: number;
-  icon: React.ReactNode;
-  color: string;
-  suffix?: string;
-  prefix?: string;
-}) => {
-  const theme = useTheme();
-  return (
-    <Card
-      sx={{
-        height: '100%',
-        background: `linear-gradient(135deg, ${alpha(color, 0.05)} 0%, ${alpha(color, 0.1)} 100%)`,
-        borderRadius: 2,
-        transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: theme.shadows[8],
-        },
-      }}
-    >
-      <CardContent>
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: 2,
-              bgcolor: alpha(color, 0.15),
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {icon}
-          </Box>
-          <Box>
-            <Typography
-              variant="h4"
-              fontWeight="bold"
-              sx={{ color: theme.palette.text.primary }}
-            >
-              {prefix && <span style={{ opacity: 0.7 }}>{prefix}</span>}
-              {value.toLocaleString()}
-              {suffix && <span style={{ opacity: 0.7 }}>{suffix}</span>}
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ color: theme.palette.text.secondary, mt: 0.5 }}
-            >
-              {title}
-            </Typography>
-          </Box>
-        </Stack>
-      </CardContent>
-    </Card>
-  );
-};
+import { OpportunityStatsCard } from './components/OpportunityStatsCard';
+import { SearchSection } from './components/SearchSection';
+import { getColumns } from './config/columns';
+import { useOpportunityActions } from './hooks/useOpportunityActions';
+import { Opportunity } from './types/opportunity';
+import { calculateProcessingRate } from './utils';
 
 const OpportunitiesPage = () => {
   const theme = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(
-    null
-  );
-  const [resetStagedDialogOpen, setResetStagedDialogOpen] = useState(false);
-  const [resetAllDialogOpen, setResetAllDialogOpen] = useState(false);
-  const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
+  const [stagedExpanded, setStagedExpanded] = useState(false);
+  const [approvedExpanded, setApprovedExpanded] = useState(false);
+  const [reviewExpanded, setReviewExpanded] = useState(true);
+  const [rejectedExpanded, setRejectedExpanded] = useState(false);
 
   const {
-    opportunities,
-    hasMore,
-    refetch,
+    isLoading,
     pagination,
     setPagination,
-    isCreating,
-    approveOpportunity,
-    rejectOpportunity,
-    bulkApproveOpportunities,
-    isBulkApproving,
     stats,
     importOpportunities,
-    hasStagedOpportunities,
-    resetStagedOffers,
+    isImporting,
     isResettingStagedOffers,
-    resetOpportunities,
     isResettingOpportunities,
+    stagedOpportunities,
+    approvedOpportunities,
+    rejectedOpportunities,
+    queryClient,
+    isBulkApproving,
   } = useOpportunities();
 
-  const handleSort = (field: string) => {
-    setPagination({
-      sortBy: field,
-      sortDirection:
-        pagination.sortBy === field && pagination.sortDirection === 'asc'
-          ? 'desc'
-          : 'asc',
-    });
-    refetch();
-  };
+  const { needsReviewOffers, regularStagedOffers } = stagedOpportunities.reduce<{
+    needsReviewOffers: Array<Opportunity & { isStaged: boolean }>;
+    regularStagedOffers: Array<Opportunity & { isStaged: boolean }>;
+  }>(
+    (acc, opp) => {
+      const expiryDate = opp.details?.expiration;
+      if (!expiryDate) {
+        acc.regularStagedOffers.push(opp);
+        return acc;
+      }
 
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
-    setPagination({
-      filters: {
-        ...pagination.filters,
-        search: value || undefined,
-      },
-    });
-    refetch();
-  };
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-  const handleChangePage = (_: unknown, newPage: number) => {
-    setPagination({ page: newPage + 1 });
-    refetch();
-  };
+      const expiry = new Date(expiryDate);
+      expiry.setHours(0, 0, 0, 0);
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setPagination({
-      pageSize: parseInt(event.target.value, 10),
-    });
-    refetch();
-  };
+      const diffDays = Math.ceil(
+        (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+      );
 
-  const handleSync = async () => {
-    try {
-      await importOpportunities();
-    } catch (error) {
-      console.error('Failed to sync opportunities:', error);
-    }
-  };
+      if (diffDays < 0) {
+        acc.needsReviewOffers.push(opp);
+      } else {
+        acc.regularStagedOffers.push(opp);
+      }
 
-  const handleBulkApprove = async () => {
-    try {
-      await bulkApproveOpportunities();
-      setBulkApproveDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to bulk approve opportunities:', error);
-    }
-  };
-
-  const getStatusChip = (status: string | undefined) => {
-    if (!status) return null;
-
-    switch (status) {
-      case 'staged':
-        return <Chip label="Staged" color="info" size="small" />;
-      case 'pending':
-        return <Chip label="Pending" color="warning" size="small" />;
-      case 'approved':
-        return <Chip label="Approved" color="success" size="small" />;
-      case 'rejected':
-        return <Chip label="Rejected" color="error" size="small" />;
-      default:
-        return null;
-    }
-  };
-
-  const handlePreview = (opportunity: Opportunity & { isStaged?: boolean }) => {
-    setSelectedOpportunity(opportunity);
-  };
-
-  const handleApprove = async (opportunity: Opportunity & { isStaged?: boolean }) => {
-    if (opportunity.isStaged) {
-      await approveOpportunity(opportunity);
-    } else {
-      // Get the full opportunity data for non-staged opportunities
-      const fullOpportunity = {
-        ...opportunity,
-        isStaged: false,
-      };
-      await approveOpportunity(fullOpportunity);
-    }
-  };
-
-  const handleReject = async (opportunity: Opportunity & { isStaged?: boolean }) => {
-    if (opportunity.isStaged) {
-      await rejectOpportunity(opportunity);
-    } else {
-      // Get the full opportunity data for non-staged opportunities
-      const fullOpportunity = {
-        ...opportunity,
-        isStaged: false,
-      };
-      await rejectOpportunity(fullOpportunity);
-    }
-  };
-
-  const processingSpeed =
-    stats.total > 0
-      ? (((stats.approved + stats.rejected) / stats.total) * 100).toFixed(1)
-      : '0';
-
-  const handleResetStaged = async () => {
-    try {
-      await resetStagedOffers();
-      setResetStagedDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to reset staged offers:', error);
-    }
-  };
-
-  const handleResetAll = async () => {
-    try {
-      await resetOpportunities();
-      setResetAllDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to reset opportunities:', error);
-    }
-  };
-
-  const ResetStagedDialog = () => (
-    <Dialog open={resetStagedDialogOpen} onClose={() => setResetStagedDialogOpen(false)}>
-      <DialogTitle>Reset Staged Offers</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Are you sure you want to reset all staged offers? This action cannot be undone.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setResetStagedDialogOpen(false)}>Cancel</Button>
-        <Button onClick={handleResetStaged} color="error" variant="contained">
-          Reset Staged
-        </Button>
-      </DialogActions>
-    </Dialog>
+      return acc;
+    },
+    { needsReviewOffers: [], regularStagedOffers: [] }
   );
 
-  const ResetAllDialog = () => (
-    <Dialog open={resetAllDialogOpen} onClose={() => setResetAllDialogOpen(false)}>
-      <DialogTitle>Reset All Opportunities</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Are you sure you want to reset all opportunities? This will delete all approved
-          and rejected opportunities. This action cannot be undone.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setResetAllDialogOpen(false)}>Cancel</Button>
-        <Button onClick={handleResetAll} color="error" variant="contained">
-          Reset All
-        </Button>
-      </DialogActions>
-    </Dialog>
+  const {
+    selectedOpportunity,
+    setSelectedOpportunity,
+    resetStagedDialogOpen,
+    setResetStagedDialogOpen,
+    resetAllDialogOpen,
+    setResetAllDialogOpen,
+    bulkApproveDialogOpen,
+    setBulkApproveDialogOpen,
+    handleReject,
+    handleApprove,
+    handleResetStaged,
+    handleResetAll,
+  } = useOpportunityActions();
+
+  useEffect(() => {
+    const refetchOnFocus = async () => {
+      await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      await queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
+      await queryClient.invalidateQueries({ queryKey: ['opportunities', 'approved'] });
+      await queryClient.invalidateQueries({ queryKey: ['opportunities', 'stats'] });
+    };
+
+    window.addEventListener('focus', refetchOnFocus);
+    return () => {
+      window.removeEventListener('focus', refetchOnFocus);
+    };
+  }, [queryClient]);
+
+  useEffect(() => {
+    // Auto collapse empty sections and expand non-empty ones (except rejected)
+    if (regularStagedOffers.length === 0) {
+      setStagedExpanded(false);
+    } else if (regularStagedOffers.length > 0) {
+      setStagedExpanded(true);
+    }
+
+    if (needsReviewOffers.length === 0) {
+      setReviewExpanded(false);
+    } else if (needsReviewOffers.length > 0) {
+      setReviewExpanded(true);
+    }
+
+    if (approvedOpportunities.length === 0) {
+      setApprovedExpanded(false);
+    } else if (approvedOpportunities.length > 0) {
+      setApprovedExpanded(true);
+    }
+
+    // For rejected, only auto-collapse when empty
+    if (!rejectedOpportunities?.length) {
+      setRejectedExpanded(false);
+    }
+  }, [
+    regularStagedOffers.length,
+    needsReviewOffers.length,
+    approvedOpportunities.length,
+    rejectedOpportunities?.length,
+  ]);
+
+  const handleSearch = useCallback(
+    (value: string) => {
+      setSearchTerm(value);
+      setPagination({
+        ...pagination,
+        page: 1,
+        filters: { ...pagination.filters, search: value },
+      });
+    },
+    [pagination, setPagination]
   );
 
-  const BulkApproveDialog = () => (
-    <Dialog open={bulkApproveDialogOpen} onClose={() => setBulkApproveDialogOpen(false)}>
-      <DialogTitle>Approve All Staged Opportunities</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Are you sure you want to approve all staged opportunities? This will process all
-          pending opportunities in the system.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setBulkApproveDialogOpen(false)}>Cancel</Button>
-        <Button onClick={handleBulkApprove} color="success" variant="contained">
-          Approve All
-        </Button>
-      </DialogActions>
-    </Dialog>
+  const processingSpeed = calculateProcessingRate(
+    stagedOpportunities.length,
+    stats.approved
   );
+
+  const stagedColumns = getColumns({
+    onPreview: setSelectedOpportunity,
+    onApprove: handleApprove,
+    onReject: handleReject,
+  });
+
+  const approvedColumns = getColumns({
+    onPreview: setSelectedOpportunity,
+    onReject: handleReject,
+    showApprove: false,
+    rejectTooltip: 'Move back to staged',
+  });
+
+  const expiredColumns = getColumns({
+    onPreview: setSelectedOpportunity,
+    onApprove: handleApprove,
+    onReject: handleReject,
+    showReviewReason: true,
+  });
+
+  const rejectedColumns = getColumns({
+    onPreview: setSelectedOpportunity,
+    onReject: handleReject,
+    showApprove: true,
+    rejectTooltip: 'Delete permanently',
+  });
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-      <Grid container spacing={3}>
-        {/* Scraper Control Panel */}
-        <Grid item xs={12}>
-          <ScraperControlPanel />
-        </Grid>
+    <Container
+      maxWidth={false}
+      sx={{
+        py: { xs: 2, sm: 3 },
+        px: { xs: 1.5, sm: 2, md: 3 },
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <OpportunitiesHeader
+        isLoading={isLoading}
+        isImporting={isImporting}
+        isBulkApproving={isBulkApproving}
+        isResettingStagedOffers={isResettingStagedOffers}
+        isResettingOpportunities={isResettingOpportunities}
+        hasStagedOpportunities={regularStagedOffers.length > 0}
+        stats={{
+          ...stats,
+          staged: regularStagedOffers.length,
+          needsReview: needsReviewOffers.length,
+        }}
+        onImport={importOpportunities}
+        onBulkApprove={() => setBulkApproveDialogOpen(true)}
+        onResetStaged={() => setResetStagedDialogOpen(true)}
+        onResetAll={() => setResetAllDialogOpen(true)}
+      />
 
-        {/* Main Stats */}
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="Total Opportunities"
-                value={stats.total}
-                icon={
-                  <TrendingUpIcon
-                    sx={{ color: theme.palette.primary.main, fontSize: 28 }}
-                  />
-                }
-                color={theme.palette.primary.main}
-              />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="Pending Review"
-                value={stats.pending}
-                icon={
-                  <PendingIcon sx={{ color: theme.palette.warning.main, fontSize: 28 }} />
-                }
-                color={theme.palette.warning.main}
-              />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="Processing Rate"
-                value={Number(processingSpeed)}
-                icon={<SpeedIcon sx={{ color: theme.palette.info.main, fontSize: 28 }} />}
-                color={theme.palette.info.main}
-                suffix="%"
-              />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="Avg. Bonus Value"
-                value={stats.avgValue}
-                icon={
-                  <ValueIcon sx={{ color: theme.palette.success.main, fontSize: 28 }} />
-                }
-                color={theme.palette.success.main}
-                prefix="$"
-              />
-            </div>
-          </Fade>
-        </Grid>
+      <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ flex: 1 }}>
+        <Grid item xs={12} lg={4}>
+          <Stack spacing={{ xs: 2, sm: 3 }}>
+            <SearchSection searchTerm={searchTerm} onSearch={handleSearch} />
 
-        {/* Offer Type Distribution */}
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="Bank Offers"
-                value={stats.byType.bank}
-                icon={
-                  <BankIcon sx={{ color: theme.palette.success.main, fontSize: 28 }} />
-                }
-                color={theme.palette.success.main}
-              />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="Credit Card Offers"
-                value={stats.byType.credit_card}
-                icon={<CardIcon sx={{ color: theme.palette.info.main, fontSize: 28 }} />}
-                color={theme.palette.info.main}
-              />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="Brokerage Offers"
-                value={stats.byType.brokerage}
-                icon={
-                  <BrokerageIcon
-                    sx={{ color: theme.palette.secondary.main, fontSize: 28 }}
-                  />
-                }
-                color={theme.palette.secondary.main}
-              />
-            </div>
-          </Fade>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Fade in timeout={300}>
-            <div>
-              <StatsCard
-                title="High Value ($500+)"
-                value={stats.highValue}
-                icon={
-                  <ValueIcon sx={{ color: theme.palette.error.main, fontSize: 28 }} />
-                }
-                color={theme.palette.error.main}
-              />
-            </div>
-          </Fade>
-        </Grid>
-
-        {/* Search and Actions */}
-        <Grid item xs={12}>
-          <Paper
-            elevation={2}
-            sx={{
-              p: { xs: 2, md: 3 },
-              mb: 3,
-              borderRadius: 2,
-              background: theme.palette.background.paper,
-            }}
-          >
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={2}
-              alignItems="center"
-              sx={{ width: '100%' }}
-            >
-              <TextField
-                fullWidth
-                placeholder="Search opportunities..."
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon sx={{ color: theme.palette.text.secondary }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    backgroundColor: alpha(theme.palette.background.default, 0.6),
-                    '&:hover': {
-                      backgroundColor: alpha(theme.palette.background.default, 0.8),
-                    },
-                  },
-                }}
-              />
-
-              <Stack
-                direction="row"
-                spacing={1}
-                sx={{
-                  minWidth: { xs: '100%', md: 'auto' },
-                  justifyContent: { xs: 'space-between', sm: 'flex-end' },
-                }}
-              >
-                <Tooltip title="Import new opportunities" arrow placement="top">
-                  <span>
-                    <IconButton
-                      color="primary"
-                      onClick={handleSync}
-                      disabled={isCreating}
-                      sx={{ borderRadius: 2 }}
-                      aria-label={isCreating ? 'Syncing...' : 'Sync Now'}
-                    >
-                      <ImportIcon />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-
-                <Tooltip title="Approve all staged" arrow placement="top">
-                  <span>
-                    <IconButton
-                      color="success"
-                      onClick={() => setBulkApproveDialogOpen(true)}
-                      disabled={isBulkApproving || stats.pending === 0}
-                      sx={{ borderRadius: 2 }}
-                      aria-label={isBulkApproving ? 'Approving All...' : 'Approve All'}
-                    >
-                      <BulkApproveIcon />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-
-                <Tooltip title="Clear all staged" arrow placement="top">
-                  <span>
-                    <IconButton
-                      color="warning"
-                      onClick={() => setResetStagedDialogOpen(true)}
-                      disabled={isResettingStagedOffers || !hasStagedOpportunities}
-                      sx={{ borderRadius: 2 }}
-                      aria-label="Reset Staged"
-                    >
-                      <ResetIcon />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-
-                <Tooltip title="Delete all opportunities" arrow placement="top">
-                  <span>
-                    <IconButton
-                      color="error"
-                      onClick={() => setResetAllDialogOpen(true)}
-                      disabled={isResettingOpportunities || stats.total === 0}
-                      sx={{ borderRadius: 2 }}
-                      aria-label="Reset All"
-                    >
-                      <ResetAllIcon />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-              </Stack>
-            </Stack>
-          </Paper>
-        </Grid>
-
-        {/* Opportunities Table */}
-        <Grid item xs={12}>
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>
-                    <TableSortLabel
-                      active={pagination.sortBy === 'name'}
-                      direction={pagination.sortDirection}
-                      onClick={() => handleSort('name')}
-                    >
-                      Name
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>
-                    <TableSortLabel
-                      active={pagination.sortBy === 'value'}
-                      direction={pagination.sortDirection}
-                      onClick={() => handleSort('value')}
-                    >
-                      Value
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {opportunities
-                  .filter(
-                    (opp, index, self) =>
-                      // Only keep the first occurrence of each ID
-                      index === self.findIndex((o) => o.id === opp.id)
-                  )
-                  .map((opportunity) => (
-                    <TableRow
-                      key={opportunity.id}
-                      hover
-                      sx={opportunity.isStaged ? { bgcolor: 'action.hover' } : undefined}
-                    >
-                      <TableCell>
-                        <Stack direction="row" alignItems="center" spacing={2}>
-                          {opportunity.logo && (
-                            <Box
-                              component="img"
-                              src={opportunity.logo.url}
-                              alt={opportunity.name}
-                              sx={{ width: 24, height: 24, objectFit: 'contain' }}
-                            />
-                          )}
-                          <Typography>{opportunity.name}</Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={opportunity.type}
-                          size="small"
-                          color={opportunity.type === 'bank' ? 'success' : 'info'}
+            <Box sx={{ mx: -1 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <Box sx={{ p: 1 }}>
+                    <OpportunityStatsCard
+                      title="Total Opportunities"
+                      value={stats.total}
+                      icon={
+                        <TrendingUpIcon
+                          sx={{
+                            fontSize: { xs: 20, sm: 24 },
+                            color: theme.palette.primary.main,
+                          }}
                         />
-                      </TableCell>
-                      <TableCell>
-                        <Typography color="success.main" fontWeight="bold">
-                          ${opportunity.value}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{getStatusChip(opportunity.status)}</TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Preview opportunity details" arrow>
-                          <span>
-                            <IconButton
-                              onClick={() => handlePreview(opportunity)}
-                              color="primary"
-                            >
-                              <PreviewIcon />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Tooltip title="Approve opportunity" arrow>
-                          <span>
-                            <IconButton
-                              color="success"
-                              onClick={() => handleApprove(opportunity)}
-                              disabled={
-                                opportunity.status === 'approved' ||
-                                opportunity.status === 'rejected'
-                              }
-                            >
-                              <ApproveIcon />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Tooltip title="Reject opportunity" arrow>
-                          <span>
-                            <IconButton
-                              color="error"
-                              onClick={() => handleReject(opportunity)}
-                              disabled={
-                                opportunity.status === 'approved' ||
-                                opportunity.status === 'rejected'
-                              }
-                            >
-                              <RejectIcon />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-            <TablePagination
-              component="div"
-              count={stats.total || 0}
-              page={pagination.page - 1}
-              rowsPerPage={pagination.pageSize}
-              rowsPerPageOptions={[10, 20, 50]}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              nextIconButtonProps={{
-                disabled: !hasMore,
-              }}
-            />
-          </TableContainer>
+                      }
+                      color={theme.palette.primary.main}
+                    />
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ p: 1 }}>
+                    <OpportunityStatsCard
+                      title="Pending Review"
+                      value={stagedOpportunities.length}
+                      icon={
+                        <PendingIcon
+                          sx={{
+                            fontSize: { xs: 20, sm: 24 },
+                            color: theme.palette.warning.main,
+                          }}
+                        />
+                      }
+                      color={theme.palette.warning.main}
+                    />
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ p: 1 }}>
+                    <OpportunityStatsCard
+                      title="Processing Rate"
+                      value={Number(processingSpeed)}
+                      icon={
+                        <SpeedIcon
+                          sx={{
+                            fontSize: { xs: 20, sm: 24 },
+                            color: theme.palette.info.main,
+                          }}
+                        />
+                      }
+                      color={theme.palette.info.main}
+                      suffix="%"
+                    />
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ p: 1 }}>
+                    <OpportunityStatsCard
+                      title="Avg. Bonus Value"
+                      value={stats.avgValue}
+                      icon={
+                        <ValueIcon
+                          sx={{
+                            fontSize: { xs: 20, sm: 24 },
+                            color: theme.palette.success.main,
+                          }}
+                        />
+                      }
+                      color={theme.palette.success.main}
+                      prefix="$"
+                    />
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
+
+            <DistributionStats stats={stats} />
+
+            <ScraperControlPanel />
+          </Stack>
+        </Grid>
+
+        <Grid item xs={12} lg={8}>
+          <Stack spacing={{ xs: 2, sm: 3 }}>
+            <OpportunitySection
+              title="Ready for Review"
+              count={regularStagedOffers.length}
+              icon={<PendingIcon />}
+              iconColor={theme.palette.info.main}
+              expanded={stagedExpanded}
+              onToggle={() => setStagedExpanded(!stagedExpanded)}
+              flex
+            >
+              <Box sx={{ p: { xs: 1.5, sm: 2 }, flex: 1 }}>
+                <OpportunityDataGrid
+                  rows={regularStagedOffers}
+                  columns={stagedColumns}
+                  loading={isLoading}
+                  autoHeight={regularStagedOffers.length <= 7}
+                  getRowClassName={(params) => `opportunity-row-${params.row.status}`}
+                  disableColumnMenu
+                  disableColumnFilter
+                  disableColumnSelector
+                  disableDensitySelector
+                  hideFooterSelectedRowCount
+                />
+              </Box>
+            </OpportunitySection>
+
+            <OpportunitySection
+              title="Needs Attention"
+              subtitle="These offers require additional review before approval"
+              count={needsReviewOffers.length}
+              icon={<WarningIcon />}
+              iconColor={theme.palette.warning.main}
+              expanded={reviewExpanded}
+              onToggle={() => setReviewExpanded(!reviewExpanded)}
+              flex
+            >
+              <Box sx={{ p: { xs: 1.5, sm: 2 }, flex: 1 }}>
+                <OpportunityDataGrid
+                  rows={needsReviewOffers}
+                  columns={expiredColumns}
+                  loading={isLoading}
+                  autoHeight={needsReviewOffers.length <= 7}
+                  getRowClassName={(params) => `opportunity-row-${params.row.status}`}
+                  disableColumnMenu
+                  disableColumnFilter
+                  disableColumnSelector
+                  disableDensitySelector
+                  hideFooterSelectedRowCount
+                />
+              </Box>
+            </OpportunitySection>
+
+            <OpportunitySection
+              title="Approved"
+              count={approvedOpportunities.length}
+              icon={<ApproveIcon />}
+              iconColor={theme.palette.success.main}
+              expanded={approvedExpanded}
+              onToggle={() => setApprovedExpanded(!approvedExpanded)}
+              flex
+            >
+              <Box sx={{ p: { xs: 1.5, sm: 2 }, flex: 1 }}>
+                <OpportunityDataGrid
+                  rows={approvedOpportunities}
+                  columns={approvedColumns}
+                  loading={isLoading}
+                  autoHeight={approvedOpportunities.length <= 7}
+                  getRowClassName={(params) => `opportunity-row-${params.row.status}`}
+                  disableColumnMenu
+                  disableColumnFilter
+                  disableColumnSelector
+                  disableDensitySelector
+                  hideFooterSelectedRowCount
+                />
+              </Box>
+            </OpportunitySection>
+
+            <OpportunitySection
+              title="Rejected"
+              count={rejectedOpportunities?.length || 0}
+              icon={<RejectIcon />}
+              iconColor={theme.palette.error.main}
+              expanded={rejectedExpanded}
+              onToggle={() => setRejectedExpanded(!rejectedExpanded)}
+              flex
+            >
+              <Box sx={{ p: { xs: 1.5, sm: 2 }, flex: 1 }}>
+                <OpportunityDataGrid
+                  rows={rejectedOpportunities || []}
+                  columns={rejectedColumns}
+                  loading={isLoading}
+                  autoHeight={(rejectedOpportunities?.length || 0) <= 7}
+                  getRowClassName={(params) => `opportunity-row-${params.row.status}`}
+                  disableColumnMenu
+                  disableColumnFilter
+                  disableColumnSelector
+                  disableDensitySelector
+                  hideFooterSelectedRowCount
+                />
+              </Box>
+            </OpportunitySection>
+          </Stack>
         </Grid>
       </Grid>
 
-      {/* Preview Modal */}
-      {selectedOpportunity && (
-        <OpportunityPreviewModal
-          opportunity={selectedOpportunity}
-          open={true}
-          onClose={() => setSelectedOpportunity(null)}
-          onApprove={() => handleApprove(selectedOpportunity)}
-          onReject={() => handleReject(selectedOpportunity)}
-        />
-      )}
+      <OpportunityPreviewModal
+        opportunity={selectedOpportunity}
+        onClose={() => setSelectedOpportunity(null)}
+        open={selectedOpportunity !== null}
+      />
 
-      <ResetStagedDialog />
-      <ResetAllDialog />
-      <BulkApproveDialog />
+      <BulkApproveDialog
+        open={bulkApproveDialogOpen}
+        onClose={() => setBulkApproveDialogOpen(false)}
+      />
+
+      <ResetStagedDialog
+        open={resetStagedDialogOpen}
+        onClose={() => setResetStagedDialogOpen(false)}
+        onConfirm={handleResetStaged}
+        isResetting={isResettingStagedOffers}
+      />
+
+      <ResetAllDialog
+        open={resetAllDialogOpen}
+        onClose={() => setResetAllDialogOpen(false)}
+        onConfirm={handleResetAll}
+        isResetting={isResettingOpportunities}
+      />
     </Container>
   );
 };

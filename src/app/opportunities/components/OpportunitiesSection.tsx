@@ -30,6 +30,7 @@ import {
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useInView } from 'react-intersection-observer';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
@@ -111,16 +112,33 @@ function OpportunitiesSectionContent({
     isLoading,
     error: opportunitiesError,
     refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    total,
   } = useOpportunities({
     searchTerm,
     type: selectedType,
     sortBy,
     sortDirection,
+    status: 'approved,staged,pending',
   });
+
+  // Setup infinite scroll
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0,
+  });
+
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Filter opportunities based on search term
   const filteredOpportunities = useMemo(() => {
     if (!fetchedOpportunities) return [];
+    if (!Array.isArray(fetchedOpportunities)) return [];
 
     return fetchedOpportunities.filter((opp) => {
       const searchLower = searchTerm.toLowerCase();
@@ -136,12 +154,13 @@ function OpportunitiesSectionContent({
   useEffect(() => {
     console.log('OpportunitiesSection - Current state:', {
       fetchedOpportunities: {
-        count: fetchedOpportunities.length,
-        sample: fetchedOpportunities[0]
+        count: filteredOpportunities.length,
+        total,
+        sample: filteredOpportunities[0]
           ? {
-              id: fetchedOpportunities[0].id,
-              name: fetchedOpportunities[0].name,
-              type: fetchedOpportunities[0].type,
+              id: filteredOpportunities[0].id,
+              name: filteredOpportunities[0].name,
+              type: filteredOpportunities[0].type,
             }
           : null,
       },
@@ -163,7 +182,6 @@ function OpportunitiesSectionContent({
       error: opportunitiesError,
     });
   }, [
-    fetchedOpportunities,
     filteredOpportunities,
     searchTerm,
     selectedType,
@@ -171,6 +189,7 @@ function OpportunitiesSectionContent({
     sortDirection,
     isLoading,
     opportunitiesError,
+    total,
   ]);
 
   // Handle type selection
@@ -687,17 +706,127 @@ function OpportunitiesSectionContent({
               </Typography>
             </Box>
           ) : viewMode === 'grid' ? (
-            <OpportunityGrid
-              opportunities={filteredOpportunities}
-              onDeleteClick={handleDeleteClick}
-              isDeleting={isDeleting}
-            />
+            <>
+              <OpportunityGrid
+                opportunities={filteredOpportunities}
+                onDeleteClick={handleDeleteClick}
+                isDeleting={isDeleting}
+              />
+              {/* Load More Trigger */}
+              {(hasNextPage || isFetchingNextPage) && (
+                <Box
+                  ref={loadMoreRef}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    py: 4,
+                    width: '100%',
+                  }}
+                >
+                  {isFetchingNextPage ? (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 2,
+                      }}
+                    >
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          rotate: [0, 360],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: '50%',
+                            border: '3px solid',
+                            borderColor: 'primary.main',
+                            borderRightColor: 'transparent',
+                          }}
+                        />
+                      </motion.div>
+                      <Typography variant="body2" color="text.secondary">
+                        Loading more opportunities...
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      Showing {filteredOpportunities.length} of {total} opportunities
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            </>
           ) : (
-            <OpportunityList
-              opportunities={filteredOpportunities}
-              onDeleteClick={handleDeleteClick}
-              isDeleting={isDeleting}
-            />
+            <>
+              <OpportunityList
+                opportunities={filteredOpportunities}
+                onDeleteClick={handleDeleteClick}
+                isDeleting={isDeleting}
+              />
+              {/* Load More Trigger */}
+              {(hasNextPage || isFetchingNextPage) && (
+                <Box
+                  ref={loadMoreRef}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    py: 4,
+                    width: '100%',
+                  }}
+                >
+                  {isFetchingNextPage ? (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 2,
+                      }}
+                    >
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          rotate: [0, 360],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: '50%',
+                            border: '3px solid',
+                            borderColor: 'primary.main',
+                            borderRightColor: 'transparent',
+                          }}
+                        />
+                      </motion.div>
+                      <Typography variant="body2" color="text.secondary">
+                        Loading more opportunities...
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      Showing {filteredOpportunities.length} of {total} opportunities
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            </>
           )}
 
           {/* Delete Confirmation Dialog */}

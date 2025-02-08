@@ -3,7 +3,9 @@ import { useEffect, useState, useMemo } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Permission } from '@/lib/auth/types';
-import { db } from '@/lib/firebase/config';
+import { getFirebaseServices } from '@/lib/firebase/config';
+
+const { firestore: db } = await getFirebaseServices();
 
 export interface NotificationSettings {
   creditCardAlerts: boolean;

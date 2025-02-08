@@ -3,7 +3,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import { db } from '@/lib/firebase/config';
+import { getFirebaseServices } from '@/lib/firebase/config';
+import { formatCurrency } from '@/lib/utils/formatters';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 export interface UserProfile {
@@ -55,7 +56,8 @@ export function useDashboardData() {
 
     const fetchProfile = async () => {
       try {
-        const docRef = doc(db, 'users', user.uid);
+        const { firestore } = await getFirebaseServices();
+        const docRef = doc(firestore, 'users', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setProfile(docSnap.data() as UserProfile);
@@ -70,53 +72,37 @@ export function useDashboardData() {
     void fetchProfile();
   }, [user]);
 
-  // Fetch stats from the API
-  const { data: stats, error: statsError } = useQuery({
-    queryKey: ['stats'],
-    queryFn: async () => {
-      const response = await fetch('/api/opportunities/stats');
-      if (!response.ok) {
-        throw new Error('Failed to fetch stats');
-      }
-      const data = await response.json();
-
-      // Transform API response to match dashboard format
-      return {
-        trackedValue: data.totalPotentialValue || '$0',
-        potentialValue: data.totalPotentialValue || '$0',
-        activeOpportunities: `${data.activeCount || 0}`,
-        averageValue: data.averageValue || '$0',
-        trends: {
-          trackedValue: {
-            value: data.trackedCount || 0,
-            label: 'opportunities in progress',
-          },
-          potentialValue: {
-            value: data.highValue || 0,
-            label: 'high-value opportunities',
-          },
-          activeOpportunities: {
-            value: data.activeCount || 0,
-            label: 'active opportunities',
-          },
-          averageValue: {
-            value: data.averageValue
-              ? parseInt(data.averageValue.replace(/[^0-9]/g, ''))
-              : 0,
-            label: 'average bonus value',
-          },
-        },
-      };
+  // TODO: Replace mock stats with real data after feature and tracking implementation
+  const stats = {
+    trackedValue: formatCurrency(1500),
+    potentialValue: formatCurrency(5000),
+    activeOpportunities: '3',
+    averageValue: formatCurrency(1200),
+    trends: {
+      trackedValue: {
+        value: 2,
+        label: 'opportunities in progress',
+      },
+      potentialValue: {
+        value: 1,
+        label: 'high-value opportunities',
+      },
+      activeOpportunities: {
+        value: 3,
+        label: 'active opportunities',
+      },
+      averageValue: {
+        value: 1200,
+        label: 'average bonus value',
+      },
     },
-    enabled: !!user,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
+  };
 
   // Fetch opportunities for the dashboard
   const { data: opportunities = [] } = useQuery({
     queryKey: ['opportunities'],
     queryFn: async () => {
-      const response = await fetch('/api/opportunities/stats');
+      const response = await fetch('/api/opportunities');
       if (!response.ok) {
         throw new Error('Failed to fetch opportunities');
       }
@@ -153,8 +139,8 @@ export function useDashboardData() {
     stats,
     quickOpportunities,
     trackedOpportunities,
-    loading: authLoading || loadingProfile || !stats,
-    error: statsError,
+    loading: authLoading || loadingProfile,
+    error: null,
   };
 }
 

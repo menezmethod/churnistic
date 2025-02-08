@@ -11,15 +11,16 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useSplashStats } from '@/lib/hooks/useSplashStats';
+import { Opportunity } from '@/types/opportunity';
 
-import { BankLogos } from './components/BankLogos';
+// TODO: Re-implement bank logos and public opportunities after API is ready
 import { FAQ } from './components/FAQ';
 import { FeaturedOpportunities } from './components/FeaturedOpportunities';
 
@@ -33,6 +34,102 @@ const circles = Array.from({ length: 10 }, (_, i) => ({
   left: `${(i * 10) % 100}%`,
   top: `${(i * 10 + 5) % 100}%`,
 }));
+
+// Add this mock data above the HomePage component
+// TODO: Replace with real data from API
+const MOCK_OPPORTUNITIES: Array<Opportunity> = [
+  {
+    id: '1',
+    name: 'Chase Sapphire Preferred',
+    description: 'Earn 60,000 bonus points after spending $4,000 in first 3 months',
+    bank: 'Chase',
+    value: 750,
+    type: 'credit_card' as const,
+    status: 'approved' as const,
+    isStaged: false,
+    offer_link: 'https://www.chase.com/sapphire',
+    source_id: 'chase-sapphire-1',
+    logo: {
+      url: '/images/cards/chase-sapphire.png',
+      type: 'url',
+    },
+    metadata: {
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: 'system',
+      status: 'active',
+    },
+    bonus: {
+      title: 'Welcome Bonus',
+      description: 'New cardmember bonus',
+      requirements: {
+        description:
+          'Spend $4,000 in first 3 months\nMust be new Chase Sapphire customer\nCredit score 700+ required',
+      },
+    },
+  },
+  {
+    id: '2',
+    name: 'American Express Gold',
+    description:
+      'Earn 60,000 Membership Rewards points after spending $4,000 in first 6 months',
+    bank: 'American Express',
+    value: 600,
+    type: 'credit_card' as const,
+    status: 'approved' as const,
+    isStaged: false,
+    offer_link: 'https://www.americanexpress.com/gold',
+    source_id: 'amex-gold-1',
+    logo: {
+      url: '/images/cards/amex-gold.png',
+      type: 'url',
+    },
+    metadata: {
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: 'system',
+      status: 'active',
+    },
+    bonus: {
+      title: 'Welcome Bonus',
+      description: 'New cardmember bonus',
+      requirements: {
+        description:
+          'Spend $4,000 in first 6 months\nMust be new Amex Gold customer\nCredit score 700+ required',
+      },
+    },
+  },
+  {
+    id: '3',
+    name: 'Capital One Venture X',
+    description: 'Earn 75,000 miles after spending $4,000 in first 3 months',
+    bank: 'Capital One',
+    value: 750,
+    type: 'credit_card' as const,
+    status: 'approved' as const,
+    isStaged: false,
+    offer_link: 'https://www.capitalone.com/venture-x',
+    source_id: 'capital-one-venture-x-1',
+    logo: {
+      url: '/images/cards/capital-one-venture.png',
+      type: 'url',
+    },
+    metadata: {
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: 'system',
+      status: 'active',
+    },
+    bonus: {
+      title: 'Welcome Bonus',
+      description: 'New cardmember bonus',
+      requirements: {
+        description:
+          'Spend $4,000 in first 3 months\nMust be new Capital One customer\nCredit score 740+ required',
+      },
+    },
+  },
+];
 
 function HeroSection({
   user,
@@ -108,8 +205,17 @@ function HeroSection({
       </Box>
 
       {/* Content */}
-      <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-        <Grid container spacing={4} alignItems="center">
+      <Container
+        maxWidth="lg"
+        sx={{
+          position: 'relative',
+          zIndex: 1,
+          '@media (min-width: 2560px)': {
+            maxWidth: '1800px',
+          },
+        }}
+      >
+        <Grid container spacing={{ xs: 4, lg: 6, xl: 8 }} alignItems="center">
           <Grid item xs={12} md={7}>
             <AnimatePresence>
               {inView && (
@@ -122,7 +228,16 @@ function HeroSection({
                     <Typography
                       variant="h1"
                       sx={{
-                        fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem', lg: '4rem' },
+                        fontSize: {
+                          xs: '2rem',
+                          sm: '2.5rem',
+                          md: '3rem',
+                          lg: '4rem',
+                          xl: '5rem',
+                          '@media (min-width: 2560px)': {
+                            fontSize: '6rem',
+                          },
+                        },
                         fontWeight: 800,
                         color: 'common.white',
                         mb: 2,
@@ -224,10 +339,10 @@ function HeroSection({
           </Grid>
 
           {/* Enhanced Stats Section */}
-          <Grid item xs={12} sx={{ mt: { xs: 4, md: 6 } }}>
+          <Grid item xs={12} md={5} sx={{ display: 'flex', alignItems: 'center' }}>
             <Grid container spacing={2}>
               {stats.map((stat, index) => (
-                <Grid item xs={12} sm={6} md={4} key={stat.label}>
+                <Grid item xs={12} sm={6} md={12} key={stat.label}>
                   <AnimatePresence>
                     {inView && (
                       <motion.div
@@ -237,14 +352,17 @@ function HeroSection({
                       >
                         <Box
                           sx={{
-                            p: 3,
-                            borderRadius: 2,
+                            p: { xs: 3, md: 4, lg: 5 },
+                            borderRadius: { xs: 2, lg: 3 },
                             bgcolor: alpha(theme.palette.common.white, 0.1),
                             textAlign: 'center',
                             backdropFilter: 'blur(12px)',
                             border: '1px solid',
                             borderColor: alpha(theme.palette.common.white, 0.2),
                             transition: 'all 0.3s ease',
+                            '@media (min-width: 2560px)': {
+                              p: 6,
+                            },
                             '&:hover': {
                               transform: 'translateY(-5px)',
                               boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.3)}`,
@@ -257,7 +375,15 @@ function HeroSection({
                               mb: 1,
                               fontWeight: 700,
                               color: 'common.white',
-                              fontSize: { xs: '1.5rem', sm: '2rem' },
+                              fontSize: {
+                                xs: '1.5rem',
+                                sm: '2rem',
+                                lg: '2.5rem',
+                                xl: '3rem',
+                                '@media (min-width: 2560px)': {
+                                  fontSize: '3.5rem',
+                                },
+                              },
                               background: `linear-gradient(45deg, 
                                 ${theme.palette.primary.light}, 
                                 ${theme.palette.common.white})`,
@@ -274,7 +400,15 @@ function HeroSection({
                               color: alpha(theme.palette.common.white, 0.8),
                               textTransform: 'uppercase',
                               letterSpacing: '0.5px',
-                              fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                              fontSize: {
+                                xs: '0.8rem',
+                                sm: '0.9rem',
+                                lg: '1rem',
+                                xl: '1.2rem',
+                                '@media (min-width: 2560px)': {
+                                  fontSize: '1.4rem',
+                                },
+                              },
                             }}
                           >
                             {stat.label}
@@ -296,17 +430,7 @@ function HeroSection({
 export default function HomePage() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { data: stats, error } = useQuery({
-    queryKey: ['stats'],
-    queryFn: async () => {
-      const response = await fetch('/api/opportunities/stats');
-      if (!response.ok) {
-        throw new Error('Failed to fetch stats');
-      }
-      return response.json();
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
+  const { stats, error } = useSplashStats();
 
   // Add error state
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -317,21 +441,6 @@ export default function HomePage() {
     }
   }, [error]);
 
-  const displayStats = [
-    {
-      label: 'POTENTIAL BONUS EARNINGS',
-      value: stats?.totalPotentialValue || '$0',
-    },
-    {
-      label: 'BONUSES AVAILABLE',
-      value: `${stats?.activeCount || 0}+`,
-    },
-    {
-      label: 'AVERAGE BONUS VALUE',
-      value: stats?.averageValue || '$0',
-    },
-  ];
-
   return (
     <Box component="main">
       {errorMessage && (
@@ -340,9 +449,11 @@ export default function HomePage() {
         </Box>
       )}
 
-      <HeroSection user={user} stats={displayStats} />
-      <BankLogos />
-      <FeaturedOpportunities />
+      <HeroSection user={user} stats={stats || []} />
+      {/* Using mock data only for now */}
+      <Box sx={{ py: 8 }}>
+        <FeaturedOpportunities opportunities={MOCK_OPPORTUNITIES} />
+      </Box>
       <Box
         component="section"
         sx={{

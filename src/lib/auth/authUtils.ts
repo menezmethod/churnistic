@@ -41,7 +41,7 @@ export async function createAuthContext(req: NextRequest): Promise<AuthContext> 
         }
 
         // In production, verify the token properly
-        const decodedToken = await getAuth().verifyIdToken(idToken);
+        const decodedToken = await getAuth().verifyIdToken(idToken, true); // Force token refresh
         console.log('ID Token verified for user:', decodedToken.uid);
         return {
           session: {
@@ -98,7 +98,7 @@ export async function createAuthContext(req: NextRequest): Promise<AuthContext> 
 
     // In production, verify the session cookie properly
     try {
-      const decodedToken = await getAuth().verifySessionCookie(sessionCookie);
+      const decodedToken = await getAuth().verifySessionCookie(sessionCookie, true);
       console.log('Session verified for user:', decodedToken.uid);
 
       return {

@@ -1,11 +1,77 @@
 /// <reference types="node" />
+
+import { loadEnvConfig } from '@next/env';
 import '@testing-library/jest-dom';
-import fetch from 'node-fetch';
+import { TextEncoder, TextDecoder } from 'util';
 
 import { mockFirestore } from '@/mocks/firestore';
 
+// Load environment variables
+loadEnvConfig(process.cwd());
+
+// Mock window.matchMedia
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: jest.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
+});
+
+// Mock window.ResizeObserver
+class ResizeObserverMock {
+  observe = jest.fn();
+  unobserve = jest.fn();
+  disconnect = jest.fn();
+}
+
+window.ResizeObserver = ResizeObserverMock;
+
+// Mock window.IntersectionObserver
+class IntersectionObserverMock implements IntersectionObserver {
+  readonly root: Element | null = null;
+  readonly rootMargin: string = '0px';
+  readonly thresholds: ReadonlyArray<number> = [0];
+
+  constructor(
+    private callback: IntersectionObserverCallback,
+    private options?: IntersectionObserverInit
+  ) {}
+
+  observe = jest.fn();
+  unobserve = jest.fn();
+  disconnect = jest.fn();
+  takeRecords = jest.fn().mockReturnValue([]);
+}
+
+window.IntersectionObserver =
+  IntersectionObserverMock as unknown as typeof window.IntersectionObserver;
+
+// Mock fetch
+global.fetch = jest.fn();
+
+// Mock TextEncoder/TextDecoder
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder as unknown as typeof global.TextDecoder;
+
+// Reset all mocks before each test
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+// Clean up after each test
+afterEach(() => {
+  jest.resetAllMocks();
+});
+
 // Set up global fetch environment
-global.fetch = fetch as unknown as typeof global.fetch;
+global.fetch = global.fetch as unknown as typeof global.fetch;
 
 // Mock Firestore
 jest.mock('@firebase/firestore', () => ({

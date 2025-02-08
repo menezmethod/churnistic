@@ -18,7 +18,7 @@ import { useState } from 'react';
 import { Opportunity } from '../types/opportunity';
 
 interface OpportunityPreviewModalProps {
-  opportunity: Opportunity & { isStaged?: boolean };
+  opportunity: (Opportunity & { isStaged?: boolean }) | null;
   open: boolean;
   onClose: () => void;
   onApprove?: () => void;
