@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 
@@ -19,13 +19,7 @@ export default function OpportunitiesPage() {
 
 function OpportunitiesPageContent() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      window.location.href = '/auth/signin?redirect=/opportunities';
-    }
-  }, [user, authLoading]);
+  const { user } = useAuth();
 
   const handleAddOpportunity = () => {
     if (!user) {
@@ -48,10 +42,13 @@ function OpportunitiesPageContent() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete opportunity');
+        throw new Error(errorData.message || 'Failed to delete opportunity');
       }
-    } catch (err) {
-      console.error('Error deleting opportunity:', err);
+
+      // Refresh the page
+      router.refresh();
+    } catch (error) {
+      console.error('Error deleting opportunity:', error);
     }
   };
 

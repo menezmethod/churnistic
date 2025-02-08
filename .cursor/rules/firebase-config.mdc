@@ -1,0 +1,50 @@
+---
+description: 
+globs: 
+---
+# Firebase Configuration Rules
+
+## Environment Detection
+- Use process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATOR for emulator detection
+- Only enable emulator on localhost
+- Use proper Firebase services on Vercel deployments
+
+## Emulator Configuration
+- Required ports:
+  - Authentication: 9099
+  - Firestore: 8080
+  - Storage: 9199
+  - Functions: 5001
+- Configure firebase.json properly
+- Set FIREBASE_AUTH_EMULATOR_HOST in .env.local
+- Set FIRESTORE_EMULATOR_HOST in .env.local
+
+## Production Configuration
+- Use proper Firebase Admin SDK initialization
+- Implement secure credential management
+- Follow Firebase security best practices
+- Use proper service account configuration
+
+## Security Rules
+- Implement proper Firestore rules
+- Set up Storage bucket rules
+- Configure Authentication providers
+- Follow least privilege principle
+
+## Error Handling
+- Implement proper Firebase error handling
+- Use proper error boundaries
+- Log errors appropriately
+- Provide user-friendly error messages
+
+## Performance
+- Implement proper data caching
+- Use proper query limits
+- Optimize batch operations
+- Monitor Firebase quotas
+
+## Testing
+- Use Firebase emulator for tests
+- Write integration tests
+- Test security rules
+- Validate authentication flows 

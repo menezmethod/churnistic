@@ -10,7 +10,7 @@ import TextField from '@mui/material/TextField';
 import * as React from 'react';
 import type { JSX } from 'react';
 
-import { resetPassword } from '@/lib/firebase/auth';
+import { resetPassword } from '@/lib/firebase/utils/auth';
 
 interface ForgotPasswordProps {
   open: boolean;

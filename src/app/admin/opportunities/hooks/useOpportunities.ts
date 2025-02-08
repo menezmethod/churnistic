@@ -1,18 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
 import {
-  collection,
-  getDocs,
-  updateDoc,
-  doc,
-  writeBatch,
-  query,
-  where,
-  deleteDoc,
-} from 'firebase/firestore';
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import { getAuth } from 'firebase/auth';
 import { useState } from 'react';
-
-import { db } from '@/lib/firebase/config';
 
 import {
   Details,
@@ -37,25 +30,33 @@ interface PaginationState {
   };
 }
 
+interface Stats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  avgValue: number;
+  highValue: number;
+  byType: {
+    bank: number;
+    credit_card: number;
+    brokerage: number;
+  };
+  bankRewards?: {
+    total: number;
+    active: number;
+    expired: number;
+  };
+  processingRate: string;
+}
+
+interface PaginatedResponse {
+  items: Opportunity[];
+  total: number;
+  hasMore: boolean;
+}
+
 const ITEMS_PER_PAGE = 20;
-
-// Update the interfaces to match Opportunity type
-interface RequirementDetails {
-  amount: number;
-  period: number;
-  count?: number; // Add optional count property
-}
-
-interface BaseRequirement {
-  type: string;
-  details: RequirementDetails;
-  minimum_deposit?: number | null;
-}
-
-interface DebitTransactionRequirement extends BaseRequirement {
-  type: 'debit_transactions';
-  details: { amount: number; period: number; count: number };
-}
 
 const parseRequirements = (
   description: string = '',
@@ -290,7 +291,6 @@ const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
     const response = await fetch('/api/proxy/bankrewards?format=detailed', {
       method: 'GET',
       credentials: 'include',
-      // Add timeout for production environment
       signal: AbortSignal.timeout(process.env.NODE_ENV === 'production' ? 10000 : 30000),
     });
     if (!response.ok)
@@ -298,221 +298,79 @@ const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
     return await response.json();
   } catch (error) {
     console.error('BankRewards API error:', error);
-    // Return empty data to prevent UI blockage
     return { data: { offers: [], stats: { total: 0, active: 0, expired: 0 } } };
   }
-};
-
-const fetchPaginatedOpportunities = async (
-  pagination: PaginationState
-): Promise<{
-  items: Opportunity[];
-  total: number;
-  hasMore: boolean;
-}> => {
-  console.log('Fetching paginated opportunities:', pagination);
-  const { page, pageSize, sortBy, sortDirection, filters } = pagination;
-
-  // Get both collections
-  const opportunitiesRef = collection(db, 'opportunities');
-  const stagedOffersRef = collection(db, 'staged_offers');
-
-  // Build base queries for both collections
-  let opportunitiesQuery = query(opportunitiesRef);
-  let stagedQuery = query(stagedOffersRef);
-
-  // Apply filters to both queries
-  if (filters.status) {
-    opportunitiesQuery = query(opportunitiesQuery, where('status', '==', filters.status));
-    stagedQuery = query(stagedQuery, where('status', '==', filters.status));
-  }
-  if (filters.type) {
-    opportunitiesQuery = query(opportunitiesQuery, where('type', '==', filters.type));
-    stagedQuery = query(stagedQuery, where('type', '==', filters.type));
-  }
-  if (filters.minValue) {
-    opportunitiesQuery = query(
-      opportunitiesQuery,
-      where('value', '>=', filters.minValue)
-    );
-    stagedQuery = query(stagedQuery, where('value', '>=', filters.minValue));
-  }
-  if (filters.maxValue) {
-    opportunitiesQuery = query(
-      opportunitiesQuery,
-      where('value', '<=', filters.maxValue)
-    );
-    stagedQuery = query(stagedQuery, where('value', '<=', filters.maxValue));
-  }
-
-  // Get all documents from both collections
-  const [opportunitiesSnapshot, stagedSnapshot] = await Promise.all([
-    getDocs(opportunitiesQuery),
-    getDocs(stagedQuery),
-  ]);
-
-  console.log('Fetched snapshots:', {
-    opportunities: {
-      size: opportunitiesSnapshot.size,
-      empty: opportunitiesSnapshot.empty,
-    },
-    staged: {
-      size: stagedSnapshot.size,
-      empty: stagedSnapshot.empty,
-    },
-  });
-
-  // Combine and transform all documents
-  const allOpportunities = [
-    ...opportunitiesSnapshot.docs.map((doc) => {
-      const data = doc.data() as Opportunity;
-      return {
-        ...data,
-        isStaged: false,
-        status: data.status || 'pending',
-      };
-    }),
-    ...stagedSnapshot.docs.map((doc) => {
-      const data = doc.data() as Opportunity;
-      return {
-        ...data,
-        status: 'staged' as const,
-        isStaged: true,
-      };
-    }),
-  ];
-
-  console.log('Combined opportunities:', {
-    total: allOpportunities.length,
-    staged: allOpportunities.filter((opp) => opp.isStaged).length,
-    regular: allOpportunities.filter((opp) => !opp.isStaged).length,
-  });
-
-  // Sort combined results
-  const sortedOpportunities = allOpportunities.sort((a, b) => {
-    const aValue = a[sortBy as keyof Opportunity];
-    const bValue = b[sortBy as keyof Opportunity];
-    const modifier = sortDirection === 'asc' ? 1 : -1;
-
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      return aValue.localeCompare(bValue) * modifier;
-    }
-    if (typeof aValue === 'number' && typeof bValue === 'number') {
-      return (aValue - bValue) * modifier;
-    }
-    return 0;
-  });
-
-  // Calculate pagination
-  const startIndex = (page - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedItems = sortedOpportunities.slice(startIndex, endIndex);
-
-  console.log('Pagination results:', {
-    startIndex,
-    endIndex,
-    pageSize,
-    totalItems: sortedOpportunities.length,
-    returnedItems: paginatedItems.length,
-  });
-
-  return {
-    items: paginatedItems,
-    total: allOpportunities.length,
-    hasMore: endIndex < allOpportunities.length,
-  };
 };
 
 const fetchStagedOpportunities = async (): Promise<
   (Opportunity & { isStaged: boolean })[]
 > => {
-  console.log('Fetching staged opportunities...');
-  try {
-    const response = await fetch('/api/opportunities/staged');
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Failed to fetch staged opportunities:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText,
-      });
-      throw new Error('Failed to fetch staged opportunities');
-    }
-    const data = await response.json();
-    console.log('Staged opportunities response:', {
-      success: data.success,
-      count: data.opportunities?.length,
-      sample: data.opportunities?.[0]
-        ? {
-            id: data.opportunities[0].id,
-            name: data.opportunities[0].name,
-            type: data.opportunities[0].type,
-          }
-        : null,
-    });
-    return data.opportunities.map((doc: Omit<Opportunity, 'status' | 'isStaged'>) => ({
-      ...doc,
-      status: 'staged' as const,
-      isStaged: true,
-    }));
-  } catch (error) {
-    console.error('Error fetching staged opportunities:', error);
-    throw error;
+  const auth = getAuth();
+  const idToken = await auth.currentUser?.getIdToken(true);
+
+  if (!idToken) {
+    throw new Error('No authenticated user found');
   }
+
+  const response = await fetch('/api/opportunities/staged', {
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch staged opportunities');
+  }
+  const data = await response.json();
+  return data.opportunities.map((opp: Opportunity) => ({
+    ...opp,
+    isStaged: true,
+  }));
 };
 
-// Define the QueryKeys type first
-type QueryKeys = {
-  opportunities: {
-    all: readonly ['opportunities'];
-    paginated: (
-      pagination: PaginationState
-    ) => readonly ['opportunities', 'paginated', PaginationState];
-    stats: readonly ['opportunities', 'stats'];
-    staged: readonly ['opportunities', 'staged'];
-  };
-  bankRewards: {
-    all: readonly ['bankRewardsOffers'];
-  };
-};
-
-// Then define the queryKeys constant with its type
-const queryKeys: QueryKeys = {
+// Query keys for React Query
+const queryKeys = {
   opportunities: {
     all: ['opportunities'] as const,
     paginated: (pagination: PaginationState) =>
       ['opportunities', 'paginated', pagination] as const,
-    stats: ['opportunities', 'stats'] as const,
     staged: ['opportunities', 'staged'] as const,
+    approved: ['opportunities', 'approved'] as const,
+    rejected: ['opportunities', 'rejected'] as const,
+    stats: ['opportunities', 'stats'] as const,
   },
-  bankRewards: {
-    all: ['bankRewardsOffers'] as const,
-  },
-} as const;
-
-// Update Stats type to be more precise
-type Stats = {
-  total: number;
-  pending: number;
-  approved: number;
-  rejected: number;
-  avgValue: number;
-  highValue: number;
-  byType: {
-    bank: number;
-    credit_card: number;
-    brokerage: number;
-  };
-  bankRewards?: {
-    total: number;
-    active: number;
-    expired: number;
-  };
-  processingRate: string;
 };
 
-export function useOpportunities() {
+interface UseOpportunitiesReturn {
+  pagination: PaginationState;
+  setPagination: (pagination: PaginationState) => void;
+  stats: Stats;
+  stagedOpportunities: (Opportunity & { isStaged: boolean })[];
+  approvedOpportunities: Opportunity[];
+  rejectedOpportunities: Opportunity[];
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  approveOpportunity: (opportunity: Opportunity) => void;
+  rejectOpportunity: (opportunity: Opportunity & { isStaged?: boolean }) => void;
+  bulkApproveOpportunities: () => void;
+  isBulkApproving: boolean;
+  importOpportunities: () => void;
+  isImporting: boolean;
+  hasStagedOpportunities: boolean;
+  resetStagedOffers: () => void;
+  isResettingStagedOffers: boolean;
+  resetOpportunities: () => void;
+  isResettingOpportunities: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+  loadingStates: {
+    [key: string]: boolean; // Track loading state for individual items
+  };
+}
+
+export function useOpportunities(): UseOpportunitiesReturn {
   const queryClient = useQueryClient();
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     pageSize: ITEMS_PER_PAGE,
@@ -521,486 +379,238 @@ export function useOpportunities() {
     filters: {},
   });
 
-  // Fetch staged opportunities with proper query key and configuration
-  const { data: stagedOpportunities = [] } = useQuery({
-    queryKey: queryKeys.opportunities.staged,
-    queryFn: fetchStagedOpportunities,
+  // Fetch paginated opportunities with better options
+  const { error: paginatedError, isLoading: isLoadingPaginated } = useQuery({
+    queryKey: queryKeys.opportunities.paginated(pagination),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+
+      // Add base pagination params
+      params.set('page', pagination.page.toString());
+      params.set('pageSize', pagination.pageSize.toString());
+      params.set('sortBy', pagination.sortBy);
+      params.set('sortDirection', pagination.sortDirection);
+
+      // Add filters, converting numbers to strings
+      if (pagination.filters.status) params.set('status', pagination.filters.status);
+      if (pagination.filters.type) params.set('type', pagination.filters.type);
+      if (pagination.filters.minValue)
+        params.set('minValue', pagination.filters.minValue.toString());
+      if (pagination.filters.maxValue)
+        params.set('maxValue', pagination.filters.maxValue.toString());
+      if (pagination.filters.search) params.set('search', pagination.filters.search);
+
+      const response = await fetch(`/api/opportunities?${params}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.details || error.error || 'Failed to fetch opportunities');
+      }
+      return response.json() as Promise<PaginatedResponse>;
+    },
+    placeholderData: keepPreviousData,
     staleTime: 1000 * 30, // 30 seconds
     gcTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    retry: 2,
   });
 
-  // Fetch paginated opportunities with proper query key and configuration
-  const {
-    data: paginatedData,
-    error: paginationError,
-    status: paginationStatus,
-    isPending: isPaginationPending,
-  } = useQuery({
-    queryKey: queryKeys.opportunities.paginated(pagination),
-    queryFn: () => fetchPaginatedOpportunities(pagination),
+  // Fetch stats with better options
+  const { data: statsData, isLoading: isLoadingStats } = useQuery({
+    queryKey: ['opportunities', 'stats'],
+    queryFn: async () => {
+      const response = await fetch('/api/opportunities/stats');
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      return response.json();
+    },
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 5,
-    retry: 2,
-    retryDelay: 1000,
-    refetchOnWindowFocus: process.env.NODE_ENV === 'development',
-    refetchOnReconnect: true,
-    refetchOnMount: true,
-  });
-
-  // Fetch and sync BankRewards offers with stats
-  const { data: bankRewardsData } = useQuery({
-    queryKey: queryKeys.bankRewards.all,
-    queryFn: fetchBankRewardsOffers,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 10, // 10 minutes
-    refetchInterval: 1000 * 60 * 5, // Refetch every 5 minutes
-  });
-
-  // Fetch stats with proper query key and real-time updates
-  const { data: stats } = useQuery({
-    queryKey: queryKeys.opportunities.stats,
-    queryFn: async () => {
-      // Get all opportunities and staged offers
-      const [opportunitiesSnapshot, stagedSnapshot] = await Promise.all([
-        getDocs(collection(db, 'opportunities')),
-        getDocs(collection(db, 'staged_offers')),
-      ]);
-
-      // Calculate base stats
-      const opportunities = opportunitiesSnapshot.docs.map(
-        (doc) => doc.data() as Opportunity
-      );
-      const stagedOffers = stagedSnapshot.docs.map((doc) => doc.data() as Opportunity);
-
-      // Calculate approved opportunities stats
-      const approvedOpportunities = opportunities.filter(
-        (opp) => opp.status === 'approved'
-      );
-      const totalApproved = approvedOpportunities.length;
-      const totalRejected = opportunities.filter(
-        (opp) => opp.status === 'rejected'
-      ).length;
-      const totalPending = stagedOffers.length;
-
-      // Calculate average bonus value from approved opportunities
-      const totalValue = approvedOpportunities.reduce(
-        (sum, opp) => sum + (opp.value || 0),
-        0
-      );
-      const avgValue = totalApproved > 0 ? Math.round(totalValue / totalApproved) : 0;
-
-      // Calculate type distribution (only count approved opportunities)
-      const byType = {
-        bank: approvedOpportunities.filter((opp) => opp.type === 'bank').length,
-        credit_card: approvedOpportunities.filter((opp) => opp.type === 'credit_card')
-          .length,
-        brokerage: approvedOpportunities.filter((opp) => opp.type === 'brokerage').length,
-      };
-
-      // Calculate high value opportunities (approved opportunities over $500)
-      const highValue = approvedOpportunities.filter(
-        (opp) => (opp.value || 0) >= 500
-      ).length;
-
-      // Calculate processing rate based on BankRewards total
-      const bankRewardsTotal = bankRewardsData?.data?.stats?.total || 0;
-      const processedTotal = totalApproved + totalRejected;
-      const processingRate =
-        bankRewardsTotal > 0
-          ? ((processedTotal / bankRewardsTotal) * 100).toFixed(1)
-          : '0';
-
-      return {
-        total: bankRewardsTotal, // Use BankRewards total as source of truth
-        pending: totalPending,
-        approved: totalApproved,
-        rejected: totalRejected,
-        avgValue,
-        highValue,
-        byType,
-        bankRewards: bankRewardsData?.data?.stats
-          ? {
-              total: bankRewardsTotal,
-              active: bankRewardsData.data.stats.active || 0,
-              expired: bankRewardsData.data.stats.expired || 0,
-            }
-          : undefined,
-        processingRate: `${processingRate}%`,
-      };
-    },
-    staleTime: 1000 * 15, // 15 seconds - shorter stale time for stats
-    gcTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    refetchInterval: 1000 * 30, // Refetch every 30 seconds
+    retry: 2,
   });
 
-  // Optimistic update helper
-  const updateStatsOptimistically = (
-    action: 'approve' | 'reject',
-    opportunity: Opportunity
-  ) => {
-    queryClient.setQueryData<Stats>(
-      queryKeys.opportunities.stats,
-      (oldStats: Stats | undefined) => {
-        if (!oldStats) return oldStats;
+  // Fetch staged opportunities
+  const {
+    data: stagedOpportunities = [],
+    error: stagedError,
+    isLoading: isLoadingStaged,
+  } = useQuery({
+    queryKey: queryKeys.opportunities.staged,
+    queryFn: fetchStagedOpportunities,
+  });
 
-        const newPending = Math.max(0, oldStats.pending - 1);
-        const newApproved =
-          action === 'approve' ? oldStats.approved + 1 : oldStats.approved;
-        const newRejected =
-          action === 'reject' ? oldStats.rejected + 1 : oldStats.rejected;
+  // Fetch rejected opportunities
+  const { data: rejectedOpportunities = [], isLoading: isLoadingRejected } = useQuery({
+    queryKey: queryKeys.opportunities.rejected,
+    queryFn: async () => {
+      const auth = getAuth();
+      const idToken = await auth.currentUser?.getIdToken(true);
 
-        return {
-          ...oldStats,
-          total: oldStats.total,
-          pending: newPending,
-          approved: newApproved,
-          rejected: newRejected,
-          byType: {
-            ...oldStats.byType,
-            [opportunity.type]: Math.max(0, oldStats.byType[opportunity.type]),
-          },
-        };
+      if (!idToken) {
+        throw new Error('No authenticated user found');
       }
-    );
+
+      const response = await fetch('/api/opportunities/rejected', {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch rejected opportunities');
+      }
+
+      const data = await response.json();
+      return data.items;
+    },
+  });
+
+  // Update stats calculation
+  const calculatedStats: Stats = {
+    total: statsData?.total || 0,
+    pending: statsData?.pending || 0,
+    approved: statsData?.approved || 0,
+    rejected: rejectedOpportunities.length,
+    avgValue: statsData?.avgValue || 0,
+    byType: statsData?.byType || { bank: 0, credit_card: 0, brokerage: 0 },
+    highValue: statsData?.highValue || 0,
+    processingRate: statsData?.processingRate || 0,
   };
 
-  // Import mutation with proper invalidation
-  const importMutation = useMutation({
+  // Fetch all approved opportunities
+  const { data: approvedOpportunities = [] } = useQuery({
+    queryKey: queryKeys.opportunities.approved,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        status: 'approved',
+        pageSize: '1000', // Large enough to get all approved opportunities
+      });
+
+      const response = await fetch(`/api/opportunities?${params}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          error.details || error.error || 'Failed to fetch approved opportunities'
+        );
+      }
+      const data = await response.json();
+      return data.items as Opportunity[];
+    },
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: true,
+  });
+
+  // Add error handling for mutations
+  const handleMutationError = (error: unknown) => {
+    console.error('Mutation error:', error);
+    if (error instanceof Error) {
+      // You can add toast notification or other error handling here
+      console.error(error.message);
+    }
+  };
+
+  // Update mutations with loading states
+  const importOpportunitiesMutation = useMutation({
     mutationFn: async () => {
+      setLoadingStates((prev) => ({ ...prev, import: true }));
       try {
-        // Get Firebase auth instance
+        const response = await fetchBankRewardsOffers();
+        const transformedOffers = response.data.offers.map(transformBankRewardsOffer);
+
+        // Import opportunities
         const auth = getAuth();
+        const idToken = await auth.currentUser?.getIdToken(true);
 
-        // Wait for auth state to be ready using Promise with proper typing
-        const user = await new Promise<User>((resolve, reject) => {
-          // Check if already signed in
-          if (auth.currentUser) {
-            resolve(auth.currentUser);
-            return;
-          }
-
-          // Set up auth state listener with timeout
-          const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
-              unsubscribe();
-              resolve(user);
-            }
-          });
-
-          // Timeout after 5 seconds
-          setTimeout(() => {
-            unsubscribe();
-            reject(new Error('Auth state timeout - please sign in again'));
-          }, 5000);
-        });
-
-        // Get fresh ID token with force refresh
-        const idToken = await user.getIdToken(true);
-
-        // Log auth state (redacted for security)
-        console.log('Auth state:', {
-          isAuthenticated: true,
-          email: user.email,
-          emailVerified: user.emailVerified,
-          isEmulator: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true',
-        });
-
-        // Prepare headers with auth token
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        };
-
-        // Add emulator specific headers if using emulators
-        if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-          console.log('Using Firebase emulators');
-          headers['X-Firebase-AppCheck-Debug-Token'] = 'debug-token';
+        if (!idToken) {
+          throw new Error('No authenticated user found');
         }
 
-        // Fetch offers
-        console.log('Fetching BankRewards offers...');
-        const response = await fetchBankRewardsOffers();
-        const newOffers = response.data.offers.map(transformBankRewardsOffer);
-        console.log(`Transformed ${newOffers.length} offers`);
-
-        // Send import request with auth token
         const importResponse = await fetch('/api/opportunities/import', {
           method: 'POST',
-          headers,
-          body: JSON.stringify({
-            offers: newOffers,
-            auth: {
-              uid: user.uid,
-              email: user.email || '',
-              token: idToken,
-            },
-          }),
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ offers: transformedOffers }),
           credentials: 'include',
         });
 
         if (!importResponse.ok) {
           const error = await importResponse.json();
-          console.error('Import error:', {
-            status: importResponse.status,
-            statusText: importResponse.statusText,
-            error,
-          });
           throw new Error(
-            error.details || error.error || `Import failed: ${importResponse.statusText}`
+            error.details || error.error || 'Failed to import opportunities'
           );
         }
 
-        const result = await importResponse.json();
-        console.log('Import successful:', result);
-
-        return result.addedCount;
-      } catch (error) {
-        console.error('Import error:', error);
-        // Enhance error message for auth-related errors
-        if (error instanceof Error) {
-          if (error.message.includes('auth') || error.message.includes('sign in')) {
-            throw new Error(
-              `Authentication error: ${error.message}. Please sign in again.`
-            );
-          }
-        }
-        throw error;
+        return importResponse.json();
+      } finally {
+        setLoadingStates((prev) => ({ ...prev, import: false }));
       }
     },
-    onSuccess: (count) => {
-      console.log(`Successfully imported ${count} offers`);
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opportunities.all,
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opportunities.stats,
-      });
-    },
-    onError: (error: Error) => {
-      console.error('Import mutation error:', error);
-    },
-    retry: (failureCount, error) => {
-      // Only retry if it's not an auth error
-      if (
-        error instanceof Error &&
-        (error.message.includes('auth') || error.message.includes('sign in'))
-      ) {
-        return false;
-      }
-      return failureCount < 2;
+    onError: handleMutationError,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
     },
   });
 
   // Approve mutation with optimistic updates
   const approveOpportunityMutation = useMutation({
-    mutationFn: async (opportunityData: Opportunity) => {
+    mutationFn: async (opportunity: Opportunity) => {
+      setLoadingStates((prev) => ({ ...prev, [opportunity.id]: true }));
       try {
-        // Get Firebase auth instance
         const auth = getAuth();
-        const user = auth.currentUser;
+        const idToken = await auth.currentUser?.getIdToken(true);
+        if (!idToken) throw new Error('No authenticated user found');
 
-        if (!user) {
-          throw new Error('No authenticated user found');
-        }
-
-        // Get fresh ID token
-        const idToken = await user.getIdToken(true);
-        console.log('Got fresh ID token for approval');
-
-        // Send to server-side API endpoint for Firebase operations
-        const approveResponse = await fetch('/api/opportunities/approve', {
+        const response = await fetch('/api/opportunities/approve', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${idToken}`,
           },
-          body: JSON.stringify({
-            ...opportunityData,
-            user: {
-              email: user.email,
-              uid: user.uid,
-            },
-          }),
-          credentials: 'include',
-        });
-
-        if (!approveResponse.ok) {
-          const errorData = await approveResponse.json();
-          console.error('Approval error response:', errorData);
-          throw new Error(
-            errorData.details || errorData.error || 'Failed to approve opportunity'
-          );
-        }
-
-        // Transform to match API structure for the external API
-        const formData = {
-          id: opportunityData.id,
-          name: opportunityData.name,
-          type: opportunityData.type,
-          value: opportunityData.value.toString(),
-          description: opportunityData.bonus.description || '',
-          offer_link: opportunityData.offer_link,
-          source_id: opportunityData.source_id,
-          source: opportunityData.source,
-          status: 'approved',
-          createdAt: opportunityData.createdAt,
-          bonus: {
-            title: opportunityData.bonus.title || '',
-            description: opportunityData.bonus.description || '',
-            requirements: {
-              title: 'Bonus Requirements',
-              description: opportunityData.bonus.requirements
-                .map((req: BaseRequirement) => {
-                  switch (req.type) {
-                    case 'spending':
-                      return `Spend $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
-                    case 'direct_deposit':
-                      return `Receive direct deposits totaling $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
-                    case 'debit_transactions':
-                      const debitReq = req as DebitTransactionRequirement;
-                      return `Make ${debitReq.details.count} debit card purchases`;
-                    case 'transfer':
-                      return `Transfer $${req.details.amount.toLocaleString()} within ${req.details.period} days`;
-                    case 'link_account':
-                      return 'Link a bank account';
-                    case 'minimum_deposit':
-                      return `Maintain a minimum deposit of $${req.details.amount.toLocaleString()} for ${req.details.period} days`;
-                    default:
-                      return 'Contact bank for specific requirements';
-                  }
-                })
-                .join(' AND '),
-            },
-            additional_info: opportunityData.bonus.additional_info || null,
-            tiers:
-              opportunityData.bonus.tiers?.map((tier) => ({
-                reward: tier.reward || '',
-                deposit: tier.deposit || '',
-                level: tier.level || null,
-                value: tier.value || null,
-                minimum_deposit: tier.minimum_deposit || null,
-                requirements: tier.requirements || null,
-              })) || null,
-          },
-          details: {
-            monthly_fees: opportunityData.details?.monthly_fees || {
-              amount: '0',
-            },
-            account_type: opportunityData.details?.account_type || '',
-            availability: opportunityData.details?.availability || {
-              type: 'Nationwide',
-              states: [],
-            },
-            credit_inquiry: opportunityData.details?.credit_inquiry || null,
-            household_limit: opportunityData.details?.household_limit || null,
-            early_closure_fee: opportunityData.details?.early_closure_fee || null,
-            chex_systems: opportunityData.details?.chex_systems || null,
-            expiration: opportunityData.details?.expiration || null,
-            options_trading: opportunityData.details?.options_trading || null,
-            ira_accounts: opportunityData.details?.ira_accounts || null,
-            under_5_24:
-              opportunityData.details?.under_5_24 !== undefined
-                ? opportunityData.details.under_5_24
-                : null,
-            foreign_transaction_fees:
-              opportunityData.details?.foreign_transaction_fees || null,
-            annual_fees: opportunityData.details?.annual_fees || null,
-          },
-          logo: opportunityData.logo || {
-            type: '',
-            url: '',
-          },
-          card_image:
-            opportunityData.type === 'credit_card'
-              ? opportunityData.card_image || {
-                  url: '',
-                  network: 'Unknown',
-                  color: 'Unknown',
-                  badge: null,
-                }
-              : null,
-          metadata: {
-            created_at: opportunityData.createdAt || new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            created_by: user.email,
-            updated_by: user.email,
-            status: 'active',
-            environment: process.env.NODE_ENV || 'development',
-          },
-        };
-
-        // Create external API endpoint entry with auth token
-        const response = await fetch('/api/opportunities', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(opportunity),
           credentials: 'include',
         });
 
         if (!response.ok) {
-          const responseText = await response.text();
-          console.error('API Error Response Text:', responseText);
-
-          let errorData;
-          try {
-            errorData = JSON.parse(responseText);
-            console.error('API Error Response:', errorData);
-            throw new Error(
-              errorData.details ||
-                errorData.error ||
-                'Failed to create API endpoint entry'
-            );
-          } catch (parseError) {
-            console.error('Error parsing API response:', parseError);
-            throw new Error(
-              `Failed to create API endpoint entry: ${response.statusText} - ${responseText}`
-            );
-          }
+          const error = await response.json();
+          throw new Error(
+            error.details || error.error || 'Failed to approve opportunity'
+          );
         }
 
-        const apiResponse = await response.json();
-        console.log('API Response:', apiResponse);
-
-        const { opportunity: approvedOpportunity } = await approveResponse.json();
-        return approvedOpportunity;
-      } catch (error) {
-        console.error('Error in approveOpportunityMutation:', error);
-        throw error;
+        return response.json();
+      } finally {
+        setLoadingStates((prev) => ({ ...prev, [opportunity.id]: false }));
       }
     },
-    onMutate: async (opportunityData) => {
-      // Cancel outgoing refetches
+    onMutate: async (opportunity) => {
       await Promise.all([
         queryClient.cancelQueries({ queryKey: queryKeys.opportunities.all }),
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.stats }),
         queryClient.cancelQueries({ queryKey: queryKeys.opportunities.staged }),
       ]);
 
-      // Snapshot current state
-      const previousStats = queryClient.getQueryData(queryKeys.opportunities.stats);
       const previousPaginated = queryClient.getQueryData(
         queryKeys.opportunities.paginated(pagination)
       );
 
-      // Optimistically update stats
-      updateStatsOptimistically('approve', opportunityData);
+      // Optimistic update
+      if (previousPaginated) {
+        queryClient.setQueryData(queryKeys.opportunities.paginated(pagination), {
+          ...previousPaginated,
+          items: (previousPaginated as { items: Opportunity[] }).items.map(
+            (opp: Opportunity) =>
+              opp.id === opportunity.id ? { ...opp, status: 'approved' } : opp
+          ),
+        });
+      }
 
-      // Return context for rollback
-      return { previousStats, previousPaginated };
+      return { previousPaginated };
     },
     onError: (err, _, context) => {
-      // Rollback on error
-      if (context?.previousStats) {
-        queryClient.setQueryData(queryKeys.opportunities.stats, context.previousStats);
-      }
       if (context?.previousPaginated) {
         queryClient.setQueryData(
           queryKeys.opportunities.paginated(pagination),
@@ -1009,53 +619,69 @@ export function useOpportunities() {
       }
     },
     onSettled: () => {
-      // Invalidate affected queries
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opportunities.paginated(pagination),
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.approved });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
     },
   });
 
   // Reject mutation with optimistic updates
   const rejectOpportunityMutation = useMutation({
-    mutationFn: async (opportunityData: Opportunity & { isStaged?: boolean }) => {
-      if (opportunityData.isStaged) {
-        // Just remove from staged_offers
-        await deleteDoc(doc(db, 'staged_offers', opportunityData.id));
-        return null;
-      } else {
-        // Update existing opportunity
-        const opportunityRef = doc(db, 'opportunities', opportunityData.id);
-        await updateDoc(opportunityRef, {
-          status: 'rejected',
-          updatedAt: new Date().toISOString(),
-        });
-        return opportunityData.id;
+    mutationFn: async (opportunity: Opportunity & { isStaged?: boolean }) => {
+      setLoadingStates((prev) => ({ ...prev, [opportunity.id]: true }));
+      try {
+        const auth = getAuth();
+        const idToken = await auth.currentUser?.getIdToken(true);
+        if (!idToken) throw new Error('No authenticated user found');
+
+        const response = await fetch(
+          `/api/opportunities/${opportunity.id}?action=reject`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            credentials: 'include',
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.details || error.error || 'Failed to reject opportunity');
+        }
+
+        return response.json();
+      } finally {
+        setLoadingStates((prev) => ({ ...prev, [opportunity.id]: false }));
       }
     },
-    onMutate: async (opportunityData) => {
+    onMutate: async (opportunity) => {
       await Promise.all([
         queryClient.cancelQueries({ queryKey: queryKeys.opportunities.all }),
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.stats }),
         queryClient.cancelQueries({ queryKey: queryKeys.opportunities.staged }),
+        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.rejected }),
       ]);
 
-      const previousStats = queryClient.getQueryData(queryKeys.opportunities.stats);
       const previousPaginated = queryClient.getQueryData(
         queryKeys.opportunities.paginated(pagination)
       );
 
-      updateStatsOptimistically('reject', opportunityData);
+      // Optimistic update
+      if (previousPaginated) {
+        queryClient.setQueryData(queryKeys.opportunities.paginated(pagination), {
+          ...previousPaginated,
+          items: (previousPaginated as { items: Opportunity[] }).items.map(
+            (opp: Opportunity) =>
+              opp.id === opportunity.id ? { ...opp, status: 'rejected' } : opp
+          ),
+        });
+      }
 
-      return { previousStats, previousPaginated };
+      return { previousPaginated };
     },
     onError: (err, _, context) => {
-      if (context?.previousStats) {
-        queryClient.setQueryData(queryKeys.opportunities.stats, context.previousStats);
-      }
       if (context?.previousPaginated) {
         queryClient.setQueryData(
           queryKeys.opportunities.paginated(pagination),
@@ -1065,115 +691,62 @@ export function useOpportunities() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opportunities.paginated(pagination),
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.rejected });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
     },
   });
 
   // Bulk approve mutation with optimistic updates
   const bulkApproveOpportunitiesMutation = useMutation({
     mutationFn: async () => {
-      console.log('Starting bulk approval process for all staged offers');
+      setLoadingStates((prev) => ({ ...prev, bulkApprove: true }));
+      try {
+        const auth = getAuth();
+        const idToken = await auth.currentUser?.getIdToken(true);
+        if (!idToken) throw new Error('No authenticated user found');
 
-      // Get all staged offers first
-      const stagedSnapshot = await getDocs(collection(db, 'staged_offers'));
-      const allStagedOpportunities = stagedSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Opportunity[];
+        const response = await fetch('/api/opportunities/approve/bulk', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          credentials: 'include',
+        });
 
-      console.log(
-        `Found ${allStagedOpportunities.length} staged opportunities to approve`
-      );
-
-      const results: string[] = [];
-      const errors: Array<{ id: string; error: unknown }> = [];
-
-      // Process in larger batches for better performance
-      const batchSize = 25; // Increased from 10 to 25
-      const batches = [];
-
-      // Create batches of opportunities
-      for (let i = 0; i < allStagedOpportunities.length; i += batchSize) {
-        batches.push(allStagedOpportunities.slice(i, i + batchSize));
-      }
-
-      // Process batches sequentially to maintain order and prevent overwhelming
-      for (const [index, batch] of batches.entries()) {
-        console.log(`Processing batch ${index + 1} of ${batches.length}`);
-
-        // Create a new batch write
-        const batchWriter = writeBatch(db);
-
-        // Add all operations to the batch
-        for (const opportunity of batch) {
-          const stagedRef = doc(db, 'staged_offers', opportunity.id);
-          const approvedRef = doc(db, 'opportunities', opportunity.id);
-
-          // Delete from staged_offers and add to opportunities
-          batchWriter.delete(stagedRef);
-          batchWriter.set(approvedRef, {
-            ...opportunity,
-            status: 'approved',
-            updatedAt: new Date().toISOString(),
-          });
+        if (!response.ok) {
+          throw new Error('Failed to bulk approve opportunities');
         }
 
-        try {
-          // Commit the batch
-          await batchWriter.commit();
-          results.push(...batch.map((opp) => opp.id));
-          console.log(`Successfully processed batch ${index + 1}`);
-        } catch (error) {
-          console.error(`Error processing batch ${index + 1}:`, error);
-          errors.push(...batch.map((opp) => ({ id: opp.id, error })));
-        }
+        return response.json();
+      } finally {
+        setLoadingStates((prev) => ({ ...prev, bulkApprove: false }));
       }
-
-      return {
-        successful: results,
-        failed: errors,
-        total: allStagedOpportunities.length,
-      };
     },
     onMutate: async () => {
-      // Cancel outgoing queries
       await Promise.all([
         queryClient.cancelQueries({ queryKey: queryKeys.opportunities.all }),
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.stats }),
         queryClient.cancelQueries({ queryKey: queryKeys.opportunities.staged }),
       ]);
 
-      // Snapshot current state
-      const previousStats = queryClient.getQueryData<Stats>(
-        queryKeys.opportunities.stats
-      );
       const previousPaginated = queryClient.getQueryData(
         queryKeys.opportunities.paginated(pagination)
       );
 
-      // Optimistically update stats
-      if (previousStats) {
-        queryClient.setQueryData<Stats>(queryKeys.opportunities.stats, {
-          ...previousStats,
-          pending: 0,
-          approved: previousStats.approved + previousStats.pending,
-          processingRate: previousStats.bankRewards?.total
-            ? `${(((previousStats.approved + previousStats.pending) / previousStats.bankRewards.total) * 100).toFixed(1)}%`
-            : '0%',
+      if (previousPaginated) {
+        queryClient.setQueryData(queryKeys.opportunities.paginated(pagination), {
+          ...previousPaginated,
+          items: (previousPaginated as { items: Opportunity[] }).items.map(
+            (opp: Opportunity) =>
+              opp.status === 'pending' ? { ...opp, status: 'approved' } : opp
+          ),
         });
       }
 
-      return { previousStats, previousPaginated };
+      return { previousPaginated };
     },
     onError: (err, _, context) => {
-      // Rollback on error
-      if (context?.previousStats) {
-        queryClient.setQueryData(queryKeys.opportunities.stats, context.previousStats);
-      }
       if (context?.previousPaginated) {
         queryClient.setQueryData(
           queryKeys.opportunities.paginated(pagination),
@@ -1182,131 +755,107 @@ export function useOpportunities() {
       }
     },
     onSettled: () => {
-      // Invalidate affected queries
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
       queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opportunities.paginated(pagination),
-      });
     },
   });
 
   // Reset staged offers mutation
   const resetStagedOffersMutation = useMutation({
     mutationFn: async () => {
-      console.log('Starting reset of staged offers');
-      const stagedSnapshot = await getDocs(collection(db, 'staged_offers'));
-      const batch = writeBatch(db);
+      setLoadingStates((prev) => ({ ...prev, resetStagedOffers: true }));
+      try {
+        const auth = getAuth();
+        const idToken = await auth.currentUser?.getIdToken(true);
+        if (!idToken) throw new Error('No authenticated user found');
 
-      stagedSnapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
+        const response = await fetch('/api/opportunities/reset', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ collection: 'staged_offers' }),
+          credentials: 'include',
+        });
 
-      await batch.commit();
-      console.log(`Reset ${stagedSnapshot.size} staged offers`);
-      return stagedSnapshot.size;
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(
+            error.details || error.error || 'Failed to reset staged offers'
+          );
+        }
+
+        return response.json();
+      } finally {
+        setLoadingStates((prev) => ({ ...prev, resetStagedOffers: false }));
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staged_offers'] });
-      queryClient.invalidateQueries({ queryKey: ['opportunities', 'stats'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
     },
   });
 
   // Reset all opportunities mutation
   const resetOpportunitiesMutation = useMutation({
     mutationFn: async () => {
-      console.log('Starting reset of all opportunities');
-      const [stagedSnapshot, opportunitiesSnapshot] = await Promise.all([
-        getDocs(collection(db, 'staged_offers')),
-        getDocs(collection(db, 'opportunities')),
-      ]);
+      const auth = getAuth();
+      const idToken = await auth.currentUser?.getIdToken(true);
 
-      const batch = writeBatch(db);
+      if (!idToken) {
+        throw new Error('No authenticated user found');
+      }
 
-      // Delete all staged offers
-      stagedSnapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
+      const response = await fetch('/api/opportunities/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ collection: 'opportunities' }),
+        credentials: 'include',
       });
 
-      // Delete all opportunities
-      opportunitiesSnapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.details || error.error || 'Failed to reset opportunities');
+      }
 
-      await batch.commit();
-      console.log(
-        `Reset ${stagedSnapshot.size + opportunitiesSnapshot.size} total opportunities`
-      );
-      return {
-        staged: stagedSnapshot.size,
-        opportunities: opportunitiesSnapshot.size,
-      };
+      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staged_offers'] });
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-      queryClient.invalidateQueries({ queryKey: ['opportunities', 'stats'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.approved });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
     },
   });
 
+  const isLoading =
+    isLoadingPaginated || isLoadingStaged || isLoadingStats || isLoadingRejected;
+
   return {
-    opportunities: (paginatedData?.items || []).map((opp) => {
-      console.log('Processing opportunity:', {
-        id: opp.id,
-        name: opp.name,
-        type: opp.type,
-        isStaged: opp.status === 'staged',
-      });
-      return {
-        ...opp,
-        isStaged: opp.status === 'staged',
-      };
-    }),
-    total: paginatedData?.total || 0,
-    hasMore: paginatedData?.hasMore || false,
-    isLoading: isPaginationPending,
-    error: paginationStatus === 'error' ? paginationError : null,
-    refetch: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opportunities.paginated(pagination),
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opportunities.staged,
-      });
-    },
-    isCreating: importMutation.isPending,
-    isUpdating: approveOpportunityMutation.isPending,
-    isDeleting: rejectOpportunityMutation.isPending,
-    createError: importMutation.error,
-    updateError: approveOpportunityMutation.error,
-    deleteError: rejectOpportunityMutation.error,
+    pagination,
+    setPagination,
+    stats: calculatedStats,
+    stagedOpportunities,
+    approvedOpportunities,
+    rejectedOpportunities,
+    isLoading,
+    isFetching: isLoading,
+    error: paginatedError || stagedError,
     approveOpportunity: approveOpportunityMutation.mutate,
     rejectOpportunity: rejectOpportunityMutation.mutate,
     bulkApproveOpportunities: bulkApproveOpportunitiesMutation.mutate,
     isBulkApproving: bulkApproveOpportunitiesMutation.isPending,
-    stats: stats || {
-      total: 0,
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-      avgValue: 0,
-      highValue: 0,
-      byType: {
-        bank: 0,
-        credit_card: 0,
-        brokerage: 0,
-      },
-    },
-    importOpportunities: importMutation.mutate,
+    importOpportunities: importOpportunitiesMutation.mutate,
+    isImporting: importOpportunitiesMutation.isPending,
     hasStagedOpportunities: stagedOpportunities.length > 0,
     resetStagedOffers: resetStagedOffersMutation.mutate,
     isResettingStagedOffers: resetStagedOffersMutation.isPending,
     resetOpportunities: resetOpportunitiesMutation.mutate,
     isResettingOpportunities: resetOpportunitiesMutation.isPending,
-    pagination,
-    setPagination: (updates: Partial<PaginationState>) => {
-      setPagination((prev: PaginationState) => ({ ...prev, ...updates }));
-    },
+    queryClient,
+    loadingStates,
   };
 }

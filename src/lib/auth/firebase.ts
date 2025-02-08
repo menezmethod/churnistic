@@ -1,4 +1,18 @@
-import { auth, db, storage } from '@/lib/firebase/config';
+import { getFirebaseServices } from '@/lib/firebase/config';
 
-export { auth, db, storage };
-export default auth;
+export async function getFirebaseAuth() {
+  const { auth } = await getFirebaseServices();
+  return auth;
+}
+
+export async function getFirebaseDb() {
+  const { firestore } = await getFirebaseServices();
+  return firestore;
+}
+
+export async function getFirebaseStorage() {
+  const { storage } = await getFirebaseServices();
+  return storage;
+}
+
+export default getFirebaseAuth;

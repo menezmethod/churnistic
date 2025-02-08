@@ -2,7 +2,7 @@ import {
   createUserWithEmailAndPassword,
   GithubAuthProvider,
   GoogleAuthProvider,
-  onAuthStateChanged,
+  onAuthStateChanged as firebaseOnAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -12,8 +12,8 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 import { UserRole } from '@/lib/auth/types';
-import { auth, db } from '@/lib/firebase/client-app';
-import { manageSessionCookie } from '@/lib/firebase/config';
+import { getFirebaseServices } from '@/lib/firebase/config';
+import { manageSessionCookie } from '@/lib/firebase/utils/session';
 import { UserProfile } from '@/types/user';
 
 export type AuthUser = User & {
@@ -37,7 +37,8 @@ export interface RegisterCredentials extends LoginCredentials {
 
 // Function to handle user profile creation/update
 async function handleUserProfile(user: User): Promise<void> {
-  const userRef = doc(db, 'users', user.uid);
+  const { firestore } = await getFirebaseServices();
+  const userRef = doc(firestore, 'users', user.uid);
   const userSnap = await getDoc(userRef);
 
   if (!userSnap.exists()) {
@@ -72,8 +73,9 @@ export const isSuperAdmin = (user: AuthUser | null): boolean => {
 
 // Get the currently logged-in user
 export const loadUser = async (): Promise<AuthUser | null> => {
+  const { auth } = await getFirebaseServices();
   return new Promise((resolve, reject) => {
-    const unsubscribe = onAuthStateChanged(
+    const unsubscribe = firebaseOnAuthStateChanged(
       auth,
       async (user) => {
         unsubscribe();
@@ -113,6 +115,7 @@ export const loginWithEmail = async (
   credentials: LoginCredentials
 ): Promise<AuthUser> => {
   try {
+    const { auth } = await getFirebaseServices();
     const { user } = await signInWithEmailAndPassword(
       auth,
       credentials.email,
@@ -132,6 +135,7 @@ export const registerWithEmail = async (
   credentials: RegisterCredentials
 ): Promise<AuthUser> => {
   try {
+    const { auth } = await getFirebaseServices();
     const { user } = await createUserWithEmailAndPassword(
       auth,
       credentials.email,
@@ -149,6 +153,7 @@ export const registerWithEmail = async (
 // Login with Google
 export const loginWithGoogle = async (): Promise<AuthUser> => {
   try {
+    const { auth } = await getFirebaseServices();
     const provider = new GoogleAuthProvider();
     const { user } = await signInWithPopup(auth, provider);
     await handleUserProfile(user);
@@ -163,6 +168,7 @@ export const loginWithGoogle = async (): Promise<AuthUser> => {
 // Login with GitHub
 export const loginWithGithub = async (): Promise<AuthUser> => {
   try {
+    const { auth } = await getFirebaseServices();
     const provider = new GithubAuthProvider();
     const { user } = await signInWithPopup(auth, provider);
     await handleUserProfile(user);
@@ -176,12 +182,14 @@ export const loginWithGithub = async (): Promise<AuthUser> => {
 
 // Reset password
 export const resetPassword = async (email: string): Promise<void> => {
+  const { auth } = await getFirebaseServices();
   await sendPasswordResetEmail(auth, email);
 };
 
 // Logout
 export const logout = async (): Promise<void> => {
   try {
+    const { auth } = await getFirebaseServices();
     await firebaseSignOut(auth);
     // Clear session cookie
     await fetch('/api/auth/session', { method: 'DELETE' });
@@ -192,11 +200,21 @@ export const logout = async (): Promise<void> => {
 };
 
 // Example role check implementation
-export const hasRole = (role: UserRole): boolean => {
-  const user = auth.currentUser as AuthUser | null;
+export const hasRole = async (role: UserRole): Promise<boolean> => {
+  const user = (await getCurrentUser()) as AuthUser | null;
   if (!user) return false;
 
   // Check both custom claims and direct role property
   const userRole = user.customClaims?.role || user.role;
   return userRole === role;
+};
+
+export const getCurrentUser = async () => {
+  const { auth } = await getFirebaseServices();
+  return auth.currentUser;
+};
+
+export const onAuthStateChanged = async (callback: (user: User | null) => void) => {
+  const { auth } = await getFirebaseServices();
+  return firebaseOnAuthStateChanged(auth, callback);
 };

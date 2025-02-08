@@ -1,132 +1,98 @@
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { applicationDefault } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 
-import { getAdminDb } from '@/lib/firebase/admin';
-import { formatCurrency } from '@/lib/utils/formatters';
-import { Opportunity } from '@/types/opportunity';
-
-export const dynamic = 'force-dynamic'; // Ensure this route is always dynamic
-
-// Helper function to round to nearest 5
-function roundToNearest5(num: number): number {
-  return Math.ceil(num / 5) * 5;
+// Proper singleton initialization
+if (getApps().length === 0) {
+  initializeApp({
+    credential: applicationDefault(),
+    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  });
 }
 
-// Helper function to safely parse numeric values
-function parseNumericValue(value: string | number | null): number {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value.replace(/[^0-9.-]+/g, ''));
-    return isNaN(parsed) ? 0 : parsed;
-  }
-  return 0;
-}
+export const dynamic = 'force-dynamic';
+export const revalidate = 300; // 5 minutes
 
 export async function GET() {
   try {
-    const db = getAdminDb();
-    if (!db) {
-      throw new Error('Firebase admin not initialized');
-    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
-    const [opportunities, tracked] = await Promise.all([
-      db.collection('opportunities').get(),
-      db.collection('tracked_opportunities').get(),
-    ]);
+    try {
+      const db = getFirestore();
+      // Fetch from both collections
+      const [opportunitiesSnapshot, stagedSnapshot] = await Promise.all([
+        db.collection('opportunities').get(),
+        db.collection('staged_offers').get(),
+      ]);
 
-    // Get all opportunities
-    const allOpportunities = opportunities.docs.map((doc) => {
-      const data = doc.data() as Opportunity;
-      return {
-        ...data,
-        id: doc.id,
-        value: parseNumericValue(data.value), // Ensure value is numeric
+      // Initialize counters
+      const stats = {
+        total: opportunitiesSnapshot.size + stagedSnapshot.size,
+        pending: stagedSnapshot.size,
+        approved: 0,
+        byType: { bank: 0, credit_card: 0, brokerage: 0 },
+        totalValue: 0,
+        approvedValue: 0,
+        approvedCount: 0,
+        highValueCount: 0,
       };
-    });
 
-    console.log('Total opportunities:', allOpportunities.length);
-    console.log('Sample opportunity fields:', Object.keys(allOpportunities[0] || {}));
-    console.log('Sample opportunity metadata:', allOpportunities[0]?.metadata);
+      // Process opportunities collection
+      opportunitiesSnapshot.forEach((doc) => {
+        const data = doc.data();
+        const value = parseFloat(data.value) || 0;
 
-    // Get active opportunities - adjust filter based on actual data structure
-    const activeOpportunities = allOpportunities.filter((opp) => {
-      const isActive =
-        opp.metadata?.status !== 'inactive' && opp.status !== 'rejected' && opp.value > 0;
+        if (data.status === 'approved') {
+          stats.approved++;
+          stats.approvedValue += value;
 
-      if (isActive) {
-        console.log('Found active opportunity:', {
-          id: opp.id,
-          name: opp.name,
-          value: opp.value,
-          status: opp.status,
-          metadataStatus: opp.metadata?.status,
-        });
-      }
+          // Count by type for approved offers only
+          if (data.type === 'bank') stats.byType.bank++;
+          if (data.type === 'credit_card') stats.byType.credit_card++;
+          if (data.type === 'brokerage') stats.byType.brokerage++;
 
-      return isActive;
-    });
+          // Count high value approved offers
+          if (value >= 500) stats.highValueCount++;
+        }
 
-    console.log('Active opportunities:', activeOpportunities.length);
-    if (activeOpportunities.length > 0) {
-      console.log('Sample active opportunity:', {
-        id: activeOpportunities[0].id,
-        name: activeOpportunities[0].name,
-        value: activeOpportunities[0].value,
-        type: activeOpportunities[0].type,
+        stats.totalValue += value;
       });
+
+      // Calculate averages and rates
+      const avgValue =
+        stats.approved > 0 ? Math.round(stats.approvedValue / stats.approved) : 0;
+
+      const processingRate =
+        stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0;
+
+      const result = {
+        total: stats.total,
+        pending: stats.pending,
+        approved: stats.approved,
+        avgValue,
+        processingRate,
+        byType: stats.byType,
+        highValue: stats.highValueCount,
+        lastUpdated: new Date().toISOString(),
+      };
+
+      return NextResponse.json(result, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+          'CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+          'Vercel-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+        },
+      });
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    // Calculate stats
-    const activeCount = activeOpportunities.length;
-    const roundedActiveCount = roundToNearest5(activeCount);
-    const trackedCount = tracked.docs.length;
-
-    const totalPotentialValue = activeOpportunities.reduce((sum, opp) => {
-      const value =
-        typeof opp.value === 'string' ? parseFloat(opp.value) : opp.value || 0;
-      console.log('Adding value:', { id: opp.id, name: opp.name, value });
-      return sum + value;
-    }, 0);
-
-    const averageValue =
-      activeCount > 0 ? Math.round(totalPotentialValue / activeCount) : 0;
-
-    // High value opportunities (over $500)
-    const highValue = activeOpportunities.filter((opp) => {
-      const value =
-        typeof opp.value === 'string' ? parseFloat(opp.value) : opp.value || 0;
-      return value >= 500;
-    }).length;
-
-    // Calculate type distribution
-    const byType = {
-      bank: activeOpportunities.filter((opp) => opp.type === 'bank').length,
-      credit_card: activeOpportunities.filter((opp) => opp.type === 'credit_card').length,
-      brokerage: activeOpportunities.filter((opp) => opp.type === 'brokerage').length,
-    };
-
-    const response = {
-      // Basic stats
-      activeCount: roundedActiveCount,
-      trackedCount,
-      totalPotentialValue: formatCurrency(totalPotentialValue),
-      averageValue: formatCurrency(averageValue),
-      highValue,
-
-      // Distribution stats
-      byType,
-
-      // Additional stats
-      total: allOpportunities.length,
-      approved: activeOpportunities.length,
-
-      // Metadata
-      lastUpdated: new Date().toISOString(),
-    };
-
-    console.log('Final response:', response);
-    return NextResponse.json(response);
   } catch (error) {
-    console.error('Error fetching stats:', error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      return NextResponse.json({ error: 'Stats request timed out' }, { status: 504 });
+    }
+    console.error('Stats endpoint error:', error);
     return NextResponse.json({ error: 'Failed to fetch statistics' }, { status: 500 });
   }
 }

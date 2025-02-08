@@ -27,19 +27,15 @@ service cloud.firestore {
 
     // Allow read for authenticated users, write for admins
     match /staged_offers/{document} {
-      allow read: if true;
-      allow write: if request.auth != null && 
-        (request.auth.token.admin == true || 
-         request.auth.token.role == 'admin' ||
-         isEmulator());
+      allow read, list: if true;
+      allow create: if isAuthenticated() && (isAdmin() || isEmulator());
+      allow update, delete: if isAdmin() || isSuperAdmin() || isEmulator();
     }
 
     match /opportunities/{document} {
-      allow read: if true;
-      allow write: if request.auth != null && 
-        (request.auth.token.admin == true || 
-         request.auth.token.role == 'admin' ||
-         isEmulator());
+      allow read, list: if true;
+      allow create: if isAdmin() || isSuperAdmin() || isEmulator();
+      allow update, delete: if isAdmin() || isSuperAdmin() || isEmulator();
     }
 
     match /bankrewards/{document} {

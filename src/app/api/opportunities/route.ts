@@ -1,118 +1,149 @@
-import { QueryDocumentSnapshot } from 'firebase-admin/firestore';
+import { Query } from 'firebase-admin/firestore';
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { getAdminDb } from '@/lib/firebase/admin';
-import type { FirestoreOpportunity } from '@/types/opportunity';
-
-const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-const isPreviewEnvironment = process.env.VERCEL_ENV === 'preview';
-const isPublicRoute = true; // Make the GET endpoint public
+import { type Opportunity } from '@/types/opportunity';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('GET /api/opportunities - Starting request');
-    console.log('Environment:', {
-      useEmulator,
-      isPreviewEnvironment,
-      vercelEnv: process.env.VERCEL_ENV,
-      isPublicRoute,
-    });
+    console.log('📥 GET /api/opportunities - Starting request');
 
     const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortDirection = (searchParams.get('sortDirection') as 'asc' | 'desc') || 'desc';
+    const search = searchParams.get('search') || '';
+    const status = searchParams.get('status') || 'approved';
     const type = searchParams.get('type');
-    const limitParam = searchParams.get('limit');
-    const limitNum = limitParam ? Number(limitParam) : undefined;
-    const sortBy = searchParams.get('sortBy');
-    const sortDirection = searchParams.get('sortDirection') as 'asc' | 'desc' | null;
+    const minValue = searchParams.get('minValue')
+      ? parseInt(searchParams.get('minValue')!, 10)
+      : undefined;
+    const maxValue = searchParams.get('maxValue')
+      ? parseInt(searchParams.get('maxValue')!, 10)
+      : undefined;
 
-    console.log('Query params:', { type, limitNum, sortBy, sortDirection });
+    console.log('🔍 Query params:', {
+      page,
+      pageSize,
+      sortBy,
+      sortDirection,
+      search,
+      status,
+      type,
+      minValue,
+      maxValue,
+    });
 
     const db = getAdminDb();
     if (!db) {
-      console.error('Failed to initialize Firebase Admin');
+      console.error('❌ Failed to initialize Firebase Admin');
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
 
-    const opportunitiesRef = db.collection('opportunities');
-    console.log('Building Firestore query...');
-
-    let queryRef: FirebaseFirestore.Query = opportunitiesRef;
+    const collectionRef = db.collection('opportunities');
+    let queryRef: Query = collectionRef;
 
     // Apply filters
+    if (status) {
+      const statuses = status.split(',').map((s) => s.trim());
+      if (statuses.length > 0) {
+        if (statuses.length === 1) {
+          queryRef = queryRef.where('status', '==', statuses[0]);
+        } else {
+          queryRef = queryRef.where('status', 'in', statuses);
+        }
+      }
+    }
+
     if (type) {
       queryRef = queryRef.where('type', '==', type);
     }
 
+    if (minValue !== undefined) {
+      queryRef = queryRef.where('value', '>=', minValue);
+    }
+
+    if (maxValue !== undefined) {
+      queryRef = queryRef.where('value', '<=', maxValue);
+    }
+
+    // Apply search filter if provided
+    if (search) {
+      queryRef = queryRef
+        .where('name', '>=', search)
+        .where('name', '<=', search + '\uf8ff');
+    }
+
+    // Get total count before applying pagination
+    const totalCountSnapshot = await queryRef.count().get();
+    const total = totalCountSnapshot.data().count;
+
     // Apply sorting
-    if (sortBy) {
-      queryRef = queryRef.orderBy(sortBy, sortDirection || 'desc');
-    }
+    queryRef = queryRef.orderBy(sortBy, sortDirection);
 
-    // Apply limit
-    if (limitNum && limitNum > 0) {
-      queryRef = queryRef.limit(limitNum);
+    // Apply pagination
+    const startIndex = (page - 1) * pageSize;
+    if (startIndex > 0) {
+      queryRef = queryRef.offset(startIndex);
     }
+    queryRef = queryRef.limit(pageSize);
 
-    console.log('Executing Firestore query...');
+    console.log('🚀 Executing Firestore query...');
     const snapshot = await queryRef.get();
 
-    console.log('Query snapshot:', {
+    console.log('📊 Query snapshot:', {
       size: snapshot.size,
       empty: snapshot.empty,
       docs: snapshot.docs.length,
+      total,
     });
 
     if (snapshot.empty) {
-      console.log('No opportunities found');
-      return NextResponse.json([]);
+      console.log('ℹ️ No opportunities found');
+      return NextResponse.json({
+        items: [],
+        total: 0,
+        hasMore: false,
+      });
     }
 
-    const opportunities = snapshot.docs.map((doc: QueryDocumentSnapshot) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-      } as FirestoreOpportunity;
-    });
+    const opportunities = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Opportunity[];
 
-    console.log('Processed opportunities:', {
+    const hasMore = total > startIndex + opportunities.length;
+
+    console.log('✅ Processed opportunities:', {
       count: opportunities.length,
-      sample: opportunities[0]
-        ? {
-            id: opportunities[0].id,
-            name: opportunities[0].name,
-            type: opportunities[0].type,
-          }
-        : null,
+      total,
+      hasMore,
+      sample: opportunities[0] && {
+        id: opportunities[0].id,
+        name: opportunities[0].name,
+        type: opportunities[0].type,
+      },
     });
 
-    return NextResponse.json(opportunities);
+    return NextResponse.json({
+      items: opportunities,
+      total,
+      hasMore,
+    });
   } catch (error) {
-    console.error('Error fetching opportunities:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error details:', errorMessage);
-    return NextResponse.json(
-      { error: errorMessage, details: 'Failed to fetch opportunities' },
-      { status: 500 }
-    );
+    console.error('❌ Error in GET /api/opportunities:', error);
+    return NextResponse.json({ error: 'Failed to fetch opportunities' }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    console.log('POST /api/opportunities - Starting request');
-    console.log('Environment:', {
-      useEmulator,
-      isPreviewEnvironment,
-      vercelEnv: process.env.VERCEL_ENV,
-    });
-
-    // Always get the auth context
+    console.log('📥 POST /api/opportunities - Starting request');
     const { session } = await createAuthContext(req);
 
-    // In production, require authentication
-    if (!useEmulator && !isPreviewEnvironment && !session?.email) {
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -124,9 +155,9 @@ export async function POST(req: NextRequest) {
     let body;
     try {
       body = await req.json();
-      console.log('Received data:', JSON.stringify(body, null, 2));
+      console.log('📦 Received data:', JSON.stringify(body, null, 2));
     } catch (error) {
-      console.error('Error parsing request body:', error);
+      console.error('❌ Error parsing request body:', error);
       return NextResponse.json(
         { error: 'Invalid JSON in request body' },
         { status: 400 }
@@ -134,28 +165,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate required fields
-    if (!body.name || !body.type || !body.id || !body.metadata?.created_by) {
-      console.error('Missing required fields:', {
+    if (!body.name || !body.type || !body.id) {
+      console.error('❌ Missing required fields:', {
         name: body.name,
         type: body.type,
         id: body.id,
-        created_by: body.metadata?.created_by,
       });
       return NextResponse.json(
-        { error: 'Name, type, id, and metadata.created_by are required fields' },
+        { error: 'Name, type, and id are required fields' },
         { status: 400 }
-      );
-    }
-
-    // In production, ensure the user can only use their own email
-    if (
-      !useEmulator &&
-      !isPreviewEnvironment &&
-      session?.email !== body.metadata.created_by
-    ) {
-      return NextResponse.json(
-        { error: 'Cannot create opportunities on behalf of other users' },
-        { status: 403 }
       );
     }
 
@@ -224,8 +242,8 @@ export async function POST(req: NextRequest) {
         ...(body.metadata || {}),
         created_at: body.metadata?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        created_by: body.metadata.created_by,
-        updated_by: body.metadata.created_by,
+        created_by: body.metadata?.created_by || 'system',
+        updated_by: body.metadata?.created_by || 'system',
         status: body.metadata?.status || 'active',
         environment: process.env.NODE_ENV || 'development',
       },
@@ -234,20 +252,20 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date().toISOString(),
     };
 
-    console.log('Processed opportunity:', JSON.stringify(opportunity, null, 2));
+    console.log('🏗️ Processed opportunity:', JSON.stringify(opportunity, null, 2));
 
     try {
       const db = getAdminDb();
       // Use the provided ID instead of generating a new one
       await db.collection('opportunities').doc(body.id).set(opportunity);
-      console.log('Opportunity created with ID:', body.id);
+      console.log('✅ Opportunity created with ID:', body.id);
 
       return NextResponse.json({
         id: body.id,
         message: 'Opportunity created successfully',
       });
     } catch (dbError) {
-      console.error('Database error:', dbError);
+      console.error('❌ Database error:', dbError);
       return NextResponse.json(
         {
           error: 'Database error',
@@ -257,12 +275,7 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Error creating opportunity:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error details:', errorMessage);
-    return NextResponse.json(
-      { error: 'Failed to create opportunity', details: errorMessage },
-      { status: 500 }
-    );
+    console.error('❌ Error in POST /api/opportunities:', error);
+    return NextResponse.json({ error: 'Failed to create opportunity' }, { status: 500 });
   }
 }

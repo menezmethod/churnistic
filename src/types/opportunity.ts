@@ -401,7 +401,15 @@ export interface Opportunity {
     badge?: string;
   };
   processing_status?: string;
-  ai_insights?: string;
+  ai_insights?: {
+    confidence_score: number;
+    validation_warnings: string[];
+    potential_duplicates: Array<{
+      id: string;
+      name: string;
+      similarity: number;
+    }>;
+  };
 }
 
 // Utility types for handling nested keys, including array indices
@@ -431,4 +439,16 @@ export interface BaseRequirement {
 export interface DebitTransactionRequirement extends BaseRequirement {
   type: 'debit_transactions';
   details: { amount: number; period: number; count: number };
+}
+
+export interface DashboardOpportunity extends Omit<Opportunity, 'status'> {
+  source: string;
+  sourceLink: string;
+  postedDate: string;
+  confidence: number;
+  status: 'active' | 'inactive';
+  metadata: {
+    tracked?: boolean;
+    [key: string]: unknown;
+  } & Opportunity['metadata'];
 }
