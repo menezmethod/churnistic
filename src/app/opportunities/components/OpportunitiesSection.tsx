@@ -26,10 +26,12 @@ import {
   alpha,
   useTheme,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import { motion } from 'framer-motion';
+import debounce from 'lodash/debounce';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -84,6 +86,7 @@ function OpportunitiesSectionContent({
   const { user, loading: authLoading } = useAuth();
   const isDark = theme.palette.mode === 'dark';
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [sortBy, setSortBy] = useState<'value' | 'name' | 'type' | 'date' | null>(
@@ -106,6 +109,32 @@ function OpportunitiesSectionContent({
     return CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null;
   });
 
+  // Create a debounced search handler
+  const debouncedSetSearch = useMemo(
+    () =>
+      debounce((value: string) => {
+        setDebouncedSearchTerm(value);
+      }, 300),
+    [setDebouncedSearchTerm]
+  );
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      debouncedSetSearch.cancel();
+    };
+  }, [debouncedSetSearch]);
+
+  // Update search term and trigger debounced search
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setSearchTerm(value);
+      debouncedSetSearch(value);
+    },
+    [debouncedSetSearch]
+  );
+
   // Use the enhanced useOpportunities hook with proper params
   const {
     opportunities: fetchedOpportunities,
@@ -117,12 +146,32 @@ function OpportunitiesSectionContent({
     isFetchingNextPage,
     total,
   } = useOpportunities({
-    searchTerm,
     type: selectedType,
     sortBy,
     sortDirection,
     status: 'approved,staged,pending',
   });
+
+  // Filter opportunities based on search term
+  const filteredOpportunities = useMemo(() => {
+    if (!fetchedOpportunities) return [];
+    if (!Array.isArray(fetchedOpportunities)) return [];
+
+    if (!debouncedSearchTerm) return fetchedOpportunities;
+
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    return fetchedOpportunities.filter((opp) => {
+      return (
+        opp.name.toLowerCase().includes(searchLower) ||
+        opp.type.toLowerCase().includes(searchLower) ||
+        opp.description?.toLowerCase().includes(searchLower) ||
+        opp.bank?.toLowerCase().includes(searchLower) ||
+        opp.bonus?.title?.toLowerCase().includes(searchLower) ||
+        opp.bonus?.description?.toLowerCase().includes(searchLower) ||
+        String(opp.value).includes(searchLower)
+      );
+    });
+  }, [fetchedOpportunities, debouncedSearchTerm]);
 
   // Setup infinite scroll
   const { ref: loadMoreRef, inView } = useInView({
@@ -134,21 +183,6 @@ function OpportunitiesSectionContent({
       fetchNextPage();
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  // Filter opportunities based on search term
-  const filteredOpportunities = useMemo(() => {
-    if (!fetchedOpportunities) return [];
-    if (!Array.isArray(fetchedOpportunities)) return [];
-
-    return fetchedOpportunities.filter((opp) => {
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        opp.name.toLowerCase().includes(searchLower) ||
-        opp.type.toLowerCase().includes(searchLower) ||
-        (opp.description && opp.description.toLowerCase().includes(searchLower))
-      );
-    });
-  }, [fetchedOpportunities, searchTerm]);
 
   // Log the opportunities data for debugging
   useEffect(() => {
@@ -280,7 +314,18 @@ function OpportunitiesSectionContent({
   };
 
   if (authLoading) {
-    return <div>Authenticating...</div>;
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+        }}
+      >
+        <CircularProgress size={60} />
+      </Box>
+    );
   }
 
   if (opportunitiesError) {
@@ -296,50 +341,12 @@ function OpportunitiesSectionContent({
       <Box
         sx={{
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 3,
-          minHeight: '200px',
           justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
         }}
       >
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 360],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        >
-          <Box
-            sx={{
-              width: 60,
-              height: 60,
-              borderRadius: '50%',
-              border: '3px solid',
-              borderColor: 'primary.main',
-              borderRightColor: 'transparent',
-            }}
-          />
-        </motion.div>
-        <Typography
-          variant="h6"
-          sx={{
-            color: 'text.secondary',
-            fontWeight: 500,
-            textAlign: 'center',
-          }}
-        >
-          <motion.span
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          >
-            Loading opportunities...
-          </motion.span>
-        </Typography>
+        <CircularProgress size={60} />
       </Box>
     );
   }
@@ -521,7 +528,7 @@ function OpportunitiesSectionContent({
               <TextField
                 placeholder="Search opportunities..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
                 fullWidth
                 sx={{
                   '& .MuiOutlinedInput-root': {

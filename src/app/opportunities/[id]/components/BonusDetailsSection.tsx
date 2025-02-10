@@ -117,6 +117,52 @@ export default function BonusDetailsSection({ bonus }: BonusDetailsSectionProps)
         </Box>
       )}
 
+      {/* Tiers */}
+      {bonus.tiers && bonus.tiers.length > 0 && (
+        <Box
+          sx={{
+            p: 3,
+            borderRadius: 2,
+            bgcolor: alpha(theme.palette.background.default, 0.5),
+            border: '1px solid',
+            borderColor: alpha(theme.palette.divider, 0.1),
+            mb: 3,
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+            Bonus Tiers
+          </Typography>
+          <Stack spacing={2}>
+            {bonus.tiers.map((tier, index) => (
+              <Box
+                key={index}
+                sx={{
+                  p: 2,
+                  borderRadius: 1,
+                  bgcolor: alpha(theme.palette.background.paper, 0.5),
+                  border: '1px solid',
+                  borderColor: alpha(theme.palette.divider, 0.1),
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    {tier.reward}
+                  </Typography>
+                  {tier.deposit && (
+                    <Typography variant="body2" color="text.secondary">
+                      Deposit: ${tier.deposit}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            ))}
+          </Stack>
+        </Box>
+      )}
+
       {/* Additional Information */}
       {bonus.additional_info && (
         <Box
