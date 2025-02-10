@@ -18,6 +18,7 @@ const publicEndpoints = [
   '/api/opportunities/public-stats',
   '/api/opportunities',
   '/opportunities',
+  '/api/auth/verify-session',
 ];
 
 export const config = {
@@ -26,44 +27,45 @@ export const config = {
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  console.log('Middleware - Processing request for path:', path);
 
-  // Check if path is public or starts with a public path
+  // Skip auth check for public paths
   if (
-    publicEndpoints.some(
-      (endpoint) => path === endpoint || path.startsWith(`${endpoint}/`)
-    )
+    publicEndpoints.includes(path) ||
+    path.startsWith('/auth') ||
+    path.startsWith('/api/auth') ||
+    path === '/'
   ) {
-    console.log('Public endpoint accessed:', path);
     return NextResponse.next();
   }
 
-  // Check if path requires authentication
-  const isProtectedPath = protectedPaths.some((prefix) => path.startsWith(prefix));
-
-  // If path is not protected, allow access
-  if (!isProtectedPath) {
-    console.log('Public path accessed:', path);
-    return NextResponse.next();
-  }
-
-  // For protected paths, check authentication
-  const authHeader = request.headers.get('authorization');
   const sessionCookie = request.cookies.get('session')?.value;
-  const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
-  // In emulator mode, accept any auth
-  if (useEmulators && (authHeader?.startsWith('Bearer ') || sessionCookie)) {
-    console.log('🔧 Emulator mode - accepting auth');
+  if (!sessionCookie) {
+    // Redirect to signin only if session cookie is missing
+    if (protectedPaths.some((p) => path.startsWith(p))) {
+      // Only redirect for protected paths
+      const searchParams = new URLSearchParams([['redirect', request.nextUrl.pathname]]);
+      return NextResponse.redirect(new URL(`/auth/signin?${searchParams}`, request.url));
+    }
+    return NextResponse.next(); // Allow public paths even without session
+  }
+
+  try {
+    // Verify session in API route
+    const response = await fetch(new URL('/api/auth/session', request.url), {
+      headers: {
+        Cookie: `session=${sessionCookie}`,
+      },
+    });
+
+    if (!response.ok) {
+      // Session invalid, but don't redirect immediately, let client-side handle it for smoother UX
+      return NextResponse.next(); // Just proceed without session for now
+    }
+
+    return NextResponse.next(); // Session valid, proceed
+  } catch {
+    // Verification error, same as invalid session - proceed without redirect for now
     return NextResponse.next();
   }
-
-  // In production, require either valid auth header or session cookie
-  if (!authHeader && !sessionCookie) {
-    console.log('No auth found - redirecting to signin');
-    const searchParams = new URLSearchParams([['redirect', path]]);
-    return NextResponse.redirect(new URL(`/auth/signin?${searchParams}`, request.url));
-  }
-
-  return NextResponse.next();
 }
