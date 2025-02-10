@@ -1,23 +1,25 @@
-import { UserRole } from '@/lib/auth/types';
-
-export type Permission = string;
+export type UserRole = 'admin' | 'user' | 'superadmin';
+export type Permission = 'read' | 'write' | 'delete' | 'manage';
 
 export interface User {
+  id: string;
   uid: string;
   email: string | null;
   displayName: string | null;
+  photoURL: string | null;
   role: UserRole;
   permissions?: Permission[];
   isSuperAdmin?: boolean;
   status?: string;
   creditScore?: number;
   monthlyIncome?: number;
-  photoURL?: string | null;
   customClaims?: {
     role: UserRole;
     permissions: Permission[];
     isSuperAdmin: boolean;
   };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DatabaseUser {

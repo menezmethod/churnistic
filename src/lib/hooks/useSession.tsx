@@ -1,6 +1,5 @@
+import { User } from 'next-auth';
 import { useEffect, useState } from 'react';
-
-import { User } from '@/types/user';
 
 export function useSession() {
   const [isLoading, setIsLoading] = useState(true);
@@ -9,36 +8,51 @@ export function useSession() {
 
   useEffect(() => {
     const checkSession = async () => {
-      setIsLoading(true); // Start loading when session check begins
+      setIsLoading(true);
+      console.log('[useSession] Session check started');
       try {
-        // Introduce a small initial delay (e.g., 200ms)
         await new Promise((resolve) => setTimeout(resolve, 200));
 
         const response = await fetch('/api/auth/session', {
           credentials: 'include',
         });
 
+        console.log('[useSession] Initial session response:', {
+          status: response.status,
+          ok: response.ok,
+        });
+
         if (!response.ok) {
-          // If initial check fails, retry once after a short delay
-          await new Promise((resolve) => setTimeout(resolve, 300)); // Wait before retry
+          await new Promise((resolve) => setTimeout(resolve, 300));
           const retryResponse = await fetch('/api/auth/session', {
             credentials: 'include',
+          });
+
+          console.log('[useSession] Retry session response:', {
+            status: retryResponse.status,
+            ok: retryResponse.ok,
           });
 
           if (!retryResponse.ok) {
             setUser(null);
             setIsAuthenticated(false);
-            return; // Exit if retry also fails
+            console.log('[useSession] Session check failed after retry');
+            return;
           }
           const retryData = await retryResponse.json();
           if (retryData) {
             setUser(retryData);
             setIsAuthenticated(true);
+            console.log(
+              '[useSession] Session check successful after retry, user:',
+              retryData.email
+            );
           } else {
             setUser(null);
             setIsAuthenticated(false);
+            console.log('[useSession] Session check failed after retry (no data)');
           }
-          return; // Exit after successful retry or failure
+          return;
         }
 
         const data = await response.json();
@@ -46,21 +60,29 @@ export function useSession() {
         if (data) {
           setUser(data);
           setIsAuthenticated(true);
+          console.log('[useSession] Session check successful, user:', data.email);
         } else {
           setUser(null);
           setIsAuthenticated(false);
+          console.log('[useSession] Session check failed (no data)');
         }
       } catch (error) {
-        console.error('Session check failed:', error);
+        console.error('[useSession] Session check error:', error);
         setUser(null);
         setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
+        console.log(
+          '[useSession] Session check completed, isLoading:',
+          false,
+          ', isAuthenticated:',
+          isAuthenticated
+        );
       }
     };
 
     void checkSession();
-  }, []);
+  }, [isAuthenticated]);
 
   return { isLoading, isAuthenticated, user };
 }

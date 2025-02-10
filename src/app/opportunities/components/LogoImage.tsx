@@ -99,7 +99,7 @@ export function LogoImage({ logo, name, colors }: LogoImageProps) {
           fill
           sizes="(max-width: 600px) 56px, (max-width: 900px) 64px, 80px"
           onError={() => setImageError(true)}
-          onLoadingComplete={() => setIsLoading(false)}
+          onLoad={() => setIsLoading(false)}
           style={{
             objectFit: 'contain',
             filter: 'brightness(0.9)',

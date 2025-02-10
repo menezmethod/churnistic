@@ -1,7 +1,15 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  useEffect,
+} from 'react';
 
 import type { Permission, UserRole } from '@/lib/auth/types';
 import { ROLE_PERMISSIONS } from '@/lib/auth/types';
@@ -51,6 +59,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { mutateAsync: login } = useLogin();
   const { mutateAsync: register } = useRegister();
   const { mutateAsync: logoutMutation } = useLogout();
+  const [contextUpdateCounter, setContextUpdateCounter] = useState(0);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    console.log('[AuthContext] Forcing re-render:', contextUpdateCounter);
+  }, [contextUpdateCounter]);
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -74,7 +88,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleSignInWithGoogle = useCallback(async () => {
     await loginWithGoogle();
-  }, []);
+    setContextUpdateCounter((prev) => prev + 1);
+    queryClient.invalidateQueries({ queryKey: ['authenticated-user'] });
+    await queryClient.fetchQuery({ queryKey: ['authenticated-user'] });
+  }, [setContextUpdateCounter, queryClient]);
 
   const handleSignInWithGithub = useCallback(async () => {
     await loginWithGithub();
@@ -136,6 +153,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       handleResetPassword,
     ]
   );
+
+  console.log('[AuthContext] Provider value updated:', {
+    user: user?.email,
+    loading: isLoading,
+  });
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
