@@ -17,7 +17,7 @@ export default function AdminProtectedRoute({ children }: AdminProtectedRoutePro
   useEffect(() => {
     if (
       !loading &&
-      (!user || !(hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPERADMIN)))
+      (!user || !(hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPER_ADMIN)))
     ) {
       router.push('/auth/signin');
     }
@@ -27,7 +27,7 @@ export default function AdminProtectedRoute({ children }: AdminProtectedRoutePro
     return <div>Loading...</div>;
   }
 
-  if (!user || !(hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPERADMIN))) {
+  if (!user || !(hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPER_ADMIN))) {
     return null;
   }
 

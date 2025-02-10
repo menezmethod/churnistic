@@ -2,7 +2,6 @@ import type { UserRecord } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 
-import { UserRole } from '@/lib/auth/types';
 import type { DatabaseUser } from '@/types/user';
 
 interface AuthEvent {
@@ -28,10 +27,8 @@ export const onAuthUserChanged = onCall<AuthEvent>(async (request) => {
           displayName: user.displayName || null,
           customDisplayName: null,
           photoURL: user.photoURL || null,
-          role: UserRole.USER,
+          role: 'user',
           status: 'active',
-          creditScore: undefined,
-          monthlyIncome: undefined,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           businessVerified: false,

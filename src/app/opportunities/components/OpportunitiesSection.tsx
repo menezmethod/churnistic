@@ -35,7 +35,9 @@ import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { Permission } from '@/lib/auth/types';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
+import { showErrorToast } from '@/lib/utils/toast';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 import FloatingAddButton from './FloatingAddButton';
@@ -83,7 +85,7 @@ function OpportunitiesSectionContent({
   const theme = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, hasPermission } = useAuth();
   const isDark = theme.palette.mode === 'dark';
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -252,6 +254,9 @@ function OpportunitiesSectionContent({
   };
 
   const handleDeleteClick = (opportunity: FirestoreOpportunity) => {
+    if (!hasPermission(Permission.DELETE_OPPORTUNITIES)) {
+      return showErrorToast('You lack permissions to delete opportunities');
+    }
     if (!user) {
       router.push('/auth/signin?redirect=/opportunities');
       return;

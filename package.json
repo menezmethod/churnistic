@@ -28,7 +28,9 @@
     "setup-test-accounts": "ts-node scripts/setup-test-accounts.ts",
     "setup-admin": "NEXT_PUBLIC_ADMIN_EMAIL=admin@test.com ADMIN_PASSWORD=testpass123 NODE_ENV=development tsx scripts/setup-admin.ts",
     "dev:all": "./start-dev.sh",
-    "collect": "ts-node src/lib/scrapers/bankrewards/collector.ts"
+    "collect": "ts-node src/lib/scrapers/bankrewards/collector.ts",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@crawlee/browser-pool": "^3.7.2",
@@ -71,11 +73,19 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@chromatic-com/storybook": "^3.2.4",
     "@crawlee/core": "^3.12.1",
     "@emotion/jest": "^11.11.0",
     "@emotion/react": "^11.14.0",
     "@next/eslint-plugin-next": "15.1.5",
     "@playwright/test": "^1.41.1",
+    "@storybook/addon-essentials": "^8.5.3",
+    "@storybook/addon-interactions": "^8.5.3",
+    "@storybook/addon-onboarding": "^8.5.3",
+    "@storybook/blocks": "^8.5.3",
+    "@storybook/nextjs": "^8.5.3",
+    "@storybook/react": "^8.5.3",
+    "@storybook/test": "^8.5.3",
     "@swc/jest": "^0.2.37",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^14.3.1",
@@ -107,6 +117,7 @@
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-security": "^2.1.0",
+    "eslint-plugin-storybook": "^0.11.2",
     "firebase-admin": "^12.7.0",
     "got-scraping": "^4.0.8",
     "header-generator": "^2.1.61",
@@ -128,6 +139,7 @@
     "prettier": "^3.2.4",
     "process": "^0.11.10",
     "start-server-and-test": "^2.0.3",
+    "storybook": "^8.5.3",
     "stream-browserify": "^3.0.0",
     "stream-http": "^3.2.0",
     "tailwindcss": "^3.4.1",
