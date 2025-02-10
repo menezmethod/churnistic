@@ -28,21 +28,6 @@ export function isProduction(): boolean {
  * @returns boolean indicating if emulators should be used
  */
 export function shouldUseEmulators(): boolean {
-  // Never use emulators in production environment
-  if (isProduction()) {
-    return false;
-  }
-
-  // Check for explicit emulator configuration
-  if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
-    return true;
-  }
-
-  // In development, use emulators by default
-  if (process.env.NODE_ENV === 'development') {
-    return true;
-  }
-
   return false;
 }
 

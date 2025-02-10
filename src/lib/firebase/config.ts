@@ -1,15 +1,11 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getFunctions, Functions, connectFunctionsEmulator } from 'firebase/functions';
-import { getStorage, FirebaseStorage, connectStorageEmulator } from 'firebase/storage';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFunctions, Functions } from 'firebase/functions';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 import { FirebaseConfigError } from '@/lib/errors/firebase';
 import { FirebaseServices } from '@/types/firebase';
-
-import { DEFAULT_EMULATOR_CONFIG } from './constants';
-import { shouldUseEmulators } from './utils/environment';
-import { getValidatedFirebaseConfig } from './validation';
 
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
@@ -24,40 +20,14 @@ let functions: Functions | undefined;
 export async function initializeFirebaseApp(): Promise<FirebaseApp> {
   if (!app && getApps().length === 0) {
     try {
-      const config = await getValidatedFirebaseConfig();
-      app = initializeApp(config);
-
-      // Connect to emulators in development
-      if (shouldUseEmulators()) {
-        console.log('🔧 Connecting to Firebase emulators...');
-        const { host, ports } = DEFAULT_EMULATOR_CONFIG;
-
-        // Initialize auth first
-        const auth = getAuth(app);
-        connectAuthEmulator(auth, `http://${host}:${ports.auth}`, {
-          disableWarnings: true,
-        });
-        console.log(`🔐 Connected to Auth emulator: http://${host}:${ports.auth}`);
-
-        // Then initialize Firestore
-        const firestore = getFirestore(app);
-        connectFirestoreEmulator(firestore, host, ports.firestore);
-        console.log(
-          `📚 Connected to Firestore emulator: http://${host}:${ports.firestore}`
-        );
-
-        // Initialize Storage
-        const storage = getStorage(app);
-        connectStorageEmulator(storage, host, ports.storage);
-        console.log(`📦 Connected to Storage emulator: http://${host}:${ports.storage}`);
-
-        // Initialize Functions
-        const functions = getFunctions(app);
-        connectFunctionsEmulator(functions, host, ports.functions);
-        console.log(
-          `⚡ Connected to Functions emulator: http://${host}:${ports.functions}`
-        );
-      }
+      app = initializeApp({
+        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+      });
     } catch (error) {
       console.error('Failed to initialize Firebase:', error);
       throw new FirebaseConfigError(
@@ -114,3 +84,14 @@ export function resetFirebaseServices(): void {
   storage = undefined;
   functions = undefined;
 }
+
+export const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+export default firebaseConfig;

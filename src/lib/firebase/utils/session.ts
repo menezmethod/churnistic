@@ -1,4 +1,5 @@
-import { User } from 'firebase/auth';
+import { getIdToken } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 import { FirebaseAuthError } from '@/lib/errors/firebase';
 
@@ -11,43 +12,17 @@ import { shouldUseEmulators } from './environment';
  */
 export async function manageSessionCookie(user: User): Promise<void> {
   try {
-    // Get the ID token with force refresh
-    const idToken = await user.getIdToken(true);
-    const idTokenResult = await user.getIdTokenResult(true);
-
-    // Add claims to the user object
-    Object.defineProperty(user, 'customClaims', {
-      value: {
-        role: idTokenResult.claims.role,
-        permissions: idTokenResult.claims.permissions,
-      },
-      writable: true,
-      configurable: true,
-    });
-
-    // Set session cookie
-    const response = await fetch('/api/auth/session', {
+    const idToken = await getIdToken(user, true);
+    await fetch('/api/auth/session', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ idToken }),
     });
-
-    if (!response.ok) {
-      throw new Error('Failed to set session cookie');
-    }
-
-    // Set a local cookie for the emulator environment
-    if (shouldUseEmulators()) {
-      document.cookie = `session=${idToken}; path=/; max-age=3600; SameSite=Strict`;
-    }
   } catch (error) {
-    throw new FirebaseAuthError(
-      'auth/session-management-failed',
-      'Failed to manage session',
-      error
-    );
+    console.error('Failed to manage session cookie:', error);
+    throw error;
   }
 }
 

@@ -2,22 +2,9 @@
 
 import { configureAuth } from 'react-query-auth';
 
-import {
-  type AuthUser,
-  type LoginCredentials,
-  type RegisterCredentials,
-  loadUser,
-  loginWithEmail,
-  registerWithEmail,
-  logout,
-} from './authService';
+import { loadUser, loginWithEmail, registerWithEmail, logout } from './authService';
 
-export const { useUser, useLogin, useRegister, useLogout, AuthLoader } = configureAuth<
-  AuthUser | null,
-  Error,
-  LoginCredentials,
-  RegisterCredentials
->({
+export const { useUser, useLogin, useRegister, useLogout, AuthLoader } = configureAuth({
   userFn: loadUser,
   loginFn: loginWithEmail,
   registerFn: registerWithEmail,

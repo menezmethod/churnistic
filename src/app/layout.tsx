@@ -3,7 +3,6 @@ import { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 
 import AppNavbar from '@/components/AppNavbar';
-import { EmulatorStatus } from '@/components/EmulatorStatus';
 import { ToastProvider } from '@/components/ui/toaster';
 
 import { ClientProviders } from './client-providers';
@@ -30,7 +29,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Box component="main" sx={{ flexGrow: 1, pt: { xs: '64px', md: '72px' } }}>
                 {children}
               </Box>
-              <EmulatorStatus />
             </Box>
           </ToastProvider>
         </ClientProviders>

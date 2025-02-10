@@ -1,56 +1,85 @@
+import { getAuth } from 'firebase-admin/auth';
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-import { getAdminAuth } from '@/lib/firebase/admin';
+import { getAdminApp } from '@/lib/firebase/admin';
 
-const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+const COOKIE_NAME = 'session';
+const MAX_AGE = 60 * 60 * 24 * 5; // 5 days
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { idToken } = await request.json();
 
-    // In emulator mode, skip token verification
-    if (useEmulator) {
-      const cookieStore = await cookies();
-      await cookieStore.set('session', 'test-session', {
-        maxAge: 60 * 60 * 24 * 5, // 5 days
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      });
-      return NextResponse.json({ status: 'success' });
+    if (!idToken) {
+      return NextResponse.json({ error: 'Missing idToken' }, { status: 400 });
     }
 
-    // Verify the ID token and create session cookie
-    const auth = getAdminAuth();
-    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
+    const auth = getAuth(getAdminApp());
+
+    // Verify the ID token first
+    const decodedIdToken = await auth.verifyIdToken(idToken);
+
+    // Only process if the token is valid
+    if (new Date().getTime() / 1000 - decodedIdToken.auth_time > 5 * 60) {
+      return NextResponse.json({ error: 'Recent sign in required' }, { status: 401 });
+    }
+
+    // Create session cookie
+    const sessionCookie = await auth.createSessionCookie(idToken, {
+      expiresIn: MAX_AGE * 1000,
+    });
+
+    const cookieStore = await cookies();
 
     // Set cookie
-    const cookieStore = await cookies();
-    await cookieStore.set('session', sessionCookie, {
-      maxAge: expiresIn,
+    cookieStore.set(COOKIE_NAME, sessionCookie, {
+      maxAge: MAX_AGE,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
     });
 
-    return NextResponse.json({ status: 'success' });
+    // Return the user data
+    return NextResponse.json({
+      uid: decodedIdToken.uid,
+      email: decodedIdToken.email,
+      emailVerified: decodedIdToken.email_verified,
+    });
   } catch (error) {
-    console.error('Error creating session:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Session creation error:', error);
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+}
+
+export async function GET() {
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get(COOKIE_NAME)?.value;
+
+    if (!sessionCookie) {
+      return NextResponse.json(null);
+    }
+
+    const auth = getAuth(getAdminApp());
+
+    // Check session with checkRevoked true
+    const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
+
+    return NextResponse.json({
+      uid: decodedClaims.uid,
+      email: decodedClaims.email,
+      emailVerified: decodedClaims.email_verified,
+    });
+  } catch (error) {
+    console.error('Session verification error:', error);
+    return NextResponse.json(null);
   }
 }
 
 export async function DELETE() {
-  try {
-    const cookieStore = await cookies();
-    await cookieStore.delete('session');
-    return NextResponse.json({ status: 'success' });
-  } catch (error) {
-    console.error('Error deleting session:', error);
-    return NextResponse.json({ error: 'Failed to delete session' }, { status: 500 });
-  }
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAME);
+  return NextResponse.json({ status: 'success' });
 }

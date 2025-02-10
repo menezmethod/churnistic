@@ -9,6 +9,8 @@ import {
 import { type Auth, getAuth } from 'firebase-admin/auth';
 import { type Firestore, getFirestore } from 'firebase-admin/firestore';
 
+import { FirebaseConfigError } from '@/lib/errors/firebase';
+
 import { shouldUseEmulators } from './utils/environment';
 
 let adminApp: App | undefined;
@@ -78,6 +80,38 @@ function getAdminConfig(): AppOptions {
       'Invalid service account key format. Ensure key is base64 encoded JSON.'
     );
   }
+}
+
+export async function initializeAdminApp() {
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+  if (getApps().length === 0) {
+    try {
+      console.log('🔧 Initializing Admin App for project:', projectId);
+
+      const app = initializeApp({
+        credential: cert({
+          projectId,
+          clientEmail,
+          privateKey,
+        }),
+        projectId,
+      });
+
+      return app;
+    } catch (error) {
+      console.error('Failed to initialize Admin App:', error);
+      throw new FirebaseConfigError(
+        'admin/initialization-failed',
+        'Failed to initialize Firebase Admin app',
+        error
+      );
+    }
+  }
+
+  return getApps()[0];
 }
 
 export function initializeAdminDb(): Firestore {
