@@ -11,8 +11,6 @@ export interface User {
   permissions?: Permission[];
   isSuperAdmin?: boolean;
   status?: string;
-  creditScore?: number;
-  monthlyIncome?: number;
   customClaims?: {
     role: UserRole;
     permissions: Permission[];
@@ -31,8 +29,6 @@ export interface DatabaseUser {
   photoURL: string | null;
   role: UserRole;
   status?: string;
-  creditScore?: number;
-  monthlyIncome?: number;
   isSuperAdmin?: boolean;
   permissions?: Permission[];
   businessVerified: boolean;
@@ -49,10 +45,10 @@ export type UserProfile = {
   customDisplayName: string;
   photoURL: string;
   firebaseUid: string;
-  creditScore: number | null;
-  monthlyIncome: number | null;
-  businessVerified: boolean;
   createdAt: string;
   updatedAt: string;
   householdId: string | null;
+  creditScore: number | null;
+  monthlyIncome: number | null;
+  businessVerified: boolean;
 };

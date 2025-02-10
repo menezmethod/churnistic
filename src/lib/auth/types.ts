@@ -1,194 +1,87 @@
-import type { User } from 'firebase/auth';
+import { User } from 'firebase/auth';
 
 export enum UserRole {
-  ADMIN = 'admin',
-  MANAGER = 'manager',
-  ANALYST = 'analyst',
-  AGENT = 'agent',
-  USER = 'user',
-  FREE_USER = 'free_user',
-  SUPERADMIN = 'SUPERADMIN',
+  USER = 'USER',
+  FREE_USER = 'FREE_USER',
+  ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
+  ANALYST = 'ANALYST',
+  AGENT = 'AGENT',
+  SUPER_ADMIN = 'super_admin',
+  CONTRIBUTOR = 'contributor',
 }
 
 export enum Permission {
-  // Profile Management
-  VIEW_OWN_PROFILE = 'view:own_profile',
-  EDIT_OWN_PROFILE = 'edit:own_profile',
-  VIEW_OTHER_PROFILES = 'view:other_profiles',
-  EDIT_OTHER_PROFILES = 'edit:other_profiles',
+  // Core permissions
+  VIEW_OWN_PROFILE = 'VIEW_OWN_PROFILE',
+  EDIT_OWN_PROFILE = 'EDIT_OWN_PROFILE',
+  VIEW_OWN_SETTINGS = 'VIEW_OWN_SETTINGS',
+  EDIT_OWN_SETTINGS = 'EDIT_OWN_SETTINGS',
 
-  // Settings Management
-  VIEW_OWN_SETTINGS = 'view:own_settings',
-  EDIT_OWN_SETTINGS = 'edit:own_settings',
-  VIEW_SYSTEM_SETTINGS = 'view:system_settings',
-  EDIT_SYSTEM_SETTINGS = 'edit:system_settings',
+  // Opportunities
+  SUBMIT_OPPORTUNITIES = 'SUBMIT_OPPORTUNITIES',
+  TRACK_OPPORTUNITIES = 'TRACK_OPPORTUNITIES',
+  APPROVE_OPPORTUNITIES = 'APPROVE_OPPORTUNITIES',
+  DELETE_OPPORTUNITIES = 'DELETE_OPPORTUNITIES',
+  MANAGE_OPPORTUNITIES = 'MANAGE_OPPORTUNITIES',
 
-  // Card Management
-  READ_CARDS = 'read:cards',
-  WRITE_CARDS = 'write:cards',
-  DELETE_CARDS = 'delete:cards',
-
-  // Bank Account Management
-  READ_BANK_ACCOUNTS = 'read:bank_accounts',
-  WRITE_BANK_ACCOUNTS = 'write:bank_accounts',
-  DELETE_BANK_ACCOUNTS = 'delete:bank_accounts',
-
-  // Investment Management
-  READ_INVESTMENTS = 'read:investments',
-  WRITE_INVESTMENTS = 'write:investments',
-  DELETE_INVESTMENTS = 'delete:investments',
+  // User management
+  VIEW_USER_PROFILES = 'VIEW_USER_PROFILES',
+  EDIT_USER_PROFILES = 'EDIT_USER_PROFILES',
+  MANAGE_USERS = 'MANAGE_USERS',
 
   // Analytics
-  VIEW_BASIC_ANALYTICS = 'view:basic_analytics',
-  VIEW_ADVANCED_ANALYTICS = 'view:advanced_analytics',
-  EXPORT_ANALYTICS = 'export:analytics',
+  VIEW_BASIC_ANALYTICS = 'VIEW_BASIC_ANALYTICS',
+  VIEW_ADVANCED_ANALYTICS = 'VIEW_ADVANCED_ANALYTICS',
+  EXPORT_ANALYTICS = 'EXPORT_ANALYTICS',
 
-  // Risk Management
-  VIEW_RISK_SCORES = 'view:risk_scores',
-  MANAGE_RISK_RULES = 'manage:risk_rules',
+  // System
+  MANAGE_ROLES = 'MANAGE_ROLES',
+  MANAGE_SYSTEM = 'MANAGE_SYSTEM',
+  MANAGE_AI = 'MANAGE_AI',
 
-  // User Management
-  READ_USERS = 'read:users',
-  WRITE_USERS = 'write:users',
-  DELETE_USERS = 'delete:users',
+  // Notifications
+  RECEIVE_CREDIT_CARD_ALERTS = 'RECEIVE_CREDIT_CARD_ALERTS',
+  RECEIVE_BANK_BONUS_ALERTS = 'RECEIVE_BANK_BONUS_ALERTS',
+  RECEIVE_INVESTMENT_ALERTS = 'RECEIVE_INVESTMENT_ALERTS',
+  RECEIVE_RISK_ALERTS = 'RECEIVE_RISK_ALERTS',
 
-  // System Settings
-  MANAGE_SETTINGS = 'manage:settings',
-  VIEW_LOGS = 'view:logs',
-
-  // API Access
-  USE_API = 'use:api',
-  MANAGE_API_KEYS = 'manage:api_keys',
-
-  // Notification Management
-  MANAGE_NOTIFICATIONS = 'manage:notifications',
-  RECEIVE_CREDIT_CARD_ALERTS = 'receive:credit_card_alerts',
-  RECEIVE_BANK_BONUS_ALERTS = 'receive:bank_bonus_alerts',
-  RECEIVE_INVESTMENT_ALERTS = 'receive:investment_alerts',
-  RECEIVE_RISK_ALERTS = 'receive:risk_alerts',
+  // API
+  USE_API = 'USE_API',
+  MANAGE_API_KEYS = 'MANAGE_API_KEYS',
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  [UserRole.SUPERADMIN]: [
-    // Full access to all permissions
-    ...Object.values(Permission),
+  [UserRole.SUPER_ADMIN]: [
+    Permission.MANAGE_ROLES,
+    Permission.MANAGE_USERS,
+    Permission.MANAGE_OPPORTUNITIES,
+    Permission.MANAGE_SYSTEM,
+    Permission.VIEW_BASIC_ANALYTICS,
+    Permission.VIEW_ADVANCED_ANALYTICS,
+    Permission.MANAGE_AI,
   ],
   [UserRole.ADMIN]: [
-    // Full access to all permissions
-    ...Object.values(Permission),
+    Permission.MANAGE_USERS,
+    Permission.MANAGE_OPPORTUNITIES,
+    Permission.VIEW_BASIC_ANALYTICS,
+    Permission.VIEW_ADVANCED_ANALYTICS,
+    Permission.MANAGE_AI,
   ],
-
+  [UserRole.CONTRIBUTOR]: [Permission.MANAGE_OPPORTUNITIES, Permission.MANAGE_AI],
+  [UserRole.USER]: [Permission.SUBMIT_OPPORTUNITIES, Permission.TRACK_OPPORTUNITIES],
+  [UserRole.FREE_USER]: [Permission.VIEW_OWN_PROFILE],
   [UserRole.MANAGER]: [
-    // Card Management
-    Permission.READ_CARDS,
-    Permission.WRITE_CARDS,
-
-    // Bank Account Management
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.WRITE_BANK_ACCOUNTS,
-
-    // Investment Management
-    Permission.READ_INVESTMENTS,
-    Permission.WRITE_INVESTMENTS,
-
-    // Analytics
-    Permission.VIEW_BASIC_ANALYTICS,
+    Permission.VIEW_USER_PROFILES,
+    Permission.APPROVE_OPPORTUNITIES,
     Permission.VIEW_ADVANCED_ANALYTICS,
-    Permission.EXPORT_ANALYTICS,
-
-    // Risk Management
-    Permission.VIEW_RISK_SCORES,
-    Permission.MANAGE_RISK_RULES,
-
-    // User Management
-    Permission.READ_USERS,
-    Permission.WRITE_USERS,
-
-    // API Access
-    Permission.USE_API,
-
-    // Notification Management
-    Permission.MANAGE_NOTIFICATIONS,
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-    Permission.RECEIVE_INVESTMENT_ALERTS,
-    Permission.RECEIVE_RISK_ALERTS,
+    Permission.MANAGE_OPPORTUNITIES,
   ],
-
   [UserRole.ANALYST]: [
-    // Read-only access to main features
-    Permission.READ_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
-
-    // Analytics
     Permission.VIEW_BASIC_ANALYTICS,
     Permission.VIEW_ADVANCED_ANALYTICS,
-    Permission.EXPORT_ANALYTICS,
-
-    // Risk Management
-    Permission.VIEW_RISK_SCORES,
-
-    // API Access
-    Permission.USE_API,
-
-    // Notifications
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-    Permission.RECEIVE_INVESTMENT_ALERTS,
-    Permission.RECEIVE_RISK_ALERTS,
   ],
-
-  [UserRole.AGENT]: [
-    // Basic operations
-    Permission.READ_CARDS,
-    Permission.WRITE_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.WRITE_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
-    Permission.WRITE_INVESTMENTS,
-
-    // Basic Analytics
-    Permission.VIEW_BASIC_ANALYTICS,
-    Permission.VIEW_RISK_SCORES,
-
-    // Notifications
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-    Permission.RECEIVE_INVESTMENT_ALERTS,
-    Permission.RECEIVE_RISK_ALERTS,
-  ],
-
-  [UserRole.USER]: [
-    // Standard user permissions
-    Permission.READ_CARDS,
-    Permission.WRITE_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.WRITE_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
-    Permission.WRITE_INVESTMENTS,
-    Permission.VIEW_BASIC_ANALYTICS,
-    Permission.VIEW_RISK_SCORES,
-    Permission.USE_API,
-
-    // Notifications
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-    Permission.RECEIVE_INVESTMENT_ALERTS,
-    Permission.RECEIVE_RISK_ALERTS,
-  ],
-
-  [UserRole.FREE_USER]: [
-    // Limited permissions for free tier
-    Permission.READ_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
-    Permission.VIEW_BASIC_ANALYTICS,
-
-    // Limited notifications
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-  ],
+  [UserRole.AGENT]: [Permission.SUBMIT_OPPORTUNITIES],
 };
 
 export interface AuthUser extends User {

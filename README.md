@@ -1,32 +1,32 @@
 # Churnistic
 
-A modern credit card churning tracker built with Next.js, TypeScript, and Material-UI.
+A modern opportunity management platform built with Next.js, TypeScript, and Material-UI.
 
 ## Features
 
 ### Modern Dashboard
 
 - Real-time opportunity tracking
-- Activity timeline with filters
-- Progress tracking with visualizations
-- Quick access to high-value opportunities
-- Responsive design for all devices
+- AI-powered opportunity recommendations
+- Collaborative workspace
+- Customizable pipelines
+- Advanced filtering and sorting
 
-### AI-Powered Opportunity Detection
+### AI-Powered Features
 
-- Reddit and Twitter integration for opportunity discovery
-- Advanced analysis using Groq LLM
-- Automated confidence scoring with explanations
-- Smart filtering and categorization
-- Historical performance tracking
+- Automated opportunity scoring
+- Intelligent categorization
+- Natural language processing
+- Predictive analytics
+- Smart notifications
 
-### Enhanced Security
+### Security
 
-- Multi-factor authentication
 - Role-based access control
-- Data encryption at rest and in transit
-- Regular security audits
-- Automated vulnerability scanning
+- Enterprise-grade encryption
+- Audit logging
+- Session management
+- Compliance monitoring
 
 ### Developer Experience
 

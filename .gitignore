@@ -92,3 +92,5 @@ firebase-data/firestore_export/
 .now
 
 /firebase-export-*/
+
+*storybook.log

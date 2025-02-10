@@ -222,13 +222,7 @@ export default function UsersPage() {
             ? {
                 ...user,
                 ...data,
-                role: data.role as
-                  | 'user'
-                  | 'admin'
-                  | 'manager'
-                  | 'analyst'
-                  | 'agent'
-                  | 'free_user',
+                role: data.role as 'user' | 'admin' | 'contributor' | 'super_admin',
               }
             : user
         )
@@ -353,7 +347,7 @@ export default function UsersPage() {
                     <TableCell>
                       <Chip
                         label={user.role}
-                        color={user.role === UserRole.ADMIN ? 'primary' : 'default'}
+                        color={user.role === 'admin' ? 'primary' : 'default'}
                         size="small"
                       />
                       {user.isSuperAdmin && (

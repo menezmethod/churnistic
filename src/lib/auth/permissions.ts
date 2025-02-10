@@ -2,120 +2,56 @@ import { Permission, UserRole } from './types';
 
 // Define role-based permissions using the Permission enum
 export const ROLE_PERMISSIONS = {
-  [UserRole.USER]: [
-    // Profile and Settings
-    Permission.VIEW_OWN_PROFILE,
-    Permission.EDIT_OWN_PROFILE,
-    Permission.VIEW_OWN_SETTINGS,
-    Permission.EDIT_OWN_SETTINGS,
-    // Cards and Accounts
-    Permission.READ_CARDS,
-    Permission.WRITE_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.WRITE_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
-    Permission.WRITE_INVESTMENTS,
-    Permission.VIEW_BASIC_ANALYTICS,
-    Permission.VIEW_RISK_SCORES,
-    Permission.USE_API,
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-    Permission.RECEIVE_INVESTMENT_ALERTS,
-    Permission.RECEIVE_RISK_ALERTS,
-    Permission.MANAGE_SETTINGS,
+  [UserRole.SUPER_ADMIN]: [
+    ...Object.values(Permission), // Full access
   ],
-  [UserRole.FREE_USER]: [
-    // Profile and Settings
-    Permission.VIEW_OWN_PROFILE,
-    Permission.EDIT_OWN_PROFILE,
-    Permission.VIEW_OWN_SETTINGS,
-    Permission.EDIT_OWN_SETTINGS,
-    // Basic Features
-    Permission.READ_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
-    Permission.VIEW_BASIC_ANALYTICS,
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-    Permission.MANAGE_SETTINGS,
-  ],
+
   [UserRole.ADMIN]: [
-    // Admin has all permissions
-    ...Object.values(Permission),
+    Permission.MANAGE_USERS,
+    Permission.MANAGE_OPPORTUNITIES,
+    Permission.VIEW_ADVANCED_ANALYTICS,
+    Permission.EXPORT_ANALYTICS,
+    Permission.MANAGE_SYSTEM,
+    Permission.APPROVE_OPPORTUNITIES,
+    Permission.DELETE_OPPORTUNITIES,
+    Permission.EDIT_USER_PROFILES,
+    Permission.USE_API,
   ],
+
   [UserRole.MANAGER]: [
-    // Profile and Settings
-    Permission.VIEW_OWN_PROFILE,
-    Permission.EDIT_OWN_PROFILE,
-    Permission.VIEW_OWN_SETTINGS,
-    Permission.EDIT_OWN_SETTINGS,
-    Permission.VIEW_OTHER_PROFILES,
-    Permission.EDIT_OTHER_PROFILES,
-    Permission.VIEW_SYSTEM_SETTINGS,
-    // Advanced Features
-    Permission.READ_CARDS,
-    Permission.WRITE_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.WRITE_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
-    Permission.WRITE_INVESTMENTS,
-    Permission.VIEW_BASIC_ANALYTICS,
+    Permission.VIEW_USER_PROFILES,
+    Permission.APPROVE_OPPORTUNITIES,
     Permission.VIEW_ADVANCED_ANALYTICS,
-    Permission.EXPORT_ANALYTICS,
-    Permission.VIEW_RISK_SCORES,
-    Permission.MANAGE_RISK_RULES,
-    Permission.READ_USERS,
-    Permission.WRITE_USERS,
-    Permission.USE_API,
-    Permission.MANAGE_NOTIFICATIONS,
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-    Permission.RECEIVE_INVESTMENT_ALERTS,
+    Permission.MANAGE_OPPORTUNITIES,
     Permission.RECEIVE_RISK_ALERTS,
-    Permission.MANAGE_SETTINGS,
+    Permission.USE_API,
   ],
+
   [UserRole.ANALYST]: [
-    // Profile and Settings
-    Permission.VIEW_OWN_PROFILE,
-    Permission.EDIT_OWN_PROFILE,
-    Permission.VIEW_OWN_SETTINGS,
-    Permission.EDIT_OWN_SETTINGS,
-    Permission.VIEW_OTHER_PROFILES,
-    // Analysis Features
-    Permission.READ_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
     Permission.VIEW_BASIC_ANALYTICS,
     Permission.VIEW_ADVANCED_ANALYTICS,
     Permission.EXPORT_ANALYTICS,
-    Permission.VIEW_RISK_SCORES,
-    Permission.USE_API,
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-    Permission.RECEIVE_INVESTMENT_ALERTS,
     Permission.RECEIVE_RISK_ALERTS,
-    Permission.MANAGE_SETTINGS,
   ],
+
   [UserRole.AGENT]: [
-    // Profile and Settings
+    Permission.SUBMIT_OPPORTUNITIES,
+    Permission.TRACK_OPPORTUNITIES,
+    Permission.VIEW_BASIC_ANALYTICS,
+    Permission.RECEIVE_RISK_ALERTS,
+  ],
+
+  [UserRole.CONTRIBUTOR]: [
+    Permission.SUBMIT_OPPORTUNITIES,
+    Permission.TRACK_OPPORTUNITIES,
+    Permission.VIEW_OWN_PROFILE,
+  ],
+
+  [UserRole.USER]: [
     Permission.VIEW_OWN_PROFILE,
     Permission.EDIT_OWN_PROFILE,
-    Permission.VIEW_OWN_SETTINGS,
-    Permission.EDIT_OWN_SETTINGS,
-    Permission.VIEW_OTHER_PROFILES,
-    // Agent Features
-    Permission.READ_CARDS,
-    Permission.WRITE_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.WRITE_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
-    Permission.WRITE_INVESTMENTS,
-    Permission.VIEW_BASIC_ANALYTICS,
-    Permission.VIEW_RISK_SCORES,
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-    Permission.RECEIVE_INVESTMENT_ALERTS,
-    Permission.RECEIVE_RISK_ALERTS,
-    Permission.MANAGE_SETTINGS,
+    Permission.TRACK_OPPORTUNITIES,
   ],
+
+  [UserRole.FREE_USER]: [Permission.VIEW_OWN_PROFILE, Permission.TRACK_OPPORTUNITIES],
 };

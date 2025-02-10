@@ -16,7 +16,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!authLoading) {
       console.log('Auth state:', {
         user: user?.email,
-        isAdmin: hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPERADMIN),
+        isAdmin: hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPER_ADMIN),
         isSuperAdmin: isSuperAdmin(),
       });
 

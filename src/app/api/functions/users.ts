@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { CallableRequest } from 'firebase-functions/v2/https';
 
-import { UserRole } from '@/lib/auth/types';
+import { UserRole, Permission } from '@/lib/auth/types';
 
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
@@ -62,6 +62,7 @@ interface AuthContext {
   uid: string;
   token: {
     auth_time: number;
+    permissions?: Permission[];
   };
 }
 
@@ -176,6 +177,13 @@ export const setUserRole = functions.https.onCall(
       throw new functions.https.HttpsError(
         'permission-denied',
         'Only admins can set user roles'
+      );
+    }
+
+    if (!context.auth?.token.permissions?.includes(Permission.MANAGE_USERS)) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Insufficient permissions'
       );
     }
 
