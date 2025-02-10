@@ -3,15 +3,17 @@ import { z } from 'zod';
 import { FirebaseConfigError } from '@/lib/errors/firebase';
 
 import { FIREBASE_ENVIRONMENTS } from './constants';
-import { shouldUseEmulators } from './utils/environment';
 
 export const firebaseConfigSchema = z.object({
-  apiKey: z.string().min(1, 'API key is required'),
-  authDomain: z.string().min(1, 'Auth domain is required'),
-  projectId: z.string().min(1, 'Project ID is required'),
-  storageBucket: z.string().min(1, 'Storage bucket is required'),
-  messagingSenderId: z.string().min(1, 'Messaging sender ID is required'),
-  appId: z.string().min(1, 'App ID is required'),
+  apiKey: z.string(),
+  authDomain: z.string(),
+  projectId: z.string(),
+  storageBucket: z.string(),
+  messagingSenderId: z.string(),
+  appId: z.string(),
+  measurementId: z.string().optional(),
+  clientEmail: z.string(),
+  privateKey: z.string(),
 });
 
 export const environmentVariablesSchema = z.object({
@@ -23,20 +25,14 @@ export const environmentVariablesSchema = z.object({
       FIREBASE_ENVIRONMENTS.production,
     ])
     .default(FIREBASE_ENVIRONMENTS.development),
-  NEXT_PUBLIC_FIREBASE_API_KEY: z.string().min(1, 'Firebase API key is required'),
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: z.string().min(1, 'Firebase auth domain is required'),
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().min(1, 'Firebase project ID is required'),
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: z
-    .string()
-    .min(1, 'Firebase storage bucket is required'),
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z
-    .string()
-    .min(1, 'Firebase messaging sender ID is required'),
-  NEXT_PUBLIC_FIREBASE_APP_ID: z.string().min(1, 'Firebase app ID is required'),
-  NEXT_PUBLIC_USE_FIREBASE_EMULATORS: z.enum(['true', 'false']).optional(),
-  FIREBASE_ADMIN_PROJECT_ID: z.string().min(1, 'Firebase admin project ID is required'),
-  FIREBASE_ADMIN_CLIENT_EMAIL: z.string().email('Invalid Firebase admin client email'),
-  FIREBASE_ADMIN_PRIVATE_KEY: z.string().min(1, 'Firebase admin private key is required'),
+  NEXT_PUBLIC_FIREBASE_API_KEY: z.string(),
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: z.string(),
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string(),
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: z.string(),
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string(),
+  NEXT_PUBLIC_FIREBASE_APP_ID: z.string(),
+  NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: z.string().optional(),
+  FIREBASE_SERVICE_ACCOUNT_KEY: z.string(),
 });
 
 /**
@@ -80,36 +76,33 @@ export function validateEnvironmentVariables() {
  */
 export async function getValidatedFirebaseConfig() {
   try {
-    // In emulator mode, we only need projectId
-    if (shouldUseEmulators()) {
-      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'churnistic';
-      console.log('🔧 Using Firebase Emulator with project:', projectId);
+    const env = environmentVariablesSchema.parse(process.env);
 
-      return {
-        apiKey: 'fake-api-key',
-        authDomain: 'localhost',
-        projectId,
-        storageBucket: `${projectId}.appspot.com`,
-        messagingSenderId: '123456789',
-        appId: '1:123456789:web:abcdef',
-      };
-    }
-
-    const config = {
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    // Client config
+    const clientConfig = {
+      apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: env.NEXT_PUBLIC_FIREBASE_APP_ID,
+      measurementId: env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
     };
 
-    const validatedConfig = firebaseConfigSchema.parse(config);
-    return validatedConfig;
+    // Server credentials
+    const serviceAccount = JSON.parse(
+      Buffer.from(env.FIREBASE_SERVICE_ACCOUNT_KEY, 'base64').toString()
+    );
+
+    return {
+      ...clientConfig,
+      clientEmail: serviceAccount.client_email,
+      privateKey: serviceAccount.private_key.replace(/\\n/g, '\n'),
+    };
   } catch (error) {
-    console.error('Firebase config validation error:', error);
+    console.error('Firebase config validation failed:', error);
     throw new FirebaseConfigError(
-      'config/invalid',
+      'config/validation-failed',
       'Invalid Firebase configuration',
       error
     );

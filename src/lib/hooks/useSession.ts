@@ -1,64 +1,66 @@
-import { User as FirebaseUser } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { getFirebaseAuth } from '@/lib/firebase/client-app';
 import { User } from '@/types/user';
 
 export function useSession() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
-    let unsubscribe = () => {};
+    const checkSession = async () => {
+      setIsLoading(true); // Start loading when session check begins
+      try {
+        // Introduce a small initial delay (e.g., 200ms)
+        await new Promise((resolve) => setTimeout(resolve, 200));
 
-    const initAuth = async () => {
-      const auth = await getFirebaseAuth();
-      unsubscribe = auth.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
-        setIsLoading(true);
-        try {
-          if (firebaseUser) {
-            const idToken = await firebaseUser.getIdToken(true);
-            const response = await fetch('/api/auth/session', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ idToken }),
-            });
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        });
 
-            if (!response.ok) {
-              throw new Error('Failed to create session');
-            }
+        if (!response.ok) {
+          // If initial check fails, retry once after a short delay
+          await new Promise((resolve) => setTimeout(resolve, 300)); // Wait before retry
+          const retryResponse = await fetch('/api/auth/session', {
+            credentials: 'include',
+          });
 
-            const sessionResponse = await fetch('/api/auth/session');
-            if (!sessionResponse.ok) {
-              throw new Error('Failed to get session data');
-            }
-
-            const sessionData = await sessionResponse.json();
-            setUser(sessionData);
+          if (!retryResponse.ok) {
+            setUser(null);
+            setIsAuthenticated(false);
+            return; // Exit if retry also fails
+          }
+          const retryData = await retryResponse.json();
+          if (retryData) {
+            setUser(retryData);
             setIsAuthenticated(true);
           } else {
-            await fetch('/api/auth/session', { method: 'DELETE' });
             setUser(null);
             setIsAuthenticated(false);
           }
-        } catch (error) {
-          console.error('Error in session hook:', error);
+          return; // Exit after successful retry or failure
+        }
+
+        const data = await response.json();
+
+        if (data) {
+          setUser(data);
+          setIsAuthenticated(true);
+        } else {
           setUser(null);
           setIsAuthenticated(false);
-        } finally {
-          setIsLoading(false);
         }
-      });
+      } catch (error) {
+        console.error('Session check failed:', error);
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    initAuth();
-    return () => unsubscribe();
-  }, [router]);
+    void checkSession();
+  }, []);
 
   return { isLoading, isAuthenticated, user };
 }
