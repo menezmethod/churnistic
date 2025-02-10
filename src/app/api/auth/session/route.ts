@@ -1,36 +1,22 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-import { getAdminAuth } from '@/lib/firebase/admin';
-
-const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
-    const { idToken } = await request.json();
-
-    // In emulator mode, skip token verification
-    if (useEmulator) {
-      const cookieStore = await cookies();
-      await cookieStore.set('session', 'test-session', {
-        maxAge: 60 * 60 * 24 * 5, // 5 days
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      });
-      return NextResponse.json({ status: 'success' });
-    }
-
-    // Verify the ID token and create session cookie
-    const auth = getAdminAuth();
-    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
-
-    // Set cookie
+    const { access_token, refresh_token } = await request.json();
     const cookieStore = await cookies();
-    await cookieStore.set('session', sessionCookie, {
-      maxAge: expiresIn,
+
+    // Set cookies using Supabase's format
+    cookieStore.set('sb-access-token', access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    cookieStore.set('sb-refresh-token', refresh_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -46,8 +32,8 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   try {
-    const cookieStore = await cookies();
-    await cookieStore.delete('session');
+    const supabase = await createServerSupabaseClient();
+    await supabase.auth.signOut();
     return NextResponse.json({ status: 'success' });
   } catch (error) {
     console.error('Error deleting session:', error);

@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+
+import { updateSession } from '@/lib/supabase/middleware';
 
 // Paths that ALWAYS require authentication
 const protectedPaths = [
@@ -13,57 +14,61 @@ const protectedPaths = [
   '/api/opportunities/reset',
 ];
 
-// Public API endpoints and paths
-const publicEndpoints = [
-  '/api/opportunities/public-stats',
-  '/api/opportunities',
-  '/opportunities',
-];
-
-export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-};
+// Admin-only paths
+const adminPaths = ['/admin', '/api/users'];
 
 export async function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname;
-  console.log('Middleware - Processing request for path:', path);
+  const { pathname } = request.nextUrl;
 
-  // Check if path is public or starts with a public path
+  // Refresh session if it exists
+  const response = await updateSession(request);
+
+  // If accessing auth pages while logged in, redirect to dashboard
+  if (pathname.startsWith('/auth') && request.cookies.get('sb-access-token')) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // If accessing protected pages without auth, redirect to login
   if (
-    publicEndpoints.some(
-      (endpoint) => path === endpoint || path.startsWith(`${endpoint}/`)
-    )
+    (pathname.startsWith('/dashboard') ||
+      pathname.startsWith('/admin') ||
+      pathname.startsWith('/settings')) &&
+    !request.cookies.get('sb-access-token')
   ) {
-    console.log('Public endpoint accessed:', path);
-    return NextResponse.next();
+    const redirectUrl = new URL('/auth/signin', request.url);
+    redirectUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(redirectUrl);
   }
 
-  // Check if path requires authentication
-  const isProtectedPath = protectedPaths.some((prefix) => path.startsWith(prefix));
+  // Check admin access for admin paths
+  if (request.cookies.get('sb-access-token') && adminPaths.some((p) => pathname.startsWith(p))) {
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', session.user.id)
+      .in('role', ['super_admin', 'admin']);
 
-  // If path is not protected, allow access
-  if (!isProtectedPath) {
-    console.log('Public path accessed:', path);
-    return NextResponse.next();
+    if (!roles?.length) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized - Admin access required' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
   }
 
-  // For protected paths, check authentication
-  const authHeader = request.headers.get('authorization');
-  const sessionCookie = request.cookies.get('session')?.value;
-  const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-
-  // In emulator mode, accept any auth
-  if (useEmulators && (authHeader?.startsWith('Bearer ') || sessionCookie)) {
-    console.log('🔧 Emulator mode - accepting auth');
-    return NextResponse.next();
-  }
-
-  // In production, require either valid auth header or session cookie
-  if (!authHeader && !sessionCookie) {
-    console.log('No auth found - redirecting to signin');
-    const searchParams = new URLSearchParams([['redirect', path]]);
-    return NextResponse.redirect(new URL(`/auth/signin?${searchParams}`, request.url));
-  }
-
-  return NextResponse.next();
+  return response;
 }
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public (public files)
+     * - api (API routes)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|public|api).*)',
+  ],
+};

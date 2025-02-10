@@ -1,25 +1,45 @@
-import { User as FirebaseUser } from 'firebase/auth';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 import { UserRole } from './roles';
 
 export { UserRole } from './roles';
 
-export interface User extends Omit<FirebaseUser, 'customClaims'> {
-  role: UserRole;
-  customClaims?: {
+export type AuthUser = SupabaseUser & {
+  displayName?: string;
+  customDisplayName?: string;
+  photoURL?: string;
+  role?: UserRole;
+  metadata?: {
+    lastSignInTime?: string;
+    creationTime?: string;
+    [key: string]: unknown;
+  };
+  user_metadata?: {
+    full_name?: string;
+    avatar_url?: string;
     role?: UserRole;
     [key: string]: unknown;
   };
-}
+};
 
-export enum Permission {
-  READ_USERS = 'read:users',
-  WRITE_USERS = 'write:users',
-  READ_OPPORTUNITIES = 'read:opportunities',
-  WRITE_OPPORTUNITIES = 'write:opportunities',
-}
+export type AuthError = {
+  message: string;
+  code?: string;
+  status?: number;
+};
 
-export interface CustomClaims {
-  role?: UserRole;
-  permissions?: Permission[];
-}
+export type AuthState = {
+  user: AuthUser | null;
+  loading: boolean;
+  error: AuthError | null;
+};
+
+export type Permission =
+  | 'manage_roles'
+  | 'manage_users'
+  | 'manage_opportunities'
+  | 'manage_system'
+  | 'view_analytics'
+  | 'manage_ai'
+  | 'submit_opportunities'
+  | 'track_opportunities';
