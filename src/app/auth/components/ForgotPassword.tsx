@@ -1,109 +1,86 @@
 'use client';
-import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
-import TextField from '@mui/material/TextField';
-import * as React from 'react';
-import type { JSX } from 'react';
+import {
+  Box,
+  Button,
+  Container,
+  Link,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
-import { resetPassword } from '@/lib/firebase/utils/auth';
+import { useAuth } from '@/lib/hooks/useAuth';
 
-interface ForgotPasswordProps {
-  open: boolean;
-  onCloseAction: () => void;
-}
+export default function ForgotPassword() {
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { resetPassword } = useAuth();
+  const router = useRouter();
 
-export function ForgotPassword({
-  open,
-  onCloseAction,
-}: ForgotPasswordProps): JSX.Element {
-  const [email, setEmail] = React.useState('');
-  const [error, setError] = React.useState('');
-  const [success, setSuccess] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(false);
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-    setIsLoading(true);
-    setError('');
-    setSuccess(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      const { error: resetError } = await resetPassword(email);
-      if (resetError) {
-        if (resetError.code === 'auth/user-not-found') {
-          setError('No account found with this email address.');
-        } else {
-          throw resetError;
-        }
-      } else {
-        setSuccess(true);
-        setTimeout(() => {
-          onCloseAction();
-          setEmail('');
-          setSuccess(false);
-        }, 3000);
-      }
+      await resetPassword(email);
+      toast.success('Check your email for password reset instructions!');
+      router.push('/auth/signin');
     } catch (error) {
-      console.error('Password reset error:', error);
-      setError('An error occurred. Please try again.');
+      console.error('Error resetting password:', error);
+      toast.error('Failed to send reset instructions. Please try again.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onCloseAction}
-      PaperProps={{
-        component: 'form',
-        onSubmit: handleSubmit,
-      }}
-    >
-      <DialogTitle>Reset password</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Enter your account&apos;s email address, and we&apos;ll send you a link to reset
-          your password.
-        </DialogContentText>
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert severity="success" sx={{ mt: 2 }}>
-            Password reset email sent! Check your inbox.
-          </Alert>
-        )}
-        <TextField
-          autoFocus
-          required
-          margin="dense"
-          id="email"
-          name="email"
-          label="Email address"
-          type="email"
-          fullWidth
-          value={email}
-          onChange={(e): void => setEmail(e.target.value)}
-          disabled={isLoading}
-          error={!!error}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onCloseAction} disabled={isLoading}>
-          Cancel
-        </Button>
-        <Button type="submit" variant="contained" disabled={isLoading}>
-          {isLoading ? 'Sending...' : 'Send reset link'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <Container maxWidth="sm">
+      <Box
+        sx={{
+          marginTop: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <Typography component="h1" variant="h5">
+          Reset Password
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 1, mb: 3, textAlign: 'center' }}>
+          Enter your email address and we'll send you instructions to reset your password.
+        </Typography>
+        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="email"
+            label="Email Address"
+            name="email"
+            autoComplete="email"
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+            disabled={loading}
+          >
+            {loading ? 'Sending...' : 'Send Reset Instructions'}
+          </Button>
+          <Stack spacing={2} direction="row" justifyContent="center">
+            <Link href="/auth/signin" variant="body2">
+              Back to Sign in
+            </Link>
+          </Stack>
+        </Box>
+      </Box>
+    </Container>
   );
 }

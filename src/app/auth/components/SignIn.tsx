@@ -1,41 +1,24 @@
 'use client';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import MuiCard from '@mui/material/Card';
-import Checkbox from '@mui/material/Checkbox';
-import Divider from '@mui/material/Divider';
-import FormControl from '@mui/material/FormControl';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import type { FormHelperTextProps } from '@mui/material/FormHelperText';
-import FormLabel from '@mui/material/FormLabel';
-import Link from '@mui/material/Link';
-import Stack from '@mui/material/Stack';
+import {
+  Box,
+  Button,
+  Card,
+  Checkbox,
+  Divider,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
+  Link,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
-import { useRouter } from 'next/navigation';
-import * as React from 'react';
-import type { JSX } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-
-import { ForgotPassword } from './ForgotPassword';
-import { GoogleIcon } from './icons';
-
-const Card = styled(MuiCard)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  alignSelf: 'center',
-  width: '100%',
-  padding: theme.spacing(4),
-  gap: theme.spacing(2),
-  margin: 'auto',
-  [theme.breakpoints.up('sm')]: {
-    maxWidth: '450px',
-  },
-  boxShadow:
-    'hsla(220, 30%, 5%, 0.05) 0px 5px 15px 0px, hsla(220, 25%, 10%, 0.05) 0px 15px 35px -5px',
-}));
+import { useAuth } from '@/lib/hooks/useAuth';
 
 const SignInContainer = styled(Stack)(({ theme }) => ({
   height: '100vh',
@@ -56,103 +39,96 @@ const SignInContainer = styled(Stack)(({ theme }) => ({
   },
 }));
 
-interface ExtendedFormHelperTextProps extends FormHelperTextProps {
-  'data-testid'?: string;
-}
+const StyledCard = styled(Card)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignSelf: 'center',
+  width: '100%',
+  padding: theme.spacing(4),
+  gap: theme.spacing(2),
+  margin: 'auto',
+  [theme.breakpoints.up('sm')]: {
+    maxWidth: '450px',
+  },
+  boxShadow:
+    'hsla(220, 30%, 5%, 0.05) 0px 5px 15px 0px, hsla(220, 25%, 10%, 0.05) 0px 15px 35px -5px',
+}));
 
-export function SignIn(): JSX.Element {
+export default function SignIn() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const { signIn } = useAuth();
   const router = useRouter();
-  const { user, signIn, signInWithGoogle } = useAuth();
-  const [emailError, setEmailError] = React.useState(false);
-  const [emailErrorMessage, setEmailErrorMessage] = React.useState('');
-  const [passwordError, setPasswordError] = React.useState(false);
-  const [passwordErrorMessage, setPasswordErrorMessage] = React.useState('');
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [forgotPasswordOpen, setForgotPasswordOpen] = React.useState(false);
-
-  React.useEffect((): void => {
-    if (user) {
-      router.replace('/dashboard');
-    }
-  }, [user, router]);
+  const searchParams = useSearchParams();
+  const redirectedFrom = searchParams.get('redirectedFrom') || '/';
 
   const validateInputs = (email: string, password: string): boolean => {
     let isValid = true;
 
     if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      setEmailError(true);
-      setEmailErrorMessage('Please enter a valid email address.');
+      setEmailError('Please enter a valid email address.');
       isValid = false;
     } else {
-      setEmailError(false);
-      setEmailErrorMessage('');
+      setEmailError('');
     }
 
     if (!password || password.length < 6) {
-      setPasswordError(true);
-      setPasswordErrorMessage('Password must be at least 6 characters long.');
+      setPasswordError('Password must be at least 6 characters long.');
       isValid = false;
     } else {
-      setPasswordError(false);
-      setPasswordErrorMessage('');
+      setPasswordError('');
     }
 
     return isValid;
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-    setIsLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateInputs(email, password)) return;
 
-    const data = new FormData(event.currentTarget);
-    const email = data.get('email') as string;
-    const password = data.get('password') as string;
-
-    if (!validateInputs(email, password)) {
-      setIsLoading(false);
-      return;
-    }
-
+    setLoading(true);
     try {
-      await signIn(email, password);
-      router.push('/dashboard');
-    } catch (error: unknown) {
-      console.error('Sign in error:', error);
-      setEmailError(true);
-      setPasswordError(true);
-      setEmailErrorMessage('Invalid email or password.');
-      setPasswordErrorMessage('Invalid email or password.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async (): Promise<void> => {
-    setIsLoading(true);
-    setEmailError(false);
-    setPasswordError(false);
-    setEmailErrorMessage('');
-    setPasswordErrorMessage('');
-
-    try {
-      await signInWithGoogle();
-      router.push('/dashboard');
+      await signIn({ email, password });
+      router.push(redirectedFrom);
+      toast.success('Successfully signed in!');
     } catch (error) {
-      console.error('Google sign in error:', {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-      setEmailError(true);
-      setEmailErrorMessage('Failed to sign in with Google');
+      console.error('Error signing in:', error);
+      setEmailError('Invalid email or password.');
+      setPasswordError('Invalid email or password.');
+      toast.error('Failed to sign in. Please check your credentials.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      localStorage.setItem('redirectTo', redirectedFrom);
+      await signIn({ provider: 'google' });
+    } catch (error) {
+      console.error('Error signing in with Google:', error);
+      toast.error('Failed to sign in with Google.');
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const error = searchParams.get('error');
+    const error_description = searchParams.get('error_description');
+
+    if (error) {
+      console.error('Auth error:', error, error_description);
+      toast.error(error_description || 'Authentication failed. Please try again.');
+    }
+  }, [searchParams]);
 
   return (
     <SignInContainer direction="column" justifyContent="space-between">
-      <Card variant="outlined">
+      <StyledCard variant="outlined">
         <Typography
           component="h1"
           variant="h4"
@@ -162,9 +138,7 @@ export function SignIn(): JSX.Element {
         </Typography>
         <Box
           component="form"
-          onSubmit={(e): void => {
-            void handleSubmit(e);
-          }}
+          onSubmit={handleSubmit}
           noValidate
           sx={{
             display: 'flex',
@@ -176,8 +150,8 @@ export function SignIn(): JSX.Element {
           <FormControl>
             <FormLabel htmlFor="email">Email</FormLabel>
             <TextField
-              error={emailError}
-              helperText={emailErrorMessage}
+              error={!!emailError}
+              helperText={emailError}
               id="email"
               type="email"
               name="email"
@@ -187,20 +161,16 @@ export function SignIn(): JSX.Element {
               required
               fullWidth
               variant="outlined"
-              disabled={isLoading}
-              FormHelperTextProps={
-                {
-                  'data-testid': 'email-helper-text',
-                  id: 'email-helper-text',
-                } as ExtendedFormHelperTextProps
-              }
+              disabled={loading}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </FormControl>
           <FormControl>
             <FormLabel htmlFor="password">Password</FormLabel>
             <TextField
-              error={passwordError}
-              helperText={passwordErrorMessage}
+              error={!!passwordError}
+              helperText={passwordError}
               name="password"
               placeholder="••••••"
               type="password"
@@ -209,58 +179,65 @@ export function SignIn(): JSX.Element {
               required
               fullWidth
               variant="outlined"
-              disabled={isLoading}
-              FormHelperTextProps={
-                {
-                  'data-testid': 'password-helper-text',
-                  id: 'password-helper-text',
-                } as ExtendedFormHelperTextProps
-              }
+              disabled={loading}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </FormControl>
           <FormControlLabel
-            control={<Checkbox value="remember" color="primary" disabled={isLoading} />}
+            control={<Checkbox value="remember" color="primary" disabled={loading} />}
             label="Remember me"
           />
-          <Button type="submit" fullWidth variant="contained" disabled={isLoading}>
-            {isLoading ? 'Signing in...' : 'Sign in'}
+          <Button type="submit" fullWidth variant="contained" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign in'}
           </Button>
-          <Divider>or</Divider>
+          <Link href="/auth/forgot-password" variant="body2" sx={{ alignSelf: 'center' }}>
+            Forgot your password?
+          </Link>
+        </Box>
+        <Divider>or</Divider>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Button
-            onClick={(): void => {
-              void handleGoogleSignIn();
-            }}
             fullWidth
             variant="outlined"
-            startIcon={<GoogleIcon />}
-            disabled={isLoading}
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            startIcon={
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 48 48"
+                width="24px"
+                height="24px"
+              >
+                <path
+                  fill="#FFC107"
+                  d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
+                />
+                <path
+                  fill="#FF3D00"
+                  d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
+                />
+                <path
+                  fill="#4CAF50"
+                  d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
+                />
+                <path
+                  fill="#1976D2"
+                  d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
+                />
+              </svg>
+            }
           >
             Sign in with Google
           </Button>
-          <Stack direction="row" justifyContent="space-between">
-            <Link
-              component="button"
-              variant="body2"
-              onClick={(): void => setForgotPasswordOpen(true)}
-              disabled={isLoading}
-            >
-              Forgot password?
+          <Typography sx={{ textAlign: 'center' }}>
+            Don&apos;t have an account?{' '}
+            <Link href="/auth/signup" variant="body2">
+              Sign up
             </Link>
-            <Link
-              component="a"
-              href="/auth/signup"
-              variant="body2"
-              sx={{ pointerEvents: isLoading ? 'none' : 'auto' }}
-            >
-              {"Don't have an account? Sign up"}
-            </Link>
-          </Stack>
+          </Typography>
         </Box>
-      </Card>
-      <ForgotPassword
-        open={forgotPasswordOpen}
-        onCloseAction={(): void => setForgotPasswordOpen(false)}
-      />
+      </StyledCard>
     </SignInContainer>
   );
 }

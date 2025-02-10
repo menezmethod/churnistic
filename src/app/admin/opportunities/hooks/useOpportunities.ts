@@ -4,17 +4,22 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { getAuth } from 'firebase/auth';
 import { useState } from 'react';
+
+import { useAuth } from '@/lib/auth/AuthContext';
+import { supabase } from '@/lib/supabase/client';
+import { Database, Json } from '@/types/supabase';
 
 import {
   Details,
-  Opportunity,
   Requirement,
   RequirementType,
   BankRewardsOffer,
   BankRewardsResponse,
 } from '../types/opportunity';
+
+type OpportunityType = Database['public']['Enums']['opportunity_type'];
+type Opportunity = Database['public']['Tables']['opportunities']['Row'];
 
 interface PaginationState {
   page: number;
@@ -23,7 +28,7 @@ interface PaginationState {
   sortDirection: 'asc' | 'desc';
   filters: {
     status?: 'pending' | 'approved' | 'rejected';
-    type?: string;
+    type?: OpportunityType;
     minValue?: number;
     maxValue?: number;
     search?: string;
@@ -155,10 +160,69 @@ const parseRequirements = (
   return requirements;
 };
 
-const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
+// Transform details to be Json compatible
+const detailsToJson = (details: Details): Record<string, Json | undefined> => ({
+  monthly_fees: details.monthly_fees
+    ? {
+        amount: details.monthly_fees.amount,
+        waiver_details: details.monthly_fees.waiver_details,
+      }
+    : null,
+  annual_fees: details.annual_fees
+    ? {
+        amount: details.annual_fees.amount,
+        waived_first_year: details.annual_fees.waived_first_year,
+      }
+    : null,
+  account_type: details.account_type,
+  account_category: details.account_category,
+  availability: details.availability
+    ? {
+        type: details.availability.type,
+        states: details.availability.states,
+        is_nationwide: details.availability.is_nationwide,
+        details: details.availability.details,
+      }
+    : null,
+  credit_inquiry: details.credit_inquiry,
+  expiration: details.expiration,
+  credit_score: details.credit_score,
+  under_5_24: details.under_5_24,
+  foreign_transaction_fees: details.foreign_transaction_fees
+    ? {
+        percentage: details.foreign_transaction_fees.percentage,
+        waived: details.foreign_transaction_fees.waived,
+      }
+    : null,
+  minimum_credit_limit: details.minimum_credit_limit,
+  rewards_structure: details.rewards_structure
+    ? {
+        base_rewards: details.rewards_structure.base_rewards,
+        bonus_categories: details.rewards_structure.bonus_categories,
+        welcome_bonus: details.rewards_structure.welcome_bonus,
+        card_perks: details.rewards_structure.card_perks,
+        cash_back: details.rewards_structure.cash_back,
+        points_multiplier: details.rewards_structure.points_multiplier,
+        statement_credits: details.rewards_structure.statement_credits,
+      }
+    : null,
+  household_limit: details.household_limit,
+  early_closure_fee: details.early_closure_fee,
+  chex_systems: details.chex_systems,
+  options_trading: details.options_trading,
+  ira_accounts: details.ira_accounts,
+  minimum_deposit: details.minimum_deposit,
+  holding_period: details.holding_period,
+  trading_requirements: details.trading_requirements,
+  platform_features: details.platform_features,
+});
+
+const transformBankRewardsOffer = (
+  offer: BankRewardsOffer
+): Database['public']['Tables']['opportunities']['Insert'] => {
   const bank = offer.name?.split(' ')?.[0] || offer.name || '';
 
-  // Transform bonus
+  // Transform bonus to be Json compatible
   const bonus = {
     title: offer.bonus?.title || '',
     value: offer.value || 0,
@@ -167,7 +231,12 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
       offer.bonus?.requirements?.description,
       offer.type,
       offer.details
-    ),
+    ).map((req) => ({
+      type: req.type,
+      details: req.details,
+      description: req.description,
+      title: req.title,
+    })),
     tiers:
       offer.bonus?.tiers?.map((tier) => ({
         reward: tier.reward || '',
@@ -181,7 +250,7 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
   };
 
   // Transform details with all possible fields
-  const details: Details = {
+  const details = detailsToJson({
     monthly_fees: offer.details?.monthly_fees
       ? {
           amount: offer.details.monthly_fees.amount || '0',
@@ -235,15 +304,16 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
     holding_period: offer.details?.holding_period || null,
     trading_requirements: offer.details?.trading_requirements || null,
     platform_features: offer.details?.platform_features || null,
-  };
+  });
 
   return {
-    id: offer.id,
-    name: offer.name,
-    type: offer.type,
-    bank,
-    value: offer.value,
-    status: 'staged' as const,
+    title: offer.name,
+    description: offer.description || offer.bonus?.description || '',
+    type:
+      offer.type === 'bank'
+        ? 'bank_account'
+        : (offer.type as Database['public']['Enums']['opportunity_type']),
+    status: 'staged',
     metadata: {
       created_at: offer.metadata?.created_at || new Date().toISOString(),
       updated_at: offer.metadata?.updated_at || new Date().toISOString(),
@@ -251,38 +321,31 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
       updated_by: offer.metadata?.updated_by || '',
       status: (offer.metadata?.status || 'active') as 'active' | 'expired' | 'staged',
       environment: process.env.NODE_ENV || 'development',
-    },
-    source: {
-      name: offer.metadata?.source?.name || 'bankrewards.io',
-      collected_at: new Date().toISOString(),
-      original_id: offer.metadata?.source?.original_id || offer.id,
-      timing: offer.metadata?.timing || null,
-      availability: offer.metadata?.availability || null,
-      credit: offer.metadata?.credit || null,
-    },
-    source_id: offer.metadata?.source?.original_id || offer.id,
-    bonus,
-    details,
-    logo: offer.logo || {
-      type: '',
-      url: '',
-    },
-    card_image: offer.card_image || null,
-    offer_link: offer.offer_link || '',
-    description: offer.description || offer.bonus?.description || '',
-    processing_status: {
-      source_validation: true,
-      ai_processed: false,
-      duplicate_checked: false,
-      needs_review: true,
-    },
-    ai_insights: {
-      confidence_score: 0.8,
-      validation_warnings: [],
-      potential_duplicates: [],
-    },
-    createdAt: offer.metadata?.created_at || new Date().toISOString(),
-    updatedAt: offer.metadata?.updated_at || new Date().toISOString(),
+      source: {
+        name: offer.metadata?.source?.name || 'bankrewards.io',
+        collected_at: new Date().toISOString(),
+        original_id: offer.metadata?.source?.original_id || offer.id,
+        timing: offer.metadata?.timing || null,
+        availability: offer.metadata?.availability || null,
+        credit: offer.metadata?.credit || null,
+      },
+      source_id: offer.metadata?.source?.original_id || offer.id,
+      bonus,
+      details,
+      logo: offer.logo || {
+        type: '',
+        url: '',
+      },
+      card_image: offer.card_image || null,
+      offer_link: offer.offer_link || '',
+      bank,
+      value: offer.value || 0,
+      ai_insights: {
+        confidence_score: 0.8,
+        validation_warnings: [],
+        potential_duplicates: [],
+      },
+    } satisfies Record<string, Json | undefined>,
   };
 };
 
@@ -305,17 +368,7 @@ const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
 const fetchStagedOpportunities = async (): Promise<
   (Opportunity & { isStaged: boolean })[]
 > => {
-  const auth = getAuth();
-  const idToken = await auth.currentUser?.getIdToken(true);
-
-  if (!idToken) {
-    throw new Error('No authenticated user found');
-  }
-
   const response = await fetch('/api/opportunities/staged', {
-    headers: {
-      Authorization: `Bearer ${idToken}`,
-    },
     credentials: 'include',
   });
   if (!response.ok) {
@@ -377,6 +430,22 @@ export function useOpportunities(): UseOpportunitiesReturn {
     sortBy: 'value',
     sortDirection: 'desc',
     filters: {},
+  });
+
+  const { user } = useAuth();
+
+  useQuery({
+    queryKey: ['opportunities'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('opportunities')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as Opportunity[];
+    },
+    enabled: !!user,
   });
 
   // Fetch paginated opportunities with better options
@@ -442,17 +511,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
   const { data: rejectedOpportunities = [], isLoading: isLoadingRejected } = useQuery({
     queryKey: queryKeys.opportunities.rejected,
     queryFn: async () => {
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
-
-      if (!idToken) {
-        throw new Error('No authenticated user found');
-      }
-
       const response = await fetch('/api/opportunities/rejected', {
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
         credentials: 'include',
       });
 
@@ -515,22 +574,16 @@ export function useOpportunities(): UseOpportunitiesReturn {
     mutationFn: async () => {
       setLoadingStates((prev) => ({ ...prev, import: true }));
       try {
-        const response = await fetchBankRewardsOffers();
-        const transformedOffers = response.data.offers.map(transformBankRewardsOffer);
+        const bankRewardsResponse = await fetchBankRewardsOffers();
+        const transformedOffers = bankRewardsResponse.data.offers.map(
+          transformBankRewardsOffer
+        );
 
         // Import opportunities
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
-
-        if (!idToken) {
-          throw new Error('No authenticated user found');
-        }
-
         const importResponse = await fetch('/api/opportunities/import', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
           },
           body: JSON.stringify({ offers: transformedOffers }),
           credentials: 'include',
@@ -561,15 +614,10 @@ export function useOpportunities(): UseOpportunitiesReturn {
     mutationFn: async (opportunity: Opportunity) => {
       setLoadingStates((prev) => ({ ...prev, [opportunity.id]: true }));
       try {
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
-        if (!idToken) throw new Error('No authenticated user found');
-
         const response = await fetch('/api/opportunities/approve', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
           },
           body: JSON.stringify(opportunity),
           credentials: 'include',
@@ -631,17 +679,12 @@ export function useOpportunities(): UseOpportunitiesReturn {
     mutationFn: async (opportunity: Opportunity & { isStaged?: boolean }) => {
       setLoadingStates((prev) => ({ ...prev, [opportunity.id]: true }));
       try {
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
-        if (!idToken) throw new Error('No authenticated user found');
-
         const response = await fetch(
           `/api/opportunities/${opportunity.id}?action=reject`,
           {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${idToken}`,
             },
             credentials: 'include',
           }
@@ -702,15 +745,10 @@ export function useOpportunities(): UseOpportunitiesReturn {
     mutationFn: async () => {
       setLoadingStates((prev) => ({ ...prev, bulkApprove: true }));
       try {
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
-        if (!idToken) throw new Error('No authenticated user found');
-
         const response = await fetch('/api/opportunities/approve/bulk', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
           },
           credentials: 'include',
         });
@@ -765,15 +803,10 @@ export function useOpportunities(): UseOpportunitiesReturn {
     mutationFn: async () => {
       setLoadingStates((prev) => ({ ...prev, resetStagedOffers: true }));
       try {
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
-        if (!idToken) throw new Error('No authenticated user found');
-
         const response = await fetch('/api/opportunities/reset', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
           },
           body: JSON.stringify({ collection: 'staged_offers' }),
           credentials: 'include',
@@ -800,18 +833,10 @@ export function useOpportunities(): UseOpportunitiesReturn {
   // Reset all opportunities mutation
   const resetOpportunitiesMutation = useMutation({
     mutationFn: async () => {
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
-
-      if (!idToken) {
-        throw new Error('No authenticated user found');
-      }
-
       const response = await fetch('/api/opportunities/reset', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify({ collection: 'opportunities' }),
         credentials: 'include',

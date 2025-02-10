@@ -1,144 +1,132 @@
-import { Timestamp } from 'firebase-admin/firestore';
-import { type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 
-import { UserRole } from '@/lib/auth/types';
-import { getAdminDb } from '@/lib/firebase/admin';
+import {
+  createServerSupabaseClient,
+  createServerSupabaseAdmin,
+} from '@/lib/supabase/server';
 
-export async function GET(request: NextRequest) {
+// Remove getAdminDb() and replace with Supabase client
+
+// Replace Timestamp.now() with new Date().toISOString()
+
+export async function GET() {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const search = searchParams.get('search');
-    const limit = searchParams.get('limit');
-    const offset = searchParams.get('offset');
+    console.log('📥 GET /api/users - Starting request');
+    const supabase = await createServerSupabaseClient();
 
-    const db = getAdminDb();
-    const usersRef = db.collection('users');
-    let query: FirebaseFirestore.Query = usersRef;
-
-    if (search) {
-      query = query
-        .where('displayName', '>=', search)
-        .where('displayName', '<=', search + '\uf8ff');
+    // Get current user
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (limit) {
-      query = query.limit(parseInt(limit, 10));
+    // Check if user is admin/super_admin
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', session.user.id)
+      .in('role', ['super_admin', 'admin']);
+
+    if (!roles?.length) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Admin access required' },
+        { status: 403 }
+      );
     }
 
-    if (offset) {
-      query = query.offset(parseInt(offset, 10));
+    // Get all users with their roles
+    const { data: users, error } = await supabase
+      .from('user_roles')
+      .select('*, auth.users!inner(id, email, created_at, last_sign_in_at)');
+
+    if (error) {
+      console.error('❌ Error fetching users:', error);
+      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 
-    const [snapshot, countSnapshot] = await Promise.all([
-      query.get(),
-      usersRef.count().get(),
-    ]);
-
-    const users = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    return new Response(
-      JSON.stringify({
-        users,
-        total: countSnapshot.data().count,
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    console.log('✅ Users fetched:', users);
+    return NextResponse.json(users);
   } catch (error) {
-    console.error('Error fetching users:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.error('❌ Error in GET /api/users:', error);
+    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const userData = await request.json();
-    const db = getAdminDb();
+    const supabase = await createServerSupabaseAdmin();
 
-    // Add timestamps
-    const now = Timestamp.now();
-    const userDataWithTimestamps = {
-      ...userData,
-      role: userData.role || UserRole.USER,
-      isSuperAdmin: false,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    await db.collection('users').doc(userData.id).set(userDataWithTimestamps);
-
-    return new Response(JSON.stringify(userDataWithTimestamps), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
+    // Create user with auth admin
+    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+      email: userData.email,
+      password: userData.password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: userData.full_name,
+        role: userData.role || 'user',
+      },
     });
+
+    if (authError) throw authError;
+
+    // Create user role
+    const { error: roleError } = await supabase.from('user_roles').insert({
+      user_id: authUser.user.id,
+      role: userData.role || 'user',
+    });
+
+    if (roleError) throw roleError;
+
+    return NextResponse.json(authUser.user, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
     const { ids, updates } = await request.json();
-    const db = getAdminDb();
-    const batch = db.batch();
+    const supabase = await createServerSupabaseAdmin();
 
-    ids.forEach((userId: string) => {
-      const userRef = db.collection('users').doc(userId);
-      batch.update(userRef, {
-        ...updates,
-        updatedAt: Timestamp.now(),
-      });
-    });
+    // Update each user
+    const results = await Promise.all(
+      ids.map(async (id: string) => {
+        const { data, error } = await supabase.auth.admin.updateUserById(id, {
+          user_metadata: updates,
+        });
+        if (error) throw error;
+        return data.user;
+      })
+    );
 
-    await batch.commit();
-
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json(results, { status: 200 });
   } catch (error) {
     console.error('Error updating users:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
     const { ids } = await request.json();
-    const db = getAdminDb();
-    const batch = db.batch();
+    const supabase = await createServerSupabaseAdmin();
 
-    ids.forEach((userId: string) => {
-      const userRef = db.collection('users').doc(userId);
-      batch.delete(userRef);
-    });
+    // Delete each user
+    await Promise.all(
+      ids.map(async (id: string) => {
+        const { error } = await supabase.auth.admin.deleteUser(id);
+        if (error) throw error;
+      })
+    );
 
-    await batch.commit();
-
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error('Error deleting users:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

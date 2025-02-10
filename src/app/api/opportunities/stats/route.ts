@@ -1,98 +1,80 @@
-import { initializeApp, getApps } from 'firebase-admin/app';
-import { applicationDefault } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 
-// Proper singleton initialization
-if (getApps().length === 0) {
-  initializeApp({
-    credential: applicationDefault(),
-    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-  });
-}
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 300; // 5 minutes
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export async function GET() {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    console.log('📥 GET /api/opportunities/stats - Starting request');
+    const supabase = await createServerSupabaseClient();
 
-    try {
-      const db = getFirestore();
-      // Fetch from both collections
-      const [opportunitiesSnapshot, stagedSnapshot] = await Promise.all([
-        db.collection('opportunities').get(),
-        db.collection('staged_offers').get(),
-      ]);
+    // Get total opportunities count
+    const { count: totalCount, error: totalError } = await supabase
+      .from('opportunities')
+      .select('*', { count: 'exact', head: true });
 
-      // Initialize counters
-      const stats = {
-        total: opportunitiesSnapshot.size + stagedSnapshot.size,
-        pending: stagedSnapshot.size,
-        approved: 0,
-        byType: { bank: 0, credit_card: 0, brokerage: 0 },
-        totalValue: 0,
-        approvedValue: 0,
-        approvedCount: 0,
-        highValueCount: 0,
-      };
+    if (totalError) {
+      console.error('❌ Error getting total count:', totalError);
+      return NextResponse.json(
+        { error: 'Failed to get opportunities stats' },
+        { status: 500 }
+      );
+    }
 
-      // Process opportunities collection
-      opportunitiesSnapshot.forEach((doc) => {
-        const data = doc.data();
-        const value = parseFloat(data.value) || 0;
+    // Get counts by status
+    const { data: statusData } = await supabase.from('opportunities').select('status');
 
-        if (data.status === 'approved') {
-          stats.approved++;
-          stats.approvedValue += value;
-
-          // Count by type for approved offers only
-          if (data.type === 'bank') stats.byType.bank++;
-          if (data.type === 'credit_card') stats.byType.credit_card++;
-          if (data.type === 'brokerage') stats.byType.brokerage++;
-
-          // Count high value approved offers
-          if (value >= 500) stats.highValueCount++;
-        }
-
-        stats.totalValue += value;
-      });
-
-      // Calculate averages and rates
-      const avgValue =
-        stats.approved > 0 ? Math.round(stats.approvedValue / stats.approved) : 0;
-
-      const processingRate =
-        stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0;
-
-      const result = {
-        total: stats.total,
-        pending: stats.pending,
-        approved: stats.approved,
-        avgValue,
-        processingRate,
-        byType: stats.byType,
-        highValue: stats.highValueCount,
-        lastUpdated: new Date().toISOString(),
-      };
-
-      return NextResponse.json(result, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
-          'CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
-          'Vercel-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+    const statusCounts =
+      statusData?.reduce(
+        (acc: Record<string, number>, curr: { status: string }) => {
+          acc[curr.status] = (acc[curr.status] || 0) + 1;
+          return acc;
         },
-      });
-    } finally {
-      clearTimeout(timeoutId);
+        {} as Record<string, number>
+      ) || {};
+
+    // Get counts by type
+    const { data: typeData } = await supabase.from('opportunities').select('type');
+
+    const typeCounts =
+      typeData?.reduce(
+        (acc: Record<string, number>, curr: { type: string | null }) => {
+          if (curr.type) {
+            acc[curr.type] = (acc[curr.type] || 0) + 1;
+          }
+          return acc;
+        },
+        {} as Record<string, number>
+      ) || {};
+
+    // Get latest opportunities
+    const { data: latest, error: latestError } = await supabase
+      .from('opportunities')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (latestError) {
+      console.error('❌ Error getting latest opportunities:', latestError);
+      return NextResponse.json(
+        { error: 'Failed to get opportunities stats' },
+        { status: 500 }
+      );
     }
+
+    const stats = {
+      total: totalCount || 0,
+      byStatus: statusCounts || {},
+      byType: typeCounts || {},
+      latest: latest || [],
+    };
+
+    console.log('✅ Opportunities stats:', stats);
+    return NextResponse.json(stats);
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      return NextResponse.json({ error: 'Stats request timed out' }, { status: 504 });
-    }
-    console.error('Stats endpoint error:', error);
-    return NextResponse.json({ error: 'Failed to fetch statistics' }, { status: 500 });
+    console.error('❌ Error in GET /api/opportunities/stats:', error);
+    return NextResponse.json(
+      { error: 'Failed to get opportunities stats' },
+      { status: 500 }
+    );
   }
 }

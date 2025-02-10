@@ -3,7 +3,6 @@
 import {
   Settings,
   People,
-  Logout,
   Menu as MenuIcon,
   Analytics,
   Notifications,
@@ -22,10 +21,7 @@ import {
   ViewList,
   Bolt,
   MonetizationOn,
-  Verified,
   NotificationsActive,
-  History,
-  VerifiedUser,
 } from '@mui/icons-material';
 import {
   AppBar,
@@ -49,11 +45,10 @@ import {
   alpha,
   Tooltip,
   Fade,
-  Chip,
   Paper,
 } from '@mui/material';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useState, type JSX, useEffect, ReactElement, Fragment, Suspense } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -265,8 +260,7 @@ export default function AppNavbar() {
 }
 
 function AppNavbarContent() {
-  const { user, signOut, hasRole, isSuperAdmin } = useAuth();
-  const router = useRouter();
+  const { user, signOut } = useAuth();
   const pathname = usePathname();
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -276,25 +270,26 @@ function AppNavbarContent() {
   );
   const [offersAnchorEl, setOffersAnchorEl] = useState<null | HTMLElement>(null);
 
-  const isAdmin = hasRole(UserRole.ADMIN);
-  const isUserSuperAdmin = isSuperAdmin();
-  const userRoleColor = isUserSuperAdmin
-    ? theme.palette.warning.main
-    : isAdmin
-      ? theme.palette.error.main
-      : theme.palette.primary.main;
-  const userRoleLabel = isUserSuperAdmin ? 'Super Admin' : isAdmin ? 'Admin' : 'User';
+  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPER_ADMIN;
+  const userRoleColor = isAdmin
+    ? theme.palette.error.main
+    : theme.palette.primary.main;
 
   // Only log in development and when user state changes
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       console.log('AppNavbar user state:', {
-        email: user?.email,
-        role: user?.customClaims?.role,
-        isAdmin: hasRole(UserRole.ADMIN),
+        user: user?.email,
+        role: user?.role,
+        isAdmin,
       });
     }
-  }, [user, hasRole]);
+  }, [isAdmin, user]);
+
+  // Add this useEffect for debugging
+  useEffect(() => {
+    console.log('AppNavbar auth state:', { user, isAdmin });
+  }, [user, isAdmin]);
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -316,14 +311,6 @@ function AppNavbarContent() {
     setDrawerOpen(!drawerOpen);
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      router.push('/auth/signin');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
 
   const handleOffersMenu = (event: React.MouseEvent<HTMLElement>) => {
     setOffersAnchorEl(event.currentTarget);
@@ -333,127 +320,39 @@ function AppNavbarContent() {
     setOffersAnchorEl(null);
   };
 
-  const renderUserProfileMenu = () => (
-    <Paper
-      elevation={2}
-      sx={{
-        width: 360,
-        maxHeight: '80vh',
-        overflow: 'auto',
-        bgcolor:
-          theme.palette.mode === 'dark'
-            ? alpha(theme.palette.background.paper, 0.9)
-            : theme.palette.background.paper,
-      }}
-    >
-      <Box
-        sx={{
-          p: 2,
-          borderBottom: 1,
-          borderColor: 'divider',
-          background: isUserSuperAdmin
-            ? `linear-gradient(45deg, ${alpha(theme.palette.warning.main, 0.05)}, transparent)`
-            : isAdmin
-              ? `linear-gradient(45deg, ${alpha(theme.palette.error.main, 0.05)}, transparent)`
-              : 'none',
-        }}
+  const renderUserProfileMenu = () => {
+    if (!user) return null;
+
+    return (
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleClose}
+        onClick={handleClose}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Avatar
-            alt={user?.email || undefined}
-            src={user?.photoURL || undefined}
-            sx={{
-              width: 56,
-              height: 56,
-              mr: 2,
-              border: `2px solid ${userRoleColor}`,
-              boxShadow: isUserSuperAdmin
-                ? `0 0 10px ${alpha(theme.palette.warning.main, 0.3)}`
-                : 'none',
-            }}
-          />
-          <Box>
-            <Typography variant="h6" fontWeight={600}>
-              {user?.displayName || user?.email?.split('@')[0]}
+        <MenuItem disabled>
+          <Typography variant="body2" color="text.secondary">
+            Signed in as
+          </Typography>
+        </MenuItem>
+        <MenuItem disabled>
+          <Typography variant="body2">{user?.email}</Typography>
+        </MenuItem>
+        <Divider />
+        {user?.role && (
+          <MenuItem disabled>
+            <Typography variant="body2" color="text.secondary">
+              Role: {user?.role}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              {user?.email}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Chip
-                size="small"
-                icon={<Verified sx={{ fontSize: 16 }} />}
-                label={userRoleLabel}
-                color={isUserSuperAdmin ? 'warning' : isAdmin ? 'error' : 'primary'}
-                variant="outlined"
-                sx={{
-                  height: 24,
-                  ...(isUserSuperAdmin && {
-                    borderColor: theme.palette.warning.main,
-                    color: theme.palette.warning.main,
-                    '& .MuiChip-icon': {
-                      color: theme.palette.warning.main,
-                    },
-                  }),
-                }}
-              />
-              {user?.emailVerified && (
-                <Tooltip title="Email verified">
-                  <Chip
-                    size="small"
-                    icon={<VerifiedUser sx={{ fontSize: 16 }} />}
-                    label="Verified"
-                    color="success"
-                    variant="outlined"
-                    sx={{ height: 24 }}
-                  />
-                </Tooltip>
-              )}
-            </Box>
-          </Box>
-        </Box>
-      </Box>
-
-      <Box sx={{ py: 1 }}>
-        <MenuItem onClick={handleClose} component={Link} href="/settings">
-          <ListItemIcon>
-            <Settings fontSize="small" color="primary" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Settings"
-            secondary="Manage your account settings and preferences"
-          />
+          </MenuItem>
+        )}
+        <MenuItem component={Link} href="/settings">
+          Settings
         </MenuItem>
-
-        <MenuItem onClick={handleClose} component={Link} href="/track">
-          <ListItemIcon>
-            <History fontSize="small" color="primary" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Recent Activity"
-            secondary="View your latest actions and progress"
-          />
-        </MenuItem>
-
-        <MenuItem onClick={handleClose} component={Link} href="/help">
-          <ListItemIcon>
-            <Help fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Help & Support"
-            secondary="Get assistance and documentation"
-          />
-        </MenuItem>
-
-        <MenuItem onClick={handleLogout} sx={{ color: theme.palette.error.main }}>
-          <ListItemIcon>
-            <Logout fontSize="small" color="error" />
-          </ListItemIcon>
-          <ListItemText primary="Sign Out" secondary="End your current session" />
-        </MenuItem>
-      </Box>
-    </Paper>
-  );
+        <MenuItem onClick={() => signOut()}>Sign Out</MenuItem>
+      </Menu>
+    );
+  };
 
   const renderNotificationsMenu = () => (
     <Paper
@@ -552,7 +451,7 @@ function AppNavbarContent() {
     }
 
     // Check if the user has the required role to see this item
-    if (item.roles && !item.roles.some((role) => hasRole(role)) && !isUserSuperAdmin) {
+    if (item.roles && !item.roles.some((role) => role === user?.role) && !isAdmin) {
       return null;
     }
 
@@ -577,17 +476,13 @@ function AppNavbarContent() {
             borderRadius: 1,
             mx: 1,
             '&.Mui-selected': {
-              backgroundColor: isUserSuperAdmin
-                ? theme.palette.warning.main + '20'
-                : isAdmin
-                  ? theme.palette.error.main + '20'
-                  : theme.palette.primary.main + '20',
+              backgroundColor: isAdmin
+                ? theme.palette.error.main + '20'
+                : theme.palette.primary.main + '20',
               '&:hover': {
-                backgroundColor: isUserSuperAdmin
-                  ? theme.palette.warning.main + '30'
-                  : isAdmin
-                    ? theme.palette.error.main + '30'
-                    : theme.palette.primary.main + '30',
+                backgroundColor: isAdmin
+                  ? theme.palette.error.main + '30'
+                  : theme.palette.primary.main + '30',
               },
             },
           }}
@@ -840,13 +735,13 @@ function AppNavbarContent() {
           return renderMenuItem(item, index);
         })}
 
-        {(isAdmin || isUserSuperAdmin) && (
+        {(isAdmin) && (
           <>
             <Divider sx={{ my: 2 }} />
             <Box sx={{ mb: 2, px: 2 }}>
               <Typography
                 variant="subtitle2"
-                color={isUserSuperAdmin ? 'warning.main' : 'error.main'}
+                color={isAdmin ? 'error.main' : 'warning.main'}
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
@@ -864,7 +759,7 @@ function AppNavbarContent() {
             <Box sx={{ mb: 2, px: 2 }}>
               <Typography
                 variant="subtitle2"
-                color={isUserSuperAdmin ? 'warning.main' : 'error.main'}
+                color={isAdmin ? 'error.main' : 'warning.main'}
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
@@ -900,11 +795,9 @@ function AppNavbarContent() {
         sx={{
           backdropFilter: 'blur(20px)',
           backgroundColor: alpha(theme.palette.background.default, 0.8),
-          borderBottom: isUserSuperAdmin
-            ? `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
-            : isAdmin
-              ? `1px solid ${alpha(theme.palette.error.main, 0.2)}`
-              : `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          borderBottom: isAdmin
+            ? `1px solid ${alpha(theme.palette.error.main, 0.2)}`
+            : `1px solid ${alpha(theme.palette.divider, 0.1)}`,
           boxShadow: `0 1px 3px ${alpha(theme.palette.common.black, 0.02)}`,
         }}
       >
@@ -941,11 +834,9 @@ function AppNavbarContent() {
               mr: { xs: 2, md: 4 },
               fontWeight: 800,
               letterSpacing: '-0.5px',
-              background: isUserSuperAdmin
-                ? `-webkit-linear-gradient(45deg, ${theme.palette.warning.main}, ${theme.palette.warning.light})`
-                : isAdmin
-                  ? `-webkit-linear-gradient(45deg, ${theme.palette.error.main}, ${theme.palette.error.light})`
-                  : `-webkit-linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+              background: isAdmin
+                ? `-webkit-linear-gradient(45deg, ${theme.palette.error.main}, ${theme.palette.error.light})`
+                : `-webkit-linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               transition: 'opacity 0.2s',
@@ -1077,7 +968,7 @@ function AppNavbarContent() {
                 </IconButton>
               </Tooltip>
               <Tooltip
-                title={`Signed in as ${user.email}`}
+                title={`Signed in as ${user?.email}`}
                 TransitionComponent={Fade}
                 TransitionProps={{ timeout: 200 }}
                 arrow
@@ -1099,17 +990,15 @@ function AppNavbarContent() {
                   }}
                 >
                   <Avatar
-                    alt={user.email || undefined}
-                    src={user.photoURL || undefined}
+                    alt={user?.email || undefined}
+                    src={user?.user_metadata?.avatar_url}
                     sx={{
                       width: 36,
                       height: 36,
                       border: `2px solid ${userRoleColor}`,
-                      boxShadow: isUserSuperAdmin
-                        ? `0 0 10px ${alpha(theme.palette.warning.main, 0.3)}`
-                        : isAdmin
-                          ? `0 0 10px ${alpha(theme.palette.error.main, 0.3)}`
-                          : `0 0 10px ${alpha(theme.palette.primary.main, 0.3)}`,
+                      boxShadow: isAdmin
+                        ? `0 0 10px ${alpha(theme.palette.error.main, 0.3)}`
+                        : `0 0 10px ${alpha(theme.palette.primary.main, 0.3)}`,
                     }}
                   />
                 </IconButton>

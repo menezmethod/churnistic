@@ -1,6 +1,6 @@
 'use client';
 
-import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon } from '@mui/icons-material';
 import {
   Box,
   Button,
@@ -30,21 +30,36 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Alert,
+  LinearProgress,
 } from '@mui/material';
 import { visuallyHidden } from '@mui/utils';
-import { collection, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { User } from '@supabase/supabase-js';
 import { useState, useEffect } from 'react';
 
 import { UserRole } from '@/lib/auth/types';
-import { getFirebaseServices } from '@/lib/firebase/config';
+import { supabase } from '@/lib/supabase/client';
 
-import UserDetailsModal from './components/UserDetailsModal';
-import type { User } from './hooks/useUsers';
+interface UserWithRole extends User {
+  roles: { role: UserRole }[];
+}
+
+interface DbUser {
+  id: string;
+  email: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+}
+
+interface DbUserRole {
+  role: UserRole;
+  user: DbUser;
+}
 
 type Order = 'asc' | 'desc';
 
 interface HeadCell {
-  id: keyof User;
+  id: keyof (User & { roles: { role: string }[] });
   label: string;
   numeric: boolean;
   sortable?: boolean;
@@ -58,38 +73,30 @@ const headCells: readonly HeadCell[] = [
     sortable: true,
   },
   {
-    id: 'displayName',
+    id: 'roles',
     numeric: false,
-    label: 'Display Name',
+    label: 'Roles',
     sortable: true,
   },
   {
-    id: 'role',
-    numeric: false,
-    label: 'Role',
-    sortable: true,
-  },
-  {
-    id: 'permissions',
-    numeric: false,
-    label: 'Permissions',
-    sortable: false,
-  },
-  {
-    id: 'createdAt',
+    id: 'created_at',
     numeric: false,
     label: 'Created At',
     sortable: true,
   },
   {
-    id: 'updatedAt',
+    id: 'last_sign_in_at',
     numeric: false,
-    label: 'Last Updated',
+    label: 'Last Sign In',
     sortable: true,
   },
 ];
 
-function descendingComparator<T extends User>(a: T, b: T, orderBy: keyof T) {
+type SortableUserFields = {
+  [K in keyof (User & { roles: { role: string }[] })]: unknown;
+};
+
+function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
   if (b[orderBy] < a[orderBy]) {
     return -1;
   }
@@ -99,10 +106,10 @@ function descendingComparator<T extends User>(a: T, b: T, orderBy: keyof T) {
   return 0;
 }
 
-function getComparator<Key extends keyof User>(
+function getComparator<K extends keyof SortableUserFields>(
   order: Order,
-  orderBy: Key
-): (a: User, b: User) => number {
+  orderBy: K
+): (a: UserWithRole, b: UserWithRole) => number {
   return order === 'desc'
     ? (a, b) => descendingComparator(a, b, orderBy)
     : (a, b) => -descendingComparator(a, b, orderBy);
@@ -110,18 +117,17 @@ function getComparator<Key extends keyof User>(
 
 export default function UsersPage() {
   const [order, setOrder] = useState<Order>('desc');
-  const [orderBy, setOrderBy] = useState<keyof User>('createdAt');
+  const [orderBy, setOrderBy] =
+    useState<keyof (User & { roles: { role: string }[] })>('created_at');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [filters, setFilters] = useState({
     email: '',
-    displayName: '',
     role: '',
   });
 
   // State for user actions
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [deletingUser, setDeletingUser] = useState<UserWithRole | null>(null);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -132,19 +138,25 @@ export default function UsersPage() {
     severity: 'success',
   });
 
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserWithRole[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const { firestore } = await getFirebaseServices();
-        const usersCollection = collection(firestore, 'users');
-        const usersSnapshot = await getDocs(usersCollection);
-        const usersList = usersSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as User[];
-        setUsers(usersList);
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role, user:user_id(id, email, created_at, last_sign_in_at)')
+          .returns<DbUserRole[]>();
+
+        if (error) throw error;
+
+        const formattedUsers = (data || []).map(({ role, user }) => ({
+          ...user,
+          roles: [{ role }],
+        })) as UserWithRole[];
+
+        setUsers(formattedUsers);
       } catch (error) {
         console.error('Error fetching users:', error);
         setSnackbar({
@@ -152,13 +164,15 @@ export default function UsersPage() {
           message: 'Error fetching users',
           severity: 'error',
         });
+      } finally {
+        setLoading(false);
       }
     };
 
     void fetchUsers();
   }, []);
 
-  const handleRequestSort = (property: keyof User) => {
+  const handleRequestSort = (property: keyof (User & { roles: { role: string }[] })) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
@@ -173,11 +187,7 @@ export default function UsersPage() {
     setPage(0);
   };
 
-  const handleEditUser = (user: User | null) => {
-    setEditingUser(user);
-  };
-
-  const handleDeleteUser = (user: User) => {
+  const handleDeleteUser = (user: UserWithRole) => {
     setDeletingUser(user);
   };
 
@@ -185,8 +195,9 @@ export default function UsersPage() {
     if (!deletingUser) return;
 
     try {
-      const { firestore } = await getFirebaseServices();
-      await deleteDoc(doc(firestore, 'users', deletingUser.id));
+      const { error } = await supabase.auth.admin.deleteUser(deletingUser.id);
+      if (error) throw error;
+
       setUsers(users.filter((user) => user.id !== deletingUser.id));
       setDeletingUser(null);
       setSnackbar({
@@ -208,227 +219,232 @@ export default function UsersPage() {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const handleUpdateUser = async (
-    _user: User,
-    data: { email?: string; displayName?: string; photoURL?: string; role?: string }
-  ) => {
+  const handleUpdateUserRole = async (userId: string, role: UserRole) => {
     try {
-      const { firestore } = await getFirebaseServices();
-      const userRef = doc(firestore, 'users', _user.id);
-      await updateDoc(userRef, data);
+      const { error } = await supabase
+        .from('user_roles')
+        .upsert({ user_id: userId, role }, { onConflict: 'user_id,role' });
+
+      if (error) throw error;
+
       setUsers(
         users.map((user) =>
-          user.id === _user.id
+          user.id === userId
             ? {
                 ...user,
-                ...data,
-                role: data.role as
-                  | 'user'
-                  | 'admin'
-                  | 'manager'
-                  | 'analyst'
-                  | 'agent'
-                  | 'free_user',
+                roles: [{ role }],
               }
             : user
         )
       );
-      setEditingUser(null);
+
       setSnackbar({
         open: true,
-        message: 'User updated successfully',
+        message: 'User role updated successfully',
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error updating user:', error);
+      console.error('Error updating user role:', error);
       setSnackbar({
         open: true,
-        message: 'Error updating user',
+        message: 'Error updating user role',
         severity: 'error',
       });
     }
   };
 
   const filteredUsers = users.filter((user) => {
-    return (
-      user.email.toLowerCase().includes(filters.email.toLowerCase()) &&
-      (user.displayName?.toLowerCase() ?? '').includes(
-        filters.displayName.toLowerCase()
-      ) &&
-      (filters.role === '' || user.role === filters.role)
-    );
-  }) as User[];
+    const emailMatch =
+      user.email?.toLowerCase().includes(filters.email.toLowerCase()) ?? false;
+    const roleMatch = !filters.role || user.roles.some((r) => r.role === filters.role);
+    return emailMatch && roleMatch;
+  });
 
-  const sortedUsers = [...filteredUsers].sort(getComparator(order, orderBy));
+  const sortedUsers = filteredUsers.sort(getComparator(order, orderBy));
   const paginatedUsers = sortedUsers.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ width: '100%', mb: 2 }}>
-        <Paper sx={{ width: '100%', mb: 2 }}>
-          <Toolbar
-            sx={{
-              pl: { sm: 2 },
-              pr: { xs: 1, sm: 1 },
-              display: 'flex',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Typography variant="h6" component="div">
-              User Management
-            </Typography>
-            <Button variant="contained" onClick={() => handleEditUser(null)}>
-              Add User
-            </Button>
-          </Toolbar>
-          <Box sx={{ p: 2 }}>
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label="Filter by Email"
-                value={filters.email}
-                onChange={(e) => setFilters({ ...filters, email: e.target.value })}
-                size="small"
-              />
-              <TextField
-                label="Filter by Name"
-                value={filters.displayName}
-                onChange={(e) => setFilters({ ...filters, displayName: e.target.value })}
-                size="small"
-              />
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>Role</InputLabel>
-                <Select
-                  value={filters.role}
-                  onChange={(e) => setFilters({ ...filters, role: e.target.value })}
-                  label="Role"
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value={UserRole.USER}>User</MenuItem>
-                  <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
-          </Box>
-          <TableContainer>
-            <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle" size="medium">
-              <TableHead>
-                <TableRow>
-                  {headCells.map((headCell) => (
-                    <TableCell
-                      key={headCell.id}
-                      align={headCell.numeric ? 'right' : 'left'}
-                      sortDirection={orderBy === headCell.id ? order : false}
-                    >
-                      {headCell.sortable ? (
-                        <TableSortLabel
-                          active={orderBy === headCell.id}
-                          direction={orderBy === headCell.id ? order : 'asc'}
-                          onClick={() => handleRequestSort(headCell.id)}
-                        >
-                          {headCell.label}
-                          {orderBy === headCell.id ? (
-                            <Box component="span" sx={visuallyHidden}>
-                              {order === 'desc'
-                                ? 'sorted descending'
-                                : 'sorted ascending'}
-                            </Box>
-                          ) : null}
-                        </TableSortLabel>
-                      ) : (
-                        headCell.label
-                      )}
-                    </TableCell>
-                  ))}
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {paginatedUsers.map((user: User) => (
-                  <TableRow hover key={user.id}>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.displayName}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.role}
-                        color={user.role === UserRole.ADMIN ? 'primary' : 'default'}
-                        size="small"
-                      />
-                      {user.isSuperAdmin && (
-                        <Chip
-                          label="Super Admin"
-                          color="secondary"
-                          size="small"
-                          sx={{ ml: 1 }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={1} flexWrap="wrap">
-                        {user.permissions?.map((permission) => (
-                          <Chip
-                            key={permission}
-                            label={permission}
-                            size="small"
-                            variant="outlined"
-                          />
-                        ))}
-                      </Stack>
-                    </TableCell>
-                    <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>{new Date(user.updatedAt).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEditUser(user)}
-                        color="primary"
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteUser(user)}
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Paper sx={{ width: '100%', mb: 2 }}>
+        <Toolbar
+          sx={{
+            pl: { sm: 2 },
+            pr: { xs: 1, sm: 1 },
+          }}
+        >
+          <Typography
+            sx={{ flex: '1 1 100%' }}
+            variant="h6"
+            id="tableTitle"
             component="div"
-            count={filteredUsers.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </Paper>
-      </Box>
+          >
+            Users
+          </Typography>
+          <Stack direction="row" spacing={2}>
+            <TextField
+              label="Search Email"
+              variant="outlined"
+              size="small"
+              value={filters.email}
+              onChange={(e) => setFilters({ ...filters, email: e.target.value })}
+              disabled={loading}
+            />
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Role</InputLabel>
+              <Select
+                value={filters.role}
+                label="Role"
+                onChange={(e) => setFilters({ ...filters, role: e.target.value })}
+                disabled={loading}
+              >
+                <MenuItem value="">All</MenuItem>
+                {Object.values(UserRole).map((role) => (
+                  <MenuItem key={role} value={role}>
+                    {role}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
+        </Toolbar>
+        {loading ? (
+          <Box sx={{ width: '100%', p: 2 }}>
+            <LinearProgress />
+          </Box>
+        ) : (
+          <>
+            <TableContainer>
+              <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle">
+                <TableHead>
+                  <TableRow>
+                    {headCells.map((headCell) => (
+                      <TableCell
+                        key={headCell.id}
+                        align={headCell.numeric ? 'right' : 'left'}
+                        sortDirection={orderBy === headCell.id ? order : false}
+                      >
+                        {headCell.sortable ? (
+                          <TableSortLabel
+                            active={orderBy === headCell.id}
+                            direction={orderBy === headCell.id ? order : 'asc'}
+                            onClick={() => handleRequestSort(headCell.id)}
+                          >
+                            {headCell.label}
+                            {orderBy === headCell.id ? (
+                              <Box component="span" sx={visuallyHidden}>
+                                {order === 'desc'
+                                  ? 'sorted descending'
+                                  : 'sorted ascending'}
+                              </Box>
+                            ) : null}
+                          </TableSortLabel>
+                        ) : (
+                          headCell.label
+                        )}
+                      </TableCell>
+                    ))}
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {paginatedUsers.map((user) => (
+                    <TableRow hover key={user.id}>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1}>
+                          {user.roles.map((role) => (
+                            <Chip
+                              key={role.role}
+                              label={role.role}
+                              color={
+                                role.role === UserRole.SUPER_ADMIN
+                                  ? 'warning'
+                                  : role.role === UserRole.ADMIN
+                                    ? 'error'
+                                    : 'default'
+                              }
+                              size="small"
+                            />
+                          ))}
+                          <FormControl size="small" sx={{ minWidth: 120 }}>
+                            <Select
+                              value=""
+                              displayEmpty
+                              onChange={(e) =>
+                                handleUpdateUserRole(user.id, e.target.value as UserRole)
+                              }
+                            >
+                              <MenuItem value="" disabled>
+                                Add Role
+                              </MenuItem>
+                              {Object.values(UserRole)
+                                .filter(
+                                  (role) => !user.roles.some((r) => r.role === role)
+                                )
+                                .map((role) => (
+                                  <MenuItem key={role} value={role}>
+                                    {role}
+                                  </MenuItem>
+                                ))}
+                            </Select>
+                          </FormControl>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        {user.last_sign_in_at
+                          ? new Date(user.last_sign_in_at).toLocaleDateString()
+                          : 'Never'}
+                      </TableCell>
+                      <TableCell>
+                        <IconButton
+                          onClick={() => handleDeleteUser(user)}
+                          color="error"
+                          size="small"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={filteredUsers.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          </>
+        )}
+      </Paper>
 
-      <UserDetailsModal
-        open={!!editingUser}
-        user={editingUser}
-        onClose={() => setEditingUser(null)}
-        onSave={handleUpdateUser}
-      />
-
-      <Dialog open={!!deletingUser} onClose={() => setDeletingUser(null)}>
-        <DialogTitle>Delete User</DialogTitle>
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={Boolean(deletingUser)}
+        onClose={() => setDeletingUser(null)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">Confirm Delete User</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete this user? This action cannot be undone.
+          <DialogContentText id="alert-dialog-description">
+            Are you sure you want to delete the user {deletingUser?.email}? This action
+            cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeletingUser(null)}>Cancel</Button>
-          <Button onClick={handleConfirmDelete} color="error">
+          <Button onClick={handleConfirmDelete} color="error" autoFocus>
             Delete
           </Button>
         </DialogActions>
@@ -438,8 +454,15 @@ export default function UsersPage() {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        message={snackbar.message}
-      />
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }

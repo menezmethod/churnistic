@@ -1,13 +1,7 @@
 'use client';
 
-import { Container } from '@mui/material';
-
-import SignUpForm from '../components/SignUpForm';
+import SignUp from '../components/SignUp';
 
 export default function SignUpPage() {
-  return (
-    <Container maxWidth="sm">
-      <SignUpForm />
-    </Container>
-  );
+  return <SignUp />;
 }

@@ -1,19 +1,17 @@
 'use client';
 
+import { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 
 import type { Permission, UserRole } from '@/lib/auth/types';
 import { ROLE_PERMISSIONS } from '@/lib/auth/types';
+import { useAuth as useSupabaseAuth } from '@/lib/hooks/useAuth';
 
-import { useUser, useLogin, useRegister, useLogout } from './authConfig';
-import {
-  loginWithGoogle,
-  loginWithGithub,
-  resetPassword as resetPasswordService,
-  isSuperAdmin as checkIsSuperAdmin,
-} from './authService';
-import type { AuthUser } from './authService';
+interface AuthUser extends User {
+  role?: UserRole;
+  isSuperAdmin?: boolean;
+}
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -47,47 +45,47 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { data: user, isLoading } = useUser();
-  const { mutateAsync: login } = useLogin();
-  const { mutateAsync: register } = useRegister();
-  const { mutateAsync: logoutMutation } = useLogout();
+  const {
+    user: supabaseUser,
+    loading: authLoading,
+    signIn: supabaseSignIn,
+    signUp: supabaseSignUp,
+    signOut: supabaseSignOut,
+  } = useSupabaseAuth();
+
+  const user = useMemo(() => {
+    if (!supabaseUser) return null;
+    return {
+      ...supabaseUser,
+      role: supabaseUser.user_metadata?.role as UserRole | undefined,
+      isSuperAdmin: supabaseUser.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL,
+    };
+  }, [supabaseUser]);
 
   const signIn = useCallback(
     async (email: string, password: string) => {
-      await login({ email, password });
+      await supabaseSignIn({ email, password });
       router.push('/dashboard');
     },
-    [login, router]
+    [supabaseSignIn, router]
   );
 
   const signUp = useCallback(
     async (email: string, password: string) => {
-      await register({ email, password });
+      await supabaseSignUp({ email, password });
     },
-    [register]
+    [supabaseSignUp]
   );
 
   const signOut = useCallback(async () => {
-    await logoutMutation({});
+    await supabaseSignOut();
     router.push('/auth/signin');
-  }, [logoutMutation, router]);
-
-  const handleSignInWithGoogle = useCallback(async () => {
-    await loginWithGoogle();
-  }, []);
-
-  const handleSignInWithGithub = useCallback(async () => {
-    await loginWithGithub();
-  }, []);
-
-  const handleResetPassword = useCallback(async (email: string) => {
-    await resetPasswordService(email);
-  }, []);
+  }, [supabaseSignOut, router]);
 
   const hasRole = useCallback(
     (role: UserRole) => {
       if (!user) return false;
-      return user.customClaims?.role === role;
+      return user.role === role;
     },
     [user]
   );
@@ -95,46 +93,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasPermission = useCallback(
     (permission: Permission) => {
       if (!user) return false;
-      if (checkIsSuperAdmin(user)) return true;
-      const userRole = user.customClaims?.role as UserRole;
-      if (!userRole) return false;
-      return ROLE_PERMISSIONS[userRole].includes(permission);
+      if (user.isSuperAdmin) return true;
+      if (!user.role) return false;
+      return ROLE_PERMISSIONS[user.role].includes(permission);
     },
     [user]
   );
 
   const isSuperAdmin = useCallback(() => {
-    return checkIsSuperAdmin(user ?? null);
+    return user?.isSuperAdmin ?? false;
   }, [user]);
 
   const value = useMemo(
     () => ({
-      user: user ?? null,
-      loading: isLoading,
+      user,
+      loading: authLoading,
       hasRole,
       hasPermission,
       isSuperAdmin,
       signIn,
       signUp,
       signOut,
-      signInWithGoogle: handleSignInWithGoogle,
-      signInWithGithub: handleSignInWithGithub,
-      resetPassword: handleResetPassword,
+      signInWithGoogle: async () => {}, // TODO: Implement OAuth
+      signInWithGithub: async () => {}, // TODO: Implement OAuth
+      resetPassword: async () => {}, // TODO: Implement password reset
       isOnline: true,
     }),
-    [
-      user,
-      isLoading,
-      hasRole,
-      hasPermission,
-      isSuperAdmin,
-      signIn,
-      signUp,
-      signOut,
-      handleSignInWithGoogle,
-      handleSignInWithGithub,
-      handleResetPassword,
-    ]
+    [user, authLoading, hasRole, hasPermission, isSuperAdmin, signIn, signUp, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

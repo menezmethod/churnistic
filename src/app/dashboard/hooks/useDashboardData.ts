@@ -1,19 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
-import { doc, getDoc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import { getFirebaseServices } from '@/lib/firebase/config';
+import { supabase } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 export interface UserProfile {
-  displayName?: string;
-  customDisplayName?: string;
+  id: string;
   email?: string;
-  photoURL?: string;
   role?: string;
-  updatedAt?: string;
+  updated_at?: string;
+  customDisplayName?: string;
+  displayName?: string;
+  user_metadata?: {
+    full_name?: string;
+    avatar_url?: string;
+  };
 }
 
 export interface DashboardStats {
@@ -50,18 +53,26 @@ export function useDashboardData() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // Fetch profile data
   useEffect(() => {
     if (!user) return;
 
     const fetchProfile = async () => {
       try {
-        const { firestore } = await getFirebaseServices();
-        const docRef = doc(firestore, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
-        }
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) throw error;
+
+        setProfile({
+          id: user.id,
+          email: user.email,
+          role: data.role,
+          updated_at: data.updated_at || undefined,
+          user_metadata: user.user_metadata,
+        });
       } catch (error) {
         console.error('Error fetching profile:', error);
       } finally {

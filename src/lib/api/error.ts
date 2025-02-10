@@ -1,3 +1,4 @@
+import { AuthError } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 
@@ -18,11 +19,6 @@ export class APIError extends Error {
     super(message);
     this.name = 'APIError';
   }
-}
-
-interface FirebaseErrorLike {
-  code?: string;
-  message?: string;
 }
 
 /**
@@ -49,29 +45,11 @@ export function formatError(error: unknown): APIErrorResponse {
     };
   }
 
-  // Handle Firebase errors
-  const firebaseError = error as FirebaseErrorLike;
-  if (firebaseError?.code?.startsWith('auth/')) {
+  if (error instanceof AuthError) {
     return {
-      error: firebaseError.message || 'Authentication error',
-      code: firebaseError.code,
-      status: 401,
-    };
-  }
-
-  if (firebaseError?.code?.startsWith('permission-denied')) {
-    return {
-      error: firebaseError.message || 'Permission denied',
-      code: firebaseError.code,
-      status: 403,
-    };
-  }
-
-  if (firebaseError?.code?.startsWith('not-found')) {
-    return {
-      error: firebaseError.message || 'Resource not found',
-      code: firebaseError.code,
-      status: 404,
+      error: error.message,
+      code: String(error.status ?? 'auth_error'),
+      status: error.status ?? 401,
     };
   }
 
@@ -116,19 +94,13 @@ export function withErrorHandling(
  */
 export const APIErrors = {
   unauthorized: (message = 'Unauthorized') => new APIError(message, 'unauthorized', 401),
-
   forbidden: (message = 'Forbidden') => new APIError(message, 'forbidden', 403),
-
   notFound: (message = 'Not found') => new APIError(message, 'not_found', 404),
-
   badRequest: (message = 'Bad request') => new APIError(message, 'bad_request', 400),
-
   methodNotAllowed: (message = 'Method not allowed') =>
     new APIError(message, 'method_not_allowed', 405),
-
   tooManyRequests: (message = 'Too many requests') =>
     new APIError(message, 'too_many_requests', 429),
-
   internal: (message = 'Internal server error') =>
     new APIError(message, 'internal_server_error', 500),
 };
