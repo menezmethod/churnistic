@@ -1,9 +1,35 @@
-import { Query } from 'firebase-admin/firestore';
+import { Query, QuerySnapshot } from 'firebase-admin/firestore';
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { type Opportunity } from '@/types/opportunity';
+
+// Helper function to normalize search terms
+function normalizeSearchTerm(term: string): string {
+  return term.toLowerCase().trim();
+}
+
+// Helper function to create search tokens
+function createSearchTokens(text: string): string[] {
+  const normalized = normalizeSearchTerm(text);
+  const words = normalized.split(/\s+/);
+  const tokens = new Set<string>();
+
+  // Add individual words
+  words.forEach((word) => {
+    if (word.length > 0) {
+      tokens.add(word);
+    }
+  });
+
+  // Add combinations of consecutive words (for phrase matching)
+  for (let i = 0; i < words.length - 1; i++) {
+    tokens.add(`${words[i]} ${words[i + 1]}`);
+  }
+
+  return Array.from(tokens);
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -69,35 +95,71 @@ export async function GET(request: NextRequest) {
       queryRef = queryRef.where('value', '<=', maxValue);
     }
 
-    // Apply search filter if provided
+    // Enhanced search functionality
+    let searchResults: QuerySnapshot | null = null;
     if (search) {
-      queryRef = queryRef
-        .where('name', '>=', search)
-        .where('name', '<=', search + '\uf8ff');
+      const searchTokens = createSearchTokens(search);
+
+      // If we have search tokens, perform a search across multiple fields
+      if (searchTokens.length > 0) {
+        // Create an array of promises for each search token
+        const searchQueries = searchTokens.map((token) => {
+          const nameQuery = collectionRef.where(
+            'searchableFields.name',
+            'array-contains',
+            token
+          );
+
+          const descriptionQuery = collectionRef.where(
+            'searchableFields.description',
+            'array-contains',
+            token
+          );
+
+          return Promise.all([nameQuery.get(), descriptionQuery.get()]);
+        });
+
+        // Execute all search queries in parallel
+        const results = await Promise.all(searchQueries);
+
+        // Merge results and remove duplicates
+        const matchingDocs = new Map();
+        results.flat(2).forEach((snapshot) => {
+          snapshot.docs.forEach((doc) => {
+            if (!matchingDocs.has(doc.id)) {
+              matchingDocs.set(doc.id, doc);
+            }
+          });
+        });
+
+        // Convert to array and sort by relevance (can be enhanced further)
+        const sortedDocs = Array.from(matchingDocs.values()).sort((a, b) => {
+          const aData = a.data();
+          const bData = b.data();
+          // Prioritize exact matches in name
+          const aExactMatch = aData.name.toLowerCase().includes(search.toLowerCase());
+          const bExactMatch = bData.name.toLowerCase().includes(search.toLowerCase());
+          if (aExactMatch && !bExactMatch) return -1;
+          if (!aExactMatch && bExactMatch) return 1;
+          return 0;
+        });
+
+        // Create a new snapshot with the sorted results
+        searchResults = {
+          docs: sortedDocs,
+          size: sortedDocs.length,
+          empty: sortedDocs.length === 0,
+        } as QuerySnapshot;
+      }
     }
 
-    // Get total count before applying pagination
-    const totalCountSnapshot = await queryRef.count().get();
-    const total = totalCountSnapshot.data().count;
-
-    // Apply sorting
-    queryRef = queryRef.orderBy(sortBy, sortDirection);
-
-    // Apply pagination
-    const startIndex = (page - 1) * pageSize;
-    if (startIndex > 0) {
-      queryRef = queryRef.offset(startIndex);
-    }
-    queryRef = queryRef.limit(pageSize);
-
-    console.log('🚀 Executing Firestore query...');
-    const snapshot = await queryRef.get();
+    // If we have search results, use them instead of the query
+    const snapshot = searchResults || (await queryRef.get());
 
     console.log('📊 Query snapshot:', {
       size: snapshot.size,
       empty: snapshot.empty,
       docs: snapshot.docs.length,
-      total,
     });
 
     if (snapshot.empty) {
@@ -109,26 +171,55 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Apply sorting to the results
     const opportunities = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Opportunity[];
 
-    const hasMore = total > startIndex + opportunities.length;
+    // Apply in-memory sorting if needed
+    if (sortBy) {
+      opportunities.sort((a, b) => {
+        let comparison = 0;
+        switch (sortBy) {
+          case 'value':
+            comparison = (a.value || 0) - (b.value || 0);
+            break;
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'type':
+            comparison = a.type.localeCompare(b.type);
+            break;
+          case 'date':
+            comparison =
+              new Date(a.metadata?.created_at || '').getTime() -
+              new Date(b.metadata?.created_at || '').getTime();
+            break;
+        }
+        return sortDirection === 'desc' ? -comparison : comparison;
+      });
+    }
+
+    // Apply pagination
+    const startIndex = (page - 1) * pageSize;
+    const paginatedOpportunities = opportunities.slice(startIndex, startIndex + pageSize);
+    const total = opportunities.length;
+    const hasMore = total > startIndex + paginatedOpportunities.length;
 
     console.log('✅ Processed opportunities:', {
-      count: opportunities.length,
+      count: paginatedOpportunities.length,
       total,
       hasMore,
-      sample: opportunities[0] && {
-        id: opportunities[0].id,
-        name: opportunities[0].name,
-        type: opportunities[0].type,
+      sample: paginatedOpportunities[0] && {
+        id: paginatedOpportunities[0].id,
+        name: paginatedOpportunities[0].name,
+        type: paginatedOpportunities[0].type,
       },
     });
 
     return NextResponse.json({
-      items: opportunities,
+      items: paginatedOpportunities,
       total,
       hasMore,
     });

@@ -18,6 +18,7 @@ const publicEndpoints = [
   '/api/opportunities/public-stats',
   '/api/opportunities',
   '/opportunities',
+  '/opportunities/:id',
   '/api/auth/verify-session',
 ];
 
