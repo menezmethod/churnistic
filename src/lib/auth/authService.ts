@@ -73,6 +73,7 @@ export const isSuperAdmin = (user: AuthUser | null): boolean => {
 
 // Get the currently logged-in user
 export const loadUser = async (): Promise<AuthUser | null> => {
+  console.log('[authService] loadUser started');
   const { auth } = await getFirebaseServices();
   return new Promise((resolve, reject) => {
     const unsubscribe = firebaseOnAuthStateChanged(
@@ -81,6 +82,7 @@ export const loadUser = async (): Promise<AuthUser | null> => {
         unsubscribe();
         if (user) {
           try {
+            console.log('[authService] loadUser - user detected:', user.email);
             // Force token refresh and get claims
             const idTokenResult = await user.getIdTokenResult(true);
             const authUser = user as AuthUser;
@@ -99,9 +101,11 @@ export const loadUser = async (): Promise<AuthUser | null> => {
 
             resolve(authUser);
           } catch (error) {
+            console.error('[authService] loadUser - error:', error);
             reject(error);
           }
         } else {
+          console.log('[authService] loadUser - no user detected');
           resolve(null);
         }
       },
@@ -154,14 +158,37 @@ export const registerWithEmail = async (
 export const loginWithGoogle = async (): Promise<AuthUser> => {
   try {
     const { auth } = await getFirebaseServices();
-    const provider = new GoogleAuthProvider();
-    const { user } = await signInWithPopup(auth, provider);
+    const { user } = await signInWithPopup(auth, new GoogleAuthProvider());
+
+    // Force token refresh and get session cookie
+    const idToken = await user.getIdToken(true);
+    const sessionResponse = await fetch('/api/auth/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+      credentials: 'include',
+    });
+
+    if (!sessionResponse.ok) {
+      throw new Error(`Session creation failed: ${await sessionResponse.text()}`);
+    }
+
+    const sessionData = await sessionResponse.json(); // Parse response body
+    console.log('[authService] Session API response:', sessionData); // Log response data
+
+    // Verify session through backend
+    const sessionCheck = await fetch('/api/auth/session', {
+      credentials: 'include',
+    });
+    if (!sessionCheck.ok) {
+      throw new Error('Session verification failed');
+    }
+
     await handleUserProfile(user);
-    await manageSessionCookie(user);
     return user as AuthUser;
   } catch (error) {
     console.error('Google login error:', error);
-    throw error;
+    throw new Error('Failed to complete Google login');
   }
 };
 

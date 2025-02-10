@@ -72,7 +72,9 @@ export function SignIn(): JSX.Element {
 
   React.useEffect((): void => {
     if (user) {
-      router.replace('/dashboard');
+      console.log('[SignIn] Valid user detected - redirecting');
+      // Add temporary query param to force refresh
+      window.location.href = `/dashboard?ts=${Date.now()}`;
     }
   }, [user, router]);
 
@@ -102,6 +104,7 @@ export function SignIn(): JSX.Element {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
+    console.log('[SignIn] Email/password submit started');
     setIsLoading(true);
 
     const data = new FormData(event.currentTarget);
@@ -115,9 +118,9 @@ export function SignIn(): JSX.Element {
 
     try {
       await signIn(email, password);
-      router.push('/dashboard');
+      console.log('[SignIn] Email/password signIn completed');
     } catch (error: unknown) {
-      console.error('Sign in error:', error);
+      console.error('[SignIn] Sign in error:', error);
       setEmailError(true);
       setPasswordError(true);
       setEmailErrorMessage('Invalid email or password.');
@@ -128,21 +131,13 @@ export function SignIn(): JSX.Element {
   };
 
   const handleGoogleSignIn = async (): Promise<void> => {
+    console.log('[SignIn] Google signIn initiated');
     setIsLoading(true);
-    setEmailError(false);
-    setPasswordError(false);
-    setEmailErrorMessage('');
-    setPasswordErrorMessage('');
-
     try {
       await signInWithGoogle();
-      router.push('/dashboard');
+      console.log('[SignIn] Google signIn completed');
     } catch (error) {
-      console.error('Google sign in error:', {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      });
+      console.error('[SignIn] Google sign in error:', error);
       setEmailError(true);
       setEmailErrorMessage('Failed to sign in with Google');
     } finally {
