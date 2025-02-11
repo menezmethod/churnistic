@@ -4,15 +4,78 @@ import { motion } from 'framer-motion';
 
 import { FirestoreOpportunity } from '@/types/opportunity';
 
+import { EditableField } from '../components/EditableField';
+
+type Requirement = {
+  type: string;
+  details: {
+    amount: number;
+    period: number;
+    count?: number;
+  };
+  description: string;
+  title: string;
+};
+
 interface BonusDetailsSectionProps {
-  bonus?: FirestoreOpportunity['bonus'];
+    bonus?: FirestoreOpportunity['bonus'] & {
+    amount?: number;
+    type?: string;
+    expiration?: string;
+    terms?: string;
+    requirements?: Requirement[];
+  };
+  canEdit?: boolean;
+  onUpdate?: (field: string, value: string | number) => Promise<void>;
 }
 
-export default function BonusDetailsSection({ bonus }: BonusDetailsSectionProps) {
+export default function BonusDetailsSection({
+  bonus,
+  canEdit = false,
+  onUpdate,
+}: BonusDetailsSectionProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
   if (!bonus) return null;
+
+  const handleUpdate = async (field: string, value: string | number) => {
+    if (onUpdate) {
+      await onUpdate(`bonus.${field}`, value);
+    }
+  };
+
+  const getBonusAmount = () => {
+    // Case 1: Direct value in bonus.value
+    if (bonus.value) {
+      return bonus.value.toString();
+    }
+    
+    // Case 2: Amount in requirements[0].details.amount
+    if (bonus.requirements?.[0]?.details?.amount) {
+      return bonus.requirements[0].details.amount.toString();
+    }
+
+    // Case 3: Amount in bonus.amount
+    if (bonus.amount) {
+      return bonus.amount.toString();
+    }
+
+    // Case 4: Parse amount from description if it contains a dollar value
+    if (bonus.description) {
+      const match = bonus.description.match(/\$(\d+)/);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+
+    return '0';
+  };
+
+  const getRequirementsText = (requirements?: Requirement[]) => {
+    if (!requirements?.length) return '';
+    return requirements.map((req: Requirement) => `${req.title}: ${req.description}`).join('\n');
+  };
 
   return (
     <Paper
@@ -194,6 +257,77 @@ export default function BonusDetailsSection({ bonus }: BonusDetailsSectionProps)
           </Stack>
         </Box>
       )}
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 3 }}>
+        <Box>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Bonus Amount
+          </Typography>
+          <EditableField
+            value={getBonusAmount()}
+            onSave={async (value) => handleUpdate('amount', parseFloat(value))}
+            fieldName="Bonus Amount"
+            variant="h4"
+            canEdit={canEdit}
+          />
+        </Box>
+
+        <Box>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Bonus Type
+          </Typography>
+          <EditableField
+            value={bonus.type || ''}
+            onSave={async (value) => handleUpdate('type', value)}
+            fieldName="Bonus Type"
+            variant="body1"
+            canEdit={canEdit}
+          />
+        </Box>
+
+        <Box>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Requirements
+          </Typography>
+          <EditableField
+            value={getRequirementsText(bonus?.requirements)}
+            onSave={async (value) => handleUpdate('requirements', value)}
+            fieldName="Requirements"
+            variant="body1"
+            multiline
+            canEdit={canEdit}
+            aiEnabled
+          />
+        </Box>
+
+        <Box>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Expiration
+          </Typography>
+          <EditableField
+            value={bonus.expiration || ''}
+            onSave={async (value) => handleUpdate('expiration', value)}
+            fieldName="Expiration"
+            variant="body1"
+            canEdit={canEdit}
+          />
+        </Box>
+
+        <Box>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Terms & Conditions
+          </Typography>
+          <EditableField
+            value={bonus.terms || ''}
+            onSave={async (value) => handleUpdate('terms', value)}
+            fieldName="Terms"
+            variant="body1"
+            multiline
+            canEdit={canEdit}
+            aiEnabled
+          />
+        </Box>
+      </Box>
     </Paper>
   );
 }
