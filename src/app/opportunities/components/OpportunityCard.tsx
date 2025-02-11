@@ -305,14 +305,19 @@ export default function OpportunityCard({
         flexDirection: 'column',
         bgcolor: isDark ? alpha(theme.palette.background.paper, 0.6) : 'background.paper',
         border: '1px solid',
-        borderColor: 'divider',
+        borderColor: isFeatured ? alpha(theme.palette.warning.main, 0.2) : 'divider',
         borderRadius: '12px',
         overflow: 'hidden',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         backdropFilter: 'blur(8px)',
+        ...(isFeatured && {
+          boxShadow: `0 8px 16px ${alpha(theme.palette.warning.main, 0.15)}`,
+        }),
         '&:hover': {
           transform: 'translateY(-4px)',
-          boxShadow: `0 12px 24px ${alpha(theme.palette.common.black, 0.12)}`,
+          boxShadow: isFeatured
+            ? `0 12px 24px ${alpha(theme.palette.warning.main, 0.25)}`
+            : `0 12px 24px ${alpha(theme.palette.common.black, 0.12)}`,
           '& .delete-button': {
             opacity: 1,
           },
@@ -376,64 +381,85 @@ export default function OpportunityCard({
             }}
           />
         </Box>
-        {canModify && (
-          <Box
-            sx={{
-              display: 'flex',
-              gap: 0.5,
-              opacity: isHovered ? 1 : isFeatured ? 1 : 0,
-              transition: 'opacity 0.2s ease-in-out',
-            }}
-          >
-            <Tooltip title={`${isFeatured ? 'Unfeature' : 'Feature'} opportunity`}>
-              <IconButton
-                onClick={handleFeatureClick}
-                disabled={isFeatureLoading}
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {isFeatured && !canModify && (
+            <Tooltip
+              title="Featured Offer"
+              placement="top"
+              componentsProps={{
+                tooltip: {
+                  sx: {
+                    bgcolor: alpha(theme.palette.warning.main, 0.9),
+                    '& .MuiTooltip-arrow': {
+                      color: alpha(theme.palette.warning.main, 0.9),
+                    },
+                  },
+                },
+              }}
+            >
+              <StarIcon
                 sx={{
-                  color: isFeatured ? 'warning.main' : 'text.secondary',
+                  color: theme.palette.warning.main,
+                  transition: 'transform 0.2s ease-in-out',
                   '&:hover': {
-                    bgcolor: alpha(
-                      isFeatured
-                        ? theme.palette.warning.main
-                        : theme.palette.primary.main,
-                      0.1
-                    ),
+                    transform: 'scale(1.1)',
                   },
                 }}
-              >
-                {isFeatureLoading ? (
-                  <CircularProgress
-                    size={20}
-                    color={isFeatured ? 'warning' : 'primary'}
-                  />
-                ) : isFeatured ? (
-                  <StarIcon />
-                ) : (
-                  <StarBorderIcon />
-                )}
-              </IconButton>
+              />
             </Tooltip>
-            <Tooltip title="Delete opportunity">
-              <IconButton
-                onClick={handleDeleteClick}
-                disabled={isDeleting}
-                sx={{
-                  transition: 'opacity 0.2s ease-in-out',
-                  color: theme.palette.error.main,
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.error.main, 0.1),
-                  },
-                }}
-              >
-                {isDeleting ? (
-                  <CircularProgress size={20} color="error" />
-                ) : (
-                  <DeleteIcon />
-                )}
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
+          )}
+          {canModify && (
+            <>
+              <Tooltip title={`${isFeatured ? 'Unfeature' : 'Feature'} opportunity`}>
+                <IconButton
+                  onClick={handleFeatureClick}
+                  disabled={isFeatureLoading}
+                  sx={{
+                    color: isFeatured ? 'warning.main' : 'text.secondary',
+                    '&:hover': {
+                      bgcolor: alpha(
+                        isFeatured
+                          ? theme.palette.warning.main
+                          : theme.palette.primary.main,
+                        0.1
+                      ),
+                    },
+                  }}
+                >
+                  {isFeatureLoading ? (
+                    <CircularProgress
+                      size={20}
+                      color={isFeatured ? 'warning' : 'primary'}
+                    />
+                  ) : isFeatured ? (
+                    <StarIcon />
+                  ) : (
+                    <StarBorderIcon />
+                  )}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Delete opportunity">
+                <IconButton
+                  onClick={handleDeleteClick}
+                  disabled={isDeleting}
+                  sx={{
+                    transition: 'opacity 0.2s ease-in-out',
+                    color: theme.palette.error.main,
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.error.main, 0.1),
+                    },
+                  }}
+                >
+                  {isDeleting ? (
+                    <CircularProgress size={20} color="error" />
+                  ) : (
+                    <DeleteIcon />
+                  )}
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
+        </Box>
       </Box>
 
       {/* Content */}

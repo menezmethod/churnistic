@@ -78,9 +78,20 @@ export default function AvailabilitySection({ availability }: AvailabilitySectio
               </Typography>
               <Chip
                 label={isNationwide ? 'Available Nationwide' : 'Selected States Only'}
-                color={isNationwide ? 'success' : 'primary'}
                 size="small"
-                sx={{ mt: 1 }}
+                sx={{
+                  mt: 1,
+                  bgcolor: isNationwide
+                    ? alpha(theme.palette.success.main, 0.1)
+                    : alpha(theme.palette.info.main, 0.1),
+                  color: isNationwide
+                    ? theme.palette.success.main
+                    : theme.palette.info.main,
+                  borderColor: isNationwide
+                    ? alpha(theme.palette.success.main, 0.2)
+                    : alpha(theme.palette.info.main, 0.2),
+                  border: '1px solid',
+                }}
               />
             </Box>
           </Box>

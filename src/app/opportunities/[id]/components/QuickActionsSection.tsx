@@ -10,6 +10,7 @@ import {
 import {
   Box,
   CircularProgress,
+  Chip,
   IconButton,
   Paper,
   Stack,
@@ -17,7 +18,8 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useState } from 'react';
 
 import { FirestoreOpportunity } from '@/types/opportunity';
 
@@ -36,22 +38,46 @@ export const QuickActionsSection = ({
   onEditClick,
   onDeleteClick,
   onFeatureClick,
-  isFeatureLoading,
+  isFeatureLoading: isFeatureLoadingProp,
 }: QuickActionsSectionProps) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
-  const isFeatured = opportunity.metadata?.featured;
+
+  // Debug logging
+  console.log('QuickActionsSection Data:', {
+    metadata: opportunity.metadata,
+    featured: opportunity.metadata?.featured,
+  });
+
+  const isFeatured = Boolean(opportunity.metadata?.featured);
+  const [isLocalFeatureLoading, setIsLocalFeatureLoading] = useState(false);
+  const isFeatureLoading = isFeatureLoadingProp || isLocalFeatureLoading;
 
   const handleFeatureClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (!canModify || !onFeatureClick) return;
-    await onFeatureClick();
+
+    console.log('Feature click - current state:', {
+      isFeatured,
+      metadata: opportunity.metadata,
+    });
+
+    setIsLocalFeatureLoading(true);
+    try {
+      await onFeatureClick();
+    } finally {
+      setIsLocalFeatureLoading(false);
+    }
   };
 
   return (
     <Box sx={{ position: 'sticky', top: 24 }}>
       <Paper
         elevation={0}
+        component={motion.div}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
         sx={{
           p: 3,
           mb: 3,
@@ -60,10 +86,44 @@ export const QuickActionsSection = ({
             ? alpha(theme.palette.background.paper, 0.6)
             : 'background.paper',
           border: '1px solid',
-          borderColor: isDark ? alpha(theme.palette.divider, 0.1) : 'divider',
+          borderColor: isFeatured
+            ? alpha(theme.palette.warning.main, 0.2)
+            : isDark
+              ? alpha(theme.palette.divider, 0.1)
+              : 'divider',
           backdropFilter: 'blur(8px)',
+          position: 'relative',
+          transition: 'all 0.2s ease-in-out',
+          ...(isFeatured && {
+            boxShadow: `0 8px 16px ${alpha(theme.palette.warning.main, 0.15)}`,
+          }),
         }}
       >
+        <AnimatePresence>
+          {isFeatured && (
+            <Chip
+              component={motion.div}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+              icon={<StarIcon sx={{ color: theme.palette.warning.main }} />}
+              label="Featured Offer"
+              size="small"
+              sx={{
+                position: 'absolute',
+                top: 12,
+                right: 12,
+                bgcolor: alpha(theme.palette.warning.main, 0.1),
+                color: theme.palette.warning.main,
+                borderColor: alpha(theme.palette.warning.main, 0.2),
+                '& .MuiChip-icon': {
+                  color: theme.palette.warning.main,
+                },
+              }}
+            />
+          )}
+        </AnimatePresence>
         <Stack spacing={2}>
           {/* Credit Card Image */}
           {opportunity.type === 'credit_card' && opportunity.card_image?.url && (
@@ -198,7 +258,7 @@ export const QuickActionsSection = ({
                     disabled={isFeatureLoading}
                     sx={{
                       flex: 1,
-                      color: isFeatured ? 'warning.main' : 'text.secondary',
+                      color: isFeatured ? theme.palette.warning.main : 'text.secondary',
                       bgcolor: alpha(
                         isFeatured
                           ? theme.palette.warning.main
@@ -206,6 +266,7 @@ export const QuickActionsSection = ({
                         0.1
                       ),
                       borderRadius: 2,
+                      transition: 'all 0.2s ease-in-out',
                       '&:hover': {
                         bgcolor: alpha(
                           isFeatured
@@ -213,6 +274,7 @@ export const QuickActionsSection = ({
                             : theme.palette.primary.main,
                           0.2
                         ),
+                        transform: 'scale(1.05)',
                       },
                     }}
                   >
@@ -222,9 +284,11 @@ export const QuickActionsSection = ({
                         color={isFeatured ? 'warning' : 'primary'}
                       />
                     ) : isFeatured ? (
-                      <StarIcon />
+                      <StarIcon
+                        sx={{ color: theme.palette.warning.main, fontSize: '1.5rem' }}
+                      />
                     ) : (
-                      <StarBorderIcon />
+                      <StarBorderIcon sx={{ fontSize: '1.5rem' }} />
                     )}
                   </IconButton>
                 )}
