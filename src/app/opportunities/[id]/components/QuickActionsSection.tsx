@@ -4,9 +4,12 @@ import {
   Delete as DeleteIcon,
   Edit as EditIcon,
   MonetizationOn,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
 } from '@mui/icons-material';
 import {
   Box,
+  CircularProgress,
   IconButton,
   Paper,
   Stack,
@@ -23,6 +26,8 @@ interface QuickActionsSectionProps {
   canModify: boolean;
   onEditClick: () => void;
   onDeleteClick: () => void;
+  onFeatureClick?: () => Promise<void>;
+  isFeatureLoading?: boolean;
 }
 
 export const QuickActionsSection = ({
@@ -30,9 +35,18 @@ export const QuickActionsSection = ({
   canModify,
   onEditClick,
   onDeleteClick,
+  onFeatureClick,
+  isFeatureLoading,
 }: QuickActionsSectionProps) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const isFeatured = opportunity.metadata?.featured;
+
+  const handleFeatureClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!canModify || !onFeatureClick) return;
+    await onFeatureClick();
+  };
 
   return (
     <Box sx={{ position: 'sticky', top: 24 }}>
@@ -178,6 +192,42 @@ export const QuickActionsSection = ({
               }}
             >
               <Stack direction="row" spacing={1}>
+                {onFeatureClick && (
+                  <IconButton
+                    onClick={handleFeatureClick}
+                    disabled={isFeatureLoading}
+                    sx={{
+                      flex: 1,
+                      color: isFeatured ? 'warning.main' : 'text.secondary',
+                      bgcolor: alpha(
+                        isFeatured
+                          ? theme.palette.warning.main
+                          : theme.palette.primary.main,
+                        0.1
+                      ),
+                      borderRadius: 2,
+                      '&:hover': {
+                        bgcolor: alpha(
+                          isFeatured
+                            ? theme.palette.warning.main
+                            : theme.palette.primary.main,
+                          0.2
+                        ),
+                      },
+                    }}
+                  >
+                    {isFeatureLoading ? (
+                      <CircularProgress
+                        size={20}
+                        color={isFeatured ? 'warning' : 'primary'}
+                      />
+                    ) : isFeatured ? (
+                      <StarIcon />
+                    ) : (
+                      <StarBorderIcon />
+                    )}
+                  </IconButton>
+                )}
                 <IconButton
                   onClick={onEditClick}
                   sx={{

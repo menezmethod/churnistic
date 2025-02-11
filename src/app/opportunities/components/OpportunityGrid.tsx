@@ -10,12 +10,14 @@ interface OpportunityGridProps {
   opportunities: FirestoreOpportunity[];
   isDeleting: string | null;
   onDeleteClick: (opportunity: FirestoreOpportunity) => void;
+  onFeatureClick?: (opportunity: FirestoreOpportunity) => Promise<void>;
 }
 
 export default function OpportunityGrid({
   opportunities,
   isDeleting,
   onDeleteClick,
+  onFeatureClick,
 }: OpportunityGridProps) {
   return (
     <Grid container spacing={2}>
@@ -27,6 +29,7 @@ export default function OpportunityGrid({
             viewMode="grid"
             index={index}
             onDeleteClick={onDeleteClick}
+            onFeatureClick={onFeatureClick}
           />
         </Grid>
       ))}

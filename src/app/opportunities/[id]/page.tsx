@@ -5,12 +5,15 @@ import { Box, Button, Container, Grid, Link } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { useTheme } from '@mui/material/styles';
 import { useQueryClient } from '@tanstack/react-query';
+import { doc, getFirestore, updateDoc } from 'firebase/firestore';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { Permission } from '@/lib/auth/types';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { useOpportunity } from '@/lib/hooks/useOpportunity';
+import { showErrorToast } from '@/lib/utils/toast';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 import AccountDetailsSection from './components/AccountDetailsSection';
@@ -26,9 +29,9 @@ import OpportunityDeleteDialog from '../components/OpportunityDeleteDialog';
 export default function OpportunityDetailsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
-  const { data: opportunity, isLoading, error } = useOpportunity(params.id);
+  const { data: opportunity, isLoading, error, refetch } = useOpportunity(params.id);
   const { deleteOpportunity, updateOpportunity } = useOpportunities();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -36,15 +39,11 @@ export default function OpportunityDetailsPage() {
   const [editData, setEditData] = useState<Partial<FirestoreOpportunity>>({});
   const [originalData, setOriginalData] = useState<FirestoreOpportunity | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isFeatureLoading, setIsFeatureLoading] = useState(false);
   const theme = useTheme();
 
   // Check if user can edit/delete this opportunity
-  const canModify = Boolean(
-    user?.email &&
-      opportunity?.metadata?.created_by &&
-      (user.email === opportunity.metadata.created_by ||
-        user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL)
-  );
+  const canModify = Boolean(user && hasPermission(Permission.FEATURE_OPPORTUNITIES));
 
   // Debug logging
   console.log('Auth Debug:', {
@@ -55,7 +54,11 @@ export default function OpportunityDetailsPage() {
   });
 
   const handleDeleteClick = () => {
-    setDeleteDialog(true);
+    if (!user) {
+      router.push('/auth/signin?redirect=/opportunities');
+      return;
+    }
+    router.push(`/opportunities/${params.id}/delete`);
   };
 
   const handleDeleteCancel = () => {
@@ -81,17 +84,14 @@ export default function OpportunityDetailsPage() {
   };
 
   const handleEditClick = () => {
-    if (!opportunity) return;
-    setOriginalData(opportunity);
-    setEditData({
-      name: opportunity.name,
-      description: opportunity.description,
-      value: opportunity.value,
-      offer_link: opportunity.offer_link,
-      bonus: opportunity.bonus,
-      details: opportunity.details,
-    });
-    setEditDialog(true);
+    if (!user) {
+      router.push('/auth/signin?redirect=/opportunities');
+      return;
+    }
+    if (opportunity) {
+      setOriginalData(opportunity);
+    }
+    router.push(`/opportunities/${params.id}/edit`);
   };
 
   const handleEditCancel = () => {
@@ -134,6 +134,39 @@ export default function OpportunityDetailsPage() {
       console.error('Failed to update opportunity:', error);
     } finally {
       setIsEditing(false);
+    }
+  };
+
+  const handleFeatureClick = async () => {
+    if (!user) {
+      router.push('/auth/signin?redirect=/opportunities');
+      return;
+    }
+    if (!canModify) {
+      return showErrorToast('You lack permissions to feature opportunities');
+    }
+    if (!opportunity) {
+      return showErrorToast('Opportunity not found');
+    }
+
+    setIsFeatureLoading(true);
+    try {
+      const db = getFirestore();
+      const docRef = doc(db, 'opportunities', params.id as string);
+      await updateDoc(docRef, {
+        'metadata.featured': !opportunity.metadata?.featured,
+      });
+
+      // Refetch to update the UI and invalidate opportunities list
+      await Promise.all([
+        refetch(),
+        queryClient.invalidateQueries({ queryKey: ['opportunities'] }),
+      ]);
+    } catch (error) {
+      console.error('Failed to toggle feature status:', error);
+      showErrorToast('Failed to update feature status');
+    } finally {
+      setIsFeatureLoading(false);
     }
   };
 
@@ -214,6 +247,8 @@ export default function OpportunityDetailsPage() {
               canModify={canModify}
               onEditClick={handleEditClick}
               onDeleteClick={handleDeleteClick}
+              onFeatureClick={handleFeatureClick}
+              isFeatureLoading={isFeatureLoading}
             />
           </Box>
         </Grid>

@@ -10,12 +10,14 @@ interface OpportunityListProps {
   opportunities: FirestoreOpportunity[];
   isDeleting: string | null;
   onDeleteClick: (opportunity: FirestoreOpportunity) => void;
+  onFeatureClick?: (opportunity: FirestoreOpportunity) => Promise<void>;
 }
 
 const OpportunityList = ({
   opportunities,
   isDeleting,
   onDeleteClick,
+  onFeatureClick,
 }: OpportunityListProps) => {
   return (
     <List sx={{ width: '100%', p: 0 }}>
@@ -27,6 +29,7 @@ const OpportunityList = ({
           viewMode="list"
           index={index}
           onDeleteClick={onDeleteClick}
+          onFeatureClick={onFeatureClick}
         />
       ))}
     </List>

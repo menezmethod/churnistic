@@ -66,6 +66,7 @@ const getOpportunities = async ({
   sortBy = 'value',
   sortDirection = 'desc',
   status = 'approved,staged,pending',
+  view = '',
 }: {
   pageParam?: number;
   limit?: number;
@@ -74,6 +75,7 @@ const getOpportunities = async ({
   sortBy?: 'value' | 'name' | 'type' | 'date' | null;
   sortDirection?: 'asc' | 'desc';
   status?: string;
+  view?: string;
 }): Promise<{
   items: FirestoreOpportunity[];
   nextPage: number | null;
@@ -88,6 +90,7 @@ const getOpportunities = async ({
     sortBy,
     sortDirection,
     status,
+    view,
   });
 
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
@@ -100,7 +103,16 @@ const getOpportunities = async ({
   if (sortDirection) url.searchParams.set('sortDirection', sortDirection);
   if (searchTerm) url.searchParams.set('search', searchTerm);
   if (status) url.searchParams.set('status', status);
-  if (type) url.searchParams.set('type', type);
+
+  // Handle filtering logic
+  if (view === 'featured') {
+    url.searchParams.set('featured', 'true');
+  }
+
+  // Always apply type filter if present, regardless of view
+  if (type) {
+    url.searchParams.set('type', type);
+  }
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -229,6 +241,7 @@ interface OpportunitiesParams {
   sortDirection?: 'asc' | 'desc';
   status?: string;
   limit?: number;
+  view?: string;
 }
 
 export function useOpportunities(params?: OpportunitiesParams) {

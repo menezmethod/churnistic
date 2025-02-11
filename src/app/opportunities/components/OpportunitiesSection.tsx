@@ -27,7 +27,9 @@ import {
   useTheme,
   Alert,
   CircularProgress,
+  Chip,
 } from '@mui/material';
+import { updateDoc, doc, getFirestore } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import debounce from 'lodash/debounce';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -64,6 +66,46 @@ const REVERSE_CATEGORY_MAP = {
   brokerage: 'brokerages',
 } as const;
 
+// First, let's extract the URL param handling into a custom hook for better reusability
+const useOpportunityFilters = () => {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Update URL when filters change
+  const updateFilters = useCallback(
+    (newType: string | null, newView: string | null) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      // Handle category
+      if (newType) {
+        const urlCategory =
+          REVERSE_CATEGORY_MAP[newType as keyof typeof REVERSE_CATEGORY_MAP];
+        if (urlCategory) {
+          params.set('category', urlCategory);
+        }
+      } else {
+        params.delete('category');
+      }
+
+      // Handle view
+      if (newView) {
+        params.set('view', newView);
+      } else {
+        params.delete('view');
+      }
+
+      router.push(`/opportunities${params.toString() ? `?${params.toString()}` : ''}`, {
+        scroll: false,
+      });
+    },
+    [router, searchParams]
+  );
+
+  return {
+    updateFilters,
+  };
+};
+
 export default function OpportunitiesSection({
   onDeleteAction,
   onAddOpportunityAction,
@@ -84,7 +126,6 @@ function OpportunitiesSectionContent({
 }: OpportunitiesSectionProps) {
   const theme = useTheme();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, loading: authLoading, hasPermission } = useAuth();
   const isDark = theme.palette.mode === 'dark';
   const [searchTerm, setSearchTerm] = useState('');
@@ -104,38 +145,23 @@ function OpportunitiesSectionContent({
     opportunity: null,
   });
 
-  // Initialize selected type from URL parameter
-  const [selectedType, setSelectedType] = useState<string | null>(() => {
-    const category = searchParams.get('category');
-    if (!category) return null;
-    return CATEGORY_MAP[category as keyof typeof CATEGORY_MAP] || null;
-  });
+  const { updateFilters } = useOpportunityFilters();
 
-  // Create a debounced search handler
-  const debouncedSetSearch = useMemo(
-    () =>
-      debounce((value: string) => {
-        setDebouncedSearchTerm(value);
-      }, 300),
-    [setDebouncedSearchTerm]
-  );
+  // Get URL parameters
+  const searchParams = useSearchParams();
+  const selectedType = searchParams.get('category') || null;
+  const viewParam = searchParams.get('view') || '';
 
-  // Cleanup debounce on unmount
-  useEffect(() => {
-    return () => {
-      debouncedSetSearch.cancel();
-    };
-  }, [debouncedSetSearch]);
+  // Handle type selection
+  const handleTypeClick = (type: string | null) => {
+    updateFilters(type, viewParam);
+  };
 
-  // Update search term and trigger debounced search
-  const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
-      setSearchTerm(value);
-      debouncedSetSearch(value);
-    },
-    [debouncedSetSearch]
-  );
+  // Handle search with debounce
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
+    debounce(() => setDebouncedSearchTerm(event.target.value), 300)();
+  };
 
   // Use the enhanced useOpportunities hook with proper params
   const {
@@ -148,10 +174,11 @@ function OpportunitiesSectionContent({
     isFetchingNextPage,
     total,
   } = useOpportunities({
-    type: selectedType,
+    type: selectedType ? CATEGORY_MAP[selectedType as keyof typeof CATEGORY_MAP] : null,
     sortBy,
     sortDirection,
     status: 'approved,staged,pending',
+    view: viewParam,
   });
 
   // Filter opportunities based on search term
@@ -228,31 +255,6 @@ function OpportunitiesSectionContent({
     total,
   ]);
 
-  // Handle type selection
-  const handleTypeClick = (type: string | null) => {
-    setSelectedType(type);
-    updateUrl(type);
-  };
-
-  // Update URL when filter changes
-  const updateUrl = (newType: string | null) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    if (newType) {
-      const urlCategory =
-        REVERSE_CATEGORY_MAP[newType as keyof typeof REVERSE_CATEGORY_MAP];
-      if (urlCategory) {
-        params.set('category', urlCategory);
-      }
-    } else {
-      params.delete('category');
-    }
-
-    // Preserve other query parameters
-    const newUrl = `/opportunities${params.toString() ? `?${params.toString()}` : ''}`;
-    router.push(newUrl, { scroll: false });
-  };
-
   const handleDeleteClick = (opportunity: FirestoreOpportunity) => {
     if (!hasPermission(Permission.DELETE_OPPORTUNITIES)) {
       return showErrorToast('You lack permissions to delete opportunities');
@@ -286,6 +288,26 @@ function OpportunitiesSectionContent({
       console.error('Failed to delete opportunity:', error);
     } finally {
       setIsDeleting(null);
+    }
+  };
+
+  const handleFeatureClick = async (opportunity: FirestoreOpportunity) => {
+    if (!hasPermission(Permission.FEATURE_OPPORTUNITIES)) {
+      return showErrorToast('You lack permissions to feature opportunities');
+    }
+
+    try {
+      const db = getFirestore();
+      const docRef = doc(db, 'opportunities', opportunity.id!);
+      await updateDoc(docRef, {
+        'metadata.featured': !opportunity.metadata?.featured,
+      });
+
+      // Refetch to update the UI
+      refetch();
+    } catch (error) {
+      console.error('Failed to toggle feature status:', error);
+      showErrorToast('Failed to update feature status');
     }
   };
 
@@ -445,7 +467,7 @@ function OpportunitiesSectionContent({
                 </Paper>
               </Grid>
 
-              {['credit_card', 'bank', 'brokerage'].map((type) => {
+              {Object.entries(CATEGORY_MAP).map(([urlCategory, type]) => {
                 const colors = getTypeColors(type, theme);
                 const displayName =
                   type === 'credit_card'
@@ -464,13 +486,14 @@ function OpportunitiesSectionContent({
                         height: '100%',
                         cursor: 'pointer',
                         border: '1px solid',
-                        borderColor: selectedType === type ? colors.primary : 'divider',
+                        borderColor:
+                          selectedType === urlCategory ? colors.primary : 'divider',
                         borderRadius: 2,
                         bgcolor: 'background.paper',
                         position: 'relative',
                         overflow: 'hidden',
                         transition: 'all 0.3s',
-                        boxShadow: selectedType === type ? 4 : 0,
+                        boxShadow: selectedType === urlCategory ? 4 : 0,
                         '&:hover': {
                           borderColor: colors.primary,
                           boxShadow: 4,
@@ -699,6 +722,89 @@ function OpportunitiesSectionContent({
             </Box>
           </Paper>
 
+          {/* Active Filters */}
+          {(selectedType || viewParam) && (
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 1.5, md: 2 },
+                mb: { xs: 2, md: 4 },
+                borderRadius: 3,
+                bgcolor: isDark
+                  ? alpha(theme.palette.background.paper, 0.4)
+                  : alpha(theme.palette.background.paper, 0.6),
+                border: '1px solid',
+                borderColor: isDark ? alpha(theme.palette.divider, 0.1) : 'divider',
+                backdropFilter: 'blur(8px)',
+                display: 'flex',
+                gap: 1,
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
+              <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                Active Filters:
+              </Typography>
+              {selectedType && (
+                <Chip
+                  label={`Category: ${
+                    selectedType === 'credit-cards'
+                      ? 'Credit Cards'
+                      : selectedType === 'banks'
+                        ? 'Bank Accounts'
+                        : 'Brokerage Accounts'
+                  }`}
+                  onDelete={() => updateFilters(null, viewParam)}
+                  sx={{
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    color: theme.palette.primary.main,
+                    borderRadius: 2,
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.15),
+                    },
+                    '& .MuiChip-deleteIcon': {
+                      color: theme.palette.primary.main,
+                    },
+                  }}
+                />
+              )}
+              {viewParam === 'featured' && (
+                <Chip
+                  label="Featured Only"
+                  onDelete={() => updateFilters(selectedType, null)}
+                  sx={{
+                    bgcolor: alpha(theme.palette.warning.main, 0.1),
+                    color: theme.palette.warning.main,
+                    borderRadius: 2,
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.warning.main, 0.15),
+                    },
+                    '& .MuiChip-deleteIcon': {
+                      color: theme.palette.warning.main,
+                    },
+                  }}
+                />
+              )}
+              {(selectedType || viewParam) && (
+                <Chip
+                  label="Clear All"
+                  onDelete={() => updateFilters(null, null)}
+                  sx={{
+                    bgcolor: alpha(theme.palette.error.main, 0.1),
+                    color: theme.palette.error.main,
+                    borderRadius: 2,
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.error.main, 0.15),
+                    },
+                    '& .MuiChip-deleteIcon': {
+                      color: theme.palette.error.main,
+                    },
+                  }}
+                />
+              )}
+            </Paper>
+          )}
+
           {/* Opportunities List/Grid */}
           {filteredOpportunities.length === 0 && !isLoading ? (
             <Box
@@ -722,6 +828,7 @@ function OpportunitiesSectionContent({
               <OpportunityGrid
                 opportunities={filteredOpportunities}
                 onDeleteClick={handleDeleteClick}
+                onFeatureClick={handleFeatureClick}
                 isDeleting={isDeleting}
               />
               {/* Load More Trigger */}
@@ -783,6 +890,7 @@ function OpportunitiesSectionContent({
               <OpportunityList
                 opportunities={filteredOpportunities}
                 onDeleteClick={handleDeleteClick}
+                onFeatureClick={handleFeatureClick}
                 isDeleting={isDeleting}
               />
               {/* Load More Trigger */}

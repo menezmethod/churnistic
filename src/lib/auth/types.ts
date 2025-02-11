@@ -23,6 +23,7 @@ export enum Permission {
   TRACK_OPPORTUNITIES = 'TRACK_OPPORTUNITIES',
   APPROVE_OPPORTUNITIES = 'APPROVE_OPPORTUNITIES',
   DELETE_OPPORTUNITIES = 'DELETE_OPPORTUNITIES',
+  FEATURE_OPPORTUNITIES = 'FEATURE_OPPORTUNITIES',
   MANAGE_OPPORTUNITIES = 'MANAGE_OPPORTUNITIES',
 
   // User management
@@ -60,6 +61,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VIEW_BASIC_ANALYTICS,
     Permission.VIEW_ADVANCED_ANALYTICS,
     Permission.MANAGE_AI,
+    Permission.FEATURE_OPPORTUNITIES,
   ],
   [UserRole.ADMIN]: [
     Permission.MANAGE_USERS,
@@ -67,6 +69,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VIEW_BASIC_ANALYTICS,
     Permission.VIEW_ADVANCED_ANALYTICS,
     Permission.MANAGE_AI,
+    Permission.FEATURE_OPPORTUNITIES,
   ],
   [UserRole.CONTRIBUTOR]: [Permission.MANAGE_OPPORTUNITIES, Permission.MANAGE_AI],
   [UserRole.USER]: [Permission.SUBMIT_OPPORTUNITIES, Permission.TRACK_OPPORTUNITIES],
