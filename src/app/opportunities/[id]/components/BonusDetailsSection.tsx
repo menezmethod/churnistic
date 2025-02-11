@@ -153,7 +153,7 @@ export default function BonusDetailsSection({ bonus }: BonusDetailsSectionProps)
                   </Typography>
                   {tier.deposit && (
                     <Typography variant="body2" color="text.secondary">
-                      Deposit: ${tier.deposit}
+                      Deposit: {tier.deposit}
                     </Typography>
                   )}
                 </Box>

@@ -72,6 +72,7 @@ export interface FirestoreOpportunity {
     updated_at: string;
     created_by: string;
     status: 'active' | 'inactive';
+    featured?: boolean;
     timing?: {
       bonus_posting_time?: string;
     };
@@ -294,6 +295,7 @@ export interface Opportunity {
     updated_at: string;
     created_by: string;
     status: 'active' | 'inactive';
+    featured?: boolean;
     timing?: {
       bonus_posting_time?: string;
     };

@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || 'approved';
     const type = searchParams.get('type');
+    const featured = searchParams.get('featured') === 'true';
+    const view = searchParams.get('view');
     const minValue = searchParams.get('minValue')
       ? parseInt(searchParams.get('minValue')!, 10)
       : undefined;
@@ -58,6 +60,8 @@ export async function GET(request: NextRequest) {
       search,
       status,
       type,
+      featured,
+      view,
       minValue,
       maxValue,
     });
@@ -83,10 +87,47 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Apply type filter if present
     if (type) {
       queryRef = queryRef.where('type', '==', type);
     }
 
+    // Apply featured filter if present
+    if (featured || view === 'featured') {
+      queryRef = queryRef.where('metadata.featured', '==', true);
+    }
+
+    // Apply new offers filter
+    if (view === 'new') {
+      // Get a timestamp for 7 days ago
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      // Get a timestamp for 3 days ago
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+      // First get all opportunities to check for bulk import date
+      const allOpps = await collectionRef
+        .orderBy('metadata.created_at', 'desc')
+        .limit(1)
+        .get();
+      const mostRecentOpp = allOpps.docs[0]?.data();
+      const bulkImportDate = mostRecentOpp?.metadata?.created_at;
+
+      // If we found a bulk import date, exclude it from the new offers
+      if (bulkImportDate) {
+        queryRef = queryRef.where('metadata.created_at', '!=', bulkImportDate);
+      }
+
+      // Then filter for either:
+      // - Created in the last 7 days OR
+      // - Updated in the last 3 days
+      queryRef = queryRef.where('metadata.created_at', '>=', sevenDaysAgo.toISOString());
+      // Note: We'll handle the OR condition for updated_at in memory since Firestore doesn't support OR queries directly
+    }
+
+    // Apply value range filters
     if (minValue !== undefined) {
       queryRef = queryRef.where('value', '>=', minValue);
     }
@@ -177,6 +218,39 @@ export async function GET(request: NextRequest) {
       ...doc.data(),
     })) as Opportunity[];
 
+    // Post-process new offers if needed
+    if (view === 'new') {
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      const threeDaysAgoStr = threeDaysAgo.toISOString();
+
+      // Include opportunities that were updated recently
+      const recentlyUpdated = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Opportunity[];
+
+      const updatedOpportunities = recentlyUpdated.filter(
+        (opp) =>
+          opp.metadata?.updated_at &&
+          opp.metadata.created_at &&
+          opp.metadata.updated_at >= threeDaysAgoStr &&
+          opp.metadata.updated_at !== opp.metadata.created_at
+      );
+
+      opportunities.push(...updatedOpportunities);
+
+      // Remove duplicates
+      const uniqueOpps = new Map<string, Opportunity>();
+      opportunities.forEach((opp) => {
+        if (opp.id && !uniqueOpps.has(opp.id)) {
+          uniqueOpps.set(opp.id, opp);
+        }
+      });
+      opportunities.length = 0;
+      opportunities.push(...Array.from(uniqueOpps.values()));
+    }
+
     // Apply in-memory sorting if needed
     if (sortBy) {
       opportunities.sort((a, b) => {
@@ -186,16 +260,21 @@ export async function GET(request: NextRequest) {
             comparison = (a.value || 0) - (b.value || 0);
             break;
           case 'name':
-            comparison = a.name.localeCompare(b.name);
+            comparison = (a.name || '').localeCompare(b.name || '');
             break;
           case 'type':
-            comparison = a.type.localeCompare(b.type);
+            comparison = (a.type || '').localeCompare(b.type || '');
             break;
-          case 'date':
-            comparison =
-              new Date(a.metadata?.created_at || '').getTime() -
-              new Date(b.metadata?.created_at || '').getTime();
+          case 'date': {
+            const aDate = a.metadata?.created_at
+              ? new Date(a.metadata.created_at)
+              : new Date(0);
+            const bDate = b.metadata?.created_at
+              ? new Date(b.metadata.created_at)
+              : new Date(0);
+            comparison = aDate.getTime() - bDate.getTime();
             break;
+          }
         }
         return sortDirection === 'desc' ? -comparison : comparison;
       });

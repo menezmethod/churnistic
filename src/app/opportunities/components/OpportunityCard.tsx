@@ -14,6 +14,8 @@ import {
   Payments as PaymentsIcon,
   Public as PublicIcon,
   ArrowForward as ArrowForwardIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -35,6 +37,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { Permission } from '@/lib/auth/types';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 import { LogoImage } from './LogoImage';
@@ -44,6 +47,7 @@ interface OpportunityCardProps {
   opportunity: FirestoreOpportunity;
   isDeleting: boolean;
   onDeleteClick: (opportunity: FirestoreOpportunity) => void;
+  onFeatureClick?: (opportunity: FirestoreOpportunity) => Promise<void>;
   viewMode?: 'grid' | 'list';
   index?: number;
   sx?: SxProps<Theme>;
@@ -53,15 +57,19 @@ export default function OpportunityCard({
   opportunity,
   isDeleting,
   onDeleteClick,
+  onFeatureClick,
   index = 0,
   sx,
 }: OpportunityCardProps) {
   const theme = useTheme();
+  const { user, hasPermission } = useAuth();
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFeatureLoading, setIsFeatureLoading] = useState(false);
   const isDark = theme.palette.mode === 'dark';
+  const canModify = hasPermission(Permission.FEATURE_OPPORTUNITIES);
+  const isFeatured = opportunity.metadata?.featured;
   const colors = getTypeColors(opportunity.type, theme);
   const router = useRouter();
-  const { user } = useAuth();
-  const [isHovered, setIsHovered] = useState(false);
 
   const handleDeleteClick = () => {
     if (!user) {
@@ -69,6 +77,20 @@ export default function OpportunityCard({
       return;
     }
     onDeleteClick(opportunity);
+  };
+
+  const handleFeatureClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!canModify || !onFeatureClick) return;
+
+    setIsFeatureLoading(true);
+    try {
+      await onFeatureClick(opportunity);
+    } catch (error) {
+      console.error('Failed to toggle feature status:', error);
+    } finally {
+      setIsFeatureLoading(false);
+    }
   };
 
   const displayValue = (value: string | number) => {
@@ -354,23 +376,64 @@ export default function OpportunityCard({
             }}
           />
         </Box>
-        <Tooltip title="Delete opportunity">
-          <IconButton
-            className="delete-button"
-            onClick={handleDeleteClick}
-            disabled={isDeleting}
+        {canModify && (
+          <Box
             sx={{
-              opacity: 0,
+              display: 'flex',
+              gap: 0.5,
+              opacity: isHovered ? 1 : isFeatured ? 1 : 0,
               transition: 'opacity 0.2s ease-in-out',
-              color: theme.palette.error.main,
-              '&:hover': {
-                bgcolor: alpha(theme.palette.error.main, 0.1),
-              },
             }}
           >
-            {isDeleting ? <CircularProgress size={20} color="error" /> : <DeleteIcon />}
-          </IconButton>
-        </Tooltip>
+            <Tooltip title={`${isFeatured ? 'Unfeature' : 'Feature'} opportunity`}>
+              <IconButton
+                onClick={handleFeatureClick}
+                disabled={isFeatureLoading}
+                sx={{
+                  color: isFeatured ? 'warning.main' : 'text.secondary',
+                  '&:hover': {
+                    bgcolor: alpha(
+                      isFeatured
+                        ? theme.palette.warning.main
+                        : theme.palette.primary.main,
+                      0.1
+                    ),
+                  },
+                }}
+              >
+                {isFeatureLoading ? (
+                  <CircularProgress
+                    size={20}
+                    color={isFeatured ? 'warning' : 'primary'}
+                  />
+                ) : isFeatured ? (
+                  <StarIcon />
+                ) : (
+                  <StarBorderIcon />
+                )}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete opportunity">
+              <IconButton
+                onClick={handleDeleteClick}
+                disabled={isDeleting}
+                sx={{
+                  transition: 'opacity 0.2s ease-in-out',
+                  color: theme.palette.error.main,
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.error.main, 0.1),
+                  },
+                }}
+              >
+                {isDeleting ? (
+                  <CircularProgress size={20} color="error" />
+                ) : (
+                  <DeleteIcon />
+                )}
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
       </Box>
 
       {/* Content */}

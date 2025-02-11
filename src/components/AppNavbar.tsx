@@ -53,8 +53,16 @@ import {
   Paper,
 } from '@mui/material';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
-import { useState, type JSX, useEffect, ReactElement, Fragment, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  useState,
+  type JSX,
+  useEffect,
+  ReactElement,
+  Fragment,
+  Suspense,
+  useMemo,
+} from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
@@ -140,8 +148,7 @@ const offersMenuItems: MenuItemType[] = [
     path: '/opportunities?view=new',
     requiresAuth: false,
     hideWhenAuth: false,
-    description: 'Recently added opportunities',
-    badge: 3,
+    description: 'Recently added and updated opportunities',
   },
   {
     section: 'Financial Products',
@@ -165,7 +172,7 @@ const offersMenuItems: MenuItemType[] = [
       {
         text: 'Investment Accounts',
         icon: <ShowChart />,
-        path: '/opportunities?category=brokerages',
+        path: '/opportunities?category=brokerage',
         requiresAuth: false,
         hideWhenAuth: false,
         description: 'Brokerage and investment bonuses',
@@ -256,6 +263,22 @@ const accountMenuItems: MenuItemType[] = [
   },
 ];
 
+const useSelectedCategory = () => {
+  const searchParams = useSearchParams();
+
+  return useMemo(() => {
+    const category = searchParams.get('category');
+    const view = searchParams.get('view');
+    const filter = searchParams.get('filter');
+
+    if (view === 'featured') return '/opportunities?view=featured';
+    if (view === 'new') return '/opportunities?view=new';
+    if (category) return `/opportunities?category=${category}`;
+    if (filter) return `/opportunities?filter=${filter}`;
+    return '/opportunities';
+  }, [searchParams]);
+};
+
 export default function AppNavbar() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
@@ -267,7 +290,6 @@ export default function AppNavbar() {
 function AppNavbarContent() {
   const { user, signOut, hasRole, isSuperAdmin } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -275,6 +297,7 @@ function AppNavbarContent() {
     null
   );
   const [offersAnchorEl, setOffersAnchorEl] = useState<null | HTMLElement>(null);
+  const selectedPath = useSelectedCategory();
 
   const isAdmin = hasRole(UserRole.ADMIN);
   const isUserSuperAdmin = isSuperAdmin();
@@ -571,7 +594,7 @@ function AppNavbarContent() {
         <ListItemButton
           component={Link}
           href={item.path}
-          selected={pathname === item.path}
+          selected={selectedPath === item.path}
           onClick={() => setDrawerOpen(false)}
           sx={{
             borderRadius: 1,
@@ -664,7 +687,7 @@ function AppNavbarContent() {
                   component={Link}
                   href={subItem.path}
                   onClick={handleOffersClose}
-                  selected={pathname === subItem.path}
+                  selected={selectedPath === subItem.path}
                   sx={{
                     px: 2,
                     py: 1.5,
@@ -674,6 +697,12 @@ function AppNavbarContent() {
                     '&:last-child': { mb: 0 },
                     '&:hover': {
                       bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    },
+                    '&.Mui-selected': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.12),
+                      '&:hover': {
+                        bgcolor: alpha(theme.palette.primary.main, 0.16),
+                      },
                     },
                   }}
                 >
@@ -706,7 +735,7 @@ function AppNavbarContent() {
             component={Link}
             href={item.path}
             onClick={handleOffersClose}
-            selected={pathname === item.path}
+            selected={selectedPath === item.path}
             sx={{
               px: 2,
               py: 1.5,
@@ -715,6 +744,12 @@ function AppNavbarContent() {
               mb: 0.5,
               '&:hover': {
                 bgcolor: alpha(theme.palette.primary.main, 0.08),
+              },
+              '&.Mui-selected': {
+                bgcolor: alpha(theme.palette.primary.main, 0.12),
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.16),
+                },
               },
             }}
           >
