@@ -185,6 +185,35 @@ export default function OpportunityDetailsPage() {
     }
   };
 
+  const handleFieldUpdate = async (field: string, value: string | number) => {
+    if (!opportunity?.id || !opportunity.metadata) return;
+
+    setIsEditing(true);
+    try {
+      await updateOpportunity({
+        id: opportunity.id,
+        data: {
+          [field]: value,
+          metadata: {
+            ...opportunity.metadata,
+            updated_at: new Date().toISOString(),
+          },
+        },
+      });
+
+      // Invalidate queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity.id] }),
+        queryClient.invalidateQueries({ queryKey: ['opportunities'] }),
+      ]);
+    } catch (error) {
+      console.error('Failed to update field:', error);
+      showErrorToast('Failed to update field');
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Container maxWidth="xl" sx={{ py: 8 }}>
@@ -245,10 +274,15 @@ export default function OpportunityDetailsPage() {
         {/* Left Column - Main Content */}
         <Grid item xs={12} lg={8}>
           <Box>
-            <BonusDetailsSection bonus={opportunity.bonus} />
+            <BonusDetailsSection 
+              bonus={opportunity.bonus}
+              canEdit={canModify}
+              onUpdate={handleFieldUpdate}
+            />
             <AccountDetailsSection
               details={opportunity.details}
-              type={opportunity.type}
+              canEdit={canModify}
+              onUpdate={handleFieldUpdate}
             />
             <AvailabilitySection availability={opportunity.details?.availability} />
           </Box>

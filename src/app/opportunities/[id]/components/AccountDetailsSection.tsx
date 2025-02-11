@@ -7,7 +7,8 @@ import { FirestoreOpportunity } from '@/types/opportunity';
 
 interface AccountDetailsSectionProps {
   details?: FirestoreOpportunity['details'];
-  type: FirestoreOpportunity['type'];
+  canEdit?: boolean;
+  onUpdate?: (field: string, value: string | number) => Promise<void>;
 }
 
 interface DetailItem {
@@ -33,11 +34,14 @@ const formatForeignTransactionFees = (
   return fees.waived ? 'None' : fees.percentage;
 };
 
-export default function AccountDetailsSection({ details }: AccountDetailsSectionProps) {
+export default function AccountDetailsSection({
+  details,
+}: AccountDetailsSectionProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
   if (!details) return null;
+
 
   const detailItems = [
     {
