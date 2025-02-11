@@ -4,7 +4,7 @@ import { ArrowBack } from '@mui/icons-material';
 import { Box, Button, Container, Grid, Link } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { useTheme } from '@mui/material/styles';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { doc, getFirestore, updateDoc } from 'firebase/firestore';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useState } from 'react';
@@ -26,12 +26,22 @@ import { LoadingState } from './components/LoadingState';
 import { QuickActionsSection } from './components/QuickActionsSection';
 import OpportunityDeleteDialog from '../components/OpportunityDeleteDialog';
 
+const toggleFeatureStatus = async (params: { id: string; featured: boolean }) => {
+  const db = getFirestore();
+  const docRef = doc(db, 'opportunities', params.id);
+
+  await updateDoc(docRef, {
+    'metadata.featured': params.featured,
+    'metadata.updated_at': new Date().toISOString(),
+  });
+};
+
 export default function OpportunityDetailsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
-  const { data: opportunity, isLoading, error, refetch } = useOpportunity(params.id);
+  const { data: opportunity, isLoading, error } = useOpportunity(params.id);
   const { deleteOpportunity, updateOpportunity } = useOpportunities();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -39,7 +49,6 @@ export default function OpportunityDetailsPage() {
   const [editData, setEditData] = useState<Partial<FirestoreOpportunity>>({});
   const [originalData, setOriginalData] = useState<FirestoreOpportunity | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [isFeatureLoading, setIsFeatureLoading] = useState(false);
   const theme = useTheme();
 
   // Check if user can edit/delete this opportunity
@@ -51,6 +60,13 @@ export default function OpportunityDetailsPage() {
     creatorEmail: opportunity?.metadata?.created_by,
     adminEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL,
     canModify,
+  });
+
+  // Debug logging for opportunity data
+  console.log('Opportunity Data:', {
+    id: opportunity?.id,
+    metadata: opportunity?.metadata,
+    isFeatured: opportunity?.metadata?.featured,
   });
 
   const handleDeleteClick = () => {
@@ -137,6 +153,15 @@ export default function OpportunityDetailsPage() {
     }
   };
 
+  const featureMutation = useMutation({
+    mutationFn: toggleFeatureStatus,
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['opportunity', params.id] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+    },
+  });
+
   const handleFeatureClick = async () => {
     if (!user) {
       router.push('/auth/signin?redirect=/opportunities');
@@ -149,24 +174,14 @@ export default function OpportunityDetailsPage() {
       return showErrorToast('Opportunity not found');
     }
 
-    setIsFeatureLoading(true);
     try {
-      const db = getFirestore();
-      const docRef = doc(db, 'opportunities', params.id as string);
-      await updateDoc(docRef, {
-        'metadata.featured': !opportunity.metadata?.featured,
+      await featureMutation.mutateAsync({
+        id: params.id as string,
+        featured: !opportunity.metadata?.featured,
       });
-
-      // Refetch to update the UI and invalidate opportunities list
-      await Promise.all([
-        refetch(),
-        queryClient.invalidateQueries({ queryKey: ['opportunities'] }),
-      ]);
     } catch (error) {
       console.error('Failed to toggle feature status:', error);
       showErrorToast('Failed to update feature status');
-    } finally {
-      setIsFeatureLoading(false);
     }
   };
 
@@ -248,7 +263,7 @@ export default function OpportunityDetailsPage() {
               onEditClick={handleEditClick}
               onDeleteClick={handleDeleteClick}
               onFeatureClick={handleFeatureClick}
-              isFeatureLoading={isFeatureLoading}
+              isFeatureLoading={featureMutation.isPending}
             />
           </Box>
         </Grid>

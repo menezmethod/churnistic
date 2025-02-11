@@ -32,6 +32,7 @@ export async function GET(
         updated_at: data?.metadata?.updated_at || new Date().toISOString(),
         created_by: data?.metadata?.created_by || '',
         status: data?.metadata?.status || 'active',
+        featured: Boolean(data?.metadata?.featured),
       },
     });
   } catch (error) {

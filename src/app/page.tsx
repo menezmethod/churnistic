@@ -10,6 +10,7 @@ import {
   Stack,
   Typography,
   useTheme,
+  CircularProgress,
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
@@ -18,9 +19,8 @@ import { useInView } from 'react-intersection-observer';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useSplashStats } from '@/lib/hooks/useSplashStats';
-import { Opportunity } from '@/types/opportunity';
+import { FirestoreOpportunity } from '@/types/opportunity';
 
-// TODO: Re-implement bank logos and public opportunities after API is ready
 import { FAQ } from './components/FAQ';
 import { FeaturedOpportunities } from './components/FeaturedOpportunities';
 
@@ -34,102 +34,6 @@ const circles = Array.from({ length: 10 }, (_, i) => ({
   left: `${(i * 10) % 100}%`,
   top: `${(i * 10 + 5) % 100}%`,
 }));
-
-// Add this mock data above the HomePage component
-// TODO: Replace with real data from API
-const MOCK_OPPORTUNITIES: Array<Opportunity> = [
-  {
-    id: '1',
-    name: 'Chase Sapphire Preferred',
-    description: 'Earn 60,000 bonus points after spending $4,000 in first 3 months',
-    bank: 'Chase',
-    value: 750,
-    type: 'credit_card' as const,
-    status: 'approved' as const,
-    isStaged: false,
-    offer_link: 'https://www.chase.com/sapphire',
-    source_id: 'chase-sapphire-1',
-    logo: {
-      url: '/images/cards/chase-sapphire.png',
-      type: 'url',
-    },
-    metadata: {
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by: 'system',
-      status: 'active',
-    },
-    bonus: {
-      title: 'Welcome Bonus',
-      description: 'New cardmember bonus',
-      requirements: {
-        description:
-          'Spend $4,000 in first 3 months\nMust be new Chase Sapphire customer\nCredit score 700+ required',
-      },
-    },
-  },
-  {
-    id: '2',
-    name: 'American Express Gold',
-    description:
-      'Earn 60,000 Membership Rewards points after spending $4,000 in first 6 months',
-    bank: 'American Express',
-    value: 600,
-    type: 'credit_card' as const,
-    status: 'approved' as const,
-    isStaged: false,
-    offer_link: 'https://www.americanexpress.com/gold',
-    source_id: 'amex-gold-1',
-    logo: {
-      url: '/images/cards/amex-gold.png',
-      type: 'url',
-    },
-    metadata: {
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by: 'system',
-      status: 'active',
-    },
-    bonus: {
-      title: 'Welcome Bonus',
-      description: 'New cardmember bonus',
-      requirements: {
-        description:
-          'Spend $4,000 in first 6 months\nMust be new Amex Gold customer\nCredit score 700+ required',
-      },
-    },
-  },
-  {
-    id: '3',
-    name: 'Capital One Venture X',
-    description: 'Earn 75,000 miles after spending $4,000 in first 3 months',
-    bank: 'Capital One',
-    value: 750,
-    type: 'credit_card' as const,
-    status: 'approved' as const,
-    isStaged: false,
-    offer_link: 'https://www.capitalone.com/venture-x',
-    source_id: 'capital-one-venture-x-1',
-    logo: {
-      url: '/images/cards/capital-one-venture.png',
-      type: 'url',
-    },
-    metadata: {
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by: 'system',
-      status: 'active',
-    },
-    bonus: {
-      title: 'Welcome Bonus',
-      description: 'New cardmember bonus',
-      requirements: {
-        description:
-          'Spend $4,000 in first 3 months\nMust be new Capital One customer\nCredit score 740+ required',
-      },
-    },
-  },
-];
 
 function HeroSection({
   user,
@@ -430,29 +334,58 @@ function HeroSection({
 export default function HomePage() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { stats, error } = useSplashStats();
+  const { stats, error: statsError } = useSplashStats();
+  const [opportunities, setOpportunities] = useState<FirestoreOpportunity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchFeaturedOpportunities = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/opportunities/featured');
+        if (!response.ok) {
+          throw new Error('Failed to fetch featured opportunities');
+        }
+        const data = await response.json();
+        setOpportunities(data.items);
+      } catch (err) {
+        console.error('Error fetching featured opportunities:', err);
+        setError('Failed to load opportunities');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFeaturedOpportunities();
+  }, []);
 
   // Add error state
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (error) {
+    if (statsError) {
       setErrorMessage('Failed to load statistics. Please try again later.');
     }
-  }, [error]);
+  }, [statsError]);
 
   return (
     <Box component="main">
-      {errorMessage && (
+      {(errorMessage || error) && (
         <Box sx={{ p: 3, bgcolor: 'error.light', color: 'error.contrastText' }}>
-          <Typography>{errorMessage}</Typography>
+          <Typography>{errorMessage || error}</Typography>
         </Box>
       )}
 
       <HeroSection user={user} stats={stats || []} />
-      {/* Using mock data only for now */}
       <Box sx={{ py: 8 }}>
-        <FeaturedOpportunities opportunities={MOCK_OPPORTUNITIES} />
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <FeaturedOpportunities opportunities={opportunities} />
+        )}
       </Box>
       <Box
         component="section"

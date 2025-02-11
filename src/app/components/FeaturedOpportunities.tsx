@@ -21,10 +21,10 @@ import { useInView } from 'react-intersection-observer';
 import { LogoImage } from '@/app/opportunities/components/LogoImage';
 import { getTypeColors } from '@/app/opportunities/utils/colorUtils';
 import { formatCurrency } from '@/lib/utils/formatters';
-import { Opportunity } from '@/types/opportunity';
+import { FirestoreOpportunity } from '@/types/opportunity';
 
 interface FeaturedOpportunitiesProps {
-  opportunities: Opportunity[];
+  opportunities: FirestoreOpportunity[];
 }
 
 export function FeaturedOpportunities({ opportunities }: FeaturedOpportunitiesProps) {
@@ -33,6 +33,48 @@ export function FeaturedOpportunities({ opportunities }: FeaturedOpportunitiesPr
     threshold: 0.1,
     triggerOnce: true,
   });
+
+  // Debug logging for incoming opportunities
+  console.log('🔍 FeaturedOpportunities - Raw props:', opportunities);
+  console.log('🔍 FeaturedOpportunities - Data check:', {
+    isArray: Array.isArray(opportunities),
+    length: opportunities?.length,
+    firstItem: opportunities?.[0],
+    types: opportunities?.map((opp) => opp.type),
+    featured: opportunities?.filter((opp) => opp.metadata?.featured).length,
+  });
+
+  // Get one featured opportunity per category
+  const getFeaturedByCategory = () => {
+    const categories = ['credit_card', 'bank', 'brokerage'] as const;
+
+    const result = categories
+      .map((category) => {
+        const categoryOpportunities = opportunities.filter(
+          (opp) => opp.type === category
+        );
+        console.log(`🎯 Category ${category}:`, {
+          found: categoryOpportunities.length,
+          opportunities: categoryOpportunities.map((opp) => ({
+            id: opp.id,
+            name: opp.name,
+            type: opp.type,
+            featured: opp.metadata?.featured,
+          })),
+        });
+
+        if (categoryOpportunities.length === 0) return null;
+
+        // Get a random opportunity from the category
+        const randomIndex = Math.floor(Math.random() * categoryOpportunities.length);
+        return categoryOpportunities[randomIndex];
+      })
+      .filter(Boolean) as FirestoreOpportunity[];
+
+    return result;
+  };
+
+  const featuredOpportunities = getFeaturedByCategory();
 
   return (
     <Container maxWidth="lg" sx={{ mb: 8 }}>
@@ -49,28 +91,29 @@ export function FeaturedOpportunities({ opportunities }: FeaturedOpportunitiesPr
           sx={{
             mb: 3,
             fontWeight: 700,
-            background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+            background: `linear-gradient(45deg, ${theme.palette.warning.main}, ${theme.palette.warning.light})`,
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
+            textAlign: 'center',
           }}
         >
-          Featured Offers
+          Featured Opportunities
         </Typography>
 
         <Typography
           variant="subtitle1"
-          sx={{ mb: 4, color: 'text.secondary' }}
+          sx={{ mb: 6, color: 'text.secondary', textAlign: 'center' }}
           component={motion.p}
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.4 }}
         >
-          Discover our hand-picked selection of top-rated financial opportunities
+          Discover our top featured opportunities across different categories
         </Typography>
 
-        {opportunities.length > 0 ? (
+        {featuredOpportunities.length > 0 ? (
           <Grid container spacing={4}>
-            {opportunities.map((opportunity: Opportunity, index: number) => {
+            {featuredOpportunities.map((opportunity, index) => {
               const colors = getTypeColors(opportunity.type, theme);
               return (
                 <Grid
@@ -93,70 +136,50 @@ export function FeaturedOpportunities({ opportunities }: FeaturedOpportunitiesPr
                           ? alpha(theme.palette.background.paper, 0.6)
                           : 'background.paper',
                       border: '1px solid',
-                      borderColor:
-                        theme.palette.mode === 'dark'
-                          ? alpha(theme.palette.divider, 0.1)
-                          : 'divider',
+                      borderColor: alpha(colors.primary, 0.2),
                       position: 'relative',
                       transition: 'all 0.3s',
                       overflow: 'hidden',
                       backdropFilter: 'blur(8px)',
                       display: 'flex',
                       flexDirection: 'column',
+                      boxShadow: `0 8px 16px ${alpha(colors.primary, 0.15)}`,
                       '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: theme.shadows[4],
-                        '& .delete-button': {
-                          opacity: 1,
-                        },
+                        transform: 'translateY(-8px)',
+                        boxShadow: `0 12px 24px ${alpha(colors.primary, 0.25)}`,
+                        borderColor: alpha(colors.primary, 0.4),
                         '& .card-icon': {
                           transform: 'scale(1.1) rotate(5deg)',
                         },
-                        '&::before': {
-                          transform: 'translateX(0)',
-                        },
-                        '&::after': {
-                          opacity: 1,
+                        '& .card-gradient': {
+                          opacity: 0.2,
                         },
                       },
-                      '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: 4,
-                        height: '100%',
-                        background: `linear-gradient(to bottom, ${colors.primary}, ${colors.light})`,
-                        transform: 'translateX(-4px)',
-                        transition: 'transform 0.3s',
-                        pointerEvents: 'none',
-                        zIndex: 0,
-                      },
-                      '&::after': {
-                        content: '""',
+                    }}
+                  >
+                    {/* Background gradient */}
+                    <Box
+                      className="card-gradient"
+                      sx={{
                         position: 'absolute',
                         top: 0,
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        background: `radial-gradient(circle at top right, ${alpha(
-                          colors.primary,
-                          0.12
-                        )}, transparent 70%)`,
-                        opacity: 0,
+                        background: `radial-gradient(circle at top right, ${colors.primary}, transparent 70%)`,
+                        opacity: 0.1,
                         transition: 'opacity 0.3s',
-                        pointerEvents: 'none',
                         zIndex: 0,
-                      },
-                    }}
-                  >
+                      }}
+                    />
+
                     <Box sx={{ position: 'relative', mb: 2, zIndex: 1 }}>
                       <Box
                         className="card-icon"
                         sx={{
                           p: 2,
                           borderRadius: 2,
-                          bgcolor: colors.alpha,
+                          bgcolor: alpha(colors.primary, 0.1),
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -173,39 +196,72 @@ export function FeaturedOpportunities({ opportunities }: FeaturedOpportunitiesPr
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            background: `radial-gradient(circle at top right, ${alpha(
-                              colors.primary,
-                              0.12
-                            )}, transparent 70%)`,
-                            opacity: 0,
-                            transition: 'opacity 0.3s',
-                          },
-                          '&:hover::after': {
-                            opacity: 1,
+                            background: `linear-gradient(135deg, ${alpha(colors.primary, 0.1)}, transparent)`,
+                            opacity: 0.5,
                           },
                         }}
                       >
                         <LogoImage
-                          logo={opportunity.logo || { url: '', type: 'image/png' }}
+                          logo={opportunity.logo}
                           name={opportunity.name}
                           colors={colors}
                         />
                       </Box>
+
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          position: 'absolute',
+                          top: -10,
+                          right: -10,
+                          px: 1.5,
+                          py: 0.5,
+                          borderRadius: 1,
+                          bgcolor: alpha(colors.primary, 0.1),
+                          color: colors.primary,
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          fontSize: '0.75rem',
+                          letterSpacing: 0.5,
+                          backdropFilter: 'blur(4px)',
+                          border: '1px solid',
+                          borderColor: alpha(colors.primary, 0.2),
+                        }}
+                      >
+                        {opportunity.type.replace('_', ' ')}
+                      </Typography>
                     </Box>
 
                     <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
                       {opportunity.name}
                     </Typography>
 
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      {opportunity.type.replace('_', ' ').toUpperCase()}
-                    </Typography>
-
                     <Typography
                       variant="h5"
-                      sx={{ color: colors.primary, fontWeight: 600, mb: 2 }}
+                      sx={{
+                        color: theme.palette.success.main,
+                        fontWeight: 600,
+                        mb: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        background: `linear-gradient(45deg, ${theme.palette.success.main}, ${theme.palette.success.light})`,
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                      }}
                     >
                       {formatCurrency(opportunity.value)}
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 400,
+                          WebkitTextFillColor: theme.palette.text.secondary,
+                        }}
+                      >
+                        bonus value
+                      </Typography>
                     </Typography>
 
                     {opportunity.description && (
@@ -224,53 +280,46 @@ export function FeaturedOpportunities({ opportunities }: FeaturedOpportunitiesPr
                       </Typography>
                     )}
 
-                    <Box
-                      className="offer-details"
-                      sx={{
-                        opacity: 0.9,
-                        transition: 'opacity 0.3s ease-in-out',
-                      }}
-                    >
-                      <Typography
-                        variant="subtitle1"
-                        sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}
-                      >
-                        Requirements
-                      </Typography>
-                      <List dense disablePadding>
-                        {(
-                          opportunity.bonus?.requirements?.description?.split('\n') || []
-                        ).map((req: string, idx: number) => (
-                          <ListItem
-                            key={idx}
-                            sx={{
-                              px: 0,
-                              py: 0.5,
-                              '&:hover': {
-                                bgcolor: 'transparent',
-                              },
-                            }}
-                          >
-                            <ListItemIcon sx={{ minWidth: 32 }}>
-                              <CheckCircle
+                    {opportunity.bonus?.requirements?.[0]?.description && (
+                      <Box sx={{ mb: 2, flexGrow: 1 }}>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ mb: 1, fontWeight: 600, color: 'text.primary' }}
+                        >
+                          How to Qualify
+                        </Typography>
+                        <List dense disablePadding>
+                          {opportunity.bonus.requirements[0].description
+                            .split('\n')
+                            .map((req, idx) => (
+                              <ListItem
+                                key={idx}
                                 sx={{
-                                  color: colors.primary,
-                                  fontSize: '1.2rem',
+                                  px: 0,
+                                  py: 0.5,
                                 }}
-                              />
-                            </ListItemIcon>
-                            <ListItemText
-                              primary={req}
-                              primaryTypographyProps={{
-                                variant: 'body2',
-                                color: 'text.secondary',
-                                sx: { fontWeight: 500 },
-                              }}
-                            />
-                          </ListItem>
-                        ))}
-                      </List>
-                    </Box>
+                              >
+                                <ListItemIcon sx={{ minWidth: 32 }}>
+                                  <CheckCircle
+                                    sx={{
+                                      color: colors.primary,
+                                      fontSize: '1.2rem',
+                                    }}
+                                  />
+                                </ListItemIcon>
+                                <ListItemText
+                                  primary={req}
+                                  primaryTypographyProps={{
+                                    variant: 'body2',
+                                    color: 'text.secondary',
+                                    sx: { fontWeight: 500 },
+                                  }}
+                                />
+                              </ListItem>
+                            ))}
+                        </List>
+                      </Box>
+                    )}
 
                     <Box sx={{ mt: 'auto', display: 'flex', gap: 1 }}>
                       <Link
@@ -283,31 +332,14 @@ export function FeaturedOpportunities({ opportunities }: FeaturedOpportunitiesPr
                           sx={{
                             borderRadius: 1.5,
                             textTransform: 'none',
-                            fontWeight: 500,
-                            background: `linear-gradient(135deg, ${colors.primary}, ${colors.dark})`,
-                            boxShadow: `0 4px 8px ${alpha(colors.primary, 0.15)}`,
-                            transition: 'all 0.3s',
-                            overflow: 'hidden',
-                            position: 'relative',
-                            '&::before': {
-                              content: '""',
-                              position: 'absolute',
-                              top: 0,
-                              left: -100,
-                              width: '70px',
-                              height: '100%',
-                              background: 'rgba(255, 255, 255, 0.2)',
-                              transform: 'skewX(-15deg)',
-                              transition: 'all 0.6s',
-                              filter: 'blur(5px)',
-                            },
+                            fontWeight: 600,
+                            bgcolor: colors.primary,
+                            color: 'white',
+                            transition: 'all 0.2s',
                             '&:hover': {
-                              background: `linear-gradient(135deg, ${colors.dark}, ${colors.primary})`,
-                              transform: 'translateY(-1px)',
-                              boxShadow: `0 4px 8px ${alpha(colors.primary, 0.15)}`,
-                              '&::before': {
-                                left: '200%',
-                              },
+                              bgcolor: colors.dark,
+                              transform: 'translateY(-2px)',
+                              boxShadow: `0 4px 12px ${alpha(colors.primary, 0.4)}`,
                             },
                           }}
                         >
@@ -323,17 +355,19 @@ export function FeaturedOpportunities({ opportunities }: FeaturedOpportunitiesPr
                           sx={{
                             borderRadius: 1.5,
                             textTransform: 'none',
-                            fontWeight: 500,
+                            fontWeight: 600,
                             borderColor: alpha(colors.primary, 0.5),
                             color: colors.primary,
+                            transition: 'all 0.2s',
                             '&:hover': {
                               borderColor: colors.primary,
-                              bgcolor: alpha(colors.primary, 0.04),
-                              transform: 'translateY(-1px)',
+                              bgcolor: alpha(colors.primary, 0.08),
+                              transform: 'translateY(-2px)',
+                              boxShadow: `0 4px 12px ${alpha(colors.primary, 0.15)}`,
                             },
                           }}
                         >
-                          View Offer
+                          Apply Now
                         </Button>
                       )}
                     </Box>
@@ -348,9 +382,9 @@ export function FeaturedOpportunities({ opportunities }: FeaturedOpportunitiesPr
               p: 4,
               mt: 4,
               borderRadius: 2,
-              bgcolor: alpha(theme.palette.primary.main, 0.05),
+              bgcolor: alpha(theme.palette.warning.main, 0.05),
               border: '1px solid',
-              borderColor: alpha(theme.palette.primary.main, 0.1),
+              borderColor: alpha(theme.palette.warning.main, 0.1),
               textAlign: 'center',
             }}
           >
