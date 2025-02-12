@@ -9,6 +9,7 @@ import {
   useTheme,
   SxProps,
   Theme,
+  CircularProgress,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
@@ -27,6 +28,7 @@ export interface EditableFieldProps {
   sx?: SxProps<Theme>;
   editable?: boolean;
   hideIcon?: boolean;
+  isUpdating?: boolean;
 }
 
 export const EditableField = ({
@@ -37,6 +39,7 @@ export const EditableField = ({
   className,
   editable = true,
   hideIcon = false,
+  isUpdating = false,
 }: EditableFieldProps) => {
   const theme = useTheme();
   const [localValue, setLocalValue] = useState<string | number | boolean>(
@@ -200,6 +203,17 @@ export const EditableField = ({
     >
       {isEditing ? (
         <Box sx={{ position: 'relative' }}>
+          {isUpdating && (
+            <CircularProgress
+              size={20}
+              sx={{
+                position: 'absolute',
+                right: 40,
+                top: '50%',
+                transform: 'translateY(-50%)',
+              }}
+            />
+          )}
           {renderEditControl()}
           <Box
             sx={{

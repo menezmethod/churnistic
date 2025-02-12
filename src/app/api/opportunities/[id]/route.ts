@@ -168,86 +168,36 @@ export async function PUT(
     }
 
     // Update the opportunity
-    const updateData = {
-      ...body,
-      // Ensure card_image is properly handled for credit cards
-      card_image:
-        body.type === 'credit_card'
-          ? {
-              url: body.card_image?.url || '',
-              network: body.card_image?.network || 'Unknown',
-              color: body.card_image?.color || 'Unknown',
-              badge: body.card_image?.badge,
-            }
-          : undefined,
-      metadata: body.metadata
-        ? {
-            ...body.metadata,
-            updated_at: new Date().toISOString(),
-          }
-        : { updated_at: new Date().toISOString() },
-    };
+    const db = getAdminDb();
+    const firestoreUpdateData = Object.entries(body).reduce(
+      (acc, [key, value]) => {
+        if (key.startsWith('details.')) {
+          acc[key] = value;
+        } else {
+          acc[key] = value;
+        }
+        return acc;
+      },
+      {} as Record<string, unknown>
+    );
 
-    // Validate updateData is a non-empty object
-    if (
-      !updateData ||
-      typeof updateData !== 'object' ||
-      Array.isArray(updateData) ||
-      Object.keys(updateData).length === 0
-    ) {
-      return NextResponse.json(
-        { error: 'Invalid update data - must be a non-empty object' },
-        { status: 400 }
-      );
+    const updatedDoc = await db.collection('opportunities').doc(id);
+    await updatedDoc.update(firestoreUpdateData);
+
+    // Get the fresh data after update
+    const freshDoc = await updatedDoc.get();
+    if (!freshDoc.exists) {
+      return NextResponse.json({ error: 'Update failed' }, { status: 500 });
     }
 
-    try {
-      const db = getAdminDb();
-
-      // Convert undefined values to null for Firestore
-      const firestoreUpdateData = Object.fromEntries(
-        Object.entries(updateData).map(([key, value]) => [
-          key,
-          value === undefined ? null : value,
-        ])
-      );
-
-      await db.collection('opportunities').doc(id).update(firestoreUpdateData);
-      const updatedDoc = await db.collection('opportunities').doc(id).get();
-
-      if (!updatedDoc.exists) {
-        return NextResponse.json(
-          { error: 'Failed to retrieve updated opportunity' },
-          { status: 500 }
-        );
-      }
-
-      const updatedData = updatedDoc.data();
-      if (!updatedData) {
-        return NextResponse.json(
-          { error: 'Updated opportunity data is empty' },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        id: updatedDoc.id,
-        ...updatedData,
-        metadata: {
-          ...updatedData.metadata,
-          updated_at: new Date().toISOString(),
-        },
-      });
-    } catch (dbError) {
-      console.error('Database error:', dbError);
-      return NextResponse.json(
-        {
-          error: 'Database operation failed',
-          details: dbError instanceof Error ? dbError.message : String(dbError),
-        },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json({
+      id: freshDoc.id,
+      ...freshDoc.data(),
+      metadata: {
+        ...freshDoc.data()?.metadata,
+        updated_at: new Date().toISOString(),
+      },
+    });
   } catch (error) {
     console.error('Error updating opportunity:', error);
     return NextResponse.json(

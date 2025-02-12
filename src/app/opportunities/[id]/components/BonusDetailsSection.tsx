@@ -20,23 +20,19 @@ interface BonusDetailsSectionProps {
   isGlobalEditMode?: boolean;
   onUpdate?: (field: string, value: string | number | string[]) => void;
   canModify: boolean;
+  handleFieldUpdate: (field: string, value: string | number | string[]) => void;
 }
 
 export default function BonusDetailsSection({
   bonus,
   isGlobalEditMode,
-  onUpdate,
   canModify,
+  handleFieldUpdate,
 }: BonusDetailsSectionProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
   if (!bonus && !isGlobalEditMode) return null;
-
-  const handleFieldUpdate = (field: string, value: string | number | string[]) => {
-    if (!canModify) return;
-    onUpdate?.(`bonus.${field}`, value);
-  };
 
   return (
     <Paper
@@ -92,7 +88,7 @@ export default function BonusDetailsSection({
             Bonus Details
           </Typography>
 
-          {canModify && isGlobalEditMode ? (
+          {canModify || isGlobalEditMode ? (
             <EditableWrapper
               fieldName="bonus.description"
               value={bonus?.description || ''}
