@@ -1,14 +1,11 @@
 import { User } from 'firebase/auth';
 
 export enum UserRole {
-  USER = 'USER',
+  PAID_USER = 'PAID_USER',
   FREE_USER = 'FREE_USER',
   ADMIN = 'ADMIN',
-  MANAGER = 'MANAGER',
-  ANALYST = 'ANALYST',
-  AGENT = 'AGENT',
-  SUPER_ADMIN = 'super_admin',
-  CONTRIBUTOR = 'contributor',
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  CONTRIBUTOR = 'CONTRIBUTOR',
 }
 
 export enum Permission {
@@ -25,6 +22,8 @@ export enum Permission {
   DELETE_OPPORTUNITIES = 'DELETE_OPPORTUNITIES',
   FEATURE_OPPORTUNITIES = 'FEATURE_OPPORTUNITIES',
   MANAGE_OPPORTUNITIES = 'MANAGE_OPPORTUNITIES',
+  EDIT_OWN_OPPORTUNITIES = 'EDIT_OWN_OPPORTUNITIES',
+  EDIT_OTHER_OPPORTUNITIES = 'EDIT_OTHER_OPPORTUNITIES',
 
   // User management
   VIEW_USER_PROFILES = 'VIEW_USER_PROFILES',
@@ -53,6 +52,7 @@ export enum Permission {
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  [UserRole.PAID_USER]: [Permission.SUBMIT_OPPORTUNITIES, Permission.TRACK_OPPORTUNITIES],
   [UserRole.SUPER_ADMIN]: [
     Permission.MANAGE_ROLES,
     Permission.MANAGE_USERS,
@@ -71,20 +71,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MANAGE_AI,
     Permission.FEATURE_OPPORTUNITIES,
   ],
-  [UserRole.CONTRIBUTOR]: [Permission.MANAGE_OPPORTUNITIES, Permission.MANAGE_AI],
-  [UserRole.USER]: [Permission.SUBMIT_OPPORTUNITIES, Permission.TRACK_OPPORTUNITIES],
-  [UserRole.FREE_USER]: [Permission.VIEW_OWN_PROFILE],
-  [UserRole.MANAGER]: [
-    Permission.VIEW_USER_PROFILES,
-    Permission.APPROVE_OPPORTUNITIES,
-    Permission.VIEW_ADVANCED_ANALYTICS,
+  [UserRole.CONTRIBUTOR]: [
     Permission.MANAGE_OPPORTUNITIES,
+    Permission.MANAGE_AI,
+    Permission.EDIT_OTHER_OPPORTUNITIES,
   ],
-  [UserRole.ANALYST]: [
-    Permission.VIEW_BASIC_ANALYTICS,
-    Permission.VIEW_ADVANCED_ANALYTICS,
-  ],
-  [UserRole.AGENT]: [Permission.SUBMIT_OPPORTUNITIES],
+  [UserRole.FREE_USER]: [Permission.VIEW_OWN_PROFILE],
 };
 
 export interface AuthUser extends User {

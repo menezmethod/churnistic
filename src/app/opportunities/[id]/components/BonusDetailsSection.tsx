@@ -2,79 +2,40 @@ import { MonetizationOn, Assignment, Info } from '@mui/icons-material';
 import { Box, Typography, Paper, alpha, useTheme, Stack } from '@mui/material';
 import { motion } from 'framer-motion';
 
-import { FirestoreOpportunity } from '@/types/opportunity';
-
-import { EditableField } from '../components/EditableField';
-
-type Requirement = {
-  type: string;
-  details: {
-    amount: number;
-    period: number;
-    count?: number;
-  };
-  description: string;
-  title: string;
-};
+import { EditableWrapper } from './EditableWrapper';
 
 interface BonusDetailsSectionProps {
-    bonus?: FirestoreOpportunity['bonus'] & {
-    amount?: number;
-    type?: string;
-    expiration?: string;
-    terms?: string;
-    requirements?: Requirement[];
+  bonus?: {
+    title?: string;
+    description?: string;
+    requirements?: Array<{
+      description: string;
+    }>;
+    additional_info?: string | null;
+    tiers?: Array<{
+      reward: string;
+      deposit?: string;
+    }>;
   };
-  canEdit?: boolean;
-  onUpdate?: (field: string, value: string | number) => Promise<void>;
+  isGlobalEditMode?: boolean;
+  onUpdate?: (field: string, value: string | number | string[]) => void;
+  canModify: boolean;
 }
 
 export default function BonusDetailsSection({
   bonus,
-  canEdit = false,
+  isGlobalEditMode,
   onUpdate,
+  canModify,
 }: BonusDetailsSectionProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  if (!bonus) return null;
+  if (!bonus && !isGlobalEditMode) return null;
 
-  const handleUpdate = async (field: string, value: string | number) => {
-    if (onUpdate) {
-      await onUpdate(`bonus.${field}`, value);
-    }
-  };
-
-  const getBonusAmount = () => {
-    // Case 1: Direct value in bonus.value
-    if (bonus.value) {
-      return bonus.value.toString();
-    }
-    
-    // Case 2: Amount in requirements[0].details.amount
-    if (bonus.requirements?.[0]?.details?.amount) {
-      return bonus.requirements[0].details.amount.toString();
-    }
-
-    // Case 3: Amount in bonus.amount
-    if (bonus.amount) {
-      return bonus.amount.toString();
-    }
-
-    // Case 4: Parse amount from description if it contains a dollar value
-    if (bonus.description) {
-      const match = bonus.description.match(/\$(\d+)/);
-      if (match && match[1]) {
-        return match[1];
-      }
-    }
-
-    return '0';
-  };
-
-  const getRequirementsText = (requirements?: Requirement[]) => {
-    if (!requirements?.length) return '';
-    return requirements.map((req: Requirement) => `${req.title}: ${req.description}`).join('\n');
+  const handleFieldUpdate = (field: string, value: string | number | string[]) => {
+    if (!canModify) return;
+    onUpdate?.(`bonus.${field}`, value);
   };
 
   return (
@@ -111,7 +72,7 @@ export default function BonusDetailsSection({
       }}
     >
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, mb: 4 }}>
         <Box
           sx={{
             width: 56,
@@ -126,62 +87,79 @@ export default function BonusDetailsSection({
         >
           <MonetizationOn sx={{ fontSize: 32, color: 'white' }} />
         </Box>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-            {bonus.title || 'Bonus Details'}
+        <Box sx={{ width: '100%', minWidth: 0 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
+            Bonus Details
           </Typography>
-          {bonus.description && (
-            <Typography
-              variant="h6"
-              sx={{
-                color: theme.palette.success.main,
-                fontWeight: 600,
+
+          {canModify && isGlobalEditMode ? (
+            <EditableWrapper
+              fieldName="bonus.description"
+              value={bonus?.description || ''}
+              type="multiline"
+              isGlobalEditMode={isGlobalEditMode}
+              onUpdate={handleFieldUpdate}
+              customStyles={{
+                wrapper: {
+                  width: '100%',
+                },
               }}
             >
-              {bonus.description}
+              <Typography variant="body1" color="text.secondary">
+                {bonus?.description || '(Click to add description)'}
+              </Typography>
+            </EditableWrapper>
+          ) : (
+            <Typography variant="body1" color="text.secondary">
+              {bonus?.description}
             </Typography>
           )}
         </Box>
       </Box>
 
       {/* Requirements */}
-      {bonus.requirements && (
-        <Box
-          sx={{
-            p: 3,
-            borderRadius: 2,
-            bgcolor: alpha(theme.palette.background.default, 0.5),
-            border: '1px solid',
-            borderColor: alpha(theme.palette.divider, 0.1),
-            mb: 3,
-          }}
-        >
+      {(isGlobalEditMode || bonus?.requirements) && (
+        <Box>
           <Stack spacing={2}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Assignment sx={{ color: theme.palette.primary.main }} />
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                {bonus.requirements[0].title || 'Requirements'}
+                Requirements
               </Typography>
             </Box>
 
-            {bonus.requirements[0].description && (
-              <Typography
-                variant="body1"
-                color="text.secondary"
-                sx={{
-                  pl: 4,
-                  borderLeft: `2px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+            <Box
+              sx={{
+                pl: 4,
+                borderLeft: `2px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                width: '100%',
+                pr: 2,
+              }}
+            >
+              <EditableWrapper
+                fieldName="bonus.requirements[0].description"
+                value={bonus?.requirements?.[0]?.description || ''}
+                type="multiline"
+                isGlobalEditMode={isGlobalEditMode}
+                onUpdate={handleFieldUpdate}
+                customStyles={{
+                  wrapper: {
+                    width: '100%',
+                  },
                 }}
               >
-                {bonus.requirements[0].description}
-              </Typography>
-            )}
+                <Typography variant="body1" color="text.secondary">
+                  {bonus?.requirements?.[0]?.description ||
+                    (isGlobalEditMode ? '(Click to add requirements)' : '')}
+                </Typography>
+              </EditableWrapper>
+            </Box>
           </Stack>
         </Box>
       )}
 
       {/* Tiers */}
-      {bonus.tiers && bonus.tiers.length > 0 && (
+      {bonus?.tiers && bonus.tiers.length > 0 && (
         <Box
           sx={{
             p: 3,
@@ -227,7 +205,7 @@ export default function BonusDetailsSection({
       )}
 
       {/* Additional Information */}
-      {bonus.additional_info && (
+      {(isGlobalEditMode || bonus?.additional_info) && (
         <Box
           sx={{
             p: 3,
@@ -235,6 +213,7 @@ export default function BonusDetailsSection({
             bgcolor: alpha(theme.palette.info.main, 0.05),
             border: '1px solid',
             borderColor: alpha(theme.palette.info.main, 0.1),
+            mt: 3,
           }}
         >
           <Stack spacing={2}>
@@ -244,90 +223,26 @@ export default function BonusDetailsSection({
                 Additional Information
               </Typography>
             </Box>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                pl: 4,
-                borderLeft: `2px solid ${alpha(theme.palette.info.main, 0.2)}`,
+            <EditableWrapper
+              fieldName="bonus.additional_info"
+              value={bonus?.additional_info || ''}
+              type="multiline"
+              isGlobalEditMode={isGlobalEditMode}
+              onUpdate={handleFieldUpdate}
+              customStyles={{
+                wrapper: {
+                  width: '100%',
+                },
               }}
             >
-              {bonus.additional_info}
-            </Typography>
+              <Typography variant="body1" color="text.secondary">
+                {bonus?.additional_info ||
+                  (isGlobalEditMode ? '(Click to add additional information)' : '')}
+              </Typography>
+            </EditableWrapper>
           </Stack>
         </Box>
       )}
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 3 }}>
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Bonus Amount
-          </Typography>
-          <EditableField
-            value={getBonusAmount()}
-            onSave={async (value) => handleUpdate('amount', parseFloat(value))}
-            fieldName="Bonus Amount"
-            variant="h4"
-            canEdit={canEdit}
-          />
-        </Box>
-
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Bonus Type
-          </Typography>
-          <EditableField
-            value={bonus.type || ''}
-            onSave={async (value) => handleUpdate('type', value)}
-            fieldName="Bonus Type"
-            variant="body1"
-            canEdit={canEdit}
-          />
-        </Box>
-
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Requirements
-          </Typography>
-          <EditableField
-            value={getRequirementsText(bonus?.requirements)}
-            onSave={async (value) => handleUpdate('requirements', value)}
-            fieldName="Requirements"
-            variant="body1"
-            multiline
-            canEdit={canEdit}
-            aiEnabled
-          />
-        </Box>
-
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Expiration
-          </Typography>
-          <EditableField
-            value={bonus.expiration || ''}
-            onSave={async (value) => handleUpdate('expiration', value)}
-            fieldName="Expiration"
-            variant="body1"
-            canEdit={canEdit}
-          />
-        </Box>
-
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Terms & Conditions
-          </Typography>
-          <EditableField
-            value={bonus.terms || ''}
-            onSave={async (value) => handleUpdate('terms', value)}
-            fieldName="Terms"
-            variant="body1"
-            multiline
-            canEdit={canEdit}
-            aiEnabled
-          />
-        </Box>
-      </Box>
     </Paper>
   );
 }

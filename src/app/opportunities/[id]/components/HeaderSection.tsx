@@ -18,13 +18,21 @@ import { motion } from 'framer-motion';
 
 import { FirestoreOpportunity } from '@/types/opportunity';
 
+import { EditableWrapper } from './EditableWrapper';
 import { LogoImage } from '../../components/LogoImage';
 
 interface HeaderSectionProps {
   opportunity: FirestoreOpportunity;
+  isGlobalEditMode?: boolean;
+  onUpdate?: (field: string, value: string | number | string[]) => void;
+  canModify?: boolean;
 }
 
-export const HeaderSection = ({ opportunity }: HeaderSectionProps) => {
+export function HeaderSection({
+  opportunity,
+  isGlobalEditMode = false,
+  onUpdate,
+}: HeaderSectionProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
@@ -91,19 +99,41 @@ export const HeaderSection = ({ opportunity }: HeaderSectionProps) => {
               }}
             />
             <Box>
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: 700,
-                  mb: 1,
-                  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  letterSpacing: '0.02em',
+              <EditableWrapper
+                fieldName="name"
+                value={opportunity.name}
+                type="text"
+                isGlobalEditMode={isGlobalEditMode}
+                onUpdate={onUpdate}
+                customStyles={{
+                  wrapper: {
+                    width: '100%',
+                  },
+                  input: {
+                    fontSize: '2rem',
+                    fontWeight: 700,
+                    background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    letterSpacing: '0.02em',
+                    mb: 1,
+                  },
                 }}
               >
-                {opportunity.name}
-              </Typography>
+                <Typography
+                  variant="h4"
+                  sx={{
+                    fontWeight: 700,
+                    mb: 1,
+                    background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  {opportunity.name}
+                </Typography>
+              </EditableWrapper>
               <Box display="flex" gap={1} flexWrap="wrap">
                 <Chip
                   icon={
@@ -154,17 +184,18 @@ export const HeaderSection = ({ opportunity }: HeaderSectionProps) => {
               gap: 2,
             }}
           >
-            {opportunity.offer_link ? (
-              <Button
-                variant="contained"
-                size="large"
-                component={motion.a}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                href={opportunity.offer_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{
+            <EditableWrapper
+              fieldName="offer_link"
+              value={opportunity.offer_link || ''}
+              type="text"
+              isGlobalEditMode={isGlobalEditMode}
+              onUpdate={onUpdate}
+              placement="below"
+              customStyles={{
+                wrapper: {
+                  width: '100%',
+                },
+                input: {
                   borderRadius: 2,
                   textTransform: 'none',
                   fontWeight: 600,
@@ -172,59 +203,88 @@ export const HeaderSection = ({ opportunity }: HeaderSectionProps) => {
                   py: 1.5,
                   background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
                   boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.2)}`,
-                  transition: 'all 0.3s',
-                  overflow: 'hidden',
-                  position: 'relative',
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: -100,
-                    width: '70px',
-                    height: '100%',
-                    background: 'rgba(255, 255, 255, 0.3)',
-                    transform: 'skewX(-15deg)',
-                    transition: 'all 0.6s',
-                    filter: 'blur(5px)',
-                  },
+                  color: 'white',
                   '&:hover': {
                     transform: 'translateY(-2px)',
                     boxShadow: `0 12px 20px ${alpha(theme.palette.primary.main, 0.3)}`,
-                    '&::before': {
-                      left: '200%',
-                    },
                   },
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  View Offer
-                  <motion.div
-                    animate={{ x: [0, 5, 0] }}
-                    transition={{ duration: 1, repeat: Infinity, repeatDelay: 1 }}
-                  >
-                    →
-                  </motion.div>
-                </Box>
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                disabled
-                size="large"
-                sx={{
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: 4,
-                  py: 1.5,
-                }}
-              >
-                No Link Available
-              </Button>
-            )}
+                },
+              }}
+            >
+              {opportunity.offer_link ? (
+                <Button
+                  variant="contained"
+                  size="large"
+                  component={motion.a}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  href={opportunity.offer_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{
+                    width: '100%',
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    px: 4,
+                    py: 1.5,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                    boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.2)}`,
+                    transition: 'all 0.3s',
+                    overflow: 'hidden',
+                    position: 'relative',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: -100,
+                      width: '70px',
+                      height: '100%',
+                      background: 'rgba(255, 255, 255, 0.3)',
+                      transform: 'skewX(-15deg)',
+                      transition: 'all 0.6s',
+                      filter: 'blur(5px)',
+                    },
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: `0 12px 20px ${alpha(theme.palette.primary.main, 0.3)}`,
+                      '&::before': {
+                        left: '200%',
+                      },
+                    },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    View Offer
+                    <motion.div
+                      animate={{ x: [0, 5, 0] }}
+                      transition={{ duration: 1, repeat: Infinity, repeatDelay: 1 }}
+                    >
+                      →
+                    </motion.div>
+                  </Box>
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  disabled
+                  size="large"
+                  sx={{
+                    width: '100%',
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    px: 4,
+                    py: 1.5,
+                  }}
+                >
+                  No Link Available
+                </Button>
+              )}
+            </EditableWrapper>
           </Box>
         </Grid>
       </Grid>
     </Paper>
   );
-};
+}

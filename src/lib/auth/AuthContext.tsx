@@ -11,7 +11,7 @@ import {
   useEffect,
 } from 'react';
 
-import type { Permission, UserRole } from '@/lib/auth/types';
+import { Permission, UserRole } from '@/lib/auth/types';
 import { ROLE_PERMISSIONS } from '@/lib/auth/types';
 
 import { useUser, useLogin, useRegister, useLogout } from './authConfig';
@@ -26,6 +26,7 @@ import type { AuthUser } from './authService';
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
+  isAdmin: boolean;
   hasRole: (role: UserRole) => boolean;
   hasPermission: (permission: Permission) => boolean;
   isSuperAdmin: () => boolean;
@@ -41,6 +42,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
+  isAdmin: false,
   hasRole: () => false,
   hasPermission: () => false,
   isSuperAdmin: () => false,
@@ -128,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user: user ?? null,
       loading: isLoading,
+      isAdmin: hasRole(UserRole.ADMIN),
       hasRole,
       hasPermission,
       isSuperAdmin,

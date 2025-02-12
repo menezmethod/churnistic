@@ -1,189 +1,315 @@
+import { Check, Close, Edit as EditIcon } from '@mui/icons-material';
 import {
-  Edit as EditIcon,
-  Check as CheckIcon,
-  Close as CloseIcon,
-  AutoFixHigh as AIIcon,
-} from '@mui/icons-material';
-import { Box, IconButton, TextField, Typography, Tooltip } from '@mui/material';
-import { alpha, useTheme } from '@mui/material/styles';
-import React, { useState, useRef, useEffect } from 'react';
+  Box,
+  IconButton,
+  MenuItem,
+  Select,
+  TextField,
+  alpha,
+  useTheme,
+  SxProps,
+  Theme,
+} from '@mui/material';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
-interface EditableFieldProps {
-  value: string;
-  onSave: (newValue: string) => Promise<void>;
-  fieldName: string;
-  multiline?: boolean;
-  variant?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'body1' | 'body2';
-  canEdit?: boolean;
-  aiEnabled?: boolean;
-  onAIEnhance?: (value: string) => Promise<string>;
+export interface EditableFieldProps {
+  field: {
+    value: string | number | boolean | null;
+    isEditing: boolean;
+    type: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'multiline' | 'title';
+    options?: string[];
+  };
+  onEdit: (value: string | number | boolean) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  className?: string;
+  sx?: SxProps<Theme>;
+  editable?: boolean;
+  hideIcon?: boolean;
 }
 
-export const EditableField: React.FC<EditableFieldProps> = ({
-  value,
-  onSave,
-  fieldName,
-  multiline = false,
-  variant = 'body1',
-  canEdit = false,
-  aiEnabled = false,
-  onAIEnhance,
-}) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
-  const [isLoading, setIsLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+export const EditableField = ({
+  field,
+  onEdit,
+  onStartEdit,
+  onCancelEdit,
+  className,
+  editable = true,
+  hideIcon = false,
+}: EditableFieldProps) => {
   const theme = useTheme();
+  const [localValue, setLocalValue] = useState<string | number | boolean>(
+    field.value ?? ''
+  );
+  const [isHovered, setIsHovered] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isEditing]);
+    setLocalValue(field.value ?? '');
+  }, [field.value]);
 
-  const handleSave = async () => {
-    if (editValue === value) {
-      setIsEditing(false);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await onSave(editValue);
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Failed to save:', error);
-      setEditValue(value); // Reset to original value
-    } finally {
-      setIsLoading(false);
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const value = field.type === 'number' ? Number(e.target.value) : e.target.value;
+    setLocalValue(value);
   };
 
-  const handleAIEnhance = async () => {
-    if (!onAIEnhance) return;
+  const handleSelectChange = (e: { target: { value: string } }) => {
+    setLocalValue(e.target.value);
+  };
 
-    setIsLoading(true);
-    try {
-      const enhancedValue = await onAIEnhance(editValue);
-      setEditValue(enhancedValue);
-    } catch (error) {
-      console.error('AI enhancement failed:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSubmit = () => {
+    onEdit(localValue);
+    setIsEditing(false);
+  };
+
+  const handleStartEdit = () => {
+    if (!editable) return;
+    setIsEditing(true);
+    onStartEdit();
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setLocalValue(field.value ?? '');
+    onCancelEdit();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSave();
+      handleSubmit();
     } else if (e.key === 'Escape') {
-      setIsEditing(false);
-      setEditValue(value);
+      handleCancel();
     }
   };
 
-  if (isEditing) {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <TextField
-          fullWidth
-          multiline={multiline}
-          minRows={multiline ? 3 : 1}
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          inputRef={inputRef}
-          disabled={isLoading}
-          variant="outlined"
-          size="small"
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              backgroundColor: 'background.paper',
+  const renderEditControl = () => {
+    const commonProps = {
+      value: localValue,
+      onKeyDown: handleKeyDown,
+      autoFocus: true,
+      size: 'small' as const,
+      fullWidth: true,
+      sx: {
+        '& .MuiInputBase-root': {
+          bgcolor: alpha(theme.palette.background.paper, 0.6),
+          backdropFilter: 'blur(8px)',
+          pr: '76px',
+          fontSize: {
+            xs: field.type === 'title' ? 'clamp(2.5rem, 6vw, 3.5rem)' : '0.875rem',
+            sm: field.type === 'title' ? 'clamp(3rem, 7vw, 4.5rem)' : 'inherit',
+          },
+          fontWeight: field.type === 'title' ? 600 : 'inherit',
+          minWidth: 'unset',
+          width: '100%',
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: alpha(theme.palette.divider, 0.1),
+          transition: 'all 0.2s ease-in-out',
+          '&:hover, &:focus-within': {
+            borderColor: alpha(theme.palette.primary.main, 0.3),
+            bgcolor: alpha(theme.palette.background.paper, 0.8),
+          },
+          height: 'auto',
+          minHeight: '40px',
+          alignItems: 'flex-start',
+          py: field.type === 'title' ? 0.5 : 0,
+          lineHeight: field.type === 'title' ? 1.2 : 1.5,
+        },
+        '& .MuiInputBase-input': {
+          py: { xs: 1, sm: 0.5 },
+          px: 1.5,
+          minHeight: 'auto',
+          fontSize: 'inherit',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          display: '-webkit-box',
+          WebkitLineClamp: field.type === 'multiline' ? 'unset' : 1,
+          WebkitBoxOrient: 'vertical',
+        },
+        '& .MuiOutlinedInput-notchedOutline': {
+          border: 'none',
+        },
+      },
+    };
+
+    if (field.type === 'select' && field.options) {
+      return (
+        <Select
+          {...commonProps}
+          value={String(localValue)}
+          onChange={handleSelectChange}
+          MenuProps={{
+            PaperProps: {
+              sx: {
+                bgcolor: alpha(theme.palette.background.paper, 0.9),
+                backdropFilter: 'blur(8px)',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: alpha(theme.palette.divider, 0.1),
+                minWidth: 'unset !important',
+                width: 'calc(100% - 32px)',
+                maxWidth: '100%',
+                overflow: 'auto',
+              },
             },
           }}
-        />
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {aiEnabled && onAIEnhance && (
-            <Tooltip title="AI Enhance">
-              <IconButton
-                onClick={handleAIEnhance}
-                disabled={isLoading}
-                size="small"
-                sx={{
-                  color: theme.palette.primary.main,
-                  '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.1) },
-                }}
-              >
-                <AIIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Tooltip title="Save">
-            <IconButton
-              onClick={handleSave}
-              disabled={isLoading}
-              size="small"
-              sx={{
-                color: theme.palette.success.main,
-                '&:hover': { backgroundColor: alpha(theme.palette.success.main, 0.1) },
-              }}
-            >
-              <CheckIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Cancel">
-            <IconButton
-              onClick={() => {
-                setIsEditing(false);
-                setEditValue(value);
-              }}
-              disabled={isLoading}
-              size="small"
-              sx={{
-                color: theme.palette.error.main,
-                '&:hover': { backgroundColor: alpha(theme.palette.error.main, 0.1) },
-              }}
-            >
-              <CloseIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      </Box>
+        >
+          {field.options.map((option: string) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+        </Select>
+      );
+    }
+
+    return (
+      <TextField
+        {...commonProps}
+        type={field.type}
+        multiline={field.type === 'multiline'}
+        minRows={field.type === 'multiline' ? 3 : 1}
+        onChange={handleChange}
+        placeholder={field.type === 'multiline' ? 'Enter text here...' : ''}
+      />
     );
-  }
+  };
 
   return (
     <Box
+      component={motion.div}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1,
-        '&:hover .edit-button': {
-          opacity: 1,
+        position: 'relative',
+        display: 'block',
+        width: '100%',
+        fontSize: field.type === 'title' ? '1.5rem' : 'inherit',
+        fontWeight: field.type === 'title' ? 600 : 'inherit',
+        minHeight: 'auto',
+        '&:hover': {
+          '& .edit-button': {
+            opacity: hideIcon ? 0 : 1,
+            visibility: hideIcon ? 'hidden' : 'visible',
+          },
         },
       }}
+      className={className}
     >
-      <Typography variant={variant}>{value}</Typography>
-      {canEdit && (
-        <Tooltip title={`Edit ${fieldName}`}>
-          <IconButton
-            onClick={() => setIsEditing(true)}
-            size="small"
-            className="edit-button"
+      {isEditing ? (
+        <Box sx={{ position: 'relative' }}>
+          {renderEditControl()}
+          <Box
             sx={{
-              opacity: 0,
-              transition: 'opacity 0.2s',
-              color: theme.palette.text.secondary,
-              '&:hover': {
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                color: theme.palette.primary.main,
-              },
+              position: 'absolute',
+              right: 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              display: 'flex',
+              gap: 0.5,
+              zIndex: 2,
+              backdropFilter: 'blur(8px)',
+              bgcolor: alpha(theme.palette.background.paper, 0.8),
+              p: 0.5,
+              borderRadius: 1,
+              boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.1)}`,
             }}
           >
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+            <IconButton
+              size="small"
+              onClick={handleSubmit}
+              sx={{
+                color: 'success.main',
+                bgcolor: alpha(theme.palette.success.main, 0.1),
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.success.main, 0.2),
+                  transform: 'scale(1.05)',
+                },
+                transition: 'all 0.2s ease-in-out',
+              }}
+            >
+              <Check fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={handleCancel}
+              sx={{
+                color: 'error.main',
+                bgcolor: alpha(theme.palette.error.main, 0.1),
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.error.main, 0.2),
+                  transform: 'scale(1.05)',
+                },
+                transition: 'all 0.2s ease-in-out',
+              }}
+            >
+              <Close fontSize="small" />
+            </IconButton>
+          </Box>
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            cursor: editable ? 'pointer' : 'text',
+            display: 'flex',
+            alignItems: 'center',
+            position: 'relative',
+            pr: hideIcon ? 2 : { xs: '28px', sm: '36px' },
+            py: field.type === 'title' ? { xs: 1, sm: 1.5 } : 1,
+            px: { xs: 1.5, sm: 2 },
+            borderRadius: 2,
+            border: '1px solid transparent',
+            transition: 'all 0.2s ease-in-out',
+            minHeight: '40px',
+            lineHeight: field.type === 'title' ? 1.3 : 1.5,
+            wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap',
+            width: '100%',
+            maxWidth: '100%',
+            '&:hover': {
+              bgcolor: editable
+                ? alpha(theme.palette.background.paper, 0.6)
+                : 'transparent',
+              borderColor: editable ? alpha(theme.palette.divider, 0.1) : 'transparent',
+            },
+          }}
+          onClick={editable ? handleStartEdit : undefined}
+        >
+          {field.value || (editable ? '(Click to edit)' : '')}
+          <AnimatePresence>
+            {editable && isHovered && !isEditing && !hideIcon && (
+              <IconButton
+                component={motion.button}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                onClick={handleStartEdit}
+                size="small"
+                className="edit-button"
+                sx={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  opacity: 0,
+                  visibility: 'hidden',
+                  transition: 'all 0.2s ease-in-out',
+                  color: 'primary.main',
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  backdropFilter: 'blur(8px)',
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.primary.main, 0.2),
+                    transform: 'translateY(-50%) scale(1.05)',
+                  },
+                }}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            )}
+          </AnimatePresence>
+        </Box>
       )}
     </Box>
   );

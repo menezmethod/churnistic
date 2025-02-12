@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     const now = Timestamp.now();
     const userDataWithTimestamps = {
       ...userData,
-      role: userData.role || UserRole.USER,
+      role: userData.role || UserRole.FREE_USER,
       isSuperAdmin: false,
       createdAt: now,
       updatedAt: now,
