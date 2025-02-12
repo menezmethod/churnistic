@@ -66,3 +66,23 @@ export interface DialogProps {
   theme: Theme;
   isDark: boolean;
 }
+
+export interface EditableField {
+  value: string | number | boolean | null;
+  isEditing: boolean;
+  type: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'multiline';
+  options?: string[];
+}
+
+export interface EditModeState {
+  isGlobalEditMode: boolean;
+  editingFields: Record<string, EditableField>;
+}
+
+export interface EditableFieldProps {
+  field: EditableField;
+  onEdit: (value: string | number | boolean) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  className?: string;
+}

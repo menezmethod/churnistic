@@ -1,5 +1,6 @@
 import { type NextRequest } from 'next/server';
 
+import { ROLE_PERMISSIONS } from '@/lib/auth/permissions';
 import { UserRole } from '@/lib/auth/types';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase/admin';
 
@@ -17,8 +18,8 @@ export async function POST(request: NextRequest) {
 
     // Default claims
     const claims = {
-      role: UserRole.USER,
-      permissions: [],
+      role: UserRole.FREE_USER,
+      permissions: ROLE_PERMISSIONS[UserRole.FREE_USER],
     };
 
     // If user document exists, use role from document
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
       const userData = userDoc.data();
       if (userData?.role) {
         claims.role = userData.role;
+        claims.permissions = ROLE_PERMISSIONS[userData.role as UserRole] || [];
       }
     }
 

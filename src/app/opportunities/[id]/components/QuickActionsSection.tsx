@@ -21,7 +21,12 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 
-import { FirestoreOpportunity } from '@/types/opportunity';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { Permission, UserRole } from '@/lib/auth/types';
+import { FirestoreOpportunity, OfferType } from '@/types/opportunity';
+
+import { EditableField } from './EditableField';
+import { EditableWrapper } from './EditableWrapper';
 
 interface QuickActionsSectionProps {
   opportunity: FirestoreOpportunity;
@@ -30,6 +35,8 @@ interface QuickActionsSectionProps {
   onDeleteClick: () => void;
   onFeatureClick?: () => Promise<void>;
   isFeatureLoading?: boolean;
+  isGlobalEditMode?: boolean;
+  onUpdate?: (field: string, value: string | number | string[]) => void;
 }
 
 export const QuickActionsSection = ({
@@ -39,14 +46,30 @@ export const QuickActionsSection = ({
   onDeleteClick,
   onFeatureClick,
   isFeatureLoading: isFeatureLoadingProp,
+  isGlobalEditMode,
+  onUpdate,
 }: QuickActionsSectionProps) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const { user, isAdmin, hasRole, hasPermission } = useAuth();
+
+  // Check if user can edit this section
+  const canEdit =
+    !!user &&
+    canModify &&
+    (isAdmin ||
+      hasRole(UserRole.SUPER_ADMIN) ||
+      (hasRole(UserRole.CONTRIBUTOR) && hasPermission(Permission.MANAGE_OPPORTUNITIES)) ||
+      opportunity.metadata?.created_by === user.email);
 
   // Debug logging
-  console.log('QuickActionsSection Data:', {
-    metadata: opportunity.metadata,
-    featured: opportunity.metadata?.featured,
+  console.log('QuickActionsSection Debug:', {
+    userEmail: user?.email,
+    creatorEmail: opportunity.metadata?.created_by,
+    isAdmin,
+    hasRole: hasRole(UserRole.SUPER_ADMIN),
+    canModify,
+    canEdit,
   });
 
   const isFeatured = Boolean(opportunity.metadata?.featured);
@@ -56,18 +79,35 @@ export const QuickActionsSection = ({
   const handleFeatureClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (!canModify || !onFeatureClick) return;
-
-    console.log('Feature click - current state:', {
-      isFeatured,
-      metadata: opportunity.metadata,
-    });
-
     setIsLocalFeatureLoading(true);
     try {
       await onFeatureClick();
     } finally {
       setIsLocalFeatureLoading(false);
     }
+  };
+
+  const handleFieldUpdate = (field: string, value: string | number | string[]) => {
+    if (!onUpdate) return;
+    onUpdate(`metadata.${field}`, value);
+  };
+
+  const handleValueChange = (value: string | number) => {
+    if (!onUpdate || !canEdit) return;
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    if (!isNaN(numValue)) {
+      onUpdate('value', numValue);
+    }
+  };
+
+  const handleTypeChange = (value: string) => {
+    if (!onUpdate || !canEdit) return;
+    onUpdate('type', value as OfferType);
+  };
+
+  const handleBankChange = (value: string) => {
+    if (!onUpdate || !canEdit) return;
+    onUpdate('bank', value);
   };
 
   return (
@@ -172,36 +212,105 @@ export const QuickActionsSection = ({
             <Stack spacing={1.5}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <MonetizationOn sx={{ color: 'primary.main' }} />
-                <Box>
+                <Box sx={{ flex: 1 }}>
                   <Typography variant="caption" color="text.secondary">
                     Value
                   </Typography>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    ${opportunity.value.toLocaleString()}
-                  </Typography>
+                  <EditableWrapper
+                    fieldName="value"
+                    value={opportunity.value}
+                    type="number"
+                    isGlobalEditMode={isGlobalEditMode}
+                    onUpdate={handleValueChange}
+                    hideIcon={!canEdit}
+                    customStyles={{
+                      wrapper: {
+                        width: '100%',
+                      },
+                      input: {
+                        '& .MuiInputBase-root': {
+                          bgcolor: 'transparent',
+                          '&:hover, &:focus-within': {
+                            bgcolor: alpha(theme.palette.background.paper, 0.6),
+                          },
+                        },
+                      },
+                    }}
+                  >
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                      ${opportunity.value.toLocaleString()}
+                    </Typography>
+                  </EditableWrapper>
                 </Box>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Category sx={{ color: 'primary.main' }} />
-                <Box>
+                <Box sx={{ flex: 1 }}>
                   <Typography variant="caption" color="text.secondary">
                     Type
                   </Typography>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    {opportunity.type.replace('_', ' ').toUpperCase()}
-                  </Typography>
+                  <EditableWrapper
+                    fieldName="type"
+                    value={opportunity.type}
+                    type="select"
+                    options={['credit_card', 'bank', 'brokerage']}
+                    isGlobalEditMode={isGlobalEditMode}
+                    onUpdate={handleTypeChange}
+                    hideIcon={!canEdit}
+                    customStyles={{
+                      wrapper: {
+                        width: '100%',
+                      },
+                      input: {
+                        '& .MuiInputBase-root': {
+                          bgcolor: 'transparent',
+                          '&:hover, &:focus-within': {
+                            bgcolor: alpha(theme.palette.background.paper, 0.6),
+                          },
+                        },
+                      },
+                    }}
+                  >
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                      {opportunity.type.replace('_', ' ').toUpperCase()}
+                    </Typography>
+                  </EditableWrapper>
                 </Box>
               </Box>
-              {opportunity.bank && (
+              {(isGlobalEditMode || opportunity.bank) && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <AccountBalance sx={{ color: 'primary.main' }} />
-                  <Box>
+                  <Box sx={{ flex: 1 }}>
                     <Typography variant="caption" color="text.secondary">
                       Bank
                     </Typography>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                      {opportunity.bank}
-                    </Typography>
+                    <EditableWrapper
+                      fieldName="bank"
+                      value={opportunity.bank || ''}
+                      type="text"
+                      isGlobalEditMode={isGlobalEditMode}
+                      onUpdate={handleBankChange}
+                      hideIcon={!canEdit}
+                      showEmpty={isGlobalEditMode}
+                      customStyles={{
+                        wrapper: {
+                          width: '100%',
+                        },
+                        input: {
+                          '& .MuiInputBase-root': {
+                            bgcolor: 'transparent',
+                            '&:hover, &:focus-within': {
+                              bgcolor: alpha(theme.palette.background.paper, 0.6),
+                            },
+                          },
+                        },
+                      }}
+                    >
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                        {opportunity.bank ||
+                          (isGlobalEditMode ? '(Click to add bank)' : '')}
+                      </Typography>
+                    </EditableWrapper>
                   </Box>
                 </Box>
               )}
@@ -234,14 +343,37 @@ export const QuickActionsSection = ({
                   opportunity.metadata?.updated_at || new Date()
                 ).toLocaleDateString()}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Status: {opportunity.metadata?.status.toUpperCase()}
-              </Typography>
+              {isGlobalEditMode ? (
+                <EditableField
+                  editable={canEdit}
+                  field={{
+                    value: opportunity.metadata?.status || 'active',
+                    isEditing: false,
+                    type: 'select',
+                    options: ['active', 'inactive'],
+                  }}
+                  onEdit={(value) => handleFieldUpdate('status', value as string)}
+                  onStartEdit={() => {}}
+                  onCancelEdit={() => {}}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      bgcolor: 'transparent',
+                      '&:hover, &:focus-within': {
+                        bgcolor: alpha(theme.palette.background.paper, 0.6),
+                      },
+                    },
+                  }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.secondary">
+                  Status: {opportunity.metadata?.status.toUpperCase()}
+                </Typography>
+              )}
             </Stack>
           </Box>
 
           {/* Admin Actions */}
-          {canModify && (
+          {canEdit && (
             <Box
               sx={{
                 p: 2,
@@ -296,11 +428,21 @@ export const QuickActionsSection = ({
                   onClick={onEditClick}
                   sx={{
                     flex: 1,
-                    color: 'primary.main',
-                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    color: isGlobalEditMode ? 'warning.main' : 'primary.main',
+                    bgcolor: alpha(
+                      isGlobalEditMode
+                        ? theme.palette.warning.main
+                        : theme.palette.primary.main,
+                      0.1
+                    ),
                     borderRadius: 2,
                     '&:hover': {
-                      bgcolor: alpha(theme.palette.primary.main, 0.2),
+                      bgcolor: alpha(
+                        isGlobalEditMode
+                          ? theme.palette.warning.main
+                          : theme.palette.primary.main,
+                        0.2
+                      ),
                     },
                   }}
                 >

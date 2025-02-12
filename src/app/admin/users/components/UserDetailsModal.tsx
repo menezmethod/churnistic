@@ -20,21 +20,12 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 
-import { UserRole } from '@/lib/auth/types';
+import { UserRole, Permission } from '@/lib/auth/types';
 
 import type { User } from '../hooks/useUsers';
 
 // Define available permissions
-const AVAILABLE_PERMISSIONS = [
-  'users.read',
-  'users.write',
-  'users.delete',
-  'content.read',
-  'content.write',
-  'content.delete',
-  'settings.read',
-  'settings.write',
-] as const;
+const AVAILABLE_PERMISSIONS = Object.values(Permission);
 
 interface UserDetailsModalProps {
   user: User | null;
@@ -134,8 +125,11 @@ export default function UserDetailsModal({
                 value={formData.role}
                 onChange={(e) => handleChange('role', e.target.value as string)}
               >
-                <MenuItem value={UserRole.USER}>User</MenuItem>
+                <MenuItem value={UserRole.FREE_USER}>Free User</MenuItem>
+                <MenuItem value={UserRole.PAID_USER}>Paid User</MenuItem>
                 <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
+                <MenuItem value={UserRole.SUPER_ADMIN}>Super Admin</MenuItem>
+                <MenuItem value={UserRole.CONTRIBUTOR}>Contributor</MenuItem>
               </Select>
             </FormControl>
 

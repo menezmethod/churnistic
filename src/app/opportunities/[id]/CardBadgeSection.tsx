@@ -1,71 +1,64 @@
-import { Box, Chip, useTheme, alpha } from '@mui/material';
+import { Box, useTheme, alpha } from '@mui/material';
 import { motion } from 'framer-motion';
 
-import { FirestoreOpportunity } from '@/types/opportunity';
-
 interface CardBadgeSectionProps {
-  cardImage: FirestoreOpportunity['card_image'];
+  cardImage: {
+    url: string;
+    network?: string;
+    color?: string;
+    badge?: string;
+  };
+  isGlobalEditMode?: boolean;
+  onUpdate?: (field: string, value: string) => void;
 }
 
-export default function CardBadgeSection({ cardImage }: CardBadgeSectionProps) {
+export default function CardBadgeSection({
+  cardImage,
+  isGlobalEditMode,
+  onUpdate,
+}: CardBadgeSectionProps) {
   const theme = useTheme();
-
-  if (!cardImage) return null;
 
   return (
     <Box
+      component={motion.div}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.5 }}
       sx={{
         position: 'relative',
         width: '100%',
-        height: 300,
-        borderRadius: 4,
-        overflow: 'hidden',
-        boxShadow: `0 20px 40px ${alpha(theme.palette.common.black, 0.3)}`,
+        height: '100%',
+        minHeight: 200,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
       }}
     >
-      {cardImage.badge && (
-        <Box
-          component={motion.div}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          sx={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            zIndex: 2,
-          }}
-        >
-          <Chip
-            label={cardImage.badge}
-            color="primary"
-            sx={{
-              fontWeight: 600,
-              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-              boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
-              '&:hover': {
-                background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
-                transform: 'translateY(-2px)',
-                boxShadow: `0 6px 16px ${alpha(theme.palette.primary.main, 0.4)}`,
-              },
-              transition: 'all 0.3s ease-in-out',
-            }}
-          />
-        </Box>
-      )}
       <Box
         component="img"
         src={cardImage.url}
         alt="Credit Card"
         sx={{
           width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          transform: 'scale(1.1)',
-          transition: 'transform 0.3s ease-in-out',
+          maxWidth: 400,
+          height: 'auto',
+          borderRadius: 4,
+          transform: 'rotate(-5deg)',
+          transition: 'all 0.3s ease-in-out',
+          cursor: isGlobalEditMode ? 'pointer' : 'default',
+          boxShadow: `0 20px 40px ${alpha(theme.palette.common.black, 0.2)}`,
           '&:hover': {
-            transform: 'scale(1.15)',
+            transform: isGlobalEditMode ? 'rotate(0deg) scale(1.05)' : 'rotate(-5deg)',
           },
+        }}
+        onClick={() => {
+          if (isGlobalEditMode && onUpdate) {
+            const newUrl = prompt('Enter new card image URL:', cardImage.url);
+            if (newUrl) {
+              onUpdate('card_image.url', newUrl);
+            }
+          }
         }}
       />
     </Box>

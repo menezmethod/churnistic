@@ -10,21 +10,23 @@ import { useParams, useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import { Permission } from '@/lib/auth/types';
+import { Permission, UserRole } from '@/lib/auth/types';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { useOpportunity } from '@/lib/hooks/useOpportunity';
 import { showErrorToast } from '@/lib/utils/toast';
-import { FirestoreOpportunity } from '@/types/opportunity';
 
 import AccountDetailsSection from './components/AccountDetailsSection';
 import AvailabilitySection from './components/AvailabilitySection';
 import BonusDetailsSection from './components/BonusDetailsSection';
-import { EditDialog } from './components/EditDialog';
 import { ErrorState } from './components/ErrorState';
 import { HeaderSection } from './components/HeaderSection';
 import { LoadingState } from './components/LoadingState';
 import { QuickActionsSection } from './components/QuickActionsSection';
+import { BonusDetails, AccountDetails } from './OpportunityDetails.types';
 import OpportunityDeleteDialog from '../components/OpportunityDeleteDialog';
+
+// Add this type helper
+type WithRequired<T, K extends keyof T> = T & Required<Pick<T, K>>;
 
 const toggleFeatureStatus = async (params: { id: string; featured: boolean }) => {
   const db = getFirestore();
@@ -36,29 +38,41 @@ const toggleFeatureStatus = async (params: { id: string; featured: boolean }) =>
   });
 };
 
+// Update the type guard to check property types
+const isBonusValid = (bonus: unknown): bonus is BonusDetails =>
+  !!bonus &&
+  typeof bonus === 'object' &&
+  'description' in bonus &&
+  typeof (bonus as BonusDetails).description === 'string' &&
+  'requirements' in bonus &&
+  Array.isArray((bonus as BonusDetails).requirements);
+
 export default function OpportunityDetailsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { user, hasPermission } = useAuth();
+  const { user, isAdmin, hasRole, hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const { data: opportunity, isLoading, error } = useOpportunity(params.id);
   const { deleteOpportunity, updateOpportunity } = useOpportunities();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
-  const [editDialog, setEditDialog] = useState(false);
-  const [editData, setEditData] = useState<Partial<FirestoreOpportunity>>({});
-  const [originalData, setOriginalData] = useState<FirestoreOpportunity | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isGlobalEditMode, setIsGlobalEditMode] = useState(false);
   const theme = useTheme();
 
   // Check if user can edit/delete this opportunity
-  const canModify = Boolean(user && hasPermission(Permission.FEATURE_OPPORTUNITIES));
+  const canModify =
+    !!user &&
+    (isAdmin ||
+      hasRole(UserRole.SUPER_ADMIN) ||
+      (hasRole(UserRole.CONTRIBUTOR) && hasPermission(Permission.MANAGE_OPPORTUNITIES)) ||
+      opportunity?.metadata?.created_by === user.email);
 
   // Debug logging
-  console.log('Auth Debug:', {
+  console.log('Page Debug:', {
     userEmail: user?.email,
     creatorEmail: opportunity?.metadata?.created_by,
-    adminEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL,
+    isAdmin,
+    hasRole: hasRole(UserRole.SUPER_ADMIN),
     canModify,
   });
 
@@ -99,60 +113,6 @@ export default function OpportunityDetailsPage() {
     }
   };
 
-  const handleEditClick = () => {
-    if (!user) {
-      router.push('/auth/signin?redirect=/opportunities');
-      return;
-    }
-    if (opportunity) {
-      setOriginalData(opportunity);
-    }
-    router.push(`/opportunities/${params.id}/edit`);
-  };
-
-  const handleEditCancel = () => {
-    setEditDialog(false);
-    setEditData({});
-  };
-
-  const handleEditConfirm = async () => {
-    if (!opportunity?.id || !editData || !opportunity.metadata) return;
-
-    setIsEditing(true);
-    try {
-      // Convert value to number if it's a string
-      const valueToSave =
-        typeof editData.value === 'string' ? parseFloat(editData.value) : editData.value;
-
-      await updateOpportunity({
-        id: opportunity.id,
-        data: {
-          ...editData,
-          value: valueToSave,
-          metadata: {
-            created_at: opportunity.metadata.created_at,
-            created_by: opportunity.metadata.created_by,
-            status: opportunity.metadata.status,
-            updated_at: new Date().toISOString(),
-          },
-        },
-      });
-
-      // Invalidate both the individual opportunity and the opportunities list
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity.id] }),
-        queryClient.invalidateQueries({ queryKey: ['opportunities'] }),
-      ]);
-
-      setEditDialog(false);
-      setEditData({});
-    } catch (error) {
-      console.error('Failed to update opportunity:', error);
-    } finally {
-      setIsEditing(false);
-    }
-  };
-
   const featureMutation = useMutation({
     mutationFn: toggleFeatureStatus,
     onSuccess: () => {
@@ -185,32 +145,36 @@ export default function OpportunityDetailsPage() {
     }
   };
 
-  const handleFieldUpdate = async (field: string, value: string | number) => {
-    if (!opportunity?.id || !opportunity.metadata) return;
+  const handleFieldUpdate = async (field: string, value: string | number | string[]) => {
+    if (!opportunity?.id || !user) return;
 
-    setIsEditing(true);
     try {
+      const fieldPath = field.split('.');
+      const updatedOpportunity = { ...opportunity };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let current: Record<string, any> = updatedOpportunity;
+
+      for (let i = 0; i < fieldPath.length - 1; i++) {
+        if (!current[fieldPath[i]]) {
+          current[fieldPath[i]] = {};
+        }
+        current = current[fieldPath[i]];
+      }
+      current[fieldPath[fieldPath.length - 1]] = value;
+
       await updateOpportunity({
         id: opportunity.id,
-        data: {
-          [field]: value,
-          metadata: {
-            ...opportunity.metadata,
-            updated_at: new Date().toISOString(),
-          },
-        },
+        data: updatedOpportunity,
       });
 
-      // Invalidate queries
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity.id] }),
-        queryClient.invalidateQueries({ queryKey: ['opportunities'] }),
-      ]);
+      // Update local state and refetch
+      queryClient.setQueryData(['opportunity', opportunity.id], updatedOpportunity);
+      await queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity.id] });
+      showErrorToast('Opportunity updated successfully');
     } catch (error) {
-      console.error('Failed to update field:', error);
-      showErrorToast('Failed to update field');
-    } finally {
-      setIsEditing(false);
+      console.error('Error updating opportunity:', error);
+      showErrorToast('Failed to update opportunity');
     }
   };
 
@@ -266,7 +230,12 @@ export default function OpportunityDetailsPage() {
           </Button>
         </Link>
 
-        <HeaderSection opportunity={opportunity} />
+        <HeaderSection
+          opportunity={opportunity}
+          canModify={canModify}
+          isGlobalEditMode={isGlobalEditMode}
+          onUpdate={handleFieldUpdate}
+        />
       </Box>
 
       {/* Main Content */}
@@ -274,17 +243,30 @@ export default function OpportunityDetailsPage() {
         {/* Left Column - Main Content */}
         <Grid item xs={12} lg={8}>
           <Box>
-            <BonusDetailsSection 
-              bonus={opportunity.bonus}
-              canEdit={canModify}
-              onUpdate={handleFieldUpdate}
-            />
+            {isBonusValid(opportunity.bonus) && (
+              <BonusDetailsSection
+                bonus={opportunity.bonus}
+                onUpdate={(field, value) => handleFieldUpdate(`bonus.${field}`, value)}
+                canModify={canModify}
+                isGlobalEditMode={isGlobalEditMode}
+              />
+            )}
             <AccountDetailsSection
-              details={opportunity.details}
-              canEdit={canModify}
+              details={
+                (opportunity.details as WithRequired<AccountDetails, 'monthly_fees'>) ??
+                null
+              }
+              type={opportunity.type}
+              canModify={canModify}
+              isGlobalEditMode={isGlobalEditMode}
               onUpdate={handleFieldUpdate}
             />
-            <AvailabilitySection availability={opportunity.details?.availability} />
+            <AvailabilitySection
+              availability={opportunity.details?.availability}
+              onUpdate={handleFieldUpdate}
+              canModify={canModify}
+              isGlobalEditMode={isGlobalEditMode}
+            />
           </Box>
         </Grid>
 
@@ -294,10 +276,12 @@ export default function OpportunityDetailsPage() {
             <QuickActionsSection
               opportunity={opportunity}
               canModify={canModify}
-              onEditClick={handleEditClick}
+              onEditClick={() => setIsGlobalEditMode(!isGlobalEditMode)}
               onDeleteClick={handleDeleteClick}
               onFeatureClick={handleFeatureClick}
               isFeatureLoading={featureMutation.isPending}
+              isGlobalEditMode={isGlobalEditMode}
+              onUpdate={handleFieldUpdate}
             />
           </Box>
         </Grid>
@@ -313,16 +297,6 @@ export default function OpportunityDetailsPage() {
           loading={isDeleting}
         />
       )}
-
-      <EditDialog
-        open={editDialog}
-        editData={editData}
-        originalData={originalData!}
-        isEditing={isEditing}
-        onCancel={handleEditCancel}
-        onConfirm={handleEditConfirm}
-        onChange={setEditData}
-      />
     </Container>
   );
 }

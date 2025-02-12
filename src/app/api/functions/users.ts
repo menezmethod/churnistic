@@ -135,8 +135,9 @@ export const listUsers = functions.https.onCall(async (request: CallableRequest)
         return {
           uid: user.uid,
           email: user.email,
-          role: customClaims?.role || UserRole.USER,
+          role: customClaims?.role || UserRole.FREE_USER,
           lastSignIn: user.metadata.lastSignInTime,
+          permissions: customClaims?.permissions || [],
         };
       })
     );
@@ -189,7 +190,10 @@ export const setUserRole = functions.https.onCall(
 
     const { uid, role } = request.data;
     if (!uid || !role || !Object.values(UserRole).includes(role)) {
-      throw new functions.https.HttpsError('invalid-argument', 'Invalid user ID or role');
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        `Invalid role. Valid roles: ${Object.values(UserRole).join(', ')}`
+      );
     }
 
     try {

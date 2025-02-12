@@ -300,7 +300,7 @@ export default function UsersPage() {
                   label="Role"
                 >
                   <MenuItem value="">All</MenuItem>
-                  <MenuItem value={UserRole.USER}>User</MenuItem>
+                  <MenuItem value={UserRole.FREE_USER}>User</MenuItem>
                   <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
                 </Select>
               </FormControl>
