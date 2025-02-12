@@ -350,9 +350,11 @@ export const QuickActionsSection = ({
                     value: opportunity.metadata?.status || 'active',
                     isEditing: false,
                     type: 'select',
-                    options: ['active', 'inactive'],
+                    options: ['ACTIVE', 'INACTIVE'],
                   }}
-                  onEdit={(value) => handleFieldUpdate('status', value as string)}
+                  onEdit={(value) =>
+                    handleFieldUpdate('status', (value as string).toLowerCase())
+                  }
                   onStartEdit={() => {}}
                   onCancelEdit={() => {}}
                   sx={{

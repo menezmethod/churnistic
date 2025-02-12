@@ -1,4 +1,4 @@
-import { FirestoreOpportunity } from "@/types/opportunity";
+import { FirestoreOpportunity } from '@/types/opportunity';
 
 // For AccountDetails
 export interface AccountDetails {

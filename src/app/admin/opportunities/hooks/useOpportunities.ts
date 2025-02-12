@@ -288,14 +288,38 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
 
 const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
   try {
-    const response = await fetch('/api/proxy/bankrewards?format=detailed', {
-      method: 'GET',
-      credentials: 'include',
-      signal: AbortSignal.timeout(process.env.NODE_ENV === 'production' ? 10000 : 30000),
-    });
-    if (!response.ok)
-      throw new Error(`BankRewards API failed with status ${response.status}`);
-    return await response.json();
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BANKREWARDS_SCRAPER_URL}/api/bankrewards?format=detailed`,
+      {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(
+          process.env.NODE_ENV === 'production' ? 30000 : 60000
+        ),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('BankRewards API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: errorText.substring(0, 500),
+      });
+      throw new Error(
+        `BankRewards API failed with status ${response.status}: ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error('BankRewards API error:', error);
     return { data: { offers: [], stats: { total: 0, active: 0, expired: 0 } } };

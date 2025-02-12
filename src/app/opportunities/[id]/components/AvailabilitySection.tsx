@@ -126,13 +126,12 @@ export default function AvailabilitySection({
     );
   }, [availability?.states]);
 
-  if (!availability && !isGlobalEditMode) return null;
+  if (availability === undefined && !isGlobalEditMode) return null;
 
-  const isNationwide = availability?.type === 'Nationwide';
-
-  const handleTypeUpdate = (value: string) => {
-    onUpdate?.('details.availability.type', value);
-  };
+  const isNationwide =
+    availability?.type === 'Nationwide' ||
+    !availability?.states?.length ||
+    availability === null;
 
   const handleAddClick = (
     event: React.MouseEvent<HTMLDivElement | HTMLButtonElement>
@@ -236,45 +235,23 @@ export default function AvailabilitySection({
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
                 Availability
               </Typography>
-              <EditableWrapper
-                fieldName="type"
-                value={availability?.type || ''}
-                type="select"
-                options={['Nationwide', 'State']}
-                isGlobalEditMode={isGlobalEditMode}
-                onUpdate={handleTypeUpdate}
-                hideIcon={!canModify}
-                showEmpty={isGlobalEditMode}
-                customStyles={{
-                  wrapper: { width: '100%' },
-                  input: {
-                    '& .MuiInputBase-root': {
-                      bgcolor: 'transparent',
-                      '&:hover, &:focus-within': {
-                        bgcolor: alpha(theme.palette.background.paper, 0.6),
-                      },
-                    },
-                  },
+              <Chip
+                label={isNationwide ? 'Available Nationwide' : 'Selected States Only'}
+                size="small"
+                sx={{
+                  mt: 1,
+                  bgcolor: isNationwide
+                    ? alpha(theme.palette.success.main, 0.1)
+                    : alpha(theme.palette.info.main, 0.1),
+                  color: isNationwide
+                    ? theme.palette.success.main
+                    : theme.palette.info.main,
+                  borderColor: isNationwide
+                    ? alpha(theme.palette.success.main, 0.2)
+                    : alpha(theme.palette.info.main, 0.2),
+                  border: '1px solid',
                 }}
-              >
-                <Chip
-                  label={isNationwide ? 'Available Nationwide' : 'Selected States Only'}
-                  size="small"
-                  sx={{
-                    mt: 1,
-                    bgcolor: isNationwide
-                      ? alpha(theme.palette.success.main, 0.1)
-                      : alpha(theme.palette.info.main, 0.1),
-                    color: isNationwide
-                      ? theme.palette.success.main
-                      : theme.palette.info.main,
-                    borderColor: isNationwide
-                      ? alpha(theme.palette.success.main, 0.2)
-                      : alpha(theme.palette.info.main, 0.2),
-                    border: '1px solid',
-                  }}
-                />
-              </EditableWrapper>
+              />
             </Box>
           </Box>
         </Grid>

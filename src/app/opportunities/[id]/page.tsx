@@ -23,6 +23,7 @@ import { HeaderSection } from './components/HeaderSection';
 import { LoadingState } from './components/LoadingState';
 import { QuickActionsSection } from './components/QuickActionsSection';
 import { BonusDetails, AccountDetails } from './OpportunityDetails.types';
+import { useOpportunityDetails } from './useOpportunityDetails'; // Assuming you are using it in page.tsx
 import OpportunityDeleteDialog from '../components/OpportunityDeleteDialog';
 
 // Add this type helper
@@ -53,11 +54,12 @@ export default function OpportunityDetailsPage() {
   const { user, isAdmin, hasRole, hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const { data: opportunity, isLoading, error } = useOpportunity(params.id);
-  const { deleteOpportunity, updateOpportunity } = useOpportunities();
+  const { deleteOpportunity } = useOpportunities();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isGlobalEditMode, setIsGlobalEditMode] = useState(false);
   const theme = useTheme();
+  const { handleFieldUpdate } = useOpportunityDetails(params.id as string);
 
   // Check if user can edit/delete this opportunity
   const canModify =
@@ -145,39 +147,6 @@ export default function OpportunityDetailsPage() {
     }
   };
 
-  const handleFieldUpdate = async (field: string, value: string | number | string[]) => {
-    if (!opportunity?.id || !user) return;
-
-    try {
-      const fieldPath = field.split('.');
-      const updatedOpportunity = { ...opportunity };
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let current: Record<string, any> = updatedOpportunity;
-
-      for (let i = 0; i < fieldPath.length - 1; i++) {
-        if (!current[fieldPath[i]]) {
-          current[fieldPath[i]] = {};
-        }
-        current = current[fieldPath[i]];
-      }
-      current[fieldPath[fieldPath.length - 1]] = value;
-
-      await updateOpportunity({
-        id: opportunity.id,
-        data: updatedOpportunity,
-      });
-
-      // Update local state and refetch
-      queryClient.setQueryData(['opportunity', opportunity.id], updatedOpportunity);
-      await queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity.id] });
-      showErrorToast('Opportunity updated successfully');
-    } catch (error) {
-      console.error('Error updating opportunity:', error);
-      showErrorToast('Failed to update opportunity');
-    }
-  };
-
   if (isLoading) {
     return (
       <Container maxWidth="xl" sx={{ py: 8 }}>
@@ -246,7 +215,7 @@ export default function OpportunityDetailsPage() {
             {isBonusValid(opportunity.bonus) && (
               <BonusDetailsSection
                 bonus={opportunity.bonus}
-                onUpdate={(field, value) => handleFieldUpdate(`bonus.${field}`, value)}
+                handleFieldUpdate={handleFieldUpdate}
                 canModify={canModify}
                 isGlobalEditMode={isGlobalEditMode}
               />

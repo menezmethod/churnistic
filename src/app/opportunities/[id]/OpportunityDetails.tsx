@@ -54,9 +54,7 @@ const ValueDisplay = ({
           isEditing: false,
           type: 'number',
         }}
-        onEdit={(newValue) =>
-          onUpdate('value', typeof newValue === 'boolean' ? 0 : newValue)
-        }
+        onEdit={() => onUpdate('value', typeof value === 'boolean' ? 0 : value)}
         onStartEdit={() => {}}
         onCancelEdit={() => {}}
         className="value-edit"
@@ -99,7 +97,9 @@ export default function OpportunityDetails({
   canModify = false,
 }: OpportunityDetailsProps) {
   const theme = useTheme();
-  const { editState, toggleGlobalEditMode } = useEditMode(opportunity);
+  const { editState, toggleGlobalEditMode } = useEditMode(
+    opportunity as FirestoreOpportunity & { id: string }
+  );
 
   const handleDeleteClick = () => {
     // Implement delete logic here
@@ -109,9 +109,9 @@ export default function OpportunityDetails({
     // Implement feature toggle logic here
   };
 
-  const handleFieldUpdate = (field: string, value: string | number | string[]) => {
+  const handleFieldUpdate = () => {
     if (!onUpdate) return;
-    onUpdate(field, value);
+    // Implementation would go here when needed
   };
 
   return (
@@ -164,7 +164,7 @@ export default function OpportunityDetails({
                           isEditing: false,
                           type: 'text',
                         }}
-                        onEdit={(value) => handleFieldUpdate('name', String(value))}
+                        onEdit={() => handleFieldUpdate()}
                         onStartEdit={() => {}}
                         onCancelEdit={() => {}}
                       />
@@ -183,7 +183,7 @@ export default function OpportunityDetails({
                               type: 'select',
                               options: ['credit_card', 'bank', 'investment'],
                             }}
-                            onEdit={(value) => handleFieldUpdate('type', String(value))}
+                            onEdit={() => handleFieldUpdate()}
                             onStartEdit={() => {}}
                             onCancelEdit={() => {}}
                           />
@@ -218,7 +218,7 @@ export default function OpportunityDetails({
                       isEditing: false,
                       type: 'multiline',
                     }}
-                    onEdit={(value) => handleFieldUpdate('description', String(value))}
+                    onEdit={() => handleFieldUpdate()}
                     onStartEdit={() => {}}
                     onCancelEdit={() => {}}
                   />
@@ -235,7 +235,7 @@ export default function OpportunityDetails({
                       isEditing: false,
                       type: 'text',
                     }}
-                    onEdit={(value) => handleFieldUpdate('offer_link', String(value))}
+                    onEdit={() => handleFieldUpdate()}
                     onStartEdit={() => {}}
                     onCancelEdit={() => {}}
                   />
@@ -284,6 +284,7 @@ export default function OpportunityDetails({
             isGlobalEditMode={editState.isGlobalEditMode}
             onUpdate={handleFieldUpdate}
             canModify={canModify}
+            handleFieldUpdate={handleFieldUpdate}
           />
         </motion.div>
 
@@ -347,9 +348,7 @@ export default function OpportunityDetails({
                       type: 'select',
                       options: ['ACTIVE', 'INACTIVE', 'EXPIRED', 'DRAFT'],
                     }}
-                    onEdit={(value) =>
-                      handleFieldUpdate('metadata.status', String(value))
-                    }
+                    onEdit={() => handleFieldUpdate()}
                     onStartEdit={() => {}}
                     onCancelEdit={() => {}}
                   />
@@ -368,7 +367,7 @@ export default function OpportunityDetails({
                       isEditing: false,
                       type: 'text',
                     }}
-                    onEdit={(value) => handleFieldUpdate('bank', String(value))}
+                    onEdit={() => handleFieldUpdate()}
                     onStartEdit={() => {}}
                     onCancelEdit={() => {}}
                   />
@@ -417,7 +416,7 @@ export default function OpportunityDetails({
                       isEditing: false,
                       type: 'text',
                     }}
-                    onEdit={(value) => handleFieldUpdate('title', String(value))}
+                    onEdit={() => handleFieldUpdate()}
                     onStartEdit={() => {}}
                     onCancelEdit={() => {}}
                   />
@@ -447,9 +446,7 @@ export default function OpportunityDetails({
                       isEditing: false,
                       type: 'multiline',
                     }}
-                    onEdit={(value) =>
-                      handleFieldUpdate('bonus.description', String(value))
-                    }
+                    onEdit={() => handleFieldUpdate()}
                     onStartEdit={() => {}}
                     onCancelEdit={() => {}}
                   />
@@ -465,12 +462,7 @@ export default function OpportunityDetails({
                           isEditing: false,
                           type: 'multiline',
                         }}
-                        onEdit={(value) =>
-                          handleFieldUpdate(
-                            'bonus.requirements[0].description',
-                            String(value)
-                          )
-                        }
+                        onEdit={() => handleFieldUpdate()}
                         onStartEdit={() => {}}
                         onCancelEdit={() => {}}
                       />
@@ -493,9 +485,7 @@ export default function OpportunityDetails({
                           type: 'select',
                           options: ['Personal', 'Business', 'Both'],
                         }}
-                        onEdit={(value) =>
-                          handleFieldUpdate('details.account_type', String(value))
-                        }
+                        onEdit={() => handleFieldUpdate()}
                         onStartEdit={() => {}}
                         onCancelEdit={() => {}}
                       />
@@ -511,9 +501,7 @@ export default function OpportunityDetails({
                           isEditing: false,
                           type: 'text',
                         }}
-                        onEdit={(value) =>
-                          handleFieldUpdate('details.monthly_fees.amount', String(value))
-                        }
+                        onEdit={() => handleFieldUpdate()}
                         onStartEdit={() => {}}
                         onCancelEdit={() => {}}
                       />
@@ -531,9 +519,7 @@ export default function OpportunityDetails({
                             isEditing: false,
                             type: 'text',
                           }}
-                          onEdit={(value) =>
-                            handleFieldUpdate('details.early_closure_fee', String(value))
-                          }
+                          onEdit={() => handleFieldUpdate()}
                           onStartEdit={() => {}}
                           onCancelEdit={() => {}}
                         />
@@ -555,9 +541,7 @@ export default function OpportunityDetails({
                         isEditing: false,
                         type: 'date',
                       }}
-                      onEdit={(value) =>
-                        handleFieldUpdate('details.expiration', String(value))
-                      }
+                      onEdit={() => handleFieldUpdate()}
                       onStartEdit={() => {}}
                       onCancelEdit={() => {}}
                     />
