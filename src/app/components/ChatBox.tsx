@@ -180,7 +180,7 @@ export const ChatBox = () => {
                     letterSpacing: 0.5,
                   }}
                 >
-                  Financial Rewards Assistant
+                  ChurnGPT
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                   <Tooltip title="Menu">
@@ -441,7 +441,7 @@ export const ChatBox = () => {
           },
         }}
       >
-        {isExpanded ? 'Close Assistant' : 'Financial Rewards Assistant'}
+        {isExpanded ? 'Close ChurnGPT' : 'Open ChurnGPT'}
       </Button>
     </Box>
   );
