@@ -24,8 +24,8 @@ import { Message as ChatMessage } from '@/types/chat';
 
 const EXAMPLE_QUESTIONS = [
   { text: "What's the best bank bonus right now?", icon: <AccountBalance sx={{ fontSize: 16 }} /> },
-  { text: "Show me top credit card offers", icon: <CreditCard sx={{ fontSize: 16 }} /> },
-  { text: "Current brokerage promotions?", icon: <TrendingUp sx={{ fontSize: 16 }} /> },
+  { text: 'Show me top credit card offers', icon: <CreditCard sx={{ fontSize: 16 }} /> },
+  { text: 'Current brokerage promotions?', icon: <TrendingUp sx={{ fontSize: 16 }} /> },
 ];
 
 export const ChatBox = () => {
