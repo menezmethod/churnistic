@@ -34,3 +34,53 @@ a {
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+/* Theme mode variables */
+:root {
+  --theme-background: #ffffff;
+  --theme-text: hsl(220, 30%, 6%);
+  --theme-paper: #ffffff;
+  --theme-divider: hsl(220, 20%, 88%);
+}
+
+/* Dark mode variables when using the dark-mode class */
+.dark-mode, .dark-theme, [data-theme="dark"], [data-color-mode="dark"] {
+  --theme-background: hsl(220, 35%, 3%);
+  --theme-text: #ffffff;
+  --theme-paper: hsl(220, 30%, 6%);
+  --theme-divider: hsl(220, 20%, 25%);
+}
+
+/* Ensure body and html take theme colors */
+html, body {
+  background-color: var(--theme-background) !important;
+  color: var(--theme-text) !important;
+}
+
+/* Force theme transitions */
+.theme-transition * {
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out !important;
+}
+
+/* Utility classes for debugging */
+.theme-debug-outline {
+  outline: 2px dashed red !important;
+}
+
+/* Handle MUI components that might not follow theme */
+[data-theme="dark"] .MuiPaper-root {
+  background-color: var(--theme-paper) !important;
+  color: var(--theme-text) !important;
+}
+
+[data-theme="dark"] .MuiAppBar-root {
+  background-color: var(--theme-background) !important;
+}
+
+/* Force body to fill viewport */
+html, body {
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}

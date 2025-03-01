@@ -1,4 +1,4 @@
-import { Edit, Check, Close } from '@mui/icons-material';
+import { Edit, Check, Close, Refresh } from '@mui/icons-material';
 import {
   Box,
   IconButton,
@@ -8,8 +8,9 @@ import {
   Tooltip,
   Alert,
   Snackbar,
+  Typography,
 } from '@mui/material';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 
 interface ValidationRule {
   validate: (value: string | number) => boolean;
@@ -25,6 +26,8 @@ interface InlineEditProps {
   type?: 'text' | 'number';
   validationRules?: ValidationRule[];
   formatValue?: (value: string | number) => string;
+  maxRetries?: number;
+  retryDelay?: number;
 }
 
 export const InlineEdit: React.FC<InlineEditProps> = ({
@@ -35,6 +38,9 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
   children,
   type = 'text',
   validationRules = [],
+  formatValue,
+  maxRetries = 3,
+  retryDelay = 1000,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -42,9 +48,23 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isDirty, setIsDirty] = useState(false);
+  
+  // Use a ref to track if a save operation is in progress
+  const isSaving = useRef(false);
+  
+  // Update value when initialValue changes
+  useEffect(() => {
+    if (!isEditing) {
+      setValue(initialValue);
+    }
+  }, [initialValue, isEditing]);
 
   const validate = useCallback(
     (val: string | number) => {
+      if (validationRules.length === 0) return null;
+      
       for (const rule of validationRules) {
         if (!rule.validate(val)) {
           return rule.message;
@@ -55,14 +75,30 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
     [validationRules]
   );
 
+  // Debounced validation to avoid triggering on every keystroke
+  useEffect(() => {
+    if (!isDirty) return;
+    
+    const timer = setTimeout(() => {
+      const validationError = validate(value);
+      setError(validationError);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [value, validate, isDirty]);
+
   const handleEdit = useCallback(() => {
     if (!disabled) {
       setIsEditing(true);
       setError(null);
+      setIsDirty(false);
     }
   }, [disabled]);
 
   const handleSave = useCallback(async () => {
+    // Prevent multiple simultaneous save operations
+    if (isSaving.current) return;
+    
     if (value === initialValue) {
       setIsEditing(false);
       return;
@@ -76,22 +112,47 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
 
     setIsLoading(true);
     setError(null);
+    isSaving.current = true;
+    
     try {
       await onSave(value);
       setShowSuccess(true);
       setIsEditing(false);
+      setRetryCount(0);
+      setIsDirty(false);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to save');
-      setValue(initialValue);
+      console.error("Error saving:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save';
+      
+      // Handle retry logic
+      if (retryCount < maxRetries) {
+        setError(`Save failed: ${errorMessage}. Retrying...`);
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => {
+          handleSave();
+        }, retryDelay);
+      } else {
+        setError(`Save failed after ${maxRetries} attempts: ${errorMessage}`);
+        // Don't reset value if error occurs, allow user to try again with their changes
+      }
     } finally {
       setIsLoading(false);
+      isSaving.current = false;
     }
-  }, [value, initialValue, onSave, validate]);
+  }, [value, initialValue, onSave, validate, retryCount, maxRetries, retryDelay]);
+
+  const handleRetry = useCallback(() => {
+    setRetryCount(0);
+    setError(null);
+    handleSave();
+  }, [handleSave]);
 
   const handleCancel = useCallback(() => {
     setValue(initialValue);
     setIsEditing(false);
     setError(null);
+    setRetryCount(0);
+    setIsDirty(false);
   }, [initialValue]);
 
   const handleKeyDown = useCallback(
@@ -106,21 +167,34 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
     [handleSave, handleCancel]
   );
 
+  // Handle proper click-away behavior
+  const handleClickAway = useCallback(() => {
+    // Only save on click-away if there are no validation errors
+    // and the value has changed
+    if (value !== initialValue && !error) {
+      handleSave();
+    } else {
+      handleCancel();
+    }
+  }, [handleSave, handleCancel, value, initialValue, error]);
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = type === 'number' ? Number(e.target.value) : e.target.value;
+    setValue(newValue);
+    setIsDirty(true);
+  }, [type]);
+
+  const displayValue = formatValue ? formatValue(initialValue) : initialValue;
+
   if (isEditing) {
     return (
       <Box sx={{ position: 'relative' }}>
-        <ClickAwayListener onClickAway={handleSave}>
+        <ClickAwayListener onClickAway={handleClickAway}>
           <Box>
             <TextField
               autoFocus
               value={value}
-              onChange={(e) => {
-                const newValue =
-                  type === 'number' ? Number(e.target.value) : e.target.value;
-                setValue(newValue);
-                const validationError = validate(newValue);
-                setError(validationError);
-              }}
+              onChange={handleChange}
               onKeyDown={handleKeyDown}
               label={label}
               variant="outlined"
@@ -129,9 +203,10 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
               error={Boolean(error)}
               helperText={error}
               disabled={isLoading}
+              fullWidth
               InputProps={{
                 endAdornment: (
-                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
                     {isLoading ? (
                       <CircularProgress size={20} />
                     ) : (
@@ -139,13 +214,19 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
                         <IconButton
                           size="small"
                           onClick={handleSave}
-                          disabled={Boolean(error)}
+                          disabled={Boolean(error) || !isDirty}
+                          color="primary"
                         >
-                          <Check fontSize="small" color="success" />
+                          <Check fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" onClick={handleCancel}>
-                          <Close fontSize="small" color="error" />
+                        <IconButton size="small" onClick={handleCancel} color="error">
+                          <Close fontSize="small" />
                         </IconButton>
+                        {error && (
+                          <IconButton size="small" onClick={handleRetry} color="warning">
+                            <Refresh fontSize="small" />
+                          </IconButton>
+                        )}
                       </>
                     )}
                   </Box>
@@ -155,8 +236,18 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
                 '& .MuiOutlinedInput-root': {
                   backgroundColor: 'background.paper',
                 },
+                minWidth: '200px',
               }}
             />
+            {error && (
+              <Typography 
+                variant="caption" 
+                color="error" 
+                sx={{ display: 'block', mt: 1 }}
+              >
+                {error}
+              </Typography>
+            )}
           </Box>
         </ClickAwayListener>
       </Box>
@@ -177,9 +268,10 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
           },
           borderRadius: 1,
           p: 1,
+          transition: 'background-color 0.2s',
         }}
       >
-        {children}
+        {children || displayValue}
         {isHovered && !disabled && (
           <Tooltip title="Click to edit">
             <IconButton

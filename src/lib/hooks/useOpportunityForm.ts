@@ -1,9 +1,11 @@
 import { useRouter } from 'next/navigation';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { z } from 'zod';
 
 import { opportunitySchema } from '@/lib/validations/opportunity';
 import { Opportunity } from '@/types/opportunity';
+import { supabase } from '@/lib/supabase/client';
 
 type NotificationState = {
   open: boolean;
@@ -54,6 +56,8 @@ function updateNestedValue(obj: Record<string, unknown>, path: string, value: un
 
 export function useOpportunityForm(initialData?: Partial<Opportunity>) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  
   const [formData, setFormData] = useState<Opportunity>({
     type: 'bank',
     name: '',
@@ -127,7 +131,6 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
   });
 
   const [errors, setErrors] = useState<ValidationErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [notification, setNotification] = useState<NotificationState>({
     open: false,
@@ -208,6 +211,63 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
     }
   };
 
+  // Use React Query's useMutation hook for creating opportunities
+  const createOpportunityMutation = useMutation({
+    mutationFn: async (data: Opportunity) => {
+      const { data: result, error } = await supabase
+        .from('opportunities')
+        .insert([data])
+        .select()
+        .single();
+        
+      if (error) throw error;
+      return result as Opportunity;
+    },
+    onSuccess: (result) => {
+      // Invalidate and refetch relevant queries
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      showNotification('Opportunity created successfully!', 'success');
+      
+      // Redirect to the individual opportunity page after a short delay
+      setTimeout(() => {
+        router.push(`/opportunities/${result.id}`);
+      }, 1500);
+    },
+    onError: (error) => {
+      console.error('Error creating opportunity:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      setSubmitError(errorMessage);
+      showNotification(errorMessage, 'error');
+    },
+  });
+
+  // Use React Query's useMutation hook for updating opportunities
+  const updateOpportunityMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Opportunity> }) => {
+      const { data: result, error } = await supabase
+        .from('opportunities')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+        
+      if (error) throw error;
+      return result as Opportunity;
+    },
+    onSuccess: (result) => {
+      // Invalidate and refetch relevant queries
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunity', result.id] });
+      showNotification('Opportunity updated successfully!', 'success');
+    },
+    onError: (error) => {
+      console.error('Error updating opportunity:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      setSubmitError(errorMessage);
+      showNotification(errorMessage, 'error');
+    },
+  });
+
   const handleSubmit = async () => {
     setSubmitError(null);
 
@@ -215,48 +275,28 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
       return;
     }
 
-    setIsSubmitting(true);
-
-    try {
-      const response = await fetch('/api/opportunities', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+    if (formData.id) {
+      // Update existing opportunity
+      await updateOpportunityMutation.mutateAsync({ 
+        id: formData.id, 
+        data: formData 
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to create opportunity');
-      }
-
-      const result = await response.json();
-      showNotification('Opportunity created successfully!', 'success');
-
-      // Redirect to the individual opportunity page after a short delay
-      setTimeout(() => {
-        router.push(`/opportunities/${result.id}`);
-      }, 1500);
-    } catch (error) {
-      console.error('Error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-      setSubmitError(errorMessage);
-      showNotification(errorMessage, 'error');
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      // Create new opportunity
+      await createOpportunityMutation.mutateAsync(formData);
     }
   };
 
   return {
     formData,
     errors,
-    isSubmitting,
+    isSubmitting: createOpportunityMutation.isPending || updateOpportunityMutation.isPending,
     submitError,
     notification,
     handleChange,
     handleSubmit,
+    hideNotification,
     validateField,
     validateForm,
-    hideNotification,
   };
 }
