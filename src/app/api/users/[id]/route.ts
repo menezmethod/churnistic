@@ -1,92 +1,71 @@
-import { Timestamp } from 'firebase-admin/firestore';
-import { type NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 
-import { getAdminDb } from '@/lib/firebase/admin';
+import { createClient } from '@/lib/supabase/server';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const db = getAdminDb();
-    const { id } = await params;
-    const userDoc = await db.collection('users').doc(id).get();
+    const supabase = await createClient();
+    const { id } = params;
 
-    if (!userDoc.exists) {
-      return new Response(JSON.stringify({ error: 'User not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return Response.json({ error: 'User not found' }, { status: 404 });
+      }
+      throw error;
     }
 
-    return new Response(
-      JSON.stringify({
-        id: userDoc.id,
-        ...userDoc.data(),
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    return Response.json(user);
   } catch (error) {
     console.error('Error fetching user:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const updates = await request.json();
-    const db = getAdminDb();
-    const { id } = await params;
-    const userRef = db.collection('users').doc(id);
+    const supabase = await createClient();
+    const { id } = params;
 
-    // Add updated timestamp
-    const updatedData = {
-      ...updates,
-      updatedAt: Timestamp.now(),
-    };
+    const { error } = await supabase
+      .from('users')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
 
-    await userRef.update(updatedData);
+    if (error) throw error;
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return Response.json({ success: true });
   } catch (error) {
     console.error('Error updating user:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const db = getAdminDb();
-    const { id } = await params;
-    await db.collection('users').doc(id).delete();
+    const supabase = await createClient();
+    const { id } = params;
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const { error } = await supabase.from('users').delete().eq('id', id);
+
+    if (error) throw error;
+
+    return Response.json({ success: true });
   } catch (error) {
     console.error('Error deleting user:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

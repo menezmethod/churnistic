@@ -1,13 +1,14 @@
+import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
-import { getAdminDb } from '@/lib/firebase/admin';
+import type { Database } from '@/types/supabase';
 
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
-    const { session } = await createAuthContext(request);
-    if (!session?.email) {
+    const { session } = await createAuthContext();
+    if (!session?.user?.email) {
       return NextResponse.json(
         { error: 'Unauthorized', details: 'No authenticated user found' },
         { status: 401 }
@@ -23,61 +24,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Initialize admin DB
-    const db = getAdminDb();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    // Create approved opportunity
-    const approvedOpportunity = {
-      ...opportunity,
-      status: 'approved',
-      updatedAt: new Date().toISOString(),
-      metadata: {
-        ...(opportunity.metadata || {}),
-        created_by: session.email,
-        updated_by: session.email,
-        updated_at: new Date().toISOString(),
-        status: 'active',
-      },
-    };
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
 
-    // Use batch write for atomic operation
-    const batch = db.batch();
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
-    // Add to opportunities collection
-    const opportunityRef = db.collection('opportunities').doc(opportunity.id);
-    batch.set(opportunityRef, approvedOpportunity);
-
-    // Remove from staged_offers collection if it exists
-    const stagedRef = db.collection('staged_offers').doc(opportunity.id);
-    batch.delete(stagedRef);
-
-    // Commit the batch
-    await batch.commit();
-
-    // Also update the API endpoint if needed
-    try {
-      const apiResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/opportunities`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.API_KEY}`,
+    // Start a transaction using RPC
+    const { data: approvedOpportunity, error: approveError } = await supabase.rpc(
+      'approve_opportunity',
+      {
+        opportunity_id: opportunity.id,
+        user_email: session.user.email,
+        opportunity_data: {
+          ...opportunity,
+          status: 'approved',
+          metadata: {
+            ...(opportunity.metadata || {}),
+            created_by: session.user.email,
+            updated_by: session.user.email,
+            updated_at: new Date().toISOString(),
+            status: 'active',
           },
-          body: JSON.stringify({
-            ...approvedOpportunity,
-            value: approvedOpportunity.value.toString(),
-          }),
-        }
-      );
-
-      if (!apiResponse.ok) {
-        console.error('API Error:', await apiResponse.text());
-        // Don't throw here, we still want to return success for the Firestore operation
+        },
       }
-    } catch (apiError) {
-      console.error('Error updating API:', apiError);
-      // Don't throw here, we still want to return success for the Firestore operation
+    );
+
+    if (approveError) {
+      console.error('Error approving opportunity:', approveError);
+      return NextResponse.json(
+        { error: 'Failed to approve opportunity', details: approveError.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

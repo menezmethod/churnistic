@@ -4,14 +4,17 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
-import { getAuth } from 'firebase/auth';
-import { useMemo, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useMemo, useState, useEffect, useCallback, useTransition } from 'react';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { useDebounce } from 'use-debounce';
 
-import { FirestoreOpportunity } from '@/types/opportunity';
+import { supabase } from '@/lib/supabase/client';
+import { Opportunity } from '@/types/opportunity';
 
-const API_BASE = '/api/opportunities';
 const PAGE_SIZE = 20;
 
+// Helper function to handle API responses
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     console.error('API Error:', {
@@ -58,30 +61,33 @@ async function handleResponse<T>(response: Response): Promise<T> {
   }
 }
 
+// Enhanced getOpportunities function with cursor-based pagination
 const getOpportunities = async ({
-  pageParam = 1,
+  cursor = null,
   limit = PAGE_SIZE,
   searchTerm = '',
   type = null,
   sortBy = 'value',
   sortDirection = 'desc',
   status = 'approved,staged,pending',
+  supabaseClient,
 }: {
-  pageParam?: number;
+  cursor?: string | null;
   limit?: number;
   searchTerm?: string;
   type?: string | null;
   sortBy?: 'value' | 'name' | 'type' | 'date' | null;
   sortDirection?: 'asc' | 'desc';
   status?: string;
+  supabaseClient: SupabaseClient;
 }): Promise<{
-  items: FirestoreOpportunity[];
-  nextPage: number | null;
+  items: Opportunity[];
+  nextCursor: string | null;
   total: number;
   hasMore: boolean;
 }> => {
   console.log('Fetching items with params:', {
-    page: pageParam,
+    cursor,
     limit,
     searchTerm,
     type,
@@ -90,134 +96,160 @@ const getOpportunities = async ({
     status,
   });
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
-  const url = new URL('/api/opportunities', baseUrl || window.location.origin);
-
-  // Add query parameters
-  url.searchParams.set('page', pageParam.toString());
-  url.searchParams.set('pageSize', limit.toString());
-  if (sortBy) url.searchParams.set('sortBy', sortBy);
-  if (sortDirection) url.searchParams.set('sortDirection', sortDirection);
-  if (searchTerm) url.searchParams.set('search', searchTerm);
-  if (status) url.searchParams.set('status', status);
-  if (type) url.searchParams.set('type', type);
-
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-
   try {
-    const response = await fetch(url, { headers });
-    const data = await handleResponse<{
-      items: FirestoreOpportunity[];
-      total: number;
-      hasMore: boolean;
-    }>(response);
+    // Get table info to check column names
+    const { data: tableInfo, error: tableInfoError } = await supabaseClient
+      .from('opportunities')
+      .select('*')
+      .limit(1);
+    
+    if (tableInfoError) {
+      console.error('Error fetching table info:', tableInfoError);
+    } else {
+      console.log('Table columns:', tableInfo && tableInfo.length > 0 ? Object.keys(tableInfo[0]) : 'No data');
+    }
+
+    // Build the query
+    let query = supabaseClient
+      .from('opportunities')
+      .select('*', { count: 'exact' })
+      .limit(limit);
+
+    // Add cursor-based pagination
+    if (cursor) {
+      // Map sortBy to the actual column name
+      let sortColumn: string = sortBy === 'date' ? 'created_at' : sortBy || 'created_at';
+      
+      // Determine the comparison operator based on sort direction
+      const operator = sortDirection === 'asc' ? 'gt' : 'lt';
+      
+      // Add the cursor filter
+      query = query.filter(sortColumn, operator, cursor);
+    }
+
+    // Add filters
+    if (searchTerm) {
+      query = query.ilike('name', `%${searchTerm}%`);
+    }
+
+    if (type) {
+      query = query.eq('type', type);
+    }
+
+    if (status) {
+      const statusArray = status.split(',');
+      query = query.in('status', statusArray);
+    }
+
+    // Add sorting - handle both camelCase and snake_case column names
+    if (sortBy) {
+      // Check if we need to map the sortBy field to a different column name
+      let sortColumn: string = sortBy;
+      if (sortBy === 'date') {
+        // Try both camelCase and snake_case versions
+        sortColumn = tableInfo && tableInfo.length > 0 && 'createdat' in tableInfo[0] 
+          ? 'createdat' 
+          : 'created_at';
+      }
+      
+      query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+    }
+
+    const { data: items, count, error } = await query;
+
+    if (error) {
+      console.error('Error fetching opportunities:', error);
+      throw new Error(`Failed to fetch opportunities: ${error.message}`);
+    }
+
+    if (!items) {
+      console.error('No items returned from query');
+      throw new Error('No items returned from query');
+    }
+
+    console.log(`Fetched ${items.length} opportunities out of ${count} total`);
+    
+    // Determine the next cursor value (value of the sort column from the last item)
+    let nextCursor: string | null = null;
+    if (items.length > 0) {
+      const lastItem = items[items.length - 1];
+      nextCursor = lastItem[sortBy === 'date' ? 'created_at' : (sortBy || 'created_at')];
+    }
+
+    const hasMore = items.length === limit;
 
     return {
-      items: data.items,
-      nextPage: data.hasMore ? pageParam + 1 : null,
-      total: data.total,
-      hasMore: data.hasMore,
+      items: items || [],
+      nextCursor,
+      total: count || 0,
+      hasMore,
     };
   } catch (error) {
-    console.error('Error fetching opportunities:', error);
+    console.error('Error in getOpportunities:', error);
     throw error;
   }
 };
 
 const createOpportunity = async (
-  data: Omit<FirestoreOpportunity, 'id'>
-): Promise<FirestoreOpportunity> => {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) {
-    throw new Error('No authenticated user found');
+  data: Omit<Opportunity, 'id'>,
+  supabaseClient: SupabaseClient
+): Promise<Opportunity> => {
+  const { data: opportunity, error } = await supabaseClient
+    .from('opportunities')
+    .insert([data])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating opportunity:', error);
+    throw error;
   }
 
-  const token = await user.getIdToken();
-  const response = await fetch(API_BASE, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      ...data,
-      metadata: {
-        ...data.metadata,
-        created_by: user.email,
-        updated_by: user.email,
-      },
-    }),
-  });
-  return handleResponse<FirestoreOpportunity>(response);
+  return opportunity;
 };
 
-const updateOpportunity = async (params: {
-  id: string;
-  data: Partial<FirestoreOpportunity>;
-}): Promise<FirestoreOpportunity> => {
+const updateOpportunity = async (
+  params: {
+    id: string;
+    data: Partial<Opportunity>;
+  },
+  supabaseClient: SupabaseClient
+): Promise<Opportunity> => {
   const { id, data } = params;
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) {
-    throw new Error('No authenticated user found');
-  }
 
-  const token = await user.getIdToken();
-  const response = await fetch(`${API_BASE}/${id}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
+  const { data: opportunity, error } = await supabaseClient
+    .from('opportunities')
+    .update({
       ...data,
       metadata: {
         ...data.metadata,
-        updated_by: user.email,
         updated_at: new Date().toISOString(),
       },
-    }),
-  });
-  return handleResponse<FirestoreOpportunity>(response);
-};
+    })
+    .eq('id', id)
+    .select()
+    .single();
 
-// Type guard for FirestoreOpportunity
-function isFirestoreOpportunity(response: unknown): response is FirestoreOpportunity {
-  return (
-    typeof response === 'object' &&
-    response !== null &&
-    'id' in response &&
-    'metadata' in response
-  );
-}
-
-const deleteOpportunity = async (id: string): Promise<void> => {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) {
-    throw new Error('No authenticated user found');
+  if (error) {
+    console.error('Error updating opportunity:', error);
+    throw error;
   }
 
-  const token = await user.getIdToken();
-  const response = await fetch(`${API_BASE}/${id}`, {
-    method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  return opportunity;
+};
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to delete opportunity');
+const deleteOpportunity = async (id: string, supabaseClient: SupabaseClient): Promise<void> => {
+  const { error } = await supabaseClient.from('opportunities').delete().eq('id', id);
+
+  if (error) {
+    console.error('Error deleting opportunity:', error);
+    throw error;
   }
 };
 
 interface OpportunitiesResponse {
-  items: FirestoreOpportunity[];
-  nextPage: number | null;
+  items: Opportunity[];
+  nextCursor: string | null;
   total: number;
   hasMore: boolean;
 }
@@ -231,204 +263,313 @@ interface OpportunitiesParams {
   limit?: number;
 }
 
-export function useOpportunities(params?: OpportunitiesParams) {
+export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
+  
+  // Use the supabase client directly
+  const supabaseClient = supabase;
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status, error, refetch } =
-    useInfiniteQuery<
-      OpportunitiesResponse,
-      Error,
-      InfiniteData<OpportunitiesResponse>,
-      [string, OpportunitiesParams | undefined],
-      number
-    >({
-      queryKey: ['opportunities', params],
-      queryFn: async ({ pageParam }) =>
-        getOpportunities({
-          ...params,
-          pageParam: pageParam as number,
-          limit: params?.limit || PAGE_SIZE,
-        }),
-      getNextPageParam: (lastPage) => lastPage.nextPage,
-      initialPageParam: 1,
-      staleTime: 1000 * 60,
-      gcTime: 1000 * 60 * 5,
-      refetchOnMount: 'always',
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: true,
-      retry: 3,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      maxPages: 5,
-    });
+  // Initialize filters from URL or initial params
+  const [filters, setFilters] = useState<OpportunitiesParams>({
+    searchTerm: searchParams.get('search') || initialParams?.searchTerm || '',
+    type: searchParams.get('type') || initialParams?.type || null,
+    sortBy: (searchParams.get('sortBy') as OpportunitiesParams['sortBy']) || initialParams?.sortBy || 'value',
+    sortDirection: (searchParams.get('sortDirection') as 'asc' | 'desc') || initialParams?.sortDirection || 'desc',
+    status: searchParams.get('status') || initialParams?.status || 'approved,staged,pending',
+    limit: initialParams?.limit || PAGE_SIZE,
+  });
 
+  // Debounce search term to avoid excessive API calls
+  const [debouncedSearchTerm] = useDebounce(filters.searchTerm, 500);
+
+  // Sync URL with filters
   useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      const currentPage = data?.pages[data.pages.length - 1];
-      const nextPageParam = currentPage?.nextPage;
+    startTransition(() => {
+      const params = new URLSearchParams();
+      
+      if (filters.searchTerm) params.set('search', filters.searchTerm);
+      if (filters.type) params.set('type', filters.type);
+      if (filters.sortBy) params.set('sortBy', filters.sortBy);
+      if (filters.sortDirection) params.set('sortDirection', filters.sortDirection);
+      if (filters.status) params.set('status', filters.status);
+      
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      router.replace(newUrl, { scroll: false });
+    });
+  }, [filters, router]);
 
-      if (nextPageParam) {
-        queryClient.prefetchInfiniteQuery({
-          queryKey: ['opportunities', params],
-          queryFn: () =>
-            getOpportunities({
-              ...params,
-              pageParam: nextPageParam,
-              limit: params?.limit || PAGE_SIZE,
-            }),
-          initialPageParam: nextPageParam,
-        });
+  // Update filters
+  const updateFilters = useCallback((newFilters: Partial<OpportunitiesParams>) => {
+    setFilters(prev => ({ ...prev, ...newFilters }));
+    // Invalidate query when filters change
+    queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+  }, [queryClient]);
 
-        if (currentPage?.hasMore) {
-          queryClient.prefetchInfiniteQuery({
-            queryKey: ['opportunities', params],
-            queryFn: () =>
-              getOpportunities({
-                ...params,
-                pageParam: nextPageParam + 1,
-                limit: params?.limit || PAGE_SIZE,
-              }),
-            initialPageParam: nextPageParam + 1,
-          });
-        }
-      }
-    }
-  }, [data?.pages, hasNextPage, isFetchingNextPage, params, queryClient]);
+  // Reset filters
+  const resetFilters = useCallback(() => {
+    setFilters({
+      searchTerm: '',
+      type: null,
+      sortBy: 'value',
+      sortDirection: 'desc',
+      status: 'approved,staged,pending',
+      limit: PAGE_SIZE,
+    });
+    queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+  }, [queryClient]);
 
-  const opportunities = useMemo(() => {
-    if (!data?.pages) return [];
+  // Use the debounced search term for the query
+  const queryParams = useMemo(() => ({
+    ...filters,
+    searchTerm: debouncedSearchTerm,
+  }), [filters, debouncedSearchTerm]);
 
-    const totalLength = data.pages.reduce((sum, page) => sum + page.items.length, 0);
-    const result = new Array(totalLength);
+  // Main query with cursor-based pagination
+  const { 
+    data, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage, 
+    status, 
+    error, 
+    refetch,
+    isLoading,
+    isFetching,
+  } = useInfiniteQuery<
+    OpportunitiesResponse,
+    Error,
+    InfiniteData<OpportunitiesResponse>,
+    [string, typeof queryParams],
+    string | null
+  >({
+    queryKey: ['opportunities', queryParams],
+    queryFn: async ({ pageParam }) => getOpportunities({
+      ...queryParams,
+      cursor: pageParam,
+      supabaseClient,
+    }),
+    initialPageParam: null,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : null,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: true,
+    retry: 3,
+  });
 
-    let index = 0;
-    for (const page of data.pages) {
-      for (const item of page.items) {
-        result[index++] = item;
-      }
-    }
-
-    return result;
-  }, [data?.pages]);
-
-  const total = useMemo(() => data?.pages[0]?.total ?? 0, [data?.pages]);
-
-  const typeDistribution = useMemo(() => {
-    return opportunities.reduce(
-      (acc, opp) => {
-        acc[opp.type] = (acc[opp.type] || 0) + 1;
-        return acc;
-      },
-      { bank: 0, credit_card: 0, brokerage: 0 }
-    );
-  }, [opportunities]);
-
+  // Mutations with optimistic updates
   const createMutation = useMutation({
-    mutationKey: ['opportunities'],
-    mutationFn: createOpportunity,
-    onSuccess: (newOpportunity) => {
+    mutationFn: (newOpportunity: Omit<Opportunity, 'id'>) =>
+      createOpportunity(newOpportunity, supabaseClient),
+    onMutate: async (newOpportunity) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['opportunities'] });
+      
+      // Create an optimistic opportunity with a temporary ID
+      const optimisticOpportunity: Opportunity = {
+        id: `temp-${Date.now()}`,
+        ...newOpportunity,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      
+      // Add the optimistic opportunity to the cache
       queryClient.setQueryData<InfiniteData<OpportunitiesResponse>>(
-        ['opportunities', params],
+        ['opportunities', queryParams],
         (old) => {
-          if (!old)
-            return {
-              pages: [
-                { items: [newOpportunity], total: 1, hasMore: false, nextPage: null },
-              ],
-              pageParams: [1],
-            };
+          if (!old) return old;
+          
+          const newPages = [...old.pages];
+          newPages[0] = {
+            ...newPages[0],
+            items: [optimisticOpportunity, ...newPages[0].items],
+            total: newPages[0].total + 1,
+          };
+          
           return {
             ...old,
-            pages: [
-              {
-                ...old.pages[0],
-                items: [newOpportunity, ...old.pages[0].items],
-                total: old.pages[0].total + 1,
-              },
-              ...old.pages.slice(1),
-            ],
+            pages: newPages,
           };
         }
       );
+      
+      return { optimisticOpportunity };
+    },
+    onError: (err, newOpportunity, context) => {
+      // Revert the optimistic update
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      console.error('Error creating opportunity:', err);
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: updateOpportunity,
-    onSuccess: (updatedOpportunity) => {
-      if (!isFirestoreOpportunity(updatedOpportunity)) return;
-      queryClient.setQueryData<FirestoreOpportunity[]>(
-        ['opportunities', params],
+    mutationFn: (params: { id: string; data: Partial<Opportunity> }) =>
+      updateOpportunity(params, supabaseClient),
+    onMutate: async ({ id, data }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['opportunities'] });
+      
+      // Get the current opportunity
+      const previousData = queryClient.getQueryData<InfiniteData<OpportunitiesResponse>>(
+        ['opportunities', queryParams]
+      );
+      
+      // Update the opportunity in the cache
+      queryClient.setQueryData<InfiniteData<OpportunitiesResponse>>(
+        ['opportunities', queryParams],
         (old) => {
-          return old
-            ? old.map((opp) =>
-                opp.id === updatedOpportunity.id ? updatedOpportunity : opp
-              )
-            : [];
+          if (!old) return old;
+          
+          const newPages = old.pages.map(page => ({
+            ...page,
+            items: page.items.map(item => 
+              item.id === id 
+                ? { ...item, ...data, updated_at: new Date().toISOString() } 
+                : item
+            ),
+          }));
+          
+          return {
+            ...old,
+            pages: newPages,
+          };
         }
       );
+      
+      return { previousData };
+    },
+    onError: (err, { id }, context) => {
+      // Revert the optimistic update
+      if (context?.previousData) {
+        queryClient.setQueryData(
+          ['opportunities', queryParams],
+          context.previousData
+        );
+      }
+      console.error(`Error updating opportunity ${id}:`, err);
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-      queryClient.invalidateQueries({
-        queryKey: ['opportunity', updatedOpportunity.id],
-      });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteOpportunity,
-    onMutate: async (deletedId) => {
-      await queryClient.cancelQueries({ queryKey: ['opportunities', params] });
-      await queryClient.cancelQueries({ queryKey: ['opportunity', deletedId] });
-
-      const previousOpportunities = queryClient.getQueryData<FirestoreOpportunity[]>([
-        'opportunities',
-        params,
-      ]);
-
-      queryClient.setQueryData<FirestoreOpportunity[]>(
-        ['opportunities', params],
+    mutationFn: (id: string) => deleteOpportunity(id, supabaseClient),
+    onMutate: async (id) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['opportunities'] });
+      
+      // Get the current data
+      const previousData = queryClient.getQueryData<InfiniteData<OpportunitiesResponse>>(
+        ['opportunities', queryParams]
+      );
+      
+      // Remove the opportunity from the cache
+      queryClient.setQueryData<InfiniteData<OpportunitiesResponse>>(
+        ['opportunities', queryParams],
         (old) => {
-          return old ? old.filter((opp) => opp.id !== deletedId) : [];
+          if (!old) return old;
+          
+          const newPages = old.pages.map(page => ({
+            ...page,
+            items: page.items.filter(item => item.id !== id),
+            total: page.total - 1,
+          }));
+          
+          return {
+            ...old,
+            pages: newPages,
+          };
         }
       );
-
-      queryClient.setQueryData(['opportunity', deletedId], null);
-
-      return { previousOpportunities };
+      
+      return { previousData };
     },
-    onError: (error, deletedId, context) => {
-      if (context?.previousOpportunities) {
+    onError: (err, id, context) => {
+      // Revert the optimistic update
+      if (context?.previousData) {
         queryClient.setQueryData(
-          ['opportunities', params],
-          context.previousOpportunities
+          ['opportunities', queryParams],
+          context.previousData
         );
       }
-      console.error('Error deleting opportunity:', error);
+      console.error(`Error deleting opportunity ${id}:`, err);
     },
-    onSettled: (_, __, deletedId) => {
+    onSuccess: () => {
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-      queryClient.removeQueries({ queryKey: ['opportunity', deletedId] });
     },
   });
 
+  // Flatten the opportunities from all pages
+  const opportunities = useMemo(
+    () => data?.pages.flatMap((page) => page.items) ?? [],
+    [data]
+  );
+
+  const total = useMemo(() => data?.pages[0]?.total ?? 0, [data]);
+
+  // Set up real-time subscription
+  useEffect(() => {
+    const subscription = supabaseClient
+      .channel('opportunities-changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'opportunities' 
+        }, 
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          // Invalidate the query to refetch data
+          queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [queryClient, supabaseClient]);
+
   return {
+    // Data
     opportunities,
     total,
-    typeDistribution,
-    isLoading: status === 'pending',
-    error: error as Error | null,
-    refetch,
-    fetchNextPage,
     hasNextPage,
+    
+    // Pagination
+    fetchNextPage,
     isFetchingNextPage,
+    
+    // Status
+    status,
+    error,
+    isLoading,
+    isFetching,
+    isPending,
+    
+    // Actions
+    refetch,
     createOpportunity: createMutation.mutate,
     updateOpportunity: updateMutation.mutate,
     deleteOpportunity: deleteMutation.mutate,
+    
+    // Mutation status
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
-    createError: createMutation.error,
-    updateError: updateMutation.error,
-    deleteError: deleteMutation.error,
+    
+    // Filters
+    filters,
+    updateFilters,
+    resetFilters,
   };
 }

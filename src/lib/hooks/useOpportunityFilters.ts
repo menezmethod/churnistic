@@ -1,12 +1,76 @@
-import { useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo, useCallback, useEffect, useTransition } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useDebounce } from 'use-debounce';
 
-import { FormData } from '@/types/opportunity';
+import { Opportunity } from '@/types/opportunity';
 
-export function useOpportunityFilters(opportunities: FormData[]) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [selectedBank, setSelectedBank] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'value' | 'regions' | 'date'>('value');
+export type FilterType = 
+  | 'premium_offers' 
+  | 'credit_card' 
+  | 'bank' 
+  | 'brokerage' 
+  | 'quick_bonus' 
+  | 'nationwide' 
+  | null;
+
+export type SortType = 'value' | 'regions' | 'date';
+
+export interface OpportunityFiltersState {
+  searchTerm: string;
+  activeFilter: FilterType;
+  selectedBank: string | null;
+  sortBy: SortType;
+}
+
+interface UseOpportunityFiltersProps {
+  opportunities: Opportunity[];
+  initialFilters?: Partial<OpportunityFiltersState>;
+  onFilterChange?: (filters: OpportunityFiltersState) => void;
+}
+
+export function useOpportunityFilters({
+  opportunities,
+  initialFilters,
+  onFilterChange,
+}: UseOpportunityFiltersProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const [isPending, startTransition] = useTransition();
+
+  // Initialize filters from URL or initial props
+  const [filters, setFilters] = useState<OpportunityFiltersState>({
+    searchTerm: searchParams.get('search') || initialFilters?.searchTerm || '',
+    activeFilter: (searchParams.get('filter') as FilterType) || initialFilters?.activeFilter || null,
+    selectedBank: searchParams.get('bank') || initialFilters?.selectedBank || null,
+    sortBy: (searchParams.get('sortBy') as SortType) || initialFilters?.sortBy || 'value',
+  });
+
+  // Debounce search term to avoid excessive filtering
+  const [debouncedSearchTerm] = useDebounce(filters.searchTerm, 300);
+
+  // Sync URL with filters
+  useEffect(() => {
+    startTransition(() => {
+      const params = new URLSearchParams();
+      
+      if (filters.searchTerm) params.set('search', filters.searchTerm);
+      if (filters.activeFilter) params.set('filter', filters.activeFilter);
+      if (filters.selectedBank) params.set('bank', filters.selectedBank);
+      if (filters.sortBy) params.set('sortBy', filters.sortBy);
+      
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      router.replace(newUrl, { scroll: false });
+    });
+  }, [filters, router]);
+
+  // Notify parent component of filter changes
+  useEffect(() => {
+    if (onFilterChange) {
+      onFilterChange(filters);
+    }
+  }, [filters, onFilterChange]);
 
   // Get unique banks from opportunities
   const availableBanks = useMemo(() => {
@@ -20,34 +84,55 @@ export function useOpportunityFilters(opportunities: FormData[]) {
     return Array.from(banks).sort();
   }, [opportunities]);
 
+  // Update a single filter
+  const updateFilter = useCallback(<K extends keyof OpportunityFiltersState>(
+    key: K,
+    value: OpportunityFiltersState[K]
+  ) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    // Invalidate relevant queries when filters change
+    queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+  }, [queryClient]);
+
+  // Reset all filters
+  const resetFilters = useCallback(() => {
+    setFilters({
+      searchTerm: '',
+      activeFilter: null,
+      selectedBank: null,
+      sortBy: 'value',
+    });
+    queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+  }, [queryClient]);
+
   // Filter and sort opportunities
   const filteredOpportunities = useMemo(() => {
     console.log('Filtering opportunities:', {
-      searchTerm,
-      activeFilter,
-      selectedBank,
-      sortBy,
+      searchTerm: debouncedSearchTerm,
+      activeFilter: filters.activeFilter,
+      selectedBank: filters.selectedBank,
+      sortBy: filters.sortBy,
     });
 
     let filtered = [...opportunities];
 
     // Apply search term filter
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
+    if (debouncedSearchTerm) {
+      const term = debouncedSearchTerm.toLowerCase();
       filtered = filtered.filter(
         (opp) =>
           opp.name.toLowerCase().includes(term) ||
           opp.type.toLowerCase().includes(term) ||
-          opp.bonus?.description?.toLowerCase().includes(term) ||
-          ''
+          (typeof opp.bonus?.description === 'string' && 
+            opp.bonus.description.toLowerCase().includes(term))
       );
     }
 
     // Apply active filter
-    if (activeFilter) {
-      switch (activeFilter) {
+    if (filters.activeFilter) {
+      switch (filters.activeFilter) {
         case 'premium_offers':
-          filtered = filtered.filter((opp) => parseInt(opp.value) >= 500);
+          filtered = filtered.filter((opp) => parseInt(String(opp.value)) >= 500);
           break;
         case 'credit_card':
           filtered = filtered.filter((opp) => opp.type === 'credit_card');
@@ -60,7 +145,9 @@ export function useOpportunityFilters(opportunities: FormData[]) {
           break;
         case 'quick_bonus':
           filtered = filtered.filter((opp) => {
-            const bonusDesc = opp.bonus?.description?.toLowerCase() || '';
+            const bonusDesc = typeof opp.bonus?.description === 'string' 
+              ? opp.bonus.description.toLowerCase() 
+              : '';
             return (
               bonusDesc.includes('single') ||
               bonusDesc.includes('one time') ||
@@ -77,16 +164,16 @@ export function useOpportunityFilters(opportunities: FormData[]) {
     }
 
     // Apply bank filter
-    if (selectedBank) {
+    if (filters.selectedBank) {
       filtered = filtered.filter((opp) =>
-        opp.name.toLowerCase().startsWith(selectedBank.toLowerCase())
+        opp.name.toLowerCase().startsWith(filters.selectedBank!.toLowerCase())
       );
     }
 
     // Apply sorting
-    switch (sortBy) {
+    switch (filters.sortBy) {
       case 'value':
-        filtered.sort((a, b) => parseInt(b.value) - parseInt(a.value));
+        filtered.sort((a, b) => parseInt(String(b.value)) - parseInt(String(a.value)));
         break;
       case 'regions':
         filtered.sort((a, b) => {
@@ -97,27 +184,39 @@ export function useOpportunityFilters(opportunities: FormData[]) {
         break;
       case 'date':
         filtered.sort(
-          (a, b) =>
-            new Date(b.metadata?.created_at || 0).getTime() -
-            new Date(a.metadata?.created_at || 0).getTime()
+          (a, b) => {
+            const aDate = a.created_at || (a.metadata?.created_at ? new Date(a.metadata.created_at).getTime() : 0);
+            const bDate = b.created_at || (b.metadata?.created_at ? new Date(b.metadata.created_at).getTime() : 0);
+            return typeof bDate === 'number' && typeof aDate === 'number' ? bDate - aDate : 0;
+          }
         );
         break;
     }
 
     console.log('Filtered opportunities:', filtered.length);
     return filtered;
-  }, [opportunities, searchTerm, activeFilter, selectedBank, sortBy]);
+  }, [opportunities, debouncedSearchTerm, filters.activeFilter, filters.selectedBank, filters.sortBy]);
 
   return {
-    searchTerm,
-    setSearchTerm,
-    activeFilter,
-    setActiveFilter,
-    selectedBank,
-    setSelectedBank,
-    availableBanks,
-    sortBy,
-    setSortBy,
+    // Filter state
+    filters,
+    
+    // Derived data
     filteredOpportunities,
+    availableBanks,
+    isPending,
+    
+    // Filter actions
+    setSearchTerm: (value: string) => updateFilter('searchTerm', value),
+    setActiveFilter: (value: FilterType) => updateFilter('activeFilter', value),
+    setSelectedBank: (value: string | null) => updateFilter('selectedBank', value),
+    setSortBy: (value: SortType) => updateFilter('sortBy', value),
+    resetFilters,
+    
+    // For backward compatibility
+    searchTerm: filters.searchTerm,
+    activeFilter: filters.activeFilter,
+    selectedBank: filters.selectedBank,
+    sortBy: filters.sortBy,
   };
 }

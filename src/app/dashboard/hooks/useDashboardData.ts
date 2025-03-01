@@ -1,11 +1,14 @@
+'use client';
+
 import { useQuery } from '@tanstack/react-query';
-import { doc, getDoc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
-import { getFirebaseServices } from '@/lib/firebase/config';
+import { supabase } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils/formatters';
-import { FirestoreOpportunity } from '@/types/opportunity';
+import type { Opportunity } from '@/types/opportunity';
+import { DashboardOpportunity } from '@/types/opportunity';
+import type { Database } from '@/types/supabase';
 
 export interface UserProfile {
   displayName?: string;
@@ -29,38 +32,39 @@ export interface DashboardStats {
   };
 }
 
-export interface DashboardOpportunity extends FirestoreOpportunity {
-  status: 'active' | 'inactive';
-  metadata: {
-    tracked?: boolean;
-    [key: string]: unknown;
-  } & FirestoreOpportunity['metadata'];
-  source: string;
-  sourceLink: string;
-  postedDate: string;
-  confidence: number;
-  id: string;
-  title: string;
-  bank: string;
-  description: string;
-}
-
 export function useDashboardData() {
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // Fetch profile data
+  // Fetch profile data using @supabase/ssr client
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoadingProfile(false);
+      return;
+    }
 
     const fetchProfile = async () => {
       try {
-        const { firestore } = await getFirebaseServices();
-        const docRef = doc(firestore, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
+        const { data, error } = await supabase
+          .from('users')
+          .select('display_name, email, photo_url, role, updated_at')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+          throw error;
+        }
+
+        if (data) {
+          setProfile({
+            displayName: data.display_name,
+            email: data.email,
+            photoURL: data.photo_url,
+            role: data.role,
+            updatedAt: data.updated_at,
+          });
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -98,19 +102,31 @@ export function useDashboardData() {
     },
   };
 
-  // Fetch opportunities for the dashboard
-  const { data: opportunities = [] } = useQuery({
-    queryKey: ['opportunities'],
+  // Fetch opportunities for the dashboard using @supabase/ssr client
+  const { data: opportunities = [], isLoading: isLoadingOpportunities, error: opportunitiesError } = useQuery({
+    queryKey: ['dashboard-opportunities'],
     queryFn: async () => {
-      const response = await fetch('/api/opportunities');
-      if (!response.ok) {
-        throw new Error('Failed to fetch opportunities');
+      try {
+        const { data, error } = await supabase
+          .from('opportunities')
+          .select('*')
+          .eq('status', 'active')
+          .order('value', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching opportunities:', error);
+          throw error;
+        }
+
+        return data || [];
+      } catch (error) {
+        console.error('Error in dashboard opportunities query:', error);
+        throw error;
       }
-      const data = await response.json();
-      return data.opportunities || [];
     },
     enabled: !!user,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   });
 
   // Get quick opportunities (top 3 by value)
@@ -139,8 +155,8 @@ export function useDashboardData() {
     stats,
     quickOpportunities,
     trackedOpportunities,
-    loading: authLoading || loadingProfile,
-    error: null,
+    loading: authLoading || loadingProfile || isLoadingOpportunities,
+    error: opportunitiesError,
   };
 }
 

@@ -1,444 +1,138 @@
+// TODO: Migrate to Supabase Admin Functionality
+// This file needs to be updated to use Supabase admin functionality instead of Firebase Admin
+// Key changes needed:
+// 1. Replace Firebase Admin SDK with Supabase service role client
+// 2. Update user management operations to use Supabase Auth admin API
+// 3. Update database operations to use Supabase database
+// 4. Update real-time subscriptions to use Supabase real-time features
+
 'use client';
 
-import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
-import {
-  Box,
-  Button,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  IconButton,
-  Paper,
-  Snackbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TableSortLabel,
-  TextField,
-  Toolbar,
-  Typography,
-  Chip,
-  Stack,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-} from '@mui/material';
-import { visuallyHidden } from '@mui/utils';
-import { collection, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { useState, useEffect } from 'react';
+import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Button, Container, Typography, Chip, IconButton, Tooltip } from '@mui/material';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { createClient } from '@supabase/supabase-js';
+import { useState } from 'react';
 
 import { UserRole } from '@/lib/auth/types';
-import { getFirebaseServices } from '@/lib/firebase/config';
+import type { User } from '@/types/user';
 
-import UserDetailsModal from './components/UserDetailsModal';
-import type { User } from './hooks/useUsers';
+import EditUserModal from './components/EditUserModal';
+import { useUsers, useUpdateUser, useDeleteUser } from './hooks/useUsers';
 
-type Order = 'asc' | 'desc';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-interface HeadCell {
-  id: keyof User;
-  label: string;
-  numeric: boolean;
-  sortable?: boolean;
-}
-
-const headCells: readonly HeadCell[] = [
+const columns: GridColDef[] = [
+  { field: 'id', headerName: 'ID', width: 250 },
+  { field: 'email', headerName: 'Email', width: 250 },
   {
-    id: 'email',
-    numeric: false,
-    label: 'Email',
-    sortable: true,
+    field: 'role',
+    headerName: 'Role',
+    width: 150,
+    renderCell: (params: GridRenderCellParams) => (
+      <Chip
+        label={params.value}
+        color={
+          params.value === UserRole.SUPER_ADMIN
+            ? 'error'
+            : params.value === UserRole.ADMIN
+              ? 'warning'
+              : 'default'
+        }
+        size="small"
+      />
+    ),
   },
   {
-    id: 'displayName',
-    numeric: false,
-    label: 'Display Name',
-    sortable: true,
+    field: 'lastSignInAt',
+    headerName: 'Last Sign In',
+    width: 200,
+    valueFormatter: (params) =>
+      params.value ? new Date(params.value).toLocaleString() : 'Never',
   },
   {
-    id: 'role',
-    numeric: false,
-    label: 'Role',
-    sortable: true,
+    field: 'createdAt',
+    headerName: 'Created At',
+    width: 200,
+    valueFormatter: (params) =>
+      params.value ? new Date(params.value).toLocaleString() : 'N/A',
   },
   {
-    id: 'permissions',
-    numeric: false,
-    label: 'Permissions',
-    sortable: false,
-  },
-  {
-    id: 'createdAt',
-    numeric: false,
-    label: 'Created At',
-    sortable: true,
-  },
-  {
-    id: 'updatedAt',
-    numeric: false,
-    label: 'Last Updated',
-    sortable: true,
+    field: 'actions',
+    headerName: 'Actions',
+    width: 120,
+    renderCell: (params: GridRenderCellParams) => (
+      <>
+        <Tooltip title="Edit User">
+          <IconButton size="small" onClick={() => handleEdit(params.row)}>
+            <EditIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Delete User">
+          <IconButton size="small" onClick={() => handleDelete(params.row.id)}>
+            <DeleteIcon />
+          </IconButton>
+        </Tooltip>
+      </>
+    ),
   },
 ];
 
-function descendingComparator<T extends User>(a: T, b: T, orderBy: keyof T) {
-  if (b[orderBy] < a[orderBy]) {
-    return -1;
-  }
-  if (b[orderBy] > a[orderBy]) {
-    return 1;
-  }
-  return 0;
-}
+export default function AdminUsersPage() {
+  const { data: users, isLoading, error } = useUsers();
+  const deleteUser = useDeleteUser();
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-function getComparator<Key extends keyof User>(
-  order: Order,
-  orderBy: Key
-): (a: User, b: User) => number {
-  return order === 'desc'
-    ? (a, b) => descendingComparator(a, b, orderBy)
-    : (a, b) => -descendingComparator(a, b, orderBy);
-}
+  const handleEdit = (user: User) => {
+    setSelectedUser(user);
+    setIsEditModalOpen(true);
+  };
 
-export default function UsersPage() {
-  const [order, setOrder] = useState<Order>('desc');
-  const [orderBy, setOrderBy] = useState<keyof User>('createdAt');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [filters, setFilters] = useState({
-    email: '',
-    displayName: '',
-    role: '',
-  });
+  const handleCloseModal = () => {
+    setSelectedUser(null);
+    setIsEditModalOpen(false);
+  };
 
-  // State for user actions
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [deletingUser, setDeletingUser] = useState<User | null>(null);
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error';
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
-
-  const [users, setUsers] = useState<User[]>([]);
-
-  useEffect(() => {
-    const fetchUsers = async () => {
+  const handleDelete = async (userId: string) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        const { firestore } = await getFirebaseServices();
-        const usersCollection = collection(firestore, 'users');
-        const usersSnapshot = await getDocs(usersCollection);
-        const usersList = usersSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as User[];
-        setUsers(usersList);
+        await deleteUser.mutateAsync(userId);
       } catch (error) {
-        console.error('Error fetching users:', error);
-        setSnackbar({
-          open: true,
-          message: 'Error fetching users',
-          severity: 'error',
-        });
+        console.error('Error deleting user:', error);
       }
-    };
-
-    void fetchUsers();
-  }, []);
-
-  const handleRequestSort = (property: keyof User) => {
-    const isAsc = orderBy === property && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(property);
-  };
-
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const handleEditUser = (user: User | null) => {
-    setEditingUser(user);
-  };
-
-  const handleDeleteUser = (user: User) => {
-    setDeletingUser(user);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deletingUser) return;
-
-    try {
-      const { firestore } = await getFirebaseServices();
-      await deleteDoc(doc(firestore, 'users', deletingUser.id));
-      setUsers(users.filter((user) => user.id !== deletingUser.id));
-      setDeletingUser(null);
-      setSnackbar({
-        open: true,
-        message: 'User deleted successfully',
-        severity: 'success',
-      });
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      setSnackbar({
-        open: true,
-        message: 'Error deleting user',
-        severity: 'error',
-      });
     }
   };
 
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
-
-  const handleUpdateUser = async (
-    _user: User,
-    data: { email?: string; displayName?: string; photoURL?: string; role?: string }
-  ) => {
-    try {
-      const { firestore } = await getFirebaseServices();
-      const userRef = doc(firestore, 'users', _user.id);
-      await updateDoc(userRef, data);
-      setUsers(
-        users.map((user) =>
-          user.id === _user.id
-            ? {
-                ...user,
-                ...data,
-                role: data.role as
-                  | 'user'
-                  | 'admin'
-                  | 'manager'
-                  | 'analyst'
-                  | 'agent'
-                  | 'free_user',
-              }
-            : user
-        )
-      );
-      setEditingUser(null);
-      setSnackbar({
-        open: true,
-        message: 'User updated successfully',
-        severity: 'success',
-      });
-    } catch (error) {
-      console.error('Error updating user:', error);
-      setSnackbar({
-        open: true,
-        message: 'Error updating user',
-        severity: 'error',
-      });
-    }
-  };
-
-  const filteredUsers = users.filter((user) => {
-    return (
-      user.email.toLowerCase().includes(filters.email.toLowerCase()) &&
-      (user.displayName?.toLowerCase() ?? '').includes(
-        filters.displayName.toLowerCase()
-      ) &&
-      (filters.role === '' || user.role === filters.role)
-    );
-  }) as User[];
-
-  const sortedUsers = [...filteredUsers].sort(getComparator(order, orderBy));
-  const paginatedUsers = sortedUsers.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {(error as Error).message}</div>;
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ width: '100%', mb: 2 }}>
-        <Paper sx={{ width: '100%', mb: 2 }}>
-          <Toolbar
-            sx={{
-              pl: { sm: 2 },
-              pr: { xs: 1, sm: 1 },
-              display: 'flex',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Typography variant="h6" component="div">
-              User Management
-            </Typography>
-            <Button variant="contained" onClick={() => handleEditUser(null)}>
-              Add User
-            </Button>
-          </Toolbar>
-          <Box sx={{ p: 2 }}>
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label="Filter by Email"
-                value={filters.email}
-                onChange={(e) => setFilters({ ...filters, email: e.target.value })}
-                size="small"
-              />
-              <TextField
-                label="Filter by Name"
-                value={filters.displayName}
-                onChange={(e) => setFilters({ ...filters, displayName: e.target.value })}
-                size="small"
-              />
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>Role</InputLabel>
-                <Select
-                  value={filters.role}
-                  onChange={(e) => setFilters({ ...filters, role: e.target.value })}
-                  label="Role"
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value={UserRole.USER}>User</MenuItem>
-                  <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
-          </Box>
-          <TableContainer>
-            <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle" size="medium">
-              <TableHead>
-                <TableRow>
-                  {headCells.map((headCell) => (
-                    <TableCell
-                      key={headCell.id}
-                      align={headCell.numeric ? 'right' : 'left'}
-                      sortDirection={orderBy === headCell.id ? order : false}
-                    >
-                      {headCell.sortable ? (
-                        <TableSortLabel
-                          active={orderBy === headCell.id}
-                          direction={orderBy === headCell.id ? order : 'asc'}
-                          onClick={() => handleRequestSort(headCell.id)}
-                        >
-                          {headCell.label}
-                          {orderBy === headCell.id ? (
-                            <Box component="span" sx={visuallyHidden}>
-                              {order === 'desc'
-                                ? 'sorted descending'
-                                : 'sorted ascending'}
-                            </Box>
-                          ) : null}
-                        </TableSortLabel>
-                      ) : (
-                        headCell.label
-                      )}
-                    </TableCell>
-                  ))}
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {paginatedUsers.map((user: User) => (
-                  <TableRow hover key={user.id}>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.displayName}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.role}
-                        color={user.role === UserRole.ADMIN ? 'primary' : 'default'}
-                        size="small"
-                      />
-                      {user.isSuperAdmin && (
-                        <Chip
-                          label="Super Admin"
-                          color="secondary"
-                          size="small"
-                          sx={{ ml: 1 }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={1} flexWrap="wrap">
-                        {user.permissions?.map((permission) => (
-                          <Chip
-                            key={permission}
-                            label={permission}
-                            size="small"
-                            variant="outlined"
-                          />
-                        ))}
-                      </Stack>
-                    </TableCell>
-                    <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>{new Date(user.updatedAt).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEditUser(user)}
-                        color="primary"
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteUser(user)}
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={filteredUsers.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </Paper>
-      </Box>
-
-      <UserDetailsModal
-        open={!!editingUser}
-        user={editingUser}
-        onClose={() => setEditingUser(null)}
-        onSave={handleUpdateUser}
-      />
-
-      <Dialog open={!!deletingUser} onClose={() => setDeletingUser(null)}>
-        <DialogTitle>Delete User</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete this user? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeletingUser(null)}>Cancel</Button>
-          <Button onClick={handleConfirmDelete} color="error">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        message={snackbar.message}
+    <Container maxWidth="xl">
+      <Typography variant="h4" gutterBottom>
+        User Management
+      </Typography>
+      <div style={{ height: 600, width: '100%' }}>
+        <DataGrid
+          rows={users || []}
+          columns={columns}
+          initialState={{
+            pagination: {
+              paginationModel: { page: 0, pageSize: 10 },
+            },
+          }}
+          pageSizeOptions={[10, 25, 50]}
+          checkboxSelection
+          disableRowSelectionOnClick
+        />
+      </div>
+      <EditUserModal
+        user={selectedUser}
+        open={isEditModalOpen}
+        onClose={handleCloseModal}
       />
     </Container>
   );

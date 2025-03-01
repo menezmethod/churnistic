@@ -51,10 +51,12 @@ import {
   Fade,
   Chip,
   Paper,
+  Skeleton,
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useState, type JSX, useEffect, ReactElement, Fragment, Suspense } from 'react';
+import { useState, type JSX, useEffect, ReactElement, Fragment, Suspense, useRef } from 'react';
+import React from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
@@ -78,12 +80,6 @@ interface SectionMenuItem {
 }
 
 type MenuItemType = RegularMenuItem | SectionMenuItem;
-
-// TODO: Implement these admin routes in future versions
-// - /admin/analytics: Analytics dashboard for admins
-// - /admin/reports: Report generation and management
-// - /admin/logs: System logs and activity tracking
-// - /help: Help and documentation center
 
 const mainMenuItems: MenuItemType[] = [
   {
@@ -258,43 +254,99 @@ const accountMenuItems: MenuItemType[] = [
 
 export default function AppNavbar() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<AppNavbarSkeleton />}>
       <AppNavbarContent />
     </Suspense>
   );
 }
 
 function AppNavbarContent() {
-  const { user, signOut, hasRole, isSuperAdmin } = useAuth();
+  const { user, signOut, hasRole, isSuperAdmin, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(
-    null
-  );
+  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(null);
   const [offersAnchorEl, setOffersAnchorEl] = useState<null | HTMLElement>(null);
-
-  const isAdmin = hasRole(UserRole.ADMIN);
-  const isUserSuperAdmin = isSuperAdmin();
+  const renderCountRef = useRef(0);
+  
+  // Log component mount/unmount to track lifecycle
+  useEffect(() => {
+    console.log('🔄 [AppNavbar] Component mounted', {
+      timestamp: new Date().toISOString()
+    });
+    
+    return () => {
+      console.log('🔄 [AppNavbar] Component unmounted', {
+        timestamp: new Date().toISOString()
+      });
+    };
+  }, []);
+  
+  // Enhanced logging for auth state tracking
+  useEffect(() => {
+    console.log('🔐 [AppNavbar] Auth state update:', { 
+      isAuthenticated: !!user,
+      loading,
+      userID: user?.id || 'none',
+      userEmail: user?.email || 'none',
+      userRole: user?.role || 'none',
+      isAdmin: user ? hasRole(UserRole.ADMIN) : false,
+      isSuperAdmin: user ? isSuperAdmin() : false,
+      // Add render timestamp to track when this effect runs
+      renderTimestamp: new Date().toISOString(),
+      // Add performance timing
+      performanceNow: performance.now()
+    });
+  }, [user, loading, hasRole, isSuperAdmin]);
+  
+  // Add a specific effect to monitor just the loading state
+  useEffect(() => {
+    console.log('⏳ [AppNavbar] Loading state changed:', {
+      loading,
+      hasUser: !!user,
+      timestamp: new Date().toISOString()
+    });
+  }, [loading, user]);
+  
+  // Log the loading decision logic
+  const shouldShowSkeleton = loading && !user;
+  console.log('🧩 [AppNavbar] Render decision:', {
+    loading,
+    hasUser: !!user,
+    shouldShowSkeleton,
+    userEmail: user?.email || 'none',
+    timestamp: new Date().toISOString(),
+    renderCount: renderCountRef.current++
+  });
+  
+  // Show skeleton ONLY when we're truly in an uncertain loading state
+  if (shouldShowSkeleton) {
+    console.log('🦴 [AppNavbar] Showing skeleton loader', {
+      reason: 'Loading without cached user data',
+      timestamp: new Date().toISOString(),
+      performanceNow: performance.now()
+    });
+    return <AppNavbarSkeleton />;
+  }
+  
+  console.log('👤 [AppNavbar] Rendering authenticated navbar:', {
+    hasUser: !!user,
+    email: user?.email || 'none',
+    timestamp: new Date().toISOString()
+  });
+  
+  // Auth state is resolved - either we have a user or we're definitely not authenticated
+  const isAuthenticated = !!user;
+  const isAdmin = isAuthenticated ? hasRole(UserRole.ADMIN) : false;
+  const isUserSuperAdmin = isAuthenticated ? isSuperAdmin() : false;
   const userRoleColor = isUserSuperAdmin
     ? theme.palette.warning.main
     : isAdmin
       ? theme.palette.error.main
       : theme.palette.primary.main;
   const userRoleLabel = isUserSuperAdmin ? 'Super Admin' : isAdmin ? 'Admin' : 'User';
-
-  // Only log in development and when user state changes
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('AppNavbar user state:', {
-        email: user?.email,
-        role: user?.customClaims?.role,
-        isAdmin: hasRole(UserRole.ADMIN),
-      });
-    }
-  }, [user, hasRole]);
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -397,7 +449,7 @@ function AppNavbarContent() {
                   }),
                 }}
               />
-              {user?.emailVerified && (
+              {user?.email_confirmed_at && (
                 <Tooltip title="Email verified">
                   <Chip
                     size="small"
@@ -542,7 +594,6 @@ function AppNavbarContent() {
   );
 
   const renderMenuItem = (item: MenuItemType, index: number): ReactElement | null => {
-    // Skip section items in the drawer menu
     if ('section' in item) {
       return (
         <Fragment key={`section-${item.section}-${index}`}>
@@ -551,17 +602,14 @@ function AppNavbarContent() {
       );
     }
 
-    // Check if the user has the required role to see this item
     if (item.roles && !item.roles.some((role) => hasRole(role)) && !isUserSuperAdmin) {
       return null;
     }
 
-    // Check if the item requires authentication
     if (item.requiresAuth && !user) {
       return null;
     }
 
-    // Check if the item should be hidden when authenticated
     if (item.hideWhenAuth && user) {
       return null;
     }
@@ -745,7 +793,6 @@ function AppNavbarContent() {
 
   const renderDrawerContent = () => {
     if (!user) {
-      // Guest Menu
       return (
         <>
           <Box sx={{ mb: 2, px: 2 }}>
@@ -794,7 +841,6 @@ function AppNavbarContent() {
       );
     }
 
-    // Authenticated User Menu
     return (
       <>
         <Box sx={{ mb: 2, px: 2 }}>
@@ -958,7 +1004,6 @@ function AppNavbarContent() {
             Churnistic
           </Typography>
 
-          {/* Top Navigation Menu */}
           <Box
             sx={{
               flexGrow: 1,
@@ -1249,5 +1294,40 @@ function AppNavbarContent() {
         </List>
       </Drawer>
     </>
+  );
+}
+
+function AppNavbarSkeleton() {
+  const theme = useTheme();
+  
+  return (
+    <AppBar
+      position="fixed"
+      color="default"
+      elevation={0}
+      sx={{
+        backdropFilter: 'blur(20px)',
+        backgroundColor: alpha(theme.palette.background.default, 0.8),
+        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+      }}
+    >
+      <Toolbar sx={{ minHeight: { xs: 56, md: 72 }, px: { xs: 1, sm: 2 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
+          
+          <Skeleton variant="rectangular" width={120} height={32} sx={{ mr: 4 }} />
+          
+          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' }, gap: 2 }}>
+            <Skeleton variant="rectangular" width={80} height={36} />
+            <Skeleton variant="rectangular" width={80} height={36} />
+          </Box>
+          
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Skeleton variant="circular" width={40} height={40} />
+            <Skeleton variant="circular" width={40} height={40} />
+          </Box>
+        </Box>
+      </Toolbar>
+    </AppBar>
   );
 }

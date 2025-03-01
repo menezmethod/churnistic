@@ -1,0 +1,25 @@
+{
+  "auth": {
+    "smtp": {
+      "host": "smtp.resend.com",
+      "port": 465,
+      "user": "resend",
+      "pass": "re_4YzpmbnR_N8QaLADgiku4H1haqwkqtNvD",
+      "sender": "no-reply@churnistic.com"
+    },
+    "email_templates": {
+      "invite": {
+        "subject": "Welcome to Churnistic",
+        "file_path": "./email-templates/welcome.html"
+      },
+      "confirmation": {
+        "subject": "Confirm your email address",
+        "file_path": "./email-templates/confirmation.html"
+      },
+      "recovery": {
+        "subject": "Reset your password",
+        "file_path": "./email-templates/recovery.html"
+      }
+    }
+  }
+}

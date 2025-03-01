@@ -1,26 +1,39 @@
-import { Timestamp } from 'firebase-admin/firestore';
+import { createClient } from '@supabase/supabase-js';
 import { type NextRequest } from 'next/server';
 
-import { getAdminDb } from '@/lib/firebase/admin';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ uid: string }> }
 ) {
   try {
-    const db = getAdminDb();
     const { uid } = await params;
-    const userRef = db.collection('users').doc(uid);
-    const userDoc = await userRef.get();
 
-    if (!userDoc.exists) {
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', uid)
+      .single();
+
+    if (userError || !user) {
       return new Response('User not found', { status: 404 });
     }
 
-    await userRef.update({
-      businessVerified: true,
-      updatedAt: Timestamp.now(),
-    });
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        business_verified: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', uid);
+
+    if (updateError) {
+      throw updateError;
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' },

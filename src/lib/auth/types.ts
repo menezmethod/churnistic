@@ -1,13 +1,13 @@
-import type { User } from 'firebase/auth';
+// TODO: Migrate to Supabase types
+// This file needs to be updated to use Supabase Auth types instead of Firebase Auth types
+// Replace FirebaseUser with User from @supabase/supabase-js
+
+import { User } from '@supabase/supabase-js';
 
 export enum UserRole {
-  ADMIN = 'admin',
-  MANAGER = 'manager',
-  ANALYST = 'analyst',
-  AGENT = 'agent',
   USER = 'user',
-  FREE_USER = 'free_user',
-  SUPERADMIN = 'SUPERADMIN',
+  ADMIN = 'admin',
+  SUPER_ADMIN = 'super_admin',
 }
 
 export enum Permission {
@@ -69,16 +69,12 @@ export enum Permission {
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  [UserRole.SUPERADMIN]: [
-    // Full access to all permissions
-    ...Object.values(Permission),
-  ],
-  [UserRole.ADMIN]: [
+  [UserRole.SUPER_ADMIN]: [
     // Full access to all permissions
     ...Object.values(Permission),
   ],
 
-  [UserRole.MANAGER]: [
+  [UserRole.ADMIN]: [
     // Card Management
     Permission.READ_CARDS,
     Permission.WRITE_CARDS,
@@ -115,38 +111,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RECEIVE_RISK_ALERTS,
   ],
 
-  [UserRole.ANALYST]: [
-    // Read-only access to main features
-    Permission.READ_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
-
-    // Analytics
-    Permission.VIEW_BASIC_ANALYTICS,
-    Permission.VIEW_ADVANCED_ANALYTICS,
-    Permission.EXPORT_ANALYTICS,
-
-    // Risk Management
-    Permission.VIEW_RISK_SCORES,
-
-    // API Access
-    Permission.USE_API,
-
-    // Notifications
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-    Permission.RECEIVE_INVESTMENT_ALERTS,
-    Permission.RECEIVE_RISK_ALERTS,
-  ],
-
-  [UserRole.AGENT]: [
+  [UserRole.USER]: [
     // Basic operations
     Permission.READ_CARDS,
-    Permission.WRITE_CARDS,
     Permission.READ_BANK_ACCOUNTS,
-    Permission.WRITE_BANK_ACCOUNTS,
     Permission.READ_INVESTMENTS,
-    Permission.WRITE_INVESTMENTS,
 
     // Basic Analytics
     Permission.VIEW_BASIC_ANALYTICS,
@@ -158,61 +127,51 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RECEIVE_INVESTMENT_ALERTS,
     Permission.RECEIVE_RISK_ALERTS,
   ],
-
-  [UserRole.USER]: [
-    // Standard user permissions
-    Permission.READ_CARDS,
-    Permission.WRITE_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.WRITE_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
-    Permission.WRITE_INVESTMENTS,
-    Permission.VIEW_BASIC_ANALYTICS,
-    Permission.VIEW_RISK_SCORES,
-    Permission.USE_API,
-
-    // Notifications
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-    Permission.RECEIVE_INVESTMENT_ALERTS,
-    Permission.RECEIVE_RISK_ALERTS,
-  ],
-
-  [UserRole.FREE_USER]: [
-    // Limited permissions for free tier
-    Permission.READ_CARDS,
-    Permission.READ_BANK_ACCOUNTS,
-    Permission.READ_INVESTMENTS,
-    Permission.VIEW_BASIC_ANALYTICS,
-
-    // Limited notifications
-    Permission.RECEIVE_CREDIT_CARD_ALERTS,
-    Permission.RECEIVE_BANK_BONUS_ALERTS,
-  ],
 };
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  role: UserRole;
+  displayName?: string;
+  avatarUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  lastSignInAt?: string;
+  emailVerified: boolean;
+  businessVerified: boolean;
+}
+
 export interface AuthUser extends User {
-  role?: UserRole;
+  role: UserRole;
+  isSuperAdmin: boolean;
+  displayName?: string;
+  avatarUrl?: string;
+  photoURL?: string;
+  businessVerified?: boolean;
+  email_confirmed_at?: string;
 }
 
 export interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
+  isOnline: boolean;
   hasRole: (role: UserRole) => boolean;
   hasPermission: (permission: Permission) => boolean;
   isSuperAdmin: () => boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithGithub: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  isOnline: boolean;
 }
 
 export interface Session {
-  uid: string;
-  email: string;
-  role: UserRole;
-  permissions?: Permission[];
+  user: AuthUser;
+  session: {
+    access_token: string;
+    refresh_token: string;
+    expires_at: number;
+  } | null;
 }

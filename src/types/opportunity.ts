@@ -87,6 +87,7 @@ export interface FirestoreOpportunity {
       original_id: string;
     };
   };
+  isStaged?: boolean;
   bonus?: {
     title?: string;
     description?: string;

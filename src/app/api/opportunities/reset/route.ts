@@ -1,74 +1,50 @@
+import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { createAuthContext } from '@/lib/auth/authUtils';
-import { getAdminDb } from '@/lib/firebase/admin';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    // Skip auth check in emulator mode
-    if (!useEmulator) {
-      const { session } = await createAuthContext(request);
-      if (!session?.email) {
-        return NextResponse.json(
-          { error: 'Unauthorized', details: 'User not authenticated' },
-          { status: 401 }
-        );
-      }
+    const token = req.headers.get('authorization')?.split('Bearer ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { collection } = await request.json();
-
-    if (!collection || !['opportunities', 'staged_offers'].includes(collection)) {
-      return NextResponse.json(
-        { error: 'Invalid collection specified' },
-        { status: 400 }
-      );
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const adminDb = getAdminDb();
-    const collectionRef = adminDb.collection(collection);
-    const snapshot = await collectionRef.get();
-    const batch = adminDb.batch();
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
 
-    // Delete all documents in the collection
-    snapshot.docs.forEach((doc) => {
-      batch.delete(collectionRef.doc(doc.id));
+    if (userError || !userData || userData.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Call the reset_opportunities RPC function
+    const { data, error } = await supabase.rpc('reset_opportunities', {
+      admin_id: user.id,
     });
 
-    await batch.commit();
-
-    // If we're resetting staged offers, also reset the opportunities collection
-    if (collection === 'staged_offers') {
-      const opportunitiesRef = adminDb.collection('opportunities');
-      const opportunitiesSnapshot = await opportunitiesRef.get();
-      const opportunitiesBatch = adminDb.batch();
-
-      opportunitiesSnapshot.docs.forEach((doc) => {
-        opportunitiesBatch.delete(opportunitiesRef.doc(doc.id));
-      });
-
-      await opportunitiesBatch.commit();
-      return NextResponse.json({
-        message: 'Successfully reset all offers',
-        deletedCount: snapshot.size + opportunitiesSnapshot.size,
-      });
-    }
+    if (error) throw error;
 
     return NextResponse.json({
       success: true,
-      deletedCount: snapshot.size,
-      message: `Successfully reset ${collection}`,
+      message: 'Successfully reset opportunities',
+      data,
     });
   } catch (error) {
-    console.error('Error resetting collection:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to reset collection',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    console.error('Error resetting opportunities:', error);
+    return NextResponse.json({ error: 'Error resetting opportunities' }, { status: 500 });
   }
 }

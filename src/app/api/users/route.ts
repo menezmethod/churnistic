@@ -1,48 +1,37 @@
-import { Timestamp } from 'firebase-admin/firestore';
 import { type NextRequest } from 'next/server';
 
 import { UserRole } from '@/lib/auth/types';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search');
-    const limit = searchParams.get('limit');
-    const offset = searchParams.get('offset');
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    const db = getAdminDb();
-    const usersRef = db.collection('users');
-    let query: FirebaseFirestore.Query = usersRef;
+    const supabase = await createClient();
+
+    let query = supabase.from('users').select('*', { count: 'exact' });
 
     if (search) {
-      query = query
-        .where('displayName', '>=', search)
-        .where('displayName', '<=', search + '\uf8ff');
+      query = query.ilike('display_name', `%${search}%`);
     }
 
-    if (limit) {
-      query = query.limit(parseInt(limit, 10));
-    }
+    const {
+      data: users,
+      error,
+      count,
+    } = await query
+      .range(offset, offset + limit - 1)
+      .order('created_at', { ascending: false });
 
-    if (offset) {
-      query = query.offset(parseInt(offset, 10));
-    }
-
-    const [snapshot, countSnapshot] = await Promise.all([
-      query.get(),
-      usersRef.count().get(),
-    ]);
-
-    const users = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    if (error) throw error;
 
     return new Response(
       JSON.stringify({
         users,
-        total: countSnapshot.data().count,
+        total: count,
       }),
       {
         status: 200,
@@ -61,21 +50,23 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const userData = await request.json();
-    const db = getAdminDb();
+    const supabase = await createClient();
 
-    // Add timestamps
-    const now = Timestamp.now();
-    const userDataWithTimestamps = {
-      ...userData,
-      role: userData.role || UserRole.USER,
-      isSuperAdmin: false,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const { data, error } = await supabase
+      .from('users')
+      .insert([
+        {
+          ...userData,
+          role: userData.role || UserRole.USER,
+          is_super_admin: false,
+        },
+      ])
+      .select()
+      .single();
 
-    await db.collection('users').doc(userData.id).set(userDataWithTimestamps);
+    if (error) throw error;
 
-    return new Response(JSON.stringify(userDataWithTimestamps), {
+    return new Response(JSON.stringify(data), {
       status: 201,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -91,18 +82,17 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { ids, updates } = await request.json();
-    const db = getAdminDb();
-    const batch = db.batch();
+    const supabase = await createClient();
 
-    ids.forEach((userId: string) => {
-      const userRef = db.collection('users').doc(userId);
-      batch.update(userRef, {
+    const { error } = await supabase
+      .from('users')
+      .update({
         ...updates,
-        updatedAt: Timestamp.now(),
-      });
-    });
+        updated_at: new Date().toISOString(),
+      })
+      .in('id', ids);
 
-    await batch.commit();
+    if (error) throw error;
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
@@ -120,15 +110,11 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { ids } = await request.json();
-    const db = getAdminDb();
-    const batch = db.batch();
+    const supabase = await createClient();
 
-    ids.forEach((userId: string) => {
-      const userRef = db.collection('users').doc(userId);
-      batch.delete(userRef);
-    });
+    const { error } = await supabase.from('users').delete().in('id', ids);
 
-    await batch.commit();
+    if (error) throw error;
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

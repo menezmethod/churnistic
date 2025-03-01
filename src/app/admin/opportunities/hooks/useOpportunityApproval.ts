@@ -1,7 +1,8 @@
 'use client';
 
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { getAuth } from 'firebase/auth';
+
+import { supabase } from '@/lib/supabase/client';
 
 interface BulkApproveResponse {
   message: string;
@@ -31,31 +32,30 @@ export const useOpportunityApproval = () => {
 
   const bulkApproveMutation = useMutation({
     mutationFn: async ({ force }: { force: boolean }): Promise<BulkApproveResponse> => {
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      if (!idToken) {
+      if (sessionError || !session) {
         throw new Error('No authenticated user found');
       }
 
-      const response = await fetch('/api/opportunities/approve/bulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ force }),
-        credentials: 'include',
+      const { data, error } = await supabase.rpc('bulk_approve_opportunities', {
+        p_force: force,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.details || error.error || 'Failed to approve opportunities'
-        );
+      if (error) {
+        throw new Error(error.message || 'Failed to approve opportunities');
       }
 
-      return response.json();
+      return {
+        message: data.message || 'Successfully approved opportunities',
+        approvedCount: data.approved_count || 0,
+        needsReviewCount: data.needs_review_count || 0,
+        processedCount: data.processed_count || 0,
+        skippedOffers: data.skipped_offers || [],
+      };
     },
     onSuccess: () => {
       // Invalidate relevant queries

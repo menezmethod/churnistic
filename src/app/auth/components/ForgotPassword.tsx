@@ -10,17 +10,15 @@ import TextField from '@mui/material/TextField';
 import * as React from 'react';
 import type { JSX } from 'react';
 
-import { resetPassword } from '@/lib/firebase/utils/auth';
+import { useSupabase } from '@/lib/providers/SupabaseProvider';
 
 interface ForgotPasswordProps {
   open: boolean;
-  onCloseAction: () => void;
+  onClose: () => void;
 }
 
-export function ForgotPassword({
-  open,
-  onCloseAction,
-}: ForgotPasswordProps): JSX.Element {
+export function ForgotPassword({ open, onClose }: ForgotPasswordProps): JSX.Element {
+  const { supabase } = useSupabase();
   const [email, setEmail] = React.useState('');
   const [error, setError] = React.useState('');
   const [success, setSuccess] = React.useState(false);
@@ -33,24 +31,31 @@ export function ForgotPassword({
     setSuccess(false);
 
     try {
-      const { error: resetError } = await resetPassword(email);
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+
       if (resetError) {
-        if (resetError.code === 'auth/user-not-found') {
-          setError('No account found with this email address.');
-        } else {
-          throw resetError;
-        }
-      } else {
-        setSuccess(true);
-        setTimeout(() => {
-          onCloseAction();
-          setEmail('');
-          setSuccess(false);
-        }, 3000);
+        throw resetError;
       }
+
+      setSuccess(true);
+      setTimeout(() => {
+        onClose();
+        setEmail('');
+        setSuccess(false);
+      }, 3000);
     } catch (error) {
       console.error('Password reset error:', error);
-      setError('An error occurred. Please try again.');
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          setError('No account found with this email address.');
+        } else {
+          setError(error.message);
+        }
+      } else {
+        setError('An error occurred. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +64,7 @@ export function ForgotPassword({
   return (
     <Dialog
       open={open}
-      onClose={onCloseAction}
+      onClose={onClose}
       PaperProps={{
         component: 'form',
         onSubmit: handleSubmit,
@@ -97,7 +102,7 @@ export function ForgotPassword({
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCloseAction} disabled={isLoading}>
+        <Button onClick={onClose} disabled={isLoading}>
           Cancel
         </Button>
         <Button type="submit" variant="contained" disabled={isLoading}>
