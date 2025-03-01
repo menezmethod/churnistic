@@ -1,3 +1,5 @@
+'use client';
+
 import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
 import {
   Box,
@@ -7,41 +9,170 @@ import {
   Fade,
   CircularProgress,
   Stack,
-  useTheme,
   Divider,
+  useTheme,
+  Alert,
 } from '@mui/material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { User } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { UserSettings } from '@/lib/hooks/useSettings';
 
-import type { ProfileSectionProps } from './types';
+interface ProfileSectionProps {
+  user: User;
+  settings: UserSettings;
+  supabase: SupabaseClient;
+  onSave: (updates: any) => Promise<void>;
+  StyledTextField: any;
+}
 
 export function ProfileSection({
-  profile,
+  user,
+  settings,
+  supabase,
   onSave,
-  onPhotoChange,
   StyledTextField,
 }: ProfileSectionProps) {
   const theme = useTheme();
   const [formData, setFormData] = useState({
-    firstName: profile?.customDisplayName?.split(' ')[0] || '',
-    lastName: profile?.customDisplayName?.split(' ')[1] || '',
+    firstName: '',
+    lastName: '',
+    fullName: '',
   });
   const [loading, setLoading] = useState({
     save: false,
     upload: false,
+    init: true, 
   });
   const [isDirty, setIsDirty] = useState(false);
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch user data on mount
+  useEffect(() => {
+    async function fetchUserData() {
+      if (!user) return;
+      
+      try {
+        console.log('Fetching user data for ID:', user.id);
+        
+        // Fetch from users table
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('custom_display_name, display_name, avatar_url')
+          .eq('id', user.id)
+          .single();
+          
+        if (userError) {
+          console.error('Error fetching user data:', userError);
+          // If the user doesn't exist yet in the users table, we need to insert them
+          if (userError.code === 'PGRST116') { // No rows found
+            console.log('User not found in database, creating record...');
+            
+            // Extract display name from user object if available
+            let displayName = '';
+            if (user.user_metadata?.full_name) {
+              displayName = user.user_metadata.full_name;
+            } else if (user.user_metadata?.name) {
+              displayName = user.user_metadata.name;
+            } else {
+              // Use email as fallback (excluding domain part)
+              displayName = user.email ? user.email.split('@')[0] : '';
+            }
+            
+            // Extract avatar URL if available in user metadata
+            const avatarUrl = user.user_metadata?.avatar_url || null;
+            
+            // Create the user record
+            const { data: newUserData, error: createError } = await supabase
+              .from('users')
+              .insert({
+                id: user.id,
+                email: user.email,
+                display_name: displayName,
+                custom_display_name: displayName,
+                avatar_url: avatarUrl,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                old_id: user.id // Ensure this field is populated
+              })
+              .select('custom_display_name, display_name, avatar_url')
+              .single();
+              
+            if (createError) {
+              console.error('Error creating user record:', createError);
+              setError(`Failed to create user record: ${createError.message}`);
+              return;
+            }
+            
+            userData = newUserData;
+            console.log('Created new user record:', userData);
+          } else {
+            setError(`Failed to load user data: ${userError.message}`);
+            return;
+          }
+        }
+        
+        if (userData) {
+          console.log('Found user data:', userData);
+          
+          // Get the display name from custom_display_name or display_name
+          const displayName = userData.custom_display_name || userData.display_name || '';
+          
+          // Split display name into first and last name
+          const nameParts = displayName.split(' ');
+          setFormData({
+            firstName: nameParts[0] || '',
+            lastName: nameParts.slice(1).join(' ') || '',
+            fullName: displayName,
+          });
+          setPhotoURL(userData.avatar_url);
+        }
+      } catch (err) {
+        console.error('Error in user data management:', err);
+        setError('Failed to initialize user data. Please try again later.');
+      } finally {
+        setLoading(prev => ({ ...prev, init: false }));
+      }
+    }
+    
+    if (user) {
+      fetchUserData();
+    }
+  }, [user, supabase]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) return;
-
+    
     setLoading((prev) => ({ ...prev, save: true }));
+    setError(null);
+    
     try {
-      await onSave({
-        ...profile,
-        customDisplayName: `${formData.firstName} ${formData.lastName}`.trim(),
-      });
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+      
+      // Update user in database
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          custom_display_name: fullName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+        
+      if (error) {
+        throw new Error(`Failed to update profile: ${error.message}`);
+      }
+      
+      // Update local state
+      setFormData(prev => ({ ...prev, fullName }));
       setIsDirty(false);
+      
+      // Call the parent component's onSave function
+      await onSave({ fullName });
+      
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      setError((err as Error).message || 'Failed to save profile');
     } finally {
       setLoading((prev) => ({ ...prev, save: false }));
     }
@@ -49,8 +180,51 @@ export function ProfileSection({
 
   const handlePhotoUpload = async (file: File) => {
     setLoading((prev) => ({ ...prev, upload: true }));
+    setError(null);
+    
     try {
-      await onPhotoChange(file);
+      // Create a unique file path for the user's avatar
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+      
+      // Upload the file to Supabase Storage
+      const { error: uploadError } = await supabase
+        .storage
+        .from('avatars')
+        .upload(filePath, file, {
+          upsert: true,
+          contentType: file.type
+        });
+        
+      if (uploadError) {
+        throw new Error(`Failed to upload avatar: ${uploadError.message}`);
+      }
+      
+      // Get the public URL for the file
+      const { data: { publicUrl } } = supabase
+        .storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+        
+      // Update the user's profile with the new avatar URL
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ 
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+        
+      if (updateError) {
+        throw new Error(`Failed to update avatar: ${updateError.message}`);
+      }
+      
+      // Update local state
+      setPhotoURL(publicUrl);
+      
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+      setError((err as Error).message || 'Failed to upload photo');
     } finally {
       setLoading((prev) => ({ ...prev, upload: false }));
     }
@@ -62,14 +236,23 @@ export function ProfileSection({
   };
 
   const handleReset = () => {
-    setFormData({
-      firstName: profile?.customDisplayName?.split(' ')[0] || '',
-      lastName: profile?.customDisplayName?.split(' ')[1] || '',
-    });
+    const nameParts = (formData.fullName || '').split(' ');
+    setFormData(prev => ({
+      ...prev,
+      firstName: nameParts[0] || '',
+      lastName: nameParts.slice(1).join(' ') || '',
+    }));
     setIsDirty(false);
   };
 
-  const TextField = StyledTextField || 'div';
+  // Show loading state during initialization
+  if (loading.init) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" py={4}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Fade in timeout={300}>
@@ -80,31 +263,37 @@ export function ProfileSection({
             sx={{
               fontSize: { xs: '1.5rem', sm: '1.75rem' },
               fontWeight: 600,
-              color: theme.palette.text.primary,
+              color: theme.palette.mode === 'light' ? 'text.primary' : '#FFFFFF',
               letterSpacing: '-0.02em',
             }}
           >
             Profile Settings
           </Typography>
 
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
           <Box
             sx={{
               p: 2,
               borderRadius: 1,
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
+              bgcolor: theme.palette.mode === 'light' ? 'background.paper' : 'hsl(220, 35%, 3%)',
+              border: `1px solid ${theme.palette.mode === 'light' ? 'hsl(220, 20%, 88%)' : 'hsl(220, 20%, 25%)'}`,
             }}
           >
             <Stack spacing={2}>
               <Stack direction="row" spacing={3} alignItems="center">
                 <Box sx={{ position: 'relative' }}>
                   <Avatar
-                    src={profile?.photoURL || undefined}
-                    alt={profile?.customDisplayName || 'Profile photo'}
+                    src={photoURL || undefined}
+                    alt={formData.fullName || user.email || 'Profile photo'}
                     sx={{
                       width: 72,
                       height: 72,
-                      border: `3px solid ${theme.palette.background.paper}`,
+                      border: `3px solid ${theme.palette.mode === 'light' ? 'white' : 'hsl(220, 35%, 3%)'}`,
                       boxShadow: theme.shadows[1],
                     }}
                   />
@@ -157,7 +346,7 @@ export function ProfileSection({
                   Personal Information
                 </Typography>
                 <Stack direction="row" spacing={2}>
-                  <TextField
+                  <StyledTextField
                     fullWidth
                     placeholder="First name"
                     value={formData.firstName}
@@ -165,7 +354,7 @@ export function ProfileSection({
                       handleInputChange('firstName', e.target.value)
                     }
                   />
-                  <TextField
+                  <StyledTextField
                     fullWidth
                     placeholder="Last name"
                     value={formData.lastName}

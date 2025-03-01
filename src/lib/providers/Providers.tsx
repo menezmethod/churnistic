@@ -1,12 +1,12 @@
 'use client';
 
 import CssBaseline from '@mui/material/CssBaseline';
-import { ThemeProvider } from '@mui/material/styles';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState, useEffect } from 'react';
 
-import { theme } from '@/app/styles/theme/theme';
+// Import our custom ThemeProvider instead of MUI's
+import { ThemeProvider } from '@/app/styles/theme/ThemeContext';
 
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { SupabaseProvider } from './SupabaseProvider';
@@ -51,8 +51,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
+      {/* Use our custom ThemeProvider which includes context for theme mode */}
+      <ThemeProvider>
         <SupabaseProvider>
           <AuthProvider>
             <ToastProvider>

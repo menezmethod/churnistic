@@ -15,12 +15,16 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
   mode: ThemeMode;
+  actualMode: 'light' | 'dark';
   setMode: (mode: ThemeMode) => void;
+  toggleMode: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   mode: 'system',
+  actualMode: 'light',
   setMode: () => {},
+  toggleMode: () => {},
 });
 
 // Our custom gray palette
@@ -37,29 +41,47 @@ const gray = {
   900: 'hsl(220, 35%, 3%)',
 } as const;
 
+// Create a static theme for SSR
+const staticSSRTheme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#0B5CFF',
+      dark: '#0B4ECC',
+      contrastText: gray[50],
+    },
+    text: {
+      primary: gray[800],
+      secondary: gray[600],
+    },
+    background: {
+      default: gray[50],
+      paper: '#FFFFFF',
+    },
+    divider: gray[200],
+  },
+});
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Initialize with a default theme to avoid hydration mismatch
   const [mounted, setMounted] = useState(false);
-  const [mode, setMode] = useState<ThemeMode>(() => {
-    // Try to get the saved theme during initialization
-    if (typeof window !== 'undefined') {
-      const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
-      return savedMode || 'system';
-    }
-    return 'system';
-  });
-  const [systemPreference, setSystemPreference] = useState<'light' | 'dark'>(() => {
-    // Try to get system preference during initialization
-    if (typeof window !== 'undefined') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return 'light';
-  });
+  const [mode, setMode] = useState<ThemeMode>('system'); // Start with system for consistency
+  const [systemPreference, setSystemPreference] = useState<'light' | 'dark'>('light'); // Start with light for SSR
 
-  // Only update the theme after component mount to avoid hydration mismatch
+  // Load preferences only after mounting to prevent hydration issues
   useEffect(() => {
+    const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
+    if (savedMode) {
+      setMode(savedMode);
+    }
+    
     setMounted(true);
+  }, []);
 
+  // Set up system preference listener after mounting
+  useEffect(() => {
+    if (!mounted) return;
+    
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
       setSystemPreference(e.matches ? 'dark' : 'light');
@@ -70,30 +92,98 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     mediaQuery.addEventListener('change', handleChange);
 
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
+  }, [mounted]);
 
   const actualMode = useMemo(() => {
     if (!mounted) return 'light'; // Default during SSR
     return mode === 'system' ? systemPreference : mode;
   }, [mounted, mode, systemPreference]);
 
+  // Add a direct toggle function
+  const toggleMode = useCallback(() => {
+    if (!mounted) return; // Don't toggle if not mounted
+    
+    const newMode = actualMode === 'light' ? 'dark' : 'light';
+    console.log('🔍 [THEME DEBUG] toggleMode called, switching from', actualMode, 'to', newMode);
+    handleSetMode(newMode);
+  }, [actualMode, mounted]);
+
   const handleSetMode = useCallback((newMode: ThemeMode) => {
+    if (!mounted) return; // Don't change mode if not mounted
+    
+    console.log('🔍 [THEME DEBUG] ThemeContext.setMode called:', {
+      oldMode: mode,
+      newMode,
+      systemPreference,
+      actualBefore: mode === 'system' ? systemPreference : mode
+    });
+    
     setMode(newMode);
     localStorage.setItem('theme-mode', newMode);
-  }, []);
+    
+    // Apply theme class directly to the document
+    if (typeof document !== 'undefined') {
+      const computedMode = newMode === 'system' ? systemPreference : newMode;
+      
+      // Remove existing theme classes - be thorough with all possible class names
+      document.documentElement.classList.remove(
+        'light-theme', 'dark-theme', 
+        'light-mode', 'dark-mode', 
+        'theme-light', 'theme-dark'
+      );
+      
+      // Add the new theme class (support multiple format conventions)
+      document.documentElement.classList.add(
+        `${computedMode}-theme`, 
+        `${computedMode}-mode`,
+        `theme-${computedMode}`
+      );
+      
+      // Set data attributes for CSS selectors - support multiple naming conventions
+      document.documentElement.setAttribute('data-theme', computedMode);
+      document.documentElement.setAttribute('data-color-mode', computedMode);
+      document.documentElement.setAttribute('data-mode', computedMode);
+      
+      // Force a repaint by temporarily adding and removing a class
+      document.body.classList.add('theme-transition');
+      setTimeout(() => {
+        document.body.classList.remove('theme-transition');
+      }, 50);
+      
+      console.log('🔍 [THEME DEBUG] Applied theme classes to document:', {
+        computedMode,
+        htmlClasses: document.documentElement.className
+      });
+    }
+  }, [mode, systemPreference, mounted]);
 
   const value = useMemo(
     () => ({
       mode,
+      actualMode,
       setMode: handleSetMode,
+      toggleMode,
     }),
-    [mode, handleSetMode]
+    [mode, actualMode, handleSetMode, toggleMode]
   );
 
   // Create theme with current mode
   const theme = useMemo(
-    () =>
-      createTheme({
+    () => {
+      // Add logging to verify theme creation with correct mode
+      console.log('🔍 [THEME DEBUG] Creating MUI theme with mode:', {
+        actualMode,
+        systemPreference,
+        userSelectedMode: mode,
+        mounted
+      });
+      
+      // If not mounted yet, use static theme to avoid hydration mismatch
+      if (!mounted) {
+        return staticSSRTheme;
+      }
+      
+      return createTheme({
         palette: {
           mode: actualMode,
           primary: {
@@ -342,20 +432,81 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             },
           },
         },
-      }),
-    [actualMode]
+      });
+    },
+    [actualMode, mode, systemPreference, mounted]
   );
 
-  // Render with default theme during SSR to avoid hydration mismatch
+  // Add direct CSS styling to ensure theme is properly applied
+  useEffect(() => {
+    if (!mounted) return;
+
+    const computedMode = mode === 'system' ? systemPreference : mode;
+    
+    console.log('🔍 [THEME DEBUG] Applying CSS variables for theme:', {
+      computedMode,
+      systemPreference,
+      mode
+    });
+    
+    // Set CSS variables for theme colors with !important to ensure they take precedence
+    document.documentElement.style.setProperty('--theme-background', 
+      computedMode === 'light' ? '#ffffff' : gray[900], 'important');
+    document.documentElement.style.setProperty('--theme-text', 
+      computedMode === 'light' ? gray[800] : '#ffffff', 'important');
+    document.documentElement.style.setProperty('--theme-paper', 
+      computedMode === 'light' ? '#ffffff' : gray[800], 'important');
+    document.documentElement.style.setProperty('--theme-divider', 
+      computedMode === 'light' ? gray[200] : gray[700], 'important');
+      
+    // Set body and html background explicitly with !important
+    document.body.style.setProperty('background-color', 
+      computedMode === 'light' ? '#ffffff' : gray[900], 'important');
+    document.body.style.setProperty('color', 
+      computedMode === 'light' ? gray[800] : '#ffffff', 'important');
+    document.documentElement.style.setProperty('background-color', 
+      computedMode === 'light' ? '#ffffff' : gray[900], 'important');
+    
+    // Apply theme class again to ensure it's set
+    document.documentElement.classList.remove(
+      'light-theme', 'dark-theme', 
+      'light-mode', 'dark-mode', 
+      'theme-light', 'theme-dark'
+    );
+    document.documentElement.classList.add(
+      `${computedMode}-theme`, 
+      `${computedMode}-mode`,
+      `theme-${computedMode}`
+    );
+    
+    // Also add theme class to body
+    document.body.classList.remove(
+      'light-theme', 'dark-theme', 
+      'light-mode', 'dark-mode', 
+      'theme-light', 'theme-dark'
+    );
+    document.body.classList.add(`${computedMode}-mode`);
+    
+    // Force a repaint by manipulating the class name
+    const currentClass = document.body.className;
+    document.body.className = '';
+    setTimeout(() => {
+      document.body.className = currentClass;
+    }, 10);
+    
+  }, [mode, systemPreference, mounted]);
+
+  // During SSR and initial client render before hydration, use a fixed theme
   if (!mounted) {
     return (
-      <MuiThemeProvider theme={theme}>
+      <MuiThemeProvider theme={staticSSRTheme}>
         <CssBaseline />
         {children}
       </MuiThemeProvider>
     );
   }
 
+  // After mounted, use the dynamic theme
   return (
     <ThemeContext.Provider value={value}>
       <MuiThemeProvider theme={theme}>

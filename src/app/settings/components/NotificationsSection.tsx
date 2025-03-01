@@ -1,198 +1,254 @@
-import {
-  CreditCard as CreditCardIcon,
-  AccountBalance as BankIcon,
-  TrendingUp as InvestmentIcon,
-  Warning as RiskIcon,
-} from '@mui/icons-material';
+'use client';
+
+import { useState } from 'react';
 import {
   Box,
   Typography,
+  Stack,
   Switch,
   FormControlLabel,
-  FormGroup,
-  Fade,
-  Stack,
+  Divider,
   useTheme,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
-import { useState } from 'react';
-
-import type { UserProfile } from './types';
+import { User } from '@supabase/supabase-js';
+import { EmailPreferences, NotificationSettings, UserSettings } from '@/lib/hooks/useSettings';
 
 interface NotificationsSectionProps {
-  profile: UserProfile;
-  onUpdate: (updates: Partial<UserProfile>) => Promise<void>;
+  user: User;
+  settings: UserSettings;
+  onUpdate: (updates: any) => Promise<void>;
+  updateEmailPreferences: (settings: Partial<EmailPreferences>) => Promise<void>;
+  updateNotificationSettings: (settings: Partial<NotificationSettings>) => Promise<void>;
 }
 
-export function NotificationsSection({ profile, onUpdate }: NotificationsSectionProps) {
-  const [isSaving, setIsSaving] = useState(false);
+export function NotificationsSection({
+  user,
+  settings,
+  onUpdate,
+  updateEmailPreferences,
+  updateNotificationSettings,
+}: NotificationsSectionProps) {
   const theme = useTheme();
+  const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const handleNotificationChange = async (field: string, value: boolean) => {
-    setIsSaving(true);
+  const handleEmailPreferencesChange = async (key: keyof EmailPreferences) => {
+    setLoading(key);
+    setError(null);
+    setSuccess(null);
+    
     try {
-      await onUpdate({
-        notifications: {
-          ...profile.notifications,
-          [field]: value,
-        },
-      });
+      const newValue = !settings.emailPreferences[key];
+      await updateEmailPreferences({ [key]: newValue });
+      setSuccess(`Email preferences updated successfully`);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Error updating email preferences:', err);
+      setError((err as Error).message || 'Failed to update email preferences');
     } finally {
-      setIsSaving(false);
+      setLoading(null);
     }
   };
 
-  const notificationItems = [
-    {
-      id: 'creditCardAlerts',
-      icon: CreditCardIcon,
-      title: 'Credit Card Alerts',
-      description:
-        'Get notified about application deadlines, minimum spend requirements, and bonus qualification status',
-      value: profile.notifications.creditCardAlerts,
-    },
-    {
-      id: 'bankBonusAlerts',
-      icon: BankIcon,
-      title: 'Bank Bonus Alerts',
-      description:
-        'Receive updates about direct deposit requirements, minimum balance alerts, and bonus payout timelines',
-      value: profile.notifications.bankBonusAlerts,
-    },
-    {
-      id: 'investmentAlerts',
-      icon: InvestmentIcon,
-      title: 'Investment Alerts',
-      description:
-        'Stay informed about investment bonus opportunities, holding period requirements, and transfer deadlines',
-      value: profile.notifications.investmentAlerts,
-    },
-    {
-      id: 'riskAlerts',
-      icon: RiskIcon,
-      title: 'Risk Alerts',
-      description:
-        'Get important alerts about credit score changes, application velocity limits, and ChexSystems activity',
-      value: profile.notifications.riskAlerts,
-    },
-  ];
+  const handleNotificationChange = async (key: keyof NotificationSettings) => {
+    setLoading(key);
+    setError(null);
+    setSuccess(null);
+    
+    try {
+      const newValue = !settings.notifications[key];
+      await updateNotificationSettings({ [key]: newValue });
+      setSuccess(`Notification settings updated successfully`);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Error updating notification settings:', err);
+      setError((err as Error).message || 'Failed to update notification settings');
+    } finally {
+      setLoading(null);
+    }
+  };
 
   return (
-    <Fade in timeout={300}>
+    <Box>
       <Stack spacing={2.5}>
-        <Box>
-          <Typography
-            variant="h1"
-            sx={{
-              fontSize: { xs: '1.5rem', sm: '1.75rem' },
-              fontWeight: 600,
-              color: theme.palette.text.primary,
-              letterSpacing: '-0.02em',
-              mb: 1,
-            }}
-          >
-            Notification Settings
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{
-              color: theme.palette.text.secondary,
-              fontSize: '0.875rem',
-            }}
-          >
-            Choose which updates and alerts you want to receive
-          </Typography>
-        </Box>
+        <Typography
+          variant="h1"
+          sx={{
+            fontSize: { xs: '1.5rem', sm: '1.75rem' },
+            fontWeight: 600,
+            color: theme.palette.mode === 'light' ? 'text.primary' : '#FFFFFF',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          Notification Settings
+        </Typography>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            {success}
+          </Alert>
+        )}
 
         <Box
           sx={{
             p: 2,
             borderRadius: 1,
-            bgcolor: theme.palette.background.paper,
-            border: `1px solid ${theme.palette.divider}`,
+            bgcolor: theme.palette.mode === 'light' ? 'background.paper' : 'hsl(220, 35%, 3%)',
+            border: `1px solid ${theme.palette.mode === 'light' ? 'hsl(220, 20%, 88%)' : 'hsl(220, 20%, 25%)'}`,
           }}
         >
           <Stack spacing={2}>
-            <FormGroup>
-              {notificationItems.map(({ id, icon: Icon, title, description, value }) => (
-                <Box
-                  key={id}
-                  component="label"
-                  sx={{
-                    display: 'block',
-                    p: 2,
-                    borderRadius: 1,
-                    border: `1px solid ${theme.palette.divider}`,
-                    bgcolor: value ? `${theme.palette.primary.main}08` : 'transparent',
-                    transition: 'all 0.2s ease-in-out',
-                    '&:hover': {
-                      bgcolor: theme.palette.action.hover,
-                    },
-                  }}
-                >
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={value}
-                        onChange={(e) => handleNotificationChange(id, e.target.checked)}
-                        disabled={isSaving}
-                        sx={{
-                          '& .MuiSwitch-switchBase.Mui-checked': {
-                            color: theme.palette.primary.main,
-                            '&:hover': {
-                              bgcolor: `${theme.palette.primary.main}14`,
-                            },
-                          },
-                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                            bgcolor: theme.palette.primary.main,
-                          },
-                        }}
-                      />
-                    }
-                    label={
-                      <Stack direction="row" spacing={2}>
-                        <Icon
-                          sx={{
-                            fontSize: '1.25rem',
-                            color: value
-                              ? theme.palette.primary.main
-                              : theme.palette.text.secondary,
-                            mt: 0.25,
-                          }}
-                        />
-                        <Stack spacing={0.5}>
-                          <Typography
-                            variant="subtitle2"
-                            sx={{ fontWeight: 500, fontSize: '0.875rem' }}
-                          >
-                            {title}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color: theme.palette.text.secondary,
-                              lineHeight: 1.4,
-                            }}
-                          >
-                            {description}
-                          </Typography>
-                        </Stack>
-                      </Stack>
-                    }
-                    sx={{
-                      m: 0,
-                      width: '100%',
-                      alignItems: 'center',
-                      '& .MuiFormControlLabel-label': {
-                        flex: 1,
-                      },
-                    }}
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              Email Notifications
+            </Typography>
+
+            <Stack spacing={1}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.emailPreferences.marketing}
+                    onChange={() => handleEmailPreferencesChange('marketing')}
+                    disabled={loading === 'marketing'}
                   />
-                </Box>
-              ))}
-            </FormGroup>
+                }
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="body2">Marketing emails</Typography>
+                    {loading === 'marketing' && <CircularProgress size={16} />}
+                  </Stack>
+                }
+              />
+              <Typography variant="caption" color="text.secondary">
+                Receive emails about new features, offers, and updates
+              </Typography>
+            </Stack>
+
+            <Stack spacing={1}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.emailPreferences.security}
+                    onChange={() => handleEmailPreferencesChange('security')}
+                    disabled={loading === 'security'}
+                  />
+                }
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="body2">Security alerts</Typography>
+                    {loading === 'security' && <CircularProgress size={16} />}
+                  </Stack>
+                }
+              />
+              <Typography variant="caption" color="text.secondary">
+                Receive emails for important security updates and account activity
+              </Typography>
+            </Stack>
+
+            <Divider />
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              App Notifications
+            </Typography>
+
+            <Stack spacing={1}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.notifications.creditCardAlerts}
+                    onChange={() => handleNotificationChange('creditCardAlerts')}
+                    disabled={loading === 'creditCardAlerts'}
+                  />
+                }
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="body2">Credit Card Alerts</Typography>
+                    {loading === 'creditCardAlerts' && <CircularProgress size={16} />}
+                  </Stack>
+                }
+              />
+              <Typography variant="caption" color="text.secondary">
+                Get notified about new credit card offers and deal alerts
+              </Typography>
+            </Stack>
+
+            <Stack spacing={1}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.notifications.bankBonusAlerts}
+                    onChange={() => handleNotificationChange('bankBonusAlerts')}
+                    disabled={loading === 'bankBonusAlerts'}
+                  />
+                }
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="body2">Bank Bonus Alerts</Typography>
+                    {loading === 'bankBonusAlerts' && <CircularProgress size={16} />}
+                  </Stack>
+                }
+              />
+              <Typography variant="caption" color="text.secondary">
+                Get notified about new bank account bonuses and promotions
+              </Typography>
+            </Stack>
+
+            <Stack spacing={1}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.notifications.investmentAlerts}
+                    onChange={() => handleNotificationChange('investmentAlerts')}
+                    disabled={loading === 'investmentAlerts'}
+                  />
+                }
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="body2">Investment Alerts</Typography>
+                    {loading === 'investmentAlerts' && <CircularProgress size={16} />}
+                  </Stack>
+                }
+              />
+              <Typography variant="caption" color="text.secondary">
+                Get notified about important investment opportunities and changes
+              </Typography>
+            </Stack>
+
+            <Stack spacing={1}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.notifications.riskAlerts}
+                    onChange={() => handleNotificationChange('riskAlerts')}
+                    disabled={loading === 'riskAlerts'}
+                  />
+                }
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="body2">Risk Alerts</Typography>
+                    {loading === 'riskAlerts' && <CircularProgress size={16} />}
+                  </Stack>
+                }
+              />
+              <Typography variant="caption" color="text.secondary">
+                Get notified about potential risks to your financial accounts
+              </Typography>
+            </Stack>
           </Stack>
         </Box>
       </Stack>
-    </Fade>
+    </Box>
   );
 }

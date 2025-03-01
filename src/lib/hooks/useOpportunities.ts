@@ -5,14 +5,16 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useMemo, useState, useEffect, useCallback, useTransition } from 'react';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { useMemo, useState, useEffect, useCallback, useTransition, useRef } from 'react';
+import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { useDebounce } from 'use-debounce';
 
 import { supabase } from '@/lib/supabase/client';
 import { Opportunity } from '@/types/opportunity';
 
 const PAGE_SIZE = 20;
+const RECONNECT_DELAY = 2000; // 2 seconds delay for reconnection attempts
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 // Helper function to handle API responses
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -61,6 +63,11 @@ async function handleResponse<T>(response: Response): Promise<T> {
   }
 }
 
+// Check network status
+const isOnline = (): boolean => {
+  return typeof navigator !== 'undefined' && navigator.onLine;
+};
+
 // Enhanced getOpportunities function with cursor-based pagination
 const getOpportunities = async ({
   cursor = null,
@@ -86,6 +93,11 @@ const getOpportunities = async ({
   total: number;
   hasMore: boolean;
 }> => {
+  // Check if we're online
+  if (!isOnline()) {
+    throw new Error('You are currently offline. Please check your connection and try again.');
+  }
+
   console.log('Fetching items with params:', {
     cursor,
     limit,
@@ -194,6 +206,10 @@ const createOpportunity = async (
   data: Omit<Opportunity, 'id'>,
   supabaseClient: SupabaseClient
 ): Promise<Opportunity> => {
+  if (!isOnline()) {
+    throw new Error('You are currently offline. Please check your connection and try again.');
+  }
+
   const { data: opportunity, error } = await supabaseClient
     .from('opportunities')
     .insert([data])
@@ -215,6 +231,10 @@ const updateOpportunity = async (
   },
   supabaseClient: SupabaseClient
 ): Promise<Opportunity> => {
+  if (!isOnline()) {
+    throw new Error('You are currently offline. Please check your connection and try again.');
+  }
+
   const { id, data } = params;
 
   const { data: opportunity, error } = await supabaseClient
@@ -239,6 +259,10 @@ const updateOpportunity = async (
 };
 
 const deleteOpportunity = async (id: string, supabaseClient: SupabaseClient): Promise<void> => {
+  if (!isOnline()) {
+    throw new Error('You are currently offline. Please check your connection and try again.');
+  }
+
   const { error } = await supabaseClient.from('opportunities').delete().eq('id', id);
 
   if (error) {
@@ -272,6 +296,12 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
   // Use the supabase client directly
   const supabaseClient = supabase;
 
+  // Refs for subscription and reconnection
+  const subscriptionRef = useRef<RealtimeChannel | null>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
+  const [isOffline, setIsOffline] = useState<boolean>(!isOnline());
+
   // Initialize filters from URL or initial params
   const [filters, setFilters] = useState<OpportunitiesParams>({
     searchTerm: searchParams.get('search') || initialParams?.searchTerm || '',
@@ -284,6 +314,33 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
 
   // Debounce search term to avoid excessive API calls
   const [debouncedSearchTerm] = useDebounce(filters.searchTerm, 500);
+
+  // Handle online/offline status
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      console.log('Back online, refetching data...');
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      setupRealtimeSubscription(); // Reconnect when back online
+    };
+
+    const handleOffline = () => {
+      setIsOffline(true);
+      console.log('Network connection lost');
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        setIsSubscribed(false);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [queryClient]);
 
   // Sync URL with filters
   useEffect(() => {
@@ -327,6 +384,140 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
     searchTerm: debouncedSearchTerm,
   }), [filters, debouncedSearchTerm]);
 
+  // Setup real-time subscription with reconnection logic
+  const setupRealtimeSubscription = useCallback(() => {
+    if (isOffline || isSubscribed) return;
+
+    try {
+      console.log('Setting up real-time subscription for opportunities');
+      
+      // Clean up any existing subscription
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+
+      const subscription = supabaseClient
+        .channel('opportunities-changes')
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'opportunities' 
+          }, 
+          (payload: any) => {
+            console.log('Real-time update received:', payload);
+            
+            // Handle different event types with precision
+            if (payload.eventType === 'INSERT') {
+              // Check if the new item should be in our current view based on filters
+              const newItem = payload.new as Opportunity;
+              queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+              queryClient.invalidateQueries({ queryKey: ['opportunity', newItem.id] });
+            } 
+            else if (payload.eventType === 'UPDATE') {
+              // Update the specific item in the cache and the list if present
+              const updatedItem = payload.new as Opportunity;
+              
+              // Update in individual item cache
+              queryClient.setQueryData(['opportunity', updatedItem.id], updatedItem);
+              
+              // Update in list cache if present
+              queryClient.setQueriesData<InfiniteData<OpportunitiesResponse>>(
+                { queryKey: ['opportunities'] },
+                (oldData) => {
+                  if (!oldData) return oldData;
+                  
+                  return {
+                    ...oldData,
+                    pages: oldData.pages.map(page => ({
+                      ...page,
+                      items: page.items.map(item => 
+                        item.id === updatedItem.id ? { ...item, ...updatedItem } : item
+                      ),
+                    })),
+                  };
+                }
+              );
+            } 
+            else if (payload.eventType === 'DELETE') {
+              // Remove the item from the cache
+              const deletedId = payload.old.id;
+              
+              // Remove from individual cache
+              queryClient.removeQueries({ queryKey: ['opportunity', deletedId] });
+              
+              // Remove from list cache if present
+              queryClient.setQueriesData<InfiniteData<OpportunitiesResponse>>(
+                { queryKey: ['opportunities'] },
+                (oldData) => {
+                  if (!oldData) return oldData;
+                  
+                  return {
+                    ...oldData,
+                    pages: oldData.pages.map(page => ({
+                      ...page,
+                      items: page.items.filter(item => item.id !== deletedId),
+                      total: page.total > 0 ? page.total - 1 : 0,
+                    })),
+                  };
+                }
+              );
+            }
+          }
+        )
+        .subscribe((status: any) => {
+          console.log('Subscription status:', status);
+          
+          if (status === 'SUBSCRIBED') {
+            setIsSubscribed(true);
+            reconnectAttemptsRef.current = 0;
+          } else if (status === 'CHANNEL_ERROR') {
+            handleSubscriptionError(new Error('Channel error occurred'));
+          }
+        });
+
+      subscriptionRef.current = subscription;
+    } catch (error) {
+      console.error('Error setting up real-time subscription:', error);
+      handleSubscriptionError(error instanceof Error ? error : new Error('Unknown subscription error'));
+    }
+  }, [queryClient, supabaseClient, isOffline, isSubscribed]);
+
+  // Handle subscription errors and reconnection
+  const handleSubscriptionError = useCallback((error: Error) => {
+    console.error('Subscription error:', error);
+    setIsSubscribed(false);
+    
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
+      subscriptionRef.current = null;
+    }
+    
+    if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS && !isOffline) {
+      console.log(`Attempting to reconnect (${reconnectAttemptsRef.current + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
+      
+      setTimeout(() => {
+        reconnectAttemptsRef.current += 1;
+        setupRealtimeSubscription();
+      }, RECONNECT_DELAY);
+    } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+      console.error(`Failed to reconnect after ${MAX_RECONNECT_ATTEMPTS} attempts`);
+    }
+  }, [setupRealtimeSubscription, isOffline]);
+
+  // Initialize subscription
+  useEffect(() => {
+    setupRealtimeSubscription();
+    
+    return () => {
+      if (subscriptionRef.current) {
+        console.log('Cleaning up real-time subscription');
+        subscriptionRef.current.unsubscribe();
+        setIsSubscribed(false);
+      }
+    };
+  }, [setupRealtimeSubscription]);
+
   // Main query with cursor-based pagination
   const { 
     data, 
@@ -356,7 +547,16 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
     refetchOnWindowFocus: true,
-    retry: 3,
+    retry: (failureCount, error) => {
+      // Don't retry if we're offline
+      if (isOffline) return false;
+      // Retry up to 3 times for other errors
+      return failureCount < 3;
+    },
+    // Customize error handling
+    meta: {
+      errorMessage: 'Failed to load opportunities',
+    },
   });
 
   // Mutations with optimistic updates
@@ -368,12 +568,13 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
       await queryClient.cancelQueries({ queryKey: ['opportunities'] });
       
       // Create an optimistic opportunity with a temporary ID
-      const optimisticOpportunity: Opportunity = {
+      const optimisticOpportunity = {
         id: `temp-${Date.now()}`,
         ...newOpportunity,
+        // TypeScript doesn't know these fields exist on Opportunity, but they do in the database
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      };
+      } as unknown as Opportunity;
       
       // Add the optimistic opportunity to the cache
       queryClient.setQueryData<InfiniteData<OpportunitiesResponse>>(
@@ -402,8 +603,10 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
       console.error('Error creating opportunity:', err);
     },
-    onSuccess: () => {
-      // Invalidate and refetch
+    onSuccess: (data) => {
+      // Update the cache with the actual data
+      queryClient.setQueryData(['opportunity', data.id], data);
+      // Then invalidate the list query to ensure it's up to date
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
     },
   });
@@ -414,13 +617,25 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
     onMutate: async ({ id, data }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['opportunities'] });
+      await queryClient.cancelQueries({ queryKey: ['opportunity', id] });
       
-      // Get the current opportunity
+      // Get the current opportunity data
+      const previousOpportunity = queryClient.getQueryData<Opportunity>(['opportunity', id]);
+      
+      // Get the current list data
       const previousData = queryClient.getQueryData<InfiniteData<OpportunitiesResponse>>(
         ['opportunities', queryParams]
       );
       
-      // Update the opportunity in the cache
+      // Update the individual opportunity in the cache
+      if (previousOpportunity) {
+        queryClient.setQueryData<Opportunity>(
+          ['opportunity', id],
+          { ...previousOpportunity, ...data, updated_at: new Date().toISOString() } as any
+        );
+      }
+      
+      // Update the opportunity in the list cache
       queryClient.setQueryData<InfiniteData<OpportunitiesResponse>>(
         ['opportunities', queryParams],
         (old) => {
@@ -430,7 +645,7 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
             ...page,
             items: page.items.map(item => 
               item.id === id 
-                ? { ...item, ...data, updated_at: new Date().toISOString() } 
+                ? { ...item, ...data, updated_at: new Date().toISOString() } as Opportunity
                 : item
             ),
           }));
@@ -442,20 +657,28 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
         }
       );
       
-      return { previousData };
+      return { previousOpportunity, previousData };
     },
     onError: (err, { id }, context) => {
-      // Revert the optimistic update
+      // Revert the individual opportunity update
+      if (context?.previousOpportunity) {
+        queryClient.setQueryData(['opportunity', id], context.previousOpportunity);
+      }
+      
+      // Revert the list update
       if (context?.previousData) {
         queryClient.setQueryData(
           ['opportunities', queryParams],
           context.previousData
         );
       }
+      
       console.error(`Error updating opportunity ${id}:`, err);
     },
-    onSuccess: () => {
-      // Invalidate and refetch
+    onSuccess: (updatedOpportunity) => {
+      // Update the cache with the actual data
+      queryClient.setQueryData(['opportunity', updatedOpportunity.id], updatedOpportunity);
+      // Then invalidate the list query to ensure it's up to date
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
     },
   });
@@ -465,13 +688,20 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
     onMutate: async (id) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['opportunities'] });
+      await queryClient.cancelQueries({ queryKey: ['opportunity', id] });
       
       // Get the current data
       const previousData = queryClient.getQueryData<InfiniteData<OpportunitiesResponse>>(
         ['opportunities', queryParams]
       );
       
-      // Remove the opportunity from the cache
+      // Get the opportunity being deleted (for potential undo)
+      const deletedOpportunity = queryClient.getQueryData<Opportunity>(['opportunity', id]);
+      
+      // Remove the opportunity from individual cache
+      queryClient.removeQueries({ queryKey: ['opportunity', id] });
+      
+      // Remove the opportunity from the list cache
       queryClient.setQueryData<InfiniteData<OpportunitiesResponse>>(
         ['opportunities', queryParams],
         (old) => {
@@ -490,20 +720,27 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
         }
       );
       
-      return { previousData };
+      return { previousData, deletedOpportunity };
     },
     onError: (err, id, context) => {
-      // Revert the optimistic update
+      // Restore the opportunity to individual cache if available
+      if (context?.deletedOpportunity) {
+        queryClient.setQueryData(['opportunity', id], context.deletedOpportunity);
+      }
+      
+      // Restore the list data
       if (context?.previousData) {
         queryClient.setQueryData(
           ['opportunities', queryParams],
           context.previousData
         );
       }
+      
       console.error(`Error deleting opportunity ${id}:`, err);
     },
-    onSuccess: () => {
-      // Invalidate and refetch
+    onSuccess: (_, id) => {
+      // Confirm the deletion by invalidating queries
+      queryClient.removeQueries({ queryKey: ['opportunity', id] });
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
     },
   });
@@ -515,29 +752,6 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
   );
 
   const total = useMemo(() => data?.pages[0]?.total ?? 0, [data]);
-
-  // Set up real-time subscription
-  useEffect(() => {
-    const subscription = supabaseClient
-      .channel('opportunities-changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'opportunities' 
-        }, 
-        (payload) => {
-          console.log('Real-time update received:', payload);
-          // Invalidate the query to refetch data
-          queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [queryClient, supabaseClient]);
 
   return {
     // Data
@@ -555,6 +769,8 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
     isLoading,
     isFetching,
     isPending,
+    isOffline,
+    isSubscribed,
     
     // Actions
     refetch,
@@ -571,5 +787,11 @@ export function useOpportunities(initialParams?: Partial<OpportunitiesParams>) {
     filters,
     updateFilters,
     resetFilters,
+    
+    // Force reconnection to real-time updates
+    reconnect: () => {
+      reconnectAttemptsRef.current = 0;
+      setupRealtimeSubscription();
+    },
   };
 }
