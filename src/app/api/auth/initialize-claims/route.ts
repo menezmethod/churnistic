@@ -1,39 +1,39 @@
-import { type NextRequest } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-import { UserRole } from '@/lib/auth/types';
-import { getAdminAuth, getAdminDb } from '@/lib/firebase/admin';
+import { createAuthContext } from '@/lib/auth/authUtils';
+import type { Database } from '@/types/supabase';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const { uid } = await request.json();
-
-    if (!uid) {
-      return new Response('Missing uid', { status: 400 });
+    const { session } = await createAuthContext();
+    if (!session?.user?.id || !session?.user?.email) {
+      return new Response('Unauthorized', { status: 401 });
     }
 
-    // Get user document
-    const db = getAdminDb();
-    const userDoc = await db.collection('users').doc(uid).get();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    // Default claims
-    const claims = {
-      role: UserRole.USER,
-      permissions: [],
-    };
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
 
-    // If user document exists, use role from document
-    if (userDoc.exists) {
-      const userData = userDoc.data();
-      if (userData?.role) {
-        claims.role = userData.role;
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
+
+    // Call the initialize_user_claims function
+    const { data: claims, error: claimsError } = await supabase.rpc(
+      'initialize_user_claims',
+      {
+        p_user_id: session.user.id,
+        p_email: session.user.email,
       }
+    );
+
+    if (claimsError) {
+      console.error('Error initializing claims:', claimsError);
+      throw claimsError;
     }
 
-    // Set custom claims
-    const auth = getAdminAuth();
-    await auth.setCustomUserClaims(uid, claims);
-
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, claims }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

@@ -312,3 +312,78 @@ export interface BankRewardsResponse {
     offers: BankRewardsOffer[];
   };
 }
+
+// This interface matches the actual database schema with snake_case column names
+export interface DatabaseOpportunity {
+  id: string;
+  name: string;
+  type: 'bank' | 'credit_card' | 'brokerage';
+  bank: string;
+  value: number;
+  status: 'pending' | 'approved' | 'rejected' | 'staged';
+  metadata: Metadata;
+  source: Source;
+  source_id: string;
+  bonus: Bonus;
+  details: Details;
+  logo: Logo;
+  card_image: CardImage | null;
+  offer_link: string;
+  description: string;
+  processing_status: ProcessingStatus;
+  ai_insights: AIInsights;
+  created_at: string;
+  updated_at: string;
+  user_id?: string;
+}
+
+// Helper functions to convert between database and frontend formats
+export function mapDatabaseOpportunityToOpportunity(dbOpp: DatabaseOpportunity): Opportunity {
+  return {
+    id: dbOpp.id,
+    name: dbOpp.name,
+    type: dbOpp.type,
+    bank: dbOpp.bank,
+    value: dbOpp.value,
+    status: dbOpp.status,
+    metadata: dbOpp.metadata,
+    source: dbOpp.source,
+    source_id: dbOpp.source_id,
+    bonus: dbOpp.bonus,
+    details: dbOpp.details,
+    logo: dbOpp.logo,
+    card_image: dbOpp.card_image,
+    offer_link: dbOpp.offer_link,
+    description: dbOpp.description,
+    processing_status: dbOpp.processing_status,
+    ai_insights: dbOpp.ai_insights,
+    createdAt: dbOpp.created_at,
+    updatedAt: dbOpp.updated_at
+  };
+}
+
+export function mapOpportunityToDatabaseFields(opp: Partial<Opportunity>): Partial<DatabaseOpportunity> {
+  const dbOpp: Partial<DatabaseOpportunity> = {};
+  
+  if (opp.id !== undefined) dbOpp.id = opp.id;
+  if (opp.name !== undefined) dbOpp.name = opp.name;
+  if (opp.type !== undefined) dbOpp.type = opp.type;
+  if (opp.bank !== undefined) dbOpp.bank = opp.bank;
+  if (opp.value !== undefined) dbOpp.value = opp.value;
+  if (opp.status !== undefined) dbOpp.status = opp.status;
+  if (opp.metadata !== undefined) dbOpp.metadata = opp.metadata;
+  if (opp.source !== undefined) dbOpp.source = opp.source;
+  if (opp.source_id !== undefined) dbOpp.source_id = opp.source_id;
+  if (opp.bonus !== undefined) dbOpp.bonus = opp.bonus;
+  if (opp.details !== undefined) dbOpp.details = opp.details;
+  if (opp.logo !== undefined) dbOpp.logo = opp.logo;
+  if (opp.card_image !== undefined) dbOpp.card_image = opp.card_image;
+  if (opp.offer_link !== undefined) dbOpp.offer_link = opp.offer_link;
+  if (opp.description !== undefined) dbOpp.description = opp.description;
+  if (opp.processing_status !== undefined) dbOpp.processing_status = opp.processing_status;
+  if (opp.ai_insights !== undefined) dbOpp.ai_insights = opp.ai_insights;
+  if (opp.createdAt !== undefined) dbOpp.created_at = opp.createdAt;
+  if (opp.updatedAt !== undefined) dbOpp.updated_at = opp.updatedAt;
+  
+  return dbOpp;
+}

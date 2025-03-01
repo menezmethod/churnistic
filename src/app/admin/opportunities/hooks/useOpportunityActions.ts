@@ -1,8 +1,9 @@
 'use client';
 
-import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { getAuth } from 'firebase/auth';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
+
+import { supabase } from '@/lib/supabase/client';
 
 import { useOpportunities } from './useOpportunities';
 import { Opportunity } from '../types/opportunity';
@@ -57,10 +58,12 @@ export const useOpportunityActions = () => {
 
   const handleReject = async (opportunity: Opportunity & { isStaged?: boolean }) => {
     try {
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      if (!idToken) {
+      if (sessionError || !session) {
         throw new Error('No authenticated user found');
       }
 
@@ -75,18 +78,12 @@ export const useOpportunityActions = () => {
       updateOptimisticData(opportunity.id, { status: 'rejected' });
 
       try {
-        const response = await fetch(`/api/opportunities/${opportunity.id}/reject`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-          },
-          credentials: 'include',
+        const { error } = await supabase.rpc('reject_opportunity', {
+          p_opportunity_id: opportunity.id,
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.details || error.error || 'Failed to reject opportunity');
+        if (error) {
+          throw new Error(error.message || 'Failed to reject opportunity');
         }
 
         // Invalidate relevant queries after successful rejection
@@ -121,28 +118,21 @@ export const useOpportunityActions = () => {
 
   const handleBulkApprove = async (force: boolean = false) => {
     try {
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      if (!idToken) {
+      if (sessionError || !session) {
         throw new Error('No authenticated user found');
       }
 
-      const response = await fetch('/api/opportunities/approve/bulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ force }),
-        credentials: 'include',
+      const { error } = await supabase.rpc('bulk_approve_opportunities', {
+        p_force: force,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.details || error.error || 'Failed to bulk approve opportunities'
-        );
+      if (error) {
+        throw new Error(error.message || 'Failed to bulk approve opportunities');
       }
 
       await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
@@ -155,19 +145,15 @@ export const useOpportunityActions = () => {
 
   const resetMutation = useMutation({
     mutationFn: async (collection: 'opportunities' | 'staged_offers') => {
-      const response = await fetch('/api/opportunities/reset', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ collection }),
+      const { error } = await supabase.rpc('reset_collection', {
+        p_collection: collection,
       });
 
-      if (!response.ok) {
+      if (error) {
         throw new Error('Failed to reset opportunities');
       }
 
-      return response.json();
+      return { success: true };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
@@ -209,31 +195,22 @@ export const useOpportunityActions = () => {
         },
       });
 
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      if (!idToken) {
+      if (sessionError || !session) {
         throw new Error('No authenticated user found');
       }
 
-      const response = await fetch(
-        `/api/opportunities/${opportunity.id}?action=mark-for-review`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({ reason }),
-          credentials: 'include',
-        }
-      );
+      const { error } = await supabase.rpc('mark_opportunity_for_review', {
+        p_opportunity_id: opportunity.id,
+        p_reason: reason,
+      });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.details || error.error || 'Failed to mark opportunity for review'
-        );
+      if (error) {
+        throw new Error(error.message || 'Failed to mark opportunity for review');
       }
 
       await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
@@ -257,8 +234,8 @@ export const useOpportunityActions = () => {
     handleReject,
     handleApprove,
     handleBulkApprove,
-    handleResetStaged,
     handleResetAll,
+    handleResetStaged,
     handleMarkForReview,
   };
 };

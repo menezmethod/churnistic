@@ -1,11 +1,7 @@
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useEffect, useState, useMemo } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-import { Permission } from '@/lib/auth/types';
-import { getFirebaseServices } from '@/lib/firebase/config';
-
-const { firestore: db } = await getFirebaseServices();
+import { useSupabase } from '@/lib/providers/SupabaseProvider';
 
 export interface NotificationSettings {
   creditCardAlerts: boolean;
@@ -22,21 +18,21 @@ const defaultSettings: NotificationSettings = {
 };
 
 export function useNotificationSettings() {
-  const { user, hasPermission } = useAuth();
+  const { user, supabase } = useSupabase();
   const [settings, setSettings] = useState<NotificationSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   // Check permissions for each alert type using useMemo
   const permissions = useMemo(() => {
-    const perms: Record<keyof NotificationSettings, boolean> = {
-      creditCardAlerts: hasPermission(Permission.RECEIVE_CREDIT_CARD_ALERTS),
-      bankBonusAlerts: hasPermission(Permission.RECEIVE_BANK_BONUS_ALERTS),
-      investmentAlerts: hasPermission(Permission.RECEIVE_INVESTMENT_ALERTS),
-      riskAlerts: hasPermission(Permission.RECEIVE_RISK_ALERTS),
+    // TODO: Implement permission checking with Supabase RLS
+    return {
+      creditCardAlerts: true,
+      bankBonusAlerts: true,
+      investmentAlerts: true,
+      riskAlerts: true,
     };
-    return perms;
-  }, [hasPermission]);
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -45,49 +41,46 @@ export function useNotificationSettings() {
       return;
     }
 
-    // Listen for real-time updates
-    const handleSettingsUpdate = (event: CustomEvent<NotificationSettings>) => {
-      setSettings(event.detail);
-      setLoading(false);
-    };
-
-    window.addEventListener(
-      'notificationSettingsUpdate',
-      handleSettingsUpdate as EventListener
-    );
-
     // Initial fetch
     const fetchSettings = async () => {
       try {
-        const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
+        const { data, error: fetchError } = await supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
 
-        if (docSnap.exists()) {
-          const data = docSnap.data() as NotificationSettings;
+        if (fetchError) {
+          if (fetchError.code === 'PGRST116') {
+            // Record not found, initialize with default settings
+            const { error: insertError } = await supabase.from('user_settings').insert([
+              {
+                user_id: user.id,
+                ...defaultSettings,
+              },
+            ]);
+
+            if (insertError) throw insertError;
+            setSettings(defaultSettings);
+          } else {
+            throw fetchError;
+          }
+        } else {
           // Filter settings based on permissions
           const filteredSettings = Object.keys(data).reduce(
-            (acc, key) => ({
-              ...acc,
-              [key]: permissions[key as keyof NotificationSettings]
-                ? data[key as keyof NotificationSettings]
-                : false,
-            }),
-            {} as NotificationSettings
+            (acc, key) => {
+              if (key in permissions) {
+                acc[key as keyof NotificationSettings] = permissions[
+                  key as keyof NotificationSettings
+                ]
+                  ? data[key]
+                  : false;
+              }
+              return acc;
+            },
+            { ...defaultSettings }
           );
           setSettings(filteredSettings);
-        } else {
-          // Initialize with default settings if none exist, respecting permissions
-          const initialSettings = Object.keys(defaultSettings).reduce(
-            (acc, key) => ({
-              ...acc,
-              [key]: permissions[key as keyof NotificationSettings]
-                ? defaultSettings[key as keyof NotificationSettings]
-                : false,
-            }),
-            {} as NotificationSettings
-          );
-          await setDoc(docRef, initialSettings);
-          setSettings(initialSettings);
         }
       } catch (err) {
         setError(err as Error);
@@ -99,13 +92,29 @@ export function useNotificationSettings() {
 
     void fetchSettings();
 
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('user_settings_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_settings',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: RealtimePostgresChangesPayload<NotificationSettings>) => {
+          if (payload.new) {
+            setSettings(payload.new as NotificationSettings);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      window.removeEventListener(
-        'notificationSettingsUpdate',
-        handleSettingsUpdate as EventListener
-      );
+      void supabase.removeChannel(channel);
     };
-  }, [user, permissions]);
+  }, [user, supabase, permissions]);
 
   const updateSettings = async (newSettings: Partial<NotificationSettings>) => {
     if (!user) return;
@@ -129,9 +138,13 @@ export function useNotificationSettings() {
         throw new Error('No valid settings to update');
       }
 
-      const docRef = doc(db, 'users', user.uid);
-      const updatedSettings = { ...settings, ...validatedSettings };
-      await setDoc(docRef, updatedSettings, { merge: true });
+      const { error: updateError } = await supabase.from('user_settings').upsert({
+        user_id: user.id,
+        ...settings,
+        ...validatedSettings,
+      });
+
+      if (updateError) throw updateError;
     } catch (err) {
       setError(err as Error);
       console.error('Error updating notification settings:', err);

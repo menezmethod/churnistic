@@ -4,7 +4,7 @@ import { Box, CircularProgress } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-import { AuthLoader } from '@/lib/auth/authConfig';
+import { AuthLoader } from '@/lib/auth/AuthLoader';
 
 function RedirectToLogin() {
   const router = useRouter();

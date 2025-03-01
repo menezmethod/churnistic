@@ -17,7 +17,8 @@ import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import type { JSX } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth } from '@/lib/providers/AuthProvider';
+import { useToast } from '@/lib/providers/ToastProvider';
 
 import { ForgotPassword } from './ForgotPassword';
 import { GoogleIcon } from './icons';
@@ -63,6 +64,7 @@ interface ExtendedFormHelperTextProps extends FormHelperTextProps {
 export function SignIn(): JSX.Element {
   const router = useRouter();
   const { user, signIn, signInWithGoogle } = useAuth();
+  const { showToast } = useToast();
   const [emailError, setEmailError] = React.useState(false);
   const [emailErrorMessage, setEmailErrorMessage] = React.useState('');
   const [passwordError, setPasswordError] = React.useState(false);
@@ -73,8 +75,7 @@ export function SignIn(): JSX.Element {
   React.useEffect((): void => {
     if (user) {
       console.log('[SignIn] Valid user detected - redirecting');
-      // Add temporary query param to force refresh
-      window.location.href = `/dashboard?ts=${Date.now()}`;
+      router.push('/dashboard');
     }
   }, [user, router]);
 
@@ -119,12 +120,17 @@ export function SignIn(): JSX.Element {
     try {
       await signIn(email, password);
       console.log('[SignIn] Email/password signIn completed');
+      showToast({ message: 'Successfully signed in', severity: 'success' });
     } catch (error: unknown) {
       console.error('[SignIn] Sign in error:', error);
       setEmailError(true);
       setPasswordError(true);
       setEmailErrorMessage('Invalid email or password.');
       setPasswordErrorMessage('Invalid email or password.');
+      showToast({
+        message: error instanceof Error ? error.message : 'Failed to sign in',
+        severity: 'error',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -136,10 +142,13 @@ export function SignIn(): JSX.Element {
     try {
       await signInWithGoogle();
       console.log('[SignIn] Google signIn completed');
+      showToast({ message: 'Redirecting to Google...', severity: 'info' });
     } catch (error) {
       console.error('[SignIn] Google sign in error:', error);
-      setEmailError(true);
-      setEmailErrorMessage('Failed to sign in with Google');
+      showToast({
+        message: error instanceof Error ? error.message : 'Failed to sign in with Google',
+        severity: 'error',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -254,7 +263,7 @@ export function SignIn(): JSX.Element {
       </Card>
       <ForgotPassword
         open={forgotPasswordOpen}
-        onCloseAction={(): void => setForgotPasswordOpen(false)}
+        onClose={(): void => setForgotPasswordOpen(false)}
       />
     </SignInContainer>
   );

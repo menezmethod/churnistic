@@ -5,26 +5,21 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**.gstatic.com',
-        pathname: '/**',
+        hostname: 'lh3.googleusercontent.com',
       },
       {
         protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
-        pathname: '/**',
+        hostname: 'avatars.githubusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 't3.gstatic.com',
       },
       {
         protocol: 'https',
         hostname: 'bankrewards.io',
-        pathname: '/**',
       },
-      {
-        protocol: 'https',
-        hostname: '**.googleusercontent.com',
-        pathname: '/**',
-      }
     ],
-    unoptimized: true
   },
   async headers() {
     return [
@@ -74,7 +69,7 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: '2mb'
+      allowedOrigins: ['localhost:3000', process.env.NEXT_PUBLIC_URL || 'localhost:3000'],
     },
   },
 };

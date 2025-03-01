@@ -1,11 +1,22 @@
+// TODO: Migrate to Supabase Queries
+// This file needs to be updated to use Supabase database queries instead of Firestore
+// Key changes needed:
+// 1. Replace Firestore queries with Supabase database queries
+// 2. Update data fetching to use Supabase client
+// 3. Update real-time subscriptions to use Supabase real-time features
+// 4. Update admin operations to use Supabase RLS policies
+
+'use client';
+
 import {
   keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { getAuth } from 'firebase/auth';
 import { useState } from 'react';
+
+import { supabase } from '@/lib/supabase/client';
 
 import {
   Details,
@@ -287,43 +298,29 @@ const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
 };
 
 const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
-  try {
-    const response = await fetch('/api/proxy/bankrewards?format=detailed', {
-      method: 'GET',
-      credentials: 'include',
-      signal: AbortSignal.timeout(process.env.NODE_ENV === 'production' ? 10000 : 30000),
-    });
-    if (!response.ok)
-      throw new Error(`BankRewards API failed with status ${response.status}`);
-    return await response.json();
-  } catch (error) {
-    console.error('BankRewards API error:', error);
-    return { data: { offers: [], stats: { total: 0, active: 0, expired: 0 } } };
+  const { data, error } = await supabase.rpc('get_bank_rewards_offers');
+
+  if (error) {
+    throw new Error(error.message);
   }
+
+  return data;
 };
 
 const fetchStagedOpportunities = async (): Promise<
   (Opportunity & { isStaged: boolean })[]
 > => {
-  const auth = getAuth();
-  const idToken = await auth.currentUser?.getIdToken(true);
+  const { data, error } = await supabase
+    .from('staged_offers')
+    .select('*')
+    .order('created_at', { ascending: false });
 
-  if (!idToken) {
-    throw new Error('No authenticated user found');
+  if (error) {
+    throw new Error(error.message);
   }
 
-  const response = await fetch('/api/opportunities/staged', {
-    headers: {
-      Authorization: `Bearer ${idToken}`,
-    },
-    credentials: 'include',
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch staged opportunities');
-  }
-  const data = await response.json();
-  return data.opportunities.map((opp: Opportunity) => ({
-    ...opp,
+  return data.map((offer) => ({
+    ...offer,
     isStaged: true,
   }));
 };
@@ -374,486 +371,247 @@ export function useOpportunities(): UseOpportunitiesReturn {
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     pageSize: ITEMS_PER_PAGE,
-    sortBy: 'value',
+    sortBy: 'created_at',
     sortDirection: 'desc',
     filters: {},
   });
 
-  // Fetch paginated opportunities with better options
-  const { error: paginatedError, isLoading: isLoadingPaginated } = useQuery({
-    queryKey: queryKeys.opportunities.paginated(pagination),
+  // Fetch opportunities with pagination and filters
+  const {
+    data: paginatedData,
+    isLoading,
+    isFetching,
+    error,
+  } = useQuery<PaginatedResponse>({
+    queryKey: ['opportunities', pagination],
     queryFn: async () => {
-      const params = new URLSearchParams();
+      let query = supabase
+        .from('opportunities')
+        .select('*', { count: 'exact' })
+        .range(
+          (pagination.page - 1) * pagination.pageSize,
+          pagination.page * pagination.pageSize - 1
+        )
+        .order(pagination.sortBy, {
+          ascending: pagination.sortDirection === 'asc',
+        });
 
-      // Add base pagination params
-      params.set('page', pagination.page.toString());
-      params.set('pageSize', pagination.pageSize.toString());
-      params.set('sortBy', pagination.sortBy);
-      params.set('sortDirection', pagination.sortDirection);
-
-      // Add filters, converting numbers to strings
-      if (pagination.filters.status) params.set('status', pagination.filters.status);
-      if (pagination.filters.type) params.set('type', pagination.filters.type);
-      if (pagination.filters.minValue)
-        params.set('minValue', pagination.filters.minValue.toString());
-      if (pagination.filters.maxValue)
-        params.set('maxValue', pagination.filters.maxValue.toString());
-      if (pagination.filters.search) params.set('search', pagination.filters.search);
-
-      const response = await fetch(`/api/opportunities?${params}`);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.details || error.error || 'Failed to fetch opportunities');
+      // Apply filters
+      if (pagination.filters.status) {
+        query = query.eq('status', pagination.filters.status);
       }
-      return response.json() as Promise<PaginatedResponse>;
+      if (pagination.filters.type) {
+        query = query.eq('type', pagination.filters.type);
+      }
+      if (pagination.filters.minValue) {
+        query = query.gte('value', pagination.filters.minValue);
+      }
+      if (pagination.filters.maxValue) {
+        query = query.lte('value', pagination.filters.maxValue);
+      }
+      if (pagination.filters.search) {
+        query = query.ilike('name', `%${pagination.filters.search}%`);
+      }
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      return {
+        items: data,
+        total: count || 0,
+        hasMore: (count || 0) > pagination.page * pagination.pageSize,
+      };
     },
     placeholderData: keepPreviousData,
-    staleTime: 1000 * 30, // 30 seconds
-    gcTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: true,
-    retry: 2,
-  });
-
-  // Fetch stats with better options
-  const { data: statsData, isLoading: isLoadingStats } = useQuery({
-    queryKey: ['opportunities', 'stats'],
-    queryFn: async () => {
-      const response = await fetch('/api/opportunities/stats');
-      if (!response.ok) throw new Error('Failed to fetch stats');
-      return response.json();
-    },
-    staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: true,
-    retry: 2,
   });
 
   // Fetch staged opportunities
-  const {
-    data: stagedOpportunities = [],
-    error: stagedError,
-    isLoading: isLoadingStaged,
-  } = useQuery({
-    queryKey: queryKeys.opportunities.staged,
+  const { data: stagedOpportunities = [], isLoading: isLoadingStaged } = useQuery({
+    queryKey: ['opportunities', 'staged'],
     queryFn: fetchStagedOpportunities,
+  });
+
+  // Fetch approved opportunities
+  const { data: approvedOpportunities = [], isLoading: isLoadingApproved } = useQuery({
+    queryKey: ['opportunities', 'approved'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('opportunities')
+        .select('*')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    },
   });
 
   // Fetch rejected opportunities
   const { data: rejectedOpportunities = [], isLoading: isLoadingRejected } = useQuery({
-    queryKey: queryKeys.opportunities.rejected,
+    queryKey: ['opportunities', 'rejected'],
     queryFn: async () => {
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
+      const { data, error } = await supabase
+        .from('opportunities')
+        .select('*')
+        .eq('status', 'rejected')
+        .order('created_at', { ascending: false });
 
-      if (!idToken) {
-        throw new Error('No authenticated user found');
+      if (error) {
+        throw error;
       }
 
-      const response = await fetch('/api/opportunities/rejected', {
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch rejected opportunities');
-      }
-
-      const data = await response.json();
-      return data.items;
+      return data;
     },
   });
 
-  // Update stats calculation
-  const calculatedStats: Stats = {
-    total: statsData?.total || 0,
-    pending: statsData?.pending || 0,
-    approved: statsData?.approved || 0,
-    rejected: rejectedOpportunities.length,
-    avgValue: statsData?.avgValue || 0,
-    byType: statsData?.byType || { bank: 0, credit_card: 0, brokerage: 0 },
-    highValue: statsData?.highValue || 0,
-    processingRate: statsData?.processingRate || 0,
-  };
-
-  // Fetch all approved opportunities
-  const { data: approvedOpportunities = [] } = useQuery({
-    queryKey: queryKeys.opportunities.approved,
+  // Fetch stats
+  const { data: stats = defaultStats } = useQuery({
+    queryKey: ['opportunities', 'stats'],
     queryFn: async () => {
-      const params = new URLSearchParams({
-        status: 'approved',
-        pageSize: '1000', // Large enough to get all approved opportunities
-      });
+      const { data, error } = await supabase.rpc('get_opportunity_stats');
 
-      const response = await fetch(`/api/opportunities?${params}`);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.details || error.error || 'Failed to fetch approved opportunities'
-        );
+      if (error) {
+        throw error;
       }
-      const data = await response.json();
-      return data.items as Opportunity[];
-    },
-    staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: true,
-  });
 
-  // Add error handling for mutations
-  const handleMutationError = (error: unknown) => {
-    console.error('Mutation error:', error);
-    if (error instanceof Error) {
-      // You can add toast notification or other error handling here
-      console.error(error.message);
-    }
-  };
-
-  // Update mutations with loading states
-  const importOpportunitiesMutation = useMutation({
-    mutationFn: async () => {
-      setLoadingStates((prev) => ({ ...prev, import: true }));
-      try {
-        const response = await fetchBankRewardsOffers();
-        const transformedOffers = response.data.offers.map(transformBankRewardsOffer);
-
-        // Import opportunities
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
-
-        if (!idToken) {
-          throw new Error('No authenticated user found');
-        }
-
-        const importResponse = await fetch('/api/opportunities/import', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({ offers: transformedOffers }),
-          credentials: 'include',
-        });
-
-        if (!importResponse.ok) {
-          const error = await importResponse.json();
-          throw new Error(
-            error.details || error.error || 'Failed to import opportunities'
-          );
-        }
-
-        return importResponse.json();
-      } finally {
-        setLoadingStates((prev) => ({ ...prev, import: false }));
-      }
-    },
-    onError: handleMutationError,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
+      return data;
     },
   });
 
-  // Approve mutation with optimistic updates
-  const approveOpportunityMutation = useMutation({
+  // Mutations
+  const approveMutation = useMutation({
     mutationFn: async (opportunity: Opportunity) => {
-      setLoadingStates((prev) => ({ ...prev, [opportunity.id]: true }));
-      try {
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
-        if (!idToken) throw new Error('No authenticated user found');
+      const { error } = await supabase.rpc('approve_opportunity', {
+        p_opportunity_id: opportunity.id,
+      });
 
-        const response = await fetch('/api/opportunities/approve', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify(opportunity),
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(
-            error.details || error.error || 'Failed to approve opportunity'
-          );
-        }
-
-        return response.json();
-      } finally {
-        setLoadingStates((prev) => ({ ...prev, [opportunity.id]: false }));
-      }
-    },
-    onMutate: async (opportunity) => {
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.all }),
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.staged }),
-      ]);
-
-      const previousPaginated = queryClient.getQueryData(
-        queryKeys.opportunities.paginated(pagination)
-      );
-
-      // Optimistic update
-      if (previousPaginated) {
-        queryClient.setQueryData(queryKeys.opportunities.paginated(pagination), {
-          ...previousPaginated,
-          items: (previousPaginated as { items: Opportunity[] }).items.map(
-            (opp: Opportunity) =>
-              opp.id === opportunity.id ? { ...opp, status: 'approved' } : opp
-          ),
-        });
-      }
-
-      return { previousPaginated };
-    },
-    onError: (err, _, context) => {
-      if (context?.previousPaginated) {
-        queryClient.setQueryData(
-          queryKeys.opportunities.paginated(pagination),
-          context.previousPaginated
-        );
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.approved });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
-    },
-  });
-
-  // Reject mutation with optimistic updates
-  const rejectOpportunityMutation = useMutation({
-    mutationFn: async (opportunity: Opportunity & { isStaged?: boolean }) => {
-      setLoadingStates((prev) => ({ ...prev, [opportunity.id]: true }));
-      try {
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
-        if (!idToken) throw new Error('No authenticated user found');
-
-        const response = await fetch(
-          `/api/opportunities/${opportunity.id}?action=reject`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${idToken}`,
-            },
-            credentials: 'include',
-          }
-        );
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.details || error.error || 'Failed to reject opportunity');
-        }
-
-        return response.json();
-      } finally {
-        setLoadingStates((prev) => ({ ...prev, [opportunity.id]: false }));
-      }
-    },
-    onMutate: async (opportunity) => {
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.all }),
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.staged }),
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.rejected }),
-      ]);
-
-      const previousPaginated = queryClient.getQueryData(
-        queryKeys.opportunities.paginated(pagination)
-      );
-
-      // Optimistic update
-      if (previousPaginated) {
-        queryClient.setQueryData(queryKeys.opportunities.paginated(pagination), {
-          ...previousPaginated,
-          items: (previousPaginated as { items: Opportunity[] }).items.map(
-            (opp: Opportunity) =>
-              opp.id === opportunity.id ? { ...opp, status: 'rejected' } : opp
-          ),
-        });
-      }
-
-      return { previousPaginated };
-    },
-    onError: (err, _, context) => {
-      if (context?.previousPaginated) {
-        queryClient.setQueryData(
-          queryKeys.opportunities.paginated(pagination),
-          context.previousPaginated
-        );
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.rejected });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
-    },
-  });
-
-  // Bulk approve mutation with optimistic updates
-  const bulkApproveOpportunitiesMutation = useMutation({
-    mutationFn: async () => {
-      setLoadingStates((prev) => ({ ...prev, bulkApprove: true }));
-      try {
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
-        if (!idToken) throw new Error('No authenticated user found');
-
-        const response = await fetch('/api/opportunities/approve/bulk', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-          },
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to bulk approve opportunities');
-        }
-
-        return response.json();
-      } finally {
-        setLoadingStates((prev) => ({ ...prev, bulkApprove: false }));
-      }
-    },
-    onMutate: async () => {
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.all }),
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.staged }),
-      ]);
-
-      const previousPaginated = queryClient.getQueryData(
-        queryKeys.opportunities.paginated(pagination)
-      );
-
-      if (previousPaginated) {
-        queryClient.setQueryData(queryKeys.opportunities.paginated(pagination), {
-          ...previousPaginated,
-          items: (previousPaginated as { items: Opportunity[] }).items.map(
-            (opp: Opportunity) =>
-              opp.status === 'pending' ? { ...opp, status: 'approved' } : opp
-          ),
-        });
-      }
-
-      return { previousPaginated };
-    },
-    onError: (err, _, context) => {
-      if (context?.previousPaginated) {
-        queryClient.setQueryData(
-          queryKeys.opportunities.paginated(pagination),
-          context.previousPaginated
-        );
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
-    },
-  });
-
-  // Reset staged offers mutation
-  const resetStagedOffersMutation = useMutation({
-    mutationFn: async () => {
-      setLoadingStates((prev) => ({ ...prev, resetStagedOffers: true }));
-      try {
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken(true);
-        if (!idToken) throw new Error('No authenticated user found');
-
-        const response = await fetch('/api/opportunities/reset', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({ collection: 'staged_offers' }),
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(
-            error.details || error.error || 'Failed to reset staged offers'
-          );
-        }
-
-        return response.json();
-      } finally {
-        setLoadingStates((prev) => ({ ...prev, resetStagedOffers: false }));
+      if (error) {
+        throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.staged });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
     },
   });
 
-  // Reset all opportunities mutation
+  const rejectMutation = useMutation({
+    mutationFn: async (opportunity: Opportunity) => {
+      const { error } = await supabase.rpc('reject_opportunity', {
+        p_opportunity_id: opportunity.id,
+      });
+
+      if (error) {
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+    },
+  });
+
+  const bulkApproveMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('bulk_approve_opportunities');
+
+      if (error) {
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+    },
+  });
+
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('import_opportunities');
+
+      if (error) {
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+    },
+  });
+
+  const resetStagedMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('reset_staged_offers');
+
+      if (error) {
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+    },
+  });
+
   const resetOpportunitiesMutation = useMutation({
     mutationFn: async () => {
-      const auth = getAuth();
-      const idToken = await auth.currentUser?.getIdToken(true);
+      const { error } = await supabase.rpc('reset_opportunities');
 
-      if (!idToken) {
-        throw new Error('No authenticated user found');
+      if (error) {
+        throw error;
       }
-
-      const response = await fetch('/api/opportunities/reset', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ collection: 'opportunities' }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.details || error.error || 'Failed to reset opportunities');
-      }
-
-      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.approved });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.stats });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
     },
   });
 
   const isLoading =
-    isLoadingPaginated || isLoadingStaged || isLoadingStats || isLoadingRejected;
+    isLoading || isLoadingStaged || isLoadingApproved || isLoadingRejected;
 
   return {
     pagination,
     setPagination,
-    stats: calculatedStats,
+    stats,
     stagedOpportunities,
     approvedOpportunities,
     rejectedOpportunities,
     isLoading,
-    isFetching: isLoading,
-    error: paginatedError || stagedError,
-    approveOpportunity: approveOpportunityMutation.mutate,
-    rejectOpportunity: rejectOpportunityMutation.mutate,
-    bulkApproveOpportunities: bulkApproveOpportunitiesMutation.mutate,
-    isBulkApproving: bulkApproveOpportunitiesMutation.isPending,
-    importOpportunities: importOpportunitiesMutation.mutate,
-    isImporting: importOpportunitiesMutation.isPending,
+    isFetching,
+    error,
+    approveOpportunity: (opportunity) => {
+      setLoadingStates({ ...loadingStates, [opportunity.id]: true });
+      approveMutation.mutate(opportunity, {
+        onSettled: () => {
+          setLoadingStates({ ...loadingStates, [opportunity.id]: false });
+        },
+      });
+    },
+    rejectOpportunity: (opportunity) => {
+      setLoadingStates({ ...loadingStates, [opportunity.id]: true });
+      rejectMutation.mutate(opportunity, {
+        onSettled: () => {
+          setLoadingStates({ ...loadingStates, [opportunity.id]: false });
+        },
+      });
+    },
+    bulkApproveOpportunities: () => {
+      bulkApproveMutation.mutate();
+    },
+    isBulkApproving: bulkApproveMutation.isPending,
+    importOpportunities: () => {
+      importMutation.mutate();
+    },
+    isImporting: importMutation.isPending,
     hasStagedOpportunities: stagedOpportunities.length > 0,
-    resetStagedOffers: resetStagedOffersMutation.mutate,
-    isResettingStagedOffers: resetStagedOffersMutation.isPending,
-    resetOpportunities: resetOpportunitiesMutation.mutate,
+    resetStagedOffers: () => {
+      resetStagedMutation.mutate();
+    },
+    isResettingStagedOffers: resetStagedMutation.isPending,
+    resetOpportunities: () => {
+      resetOpportunitiesMutation.mutate();
+    },
     isResettingOpportunities: resetOpportunitiesMutation.isPending,
     queryClient,
     loadingStates,

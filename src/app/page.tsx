@@ -10,7 +10,9 @@ import {
   Stack,
   Typography,
   useTheme,
+  CircularProgress,
 } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
@@ -18,6 +20,7 @@ import { useInView } from 'react-intersection-observer';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useSplashStats } from '@/lib/hooks/useSplashStats';
+import { supabase } from '@/lib/supabase/client';
 import { Opportunity } from '@/types/opportunity';
 
 // TODO: Re-implement bank logos and public opportunities after API is ready
@@ -27,108 +30,18 @@ import { FeaturedOpportunities } from './components/FeaturedOpportunities';
 // Replace the User interface with the actual AuthUser type from your auth context
 type AuthUser = ReturnType<typeof useAuth>['user'];
 
-// Pre-generate random values for animations
-const circles = Array.from({ length: 10 }, (_, i) => ({
-  width: 100 + i * 20,
-  height: 100 + i * 20,
-  left: `${(i * 10) % 100}%`,
-  top: `${(i * 10 + 5) % 100}%`,
-}));
-
-// Add this mock data above the HomePage component
-// TODO: Replace with real data from API
-const MOCK_OPPORTUNITIES: Array<Opportunity> = [
-  {
-    id: '1',
-    name: 'Chase Sapphire Preferred',
-    description: 'Earn 60,000 bonus points after spending $4,000 in first 3 months',
-    bank: 'Chase',
-    value: 750,
-    type: 'credit_card' as const,
-    status: 'approved' as const,
-    isStaged: false,
-    offer_link: 'https://www.chase.com/sapphire',
-    source_id: 'chase-sapphire-1',
-    logo: {
-      url: '/images/cards/chase-sapphire.png',
-      type: 'url',
-    },
-    metadata: {
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by: 'system',
-      status: 'active',
-    },
-    bonus: {
-      title: 'Welcome Bonus',
-      description: 'New cardmember bonus',
-      requirements: {
-        description:
-          'Spend $4,000 in first 3 months\nMust be new Chase Sapphire customer\nCredit score 700+ required',
-      },
-    },
-  },
-  {
-    id: '2',
-    name: 'American Express Gold',
-    description:
-      'Earn 60,000 Membership Rewards points after spending $4,000 in first 6 months',
-    bank: 'American Express',
-    value: 600,
-    type: 'credit_card' as const,
-    status: 'approved' as const,
-    isStaged: false,
-    offer_link: 'https://www.americanexpress.com/gold',
-    source_id: 'amex-gold-1',
-    logo: {
-      url: '/images/cards/amex-gold.png',
-      type: 'url',
-    },
-    metadata: {
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by: 'system',
-      status: 'active',
-    },
-    bonus: {
-      title: 'Welcome Bonus',
-      description: 'New cardmember bonus',
-      requirements: {
-        description:
-          'Spend $4,000 in first 6 months\nMust be new Amex Gold customer\nCredit score 700+ required',
-      },
-    },
-  },
-  {
-    id: '3',
-    name: 'Capital One Venture X',
-    description: 'Earn 75,000 miles after spending $4,000 in first 3 months',
-    bank: 'Capital One',
-    value: 750,
-    type: 'credit_card' as const,
-    status: 'approved' as const,
-    isStaged: false,
-    offer_link: 'https://www.capitalone.com/venture-x',
-    source_id: 'capital-one-venture-x-1',
-    logo: {
-      url: '/images/cards/capital-one-venture.png',
-      type: 'url',
-    },
-    metadata: {
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by: 'system',
-      status: 'active',
-    },
-    bonus: {
-      title: 'Welcome Bonus',
-      description: 'New cardmember bonus',
-      requirements: {
-        description:
-          'Spend $4,000 in first 3 months\nMust be new Capital One customer\nCredit score 740+ required',
-      },
-    },
-  },
+// Pre-generate values for animations - using fixed values to ensure deterministic server/client rendering
+const circles = [
+  { width: 100, height: 100, left: '0%', top: '5%' },
+  { width: 120, height: 120, left: '10%', top: '15%' },
+  { width: 140, height: 140, left: '20%', top: '25%' },
+  { width: 160, height: 160, left: '30%', top: '35%' },
+  { width: 180, height: 180, left: '40%', top: '45%' },
+  { width: 200, height: 200, left: '50%', top: '55%' },
+  { width: 220, height: 220, left: '60%', top: '65%' },
+  { width: 240, height: 240, left: '70%', top: '75%' },
+  { width: 260, height: 260, left: '80%', top: '85%' },
+  { width: 280, height: 280, left: '90%', top: '95%' },
 ];
 
 function HeroSection({
@@ -431,9 +344,33 @@ export default function HomePage() {
   const theme = useTheme();
   const { user } = useAuth();
   const { stats, error } = useSplashStats();
+  // Add a state to track if we're on the client
+  const [isClient, setIsClient] = useState(false);
 
   // Add error state
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Use useEffect to mark client-side rendering
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Fetch featured opportunities
+  const { data: opportunities = [] } = useQuery({
+    queryKey: ['opportunities', 'featured'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('opportunities')
+        .select('*')
+        .eq('status', 'active')
+        .order('value', { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      return data as Opportunity[];
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 
   useEffect(() => {
     if (error) {
@@ -450,9 +387,26 @@ export default function HomePage() {
       )}
 
       <HeroSection user={user} stats={stats || []} />
-      {/* Using mock data only for now */}
       <Box sx={{ py: 8 }}>
-        <FeaturedOpportunities opportunities={MOCK_OPPORTUNITIES} />
+        {/* Conditionally render FeaturedOpportunities to prevent hydration mismatch */}
+        {isClient ? (
+          <FeaturedOpportunities opportunities={opportunities} />
+        ) : (
+          <Container maxWidth="lg">
+            <Box sx={{ py: 4 }}>
+              <Typography variant="h4" sx={{ mb: 3, fontWeight: 700 }}>
+                Featured Offers
+              </Typography>
+              <Typography variant="subtitle1" sx={{ mb: 4, color: 'text.secondary' }}>
+                Discover our hand-picked selection of top-rated financial opportunities
+              </Typography>
+              {/* Loading placeholder */}
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            </Box>
+          </Container>
+        )}
       </Box>
       <Box
         component="section"

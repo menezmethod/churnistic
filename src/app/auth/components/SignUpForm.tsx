@@ -12,14 +12,13 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-import { signInWithGoogle } from '@/lib/firebase/utils/auth';
+import { useSupabase } from '@/lib/providers/SupabaseProvider';
 
 import { GoogleIcon } from '../components/icons';
 
 export default function SignUpForm() {
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { supabase } = useSupabase();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -40,11 +39,19 @@ export default function SignUpForm() {
 
     setLoading(true);
     try {
-      if (!signUp) {
-        throw new Error('Sign up function not available');
-      }
-      await signUp(formData.email, formData.password);
-      router.push('/dashboard');
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            display_name: formData.displayName,
+          },
+        },
+      });
+
+      if (signUpError) throw signUpError;
+
+      router.push('/auth/verify-email');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during sign up');
     } finally {
@@ -56,19 +63,15 @@ export default function SignUpForm() {
     setError(null);
     setLoading(true);
     try {
-      const { error } = await signInWithGoogle();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
       if (error) {
-        if (error.code === 'auth/popup-closed-by-user') {
-          setError('Sign up was cancelled. Please try again.');
-        } else if (error.code === 'auth/popup-blocked') {
-          setError('Pop-up was blocked. Please allow pop-ups and try again.');
-        } else if (error.code === 'auth/unauthorized-domain') {
-          setError('This domain is not authorized for Google sign-up.');
-        } else {
-          setError(`Google sign up failed: ${error.message}`);
-        }
-      } else {
-        router.push('/dashboard');
+        throw error;
       }
     } catch (error) {
       setError(
@@ -76,7 +79,6 @@ export default function SignUpForm() {
           ? error.message
           : 'An error occurred during Google sign up. Please try again.'
       );
-    } finally {
       setLoading(false);
     }
   };

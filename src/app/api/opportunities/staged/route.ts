@@ -1,49 +1,100 @@
-import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
 
-import { getAdminDb } from '@/lib/firebase/admin';
-import { type Opportunity } from '@/types/opportunity';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    console.log('GET /api/opportunities/staged - Starting request');
-    const db = getAdminDb();
-    const snapshot = await db.collection('staged_offers').get();
+    const token = req.headers.get('authorization')?.split('Bearer ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    console.log('Staged offers snapshot:', {
-      size: snapshot.size,
-      empty: snapshot.empty,
-    });
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    const opportunities = snapshot.docs.map(
-      (doc) =>
-        ({
-          id: doc.id,
-          ...doc.data(),
-        }) as Opportunity
-    );
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
 
-    console.log('Processed opportunities:', {
-      count: opportunities.length,
-      sample: opportunities[0]
-        ? {
-            id: opportunities[0].id,
-            name: opportunities[0].name,
-            type: opportunities[0].type,
-          }
-        : null,
-    });
+    if (userError || !userData || userData.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
-    return NextResponse.json({
-      success: true,
-      opportunities,
-    });
+    const { data: opportunities, error: fetchError } = await supabase
+      .from('staged_offers')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (fetchError) throw fetchError;
+
+    return NextResponse.json({ opportunities });
   } catch (error) {
     console.error('Error fetching staged opportunities:', error);
     return NextResponse.json(
-      {
-        error: 'Failed to fetch staged opportunities',
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: 'Error fetching staged opportunities' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const token = req.headers.get('authorization')?.split('Bearer ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData || userData.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { data, error: insertError } = await supabase
+      .from('staged_offers')
+      .insert([
+        {
+          ...body,
+          status: 'pending',
+          created_by: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    return NextResponse.json({ opportunity: data });
+  } catch (error) {
+    console.error('Error creating staged opportunity:', error);
+    return NextResponse.json(
+      { error: 'Error creating staged opportunity' },
       { status: 500 }
     );
   }

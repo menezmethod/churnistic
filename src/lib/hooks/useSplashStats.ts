@@ -41,16 +41,9 @@ export const useSplashStats = () => {
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
     select: (stats) => {
-      // Ensure we have valid numbers before formatting
-      const potentialValue =
-        typeof stats.totalPotentialValue === 'string'
-          ? stats.totalPotentialValue // Already formatted
-          : formatCurrency(stats.totalPotentialValue || 0);
-
-      const averageValue =
-        typeof stats.averageValue === 'string'
-          ? stats.averageValue // Already formatted
-          : formatCurrency(stats.averageValue || 0);
+      // Format values for display
+      const potentialValue = formatCurrency(stats.totalPotentialValue || 0);
+      const averageValue = formatCurrency(stats.averageValue || 0);
 
       return [
         {

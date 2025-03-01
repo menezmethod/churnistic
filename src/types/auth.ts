@@ -1,12 +1,12 @@
-import { User as FirebaseUser } from 'firebase/auth';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 import { UserRole } from './roles';
 
 export { UserRole } from './roles';
 
-export interface User extends Omit<FirebaseUser, 'customClaims'> {
+export interface User extends Omit<SupabaseUser, 'user_metadata'> {
   role: UserRole;
-  customClaims?: {
+  user_metadata?: {
     role?: UserRole;
     [key: string]: unknown;
   };
@@ -19,7 +19,7 @@ export enum Permission {
   WRITE_OPPORTUNITIES = 'write:opportunities',
 }
 
-export interface CustomClaims {
+export interface UserMetadata {
   role?: UserRole;
   permissions?: Permission[];
 }

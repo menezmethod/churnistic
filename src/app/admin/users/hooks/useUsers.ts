@@ -1,218 +1,159 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { UserRole } from '@/lib/auth/types';
+import { supabase } from '@/lib/supabase/client';
+import { DatabaseUser, mapDatabaseUserToUser, mapUserToDatabaseFields } from '@/types/user';
 
 export interface User {
   id: string;
   email: string;
-  displayName: string | null;
-  photoURL: string | null;
-  role: 'user' | 'admin' | 'manager' | 'analyst' | 'agent' | 'free_user';
-  status: string;
-  creditScore: number | null;
-  monthlyIncome: number | null;
+  role: UserRole;
+  displayName?: string;
+  avatarUrl?: string;
   createdAt: string;
   updatedAt: string;
-  firebaseUid: string;
-  customDisplayName: string | null;
-  permissions?: string[];
-  isSuperAdmin?: boolean;
+  lastSignInAt?: string;
+  emailVerified: boolean;
+  businessVerified: boolean;
 }
 
-interface UseUsersOptions {
-  pageSize?: number;
-  sortField?: keyof User;
-  sortDirection?: 'asc' | 'desc';
-  filters?: {
-    role?: UserRole;
-    status?: 'active' | 'inactive';
-    search?: string;
-  };
+export function useUsers() {
+  return useQuery({
+    queryKey: ['users'],
+    queryFn: async () => {
+      try {
+        // Get the current session using the @supabase/ssr client
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Error getting session:', sessionError);
+          throw new Error('Authentication error');
+        }
+        
+        if (!session) {
+          throw new Error('No active session');
+        }
+        
+        const response = await fetch('/api/functions/users', {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Failed to fetch users: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        return data.users as User[];
+      } catch (error) {
+        console.error('Error in useUsers hook:', error);
+        throw error;
+      }
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: true,
+  });
 }
 
-interface UseUsersReturn {
-  users: User[];
-  loading: boolean;
-  error: Error | null;
-  totalCount: number;
-  hasMore: boolean;
-  loadMore: () => Promise<void>;
-  updateUser: (userId: string, data: Partial<User>) => Promise<void>;
-  deleteUser: (userId: string) => Promise<void>;
-  updateUserStatus: (userId: string, status: 'active' | 'inactive') => Promise<void>;
-  bulkUpdateStatus: (userIds: string[], status: 'active' | 'inactive') => Promise<void>;
-  bulkDelete: (userIds: string[]) => Promise<void>;
-  refresh: () => Promise<void>;
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, data }: { userId: string; data: Partial<User> }) => {
+      // Convert from frontend format to database format
+      const dbFields = mapUserToDatabaseFields(data);
+      
+      // Add updated_at field
+      dbFields.updated_at = new Date().toISOString();
+      
+      const { error } = await supabase
+        .from('users')
+        .update(dbFields)
+        .eq('id', userId);
+
+      if (error) throw error;
+      
+      return { userId, data };
+    },
+    onMutate: async ({ userId, data }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['users'] });
+      
+      // Snapshot the previous value
+      const previousUsers = queryClient.getQueryData<User[]>(['users']);
+      
+      // Optimistically update to the new value
+      if (previousUsers) {
+        queryClient.setQueryData<User[]>(['users'], 
+          previousUsers.map(user => 
+            user.id === userId 
+              ? { 
+                  ...user, 
+                  role: data.role || user.role,
+                  displayName: data.displayName || user.displayName,
+                  avatarUrl: data.avatarUrl || user.avatarUrl,
+                  updatedAt: new Date().toISOString(),
+                } 
+              : user
+          )
+        );
+      }
+      
+      return { previousUsers };
+    },
+    onError: (err, { userId }, context) => {
+      console.error(`Error updating user ${userId}:`, err);
+      // Revert back to the previous state if available
+      if (context?.previousUsers) {
+        queryClient.setQueryData(['users'], context.previousUsers);
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
 }
 
-export function useUsers({
-  pageSize = 10,
-  sortField = 'createdAt',
-  sortDirection = 'desc',
-  filters = {},
-}: UseUsersOptions = {}): UseUsersReturn {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const queryParams = new URLSearchParams({
-        page: page.toString(),
-        limit: pageSize.toString(),
-        sortField,
-        sortDirection,
-        ...(filters.role && { role: filters.role }),
-        ...(filters.status && { status: filters.status }),
-        ...(filters.search && { search: filters.search }),
-      });
-
-      const response = await fetch(`/api/users?${queryParams}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase.from('users').delete().eq('id', userId);
+      if (error) throw error;
+      return userId;
+    },
+    onMutate: async (userId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['users'] });
+      
+      // Snapshot the previous value
+      const previousUsers = queryClient.getQueryData<User[]>(['users']);
+      
+      // Optimistically update to the new value
+      if (previousUsers) {
+        queryClient.setQueryData<User[]>(
+          ['users'], 
+          previousUsers.filter(user => user.id !== userId)
+        );
       }
-
-      const data = await response.json();
-      setUsers(data.users);
-      setTotalCount(data.total);
-    } catch (err) {
-      console.error('Error fetching users:', err);
-      setError(err instanceof Error ? err : new Error('Failed to fetch users'));
-    } finally {
-      setLoading(false);
-    }
-  }, [page, pageSize, sortField, sortDirection, filters]);
-
-  useEffect(() => {
-    void fetchUsers();
-  }, [fetchUsers]);
-
-  const loadMore = async () => {
-    if (loading) return;
-    setPage((prev) => prev + 1);
-  };
-
-  const updateUser = async (userId: string, data: Partial<User>) => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/users/${userId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update user');
+      
+      return { previousUsers };
+    },
+    onError: (err, userId, context) => {
+      console.error(`Error deleting user ${userId}:`, err);
+      // Revert back to the previous state if available
+      if (context?.previousUsers) {
+        queryClient.setQueryData(['users'], context.previousUsers);
       }
-
-      await refresh();
-    } catch (err) {
-      console.error('Error updating user:', err);
-      throw new Error('Failed to update user');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteUser = async (userId: string) => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
-      }
-
-      await refresh();
-    } catch (err) {
-      console.error('Error deleting user:', err);
-      throw new Error('Failed to delete user');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateUserStatus = async (userId: string, status: 'active' | 'inactive') => {
-    await updateUser(userId, { status });
-  };
-
-  const bulkUpdateStatus = async (userIds: string[], status: 'active' | 'inactive') => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/users/bulk', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userIds,
-          update: { status },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to bulk update users');
-      }
-
-      await refresh();
-    } catch (err) {
-      console.error('Error bulk updating users:', err);
-      throw new Error('Failed to bulk update users');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const bulkDelete = async (userIds: string[]) => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/users/bulk', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userIds }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to bulk delete users');
-      }
-
-      await refresh();
-    } catch (err) {
-      console.error('Error bulk deleting users:', err);
-      throw new Error('Failed to bulk delete users');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const refresh = async () => {
-    setPage(1);
-    await fetchUsers();
-  };
-
-  return {
-    users,
-    loading,
-    error,
-    totalCount,
-    hasMore: false,
-    loadMore,
-    updateUser,
-    deleteUser,
-    updateUserStatus,
-    bulkUpdateStatus,
-    bulkDelete,
-    refresh,
-  };
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
 }

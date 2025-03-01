@@ -1,9 +1,51 @@
-import { Query } from 'firebase-admin/firestore';
+import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
-import { getAdminDb } from '@/lib/firebase/admin';
 import { type Opportunity } from '@/types/opportunity';
+
+// Helper function to map column names based on database schema
+function mapColumnName(columnName: string, tableInfo: any[]): string {
+  if (!tableInfo || tableInfo.length === 0) {
+    return columnName; // No info to map with, return original
+  }
+  
+  const availableColumns = Object.keys(tableInfo[0]);
+  
+  // Direct match
+  if (availableColumns.includes(columnName)) {
+    return columnName;
+  }
+  
+  // Try camelCase to snake_case
+  if (columnName.includes('_')) {
+    // Convert snake_case to camelCase
+    const camelCase = columnName.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    if (availableColumns.includes(camelCase)) {
+      console.log(`🔄 Mapped column from ${columnName} to ${camelCase}`);
+      return camelCase;
+    }
+  } else {
+    // Convert camelCase to snake_case
+    const snakeCase = columnName.replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (availableColumns.includes(snakeCase)) {
+      console.log(`🔄 Mapped column from ${columnName} to ${snakeCase}`);
+      return snakeCase;
+    }
+  }
+  
+  // Special cases
+  if (columnName === 'created_at' && availableColumns.includes('createdat')) {
+    return 'createdat';
+  }
+  if (columnName === 'updated_at' && availableColumns.includes('updatedat')) {
+    return 'updatedat';
+  }
+  
+  // No mapping found, return original
+  return columnName;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +54,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
-    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortBy = searchParams.get('sortBy') || 'created_at';
     const sortDirection = (searchParams.get('sortDirection') as 'asc' | 'desc') || 'desc';
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || 'approved';
@@ -36,91 +78,87 @@ export async function GET(request: NextRequest) {
       maxValue,
     });
 
-    const db = getAdminDb();
-    if (!db) {
-      console.error('❌ Failed to initialize Firebase Admin');
-      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const startIndex = (page - 1) * pageSize;
+
+    // Get table info to check column names
+    const { data: tableInfo, error: tableInfoError } = await supabase
+      .from('opportunities')
+      .select('*')
+      .limit(1);
+    
+    if (tableInfoError) {
+      console.error('❌ Error fetching table info:', tableInfoError);
+      return NextResponse.json(
+        { error: 'Failed to fetch opportunities' },
+        { status: 500 }
+      );
     }
 
-    const collectionRef = db.collection('opportunities');
-    let queryRef: Query = collectionRef;
+    console.log('📊 Table columns:', tableInfo && tableInfo.length > 0 ? Object.keys(tableInfo[0]) : 'No data');
+
+    // Build the query
+    let query = supabase.from('opportunities').select('*', { count: 'exact' });
 
     // Apply filters
     if (status) {
       const statuses = status.split(',').map((s) => s.trim());
-      if (statuses.length > 0) {
-        if (statuses.length === 1) {
-          queryRef = queryRef.where('status', '==', statuses[0]);
-        } else {
-          queryRef = queryRef.where('status', 'in', statuses);
-        }
+      if (statuses.length === 1) {
+        query = query.eq('status', statuses[0]);
+      } else {
+        query = query.in('status', statuses);
       }
     }
 
     if (type) {
-      queryRef = queryRef.where('type', '==', type);
+      query = query.eq('type', type);
     }
 
     if (minValue !== undefined) {
-      queryRef = queryRef.where('value', '>=', minValue);
+      query = query.gte('value', minValue);
     }
 
     if (maxValue !== undefined) {
-      queryRef = queryRef.where('value', '<=', maxValue);
+      query = query.lte('value', maxValue);
     }
 
-    // Apply search filter if provided
     if (search) {
-      queryRef = queryRef
-        .where('name', '>=', search)
-        .where('name', '<=', search + '\uf8ff');
+      query = query.ilike('name', `%${search}%`);
     }
 
-    // Get total count before applying pagination
-    const totalCountSnapshot = await queryRef.count().get();
-    const total = totalCountSnapshot.data().count;
+    // Map sortBy to the correct column name based on what exists in the database
+    let actualSortBy = mapColumnName(sortBy, tableInfo || []);
+    
+    console.log('🔢 Using sort column:', actualSortBy);
 
-    // Apply sorting
-    queryRef = queryRef.orderBy(sortBy, sortDirection);
+    // Apply sorting and pagination
+    const {
+      data: opportunities,
+      error,
+      count,
+    } = await query
+      .order(actualSortBy, { ascending: sortDirection === 'asc' })
+      .range(startIndex, startIndex + pageSize - 1);
 
-    // Apply pagination
-    const startIndex = (page - 1) * pageSize;
-    if (startIndex > 0) {
-      queryRef = queryRef.offset(startIndex);
-    }
-    queryRef = queryRef.limit(pageSize);
-
-    console.log('🚀 Executing Firestore query...');
-    const snapshot = await queryRef.get();
-
-    console.log('📊 Query snapshot:', {
-      size: snapshot.size,
-      empty: snapshot.empty,
-      docs: snapshot.docs.length,
-      total,
-    });
-
-    if (snapshot.empty) {
-      console.log('ℹ️ No opportunities found');
-      return NextResponse.json({
-        items: [],
-        total: 0,
-        hasMore: false,
-      });
+    if (error) {
+      console.error('❌ Database error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch opportunities' },
+        { status: 500 }
+      );
     }
 
-    const opportunities = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Opportunity[];
-
-    const hasMore = total > startIndex + opportunities.length;
+    const total = count || 0;
+    const hasMore = total > startIndex + (opportunities?.length || 0);
 
     console.log('✅ Processed opportunities:', {
-      count: opportunities.length,
+      count: opportunities?.length || 0,
       total,
       hasMore,
-      sample: opportunities[0] && {
+      sample: opportunities?.[0] && {
         id: opportunities[0].id,
         name: opportunities[0].name,
         type: opportunities[0].type,
@@ -128,7 +166,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      items: opportunities,
+      items: opportunities || [],
       total,
       hasMore,
     });
@@ -177,7 +215,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create the opportunity object with proper type checking
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    // Create the opportunity object
     const opportunity = {
       id: body.id,
       name: body.name.trim(),
@@ -194,36 +237,35 @@ export async function POST(req: NextRequest) {
         availability: null,
         credit: null,
       },
-      bonus: {
-        title: body.bonus?.title || '',
-        description: body.bonus?.description || '',
-        requirements: body.bonus?.requirements || {
+      bonus: body.bonus || {
+        title: '',
+        description: '',
+        requirements: {
           title: '',
           description: '',
         },
-        additional_info: body.bonus?.additional_info || null,
-        tiers: body.bonus?.tiers || null,
+        additional_info: null,
+        tiers: null,
       },
-      details: {
-        monthly_fees: body.details?.monthly_fees || {
+      details: body.details || {
+        monthly_fees: {
           amount: '0',
         },
-        account_type: body.details?.account_type || '',
-        availability: body.details?.availability || {
+        account_type: '',
+        availability: {
           type: 'Nationwide',
           states: [],
         },
-        credit_inquiry: body.details?.credit_inquiry || null,
-        household_limit: body.details?.household_limit || null,
-        early_closure_fee: body.details?.early_closure_fee || null,
-        chex_systems: body.details?.chex_systems || null,
-        expiration: body.details?.expiration || null,
-        options_trading: body.details?.options_trading || null,
-        ira_accounts: body.details?.ira_accounts || null,
-        under_5_24:
-          body.details?.under_5_24 !== undefined ? body.details.under_5_24 : null,
-        foreign_transaction_fees: body.details?.foreign_transaction_fees || null,
-        annual_fees: body.details?.annual_fees || null,
+        credit_inquiry: null,
+        household_limit: null,
+        early_closure_fee: null,
+        chex_systems: null,
+        expiration: null,
+        options_trading: null,
+        ira_accounts: null,
+        under_5_24: null,
+        foreign_transaction_fees: null,
+        annual_fees: null,
       },
       logo: body.logo || {
         type: '',
@@ -238,42 +280,68 @@ export async function POST(req: NextRequest) {
               badge: null,
             }
           : null,
-      metadata: {
-        ...(body.metadata || {}),
-        created_at: body.metadata?.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        created_by: body.metadata?.created_by || 'system',
-        updated_by: body.metadata?.created_by || 'system',
-        status: body.metadata?.status || 'active',
-        environment: process.env.NODE_ENV || 'development',
-      },
-      status: body.status || 'approved',
-      createdAt: body.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
-    console.log('🏗️ Processed opportunity:', JSON.stringify(opportunity, null, 2));
-
-    try {
-      const db = getAdminDb();
-      // Use the provided ID instead of generating a new one
-      await db.collection('opportunities').doc(body.id).set(opportunity);
-      console.log('✅ Opportunity created with ID:', body.id);
-
-      return NextResponse.json({
-        id: body.id,
-        message: 'Opportunity created successfully',
-      });
-    } catch (dbError) {
-      console.error('❌ Database error:', dbError);
+    // Get table info to check column names for metadata
+    const { data: tableInfo, error: tableInfoError } = await supabase
+      .from('opportunities')
+      .select('*')
+      .limit(1);
+    
+    if (tableInfoError) {
+      console.error('❌ Error fetching table info:', tableInfoError);
       return NextResponse.json(
-        {
-          error: 'Database error',
-          details: dbError instanceof Error ? dbError.message : 'Unknown database error',
-        },
+        { error: 'Failed to create opportunity' },
         { status: 500 }
       );
     }
+
+    // Create metadata with properly mapped column names
+    const metadata = {
+      ...(body.metadata || {}),
+    };
+
+    // Map common metadata fields
+    const metadataFields = {
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: body.metadata?.created_by || 'system',
+      updated_by: body.metadata?.updated_by || 'system',
+      status: body.metadata?.status || 'active',
+      environment: process.env.NODE_ENV || 'development',
+    };
+
+    // Add mapped fields to metadata
+    Object.entries(metadataFields).forEach(([key, value]) => {
+      const mappedKey = mapColumnName(key, tableInfo || []);
+      metadata[mappedKey] = value;
+    });
+
+    // Add metadata to opportunity
+    opportunity.metadata = metadata;
+
+    console.log('📦 Opportunity to insert:', JSON.stringify({
+      id: opportunity.id,
+      name: opportunity.name,
+      type: opportunity.type,
+      metadata: opportunity.metadata
+    }, null, 2));
+
+    const { error } = await supabase
+      .from('opportunities')
+      .insert([opportunity])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error creating opportunity:', error);
+      return NextResponse.json(
+        { error: 'Failed to create opportunity' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(opportunity, { status: 201 });
   } catch (error) {
     console.error('❌ Error in POST /api/opportunities:', error);
     return NextResponse.json({ error: 'Failed to create opportunity' }, { status: 500 });

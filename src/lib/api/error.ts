@@ -1,10 +1,10 @@
+import { AuthError } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 
 export type APIErrorResponse = {
   error: string;
-  code: string;
-  details?: unknown;
+  code?: string;
   status: number;
 };
 
@@ -75,11 +75,53 @@ export function formatError(error: unknown): APIErrorResponse {
     };
   }
 
-  // Default error response
-  console.error('Unhandled API error:', error);
+  // Handle Supabase auth errors
+  if (error instanceof AuthError) {
+    return {
+      error: error.message,
+      code: error.status.toString(),
+      status: error.status,
+    };
+  }
+
+  // Handle database errors
+  if (error instanceof Error && 'code' in error) {
+    const dbError = error as Error & { code: string };
+    if (dbError.code === 'PGRST301') {
+      return {
+        error: 'Resource not found',
+        code: dbError.code,
+        status: 404,
+      };
+    }
+    if (dbError.code === 'PGRST403') {
+      return {
+        error: 'Permission denied',
+        code: dbError.code,
+        status: 403,
+      };
+    }
+  }
+
+  // Handle validation errors
+  if (error instanceof Error && error.name === 'ValidationError') {
+    return {
+      error: error.message,
+      code: 'validation_error',
+      status: 400,
+    };
+  }
+
+  // Handle generic errors
+  if (error instanceof Error) {
+    return {
+      error: error.message,
+      status: 500,
+    };
+  }
+
   return {
-    error: 'Internal server error',
-    code: 'internal_server_error',
+    error: 'An unexpected error occurred',
     status: 500,
   };
 }
@@ -89,9 +131,68 @@ export function formatError(error: unknown): APIErrorResponse {
  * @param error Error to handle
  * @returns NextResponse with error details
  */
-export function handleAPIError(error: unknown): NextResponse {
-  const errorResponse = formatError(error);
-  return NextResponse.json(errorResponse, { status: errorResponse.status });
+export function handleAPIError(error: unknown): APIErrorResponse {
+  console.error('API Error:', error);
+
+  // Handle Supabase auth errors
+  if (error instanceof AuthError) {
+    return {
+      error: error.message,
+      code: error.status.toString(),
+      status: error.status,
+    };
+  }
+
+  // Handle Zod validation errors
+  if (error instanceof ZodError) {
+    return {
+      error: 'Validation error',
+      code: 'validation_error',
+      status: 400,
+      details: error.errors,
+    };
+  }
+
+  // Handle database errors
+  if (error instanceof Error && 'code' in error) {
+    const dbError = error as Error & { code: string };
+    if (dbError.code === 'PGRST301') {
+      return {
+        error: 'Resource not found',
+        code: dbError.code,
+        status: 404,
+      };
+    }
+    if (dbError.code === 'PGRST403') {
+      return {
+        error: 'Permission denied',
+        code: dbError.code,
+        status: 403,
+      };
+    }
+  }
+
+  // Handle generic errors
+  if (error instanceof Error) {
+    return {
+      error: error.message,
+      status: 500,
+    };
+  }
+
+  return {
+    error: 'An unexpected error occurred',
+    status: 500,
+  };
+}
+
+/**
+ * Creates a NextResponse with error details
+ * @param error Error to handle
+ * @returns NextResponse with error details
+ */
+export function createErrorResponse(error: APIErrorResponse): NextResponse {
+  return NextResponse.json(error, { status: error.status });
 }
 
 /**
