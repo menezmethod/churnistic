@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 
 import { useUser } from './authConfig';
 
@@ -33,28 +33,24 @@ export function AuthLoader({
     });
   }, [user, isLoading, error]);
   
+  // For server-side rendering, always render a placeholder div that matches client structure
+  if (!isClient) {
+    return <div className="auth-loader-container">{null}</div>;
+  }
+  
   // Show loading state while auth check is in progress
   if (isLoading) {
-    // Only log on client
-    if (isClient) {
-      console.log('AuthLoader: Loading state detected');
-    }
-    return <>{renderLoading()}</>;
+    console.log('AuthLoader: Loading state detected');
+    return <div className="auth-loader-container">{renderLoading()}</div>;
   }
   
   // Show unauthenticated state if no user
   if (!user) {
-    // Only log on client
-    if (isClient) {
-      console.log('AuthLoader: No user detected, showing unauthenticated state');
-    }
-    return <>{renderUnauthenticated()}</>;
+    console.log('AuthLoader: No user detected, showing unauthenticated state');
+    return <div className="auth-loader-container">{renderUnauthenticated()}</div>;
   }
   
   // Show children if authenticated
-  // Only log on client
-  if (isClient) {
-    console.log('AuthLoader: User authenticated, rendering protected content');
-  }
-  return <>{children}</>;
+  console.log('AuthLoader: User authenticated, rendering protected content');
+  return <div className="auth-loader-container">{children}</div>;
 } 

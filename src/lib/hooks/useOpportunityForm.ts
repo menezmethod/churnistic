@@ -59,6 +59,7 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
   const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState<Opportunity>({
+    created_at: Date.now(),
     type: 'bank',
     name: '',
     offer_link: '',
@@ -127,7 +128,7 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
       options_trading: 'No',
       ira_accounts: 'No',
     },
-    ...initialData,
+    ...(initialData || {}),
   });
 
   const [errors, setErrors] = useState<ValidationErrors>({});
