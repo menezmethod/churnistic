@@ -48,7 +48,7 @@ export function useDashboardData() {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('display_name, email, photo_url, role, updated_at')
+          .select('display_name, email, avatar_url, role, updated_at')
           .eq('id', user.id)
           .single();
 
@@ -61,7 +61,7 @@ export function useDashboardData() {
           setProfile({
             displayName: data.display_name,
             email: data.email,
-            photoURL: data.photo_url,
+            photoURL: data.avatar_url,
             role: data.role,
             updatedAt: data.updated_at,
           });

@@ -348,7 +348,7 @@ function OpportunitiesSectionContent({
     <Container
       maxWidth="xl"
       sx={{
-        py: { xs: 2, md: 4 },
+        py: { xs: 2, md: 3 },
       }}
     >
       <Paper

@@ -60,15 +60,18 @@ function HeroSection({
   return (
     <Box
       ref={ref}
+      className="hero-section"
       sx={{
         position: 'relative',
-        minHeight: '100vh',
+        minHeight: 'calc(100vh - 72px)',
         display: 'flex',
         alignItems: 'center',
         background: `radial-gradient(circle at 20% 20%, 
           ${alpha(theme.palette.primary.dark, 0.95)} 0%,
           ${alpha(theme.palette.primary.main, 0.9)} 100%)`,
         overflow: 'hidden',
+        marginTop: '-72px',
+        paddingTop: '72px',
       }}
     >
       {/* Enhanced animated background */}
@@ -379,7 +382,7 @@ export default function HomePage() {
   }, [error]);
 
   return (
-    <Box component="main">
+    <>
       {errorMessage && (
         <Box sx={{ p: 3, bgcolor: 'error.light', color: 'error.contrastText' }}>
           <Typography>{errorMessage}</Typography>
@@ -511,6 +514,6 @@ export default function HomePage() {
           </Box>
         </Container>
       )}
-    </Box>
+    </>
   );
 }

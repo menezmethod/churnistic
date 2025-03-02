@@ -1,11 +1,3 @@
-// TODO: Migrate to Supabase Queries
-// This file needs to be updated to use Supabase database queries instead of Firestore
-// Key changes needed:
-// 1. Replace Firestore queries with Supabase database queries
-// 2. Update data fetching to use Supabase client
-// 3. Update real-time subscriptions to use Supabase real-time features
-// 4. Update admin operations to use Supabase RLS policies
-
 'use client';
 
 import {
@@ -319,7 +311,7 @@ const fetchStagedOpportunities = async (): Promise<
     throw new Error(error.message);
   }
 
-  return data.map((offer) => ({
+  return data.map((offer: any) => ({
     ...offer,
     isStaged: true,
   }));
@@ -365,6 +357,27 @@ interface UseOpportunitiesReturn {
   };
 }
 
+// Default stats object to use as fallback
+const defaultStats: Stats = {
+  total: 0,
+  pending: 0,
+  approved: 0,
+  rejected: 0,
+  avgValue: 0,
+  highValue: 0,
+  byType: {
+    bank: 0,
+    credit_card: 0,
+    brokerage: 0,
+  },
+  bankRewards: {
+    total: 0,
+    active: 0,
+    expired: 0,
+  },
+  processingRate: '0%',
+};
+
 export function useOpportunities(): UseOpportunitiesReturn {
   const queryClient = useQueryClient();
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
@@ -379,7 +392,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
   // Fetch opportunities with pagination and filters
   const {
     data: paginatedData,
-    isLoading,
+    isLoading: isLoadingPaginated,
     isFetching,
     error,
   } = useQuery<PaginatedResponse>({
@@ -567,8 +580,8 @@ export function useOpportunities(): UseOpportunitiesReturn {
     },
   });
 
-  const isLoading =
-    isLoading || isLoadingStaged || isLoadingApproved || isLoadingRejected;
+  const isQueryLoading =
+    isLoadingPaginated || isLoadingStaged || isLoadingApproved || isLoadingRejected;
 
   return {
     pagination,
@@ -577,7 +590,7 @@ export function useOpportunities(): UseOpportunitiesReturn {
     stagedOpportunities,
     approvedOpportunities,
     rejectedOpportunities,
-    isLoading,
+    isLoading: isQueryLoading,
     isFetching,
     error,
     approveOpportunity: (opportunity) => {

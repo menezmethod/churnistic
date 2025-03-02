@@ -279,6 +279,7 @@ export interface Bonus {
 }
 
 export interface Opportunity {
+  created_at: number;
   id?: string;
   type: 'credit_card' | 'bank' | 'brokerage';
   name: string;

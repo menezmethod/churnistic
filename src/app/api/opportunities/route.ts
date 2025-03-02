@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     console.log('📥 POST /api/opportunities - Starting request');
-    const { session } = await createAuthContext(req);
+    const { session } = await createAuthContext();
 
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -220,8 +220,22 @@ export async function POST(req: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // Create the opportunity object
-    const opportunity = {
+    // Create the opportunity object with metadata property in its type
+    const opportunity: {
+      id: any;
+      name: string;
+      type: any;
+      description: string;
+      offer_link: string;
+      value: number;
+      source_id: any;
+      source: any;
+      bonus: any;
+      details: any;
+      logo: any;
+      card_image: any;
+      metadata: any; // Adding metadata to the type definition
+    } = {
       id: body.id,
       name: body.name.trim(),
       type: body.type,
@@ -280,6 +294,7 @@ export async function POST(req: NextRequest) {
               badge: null,
             }
           : null,
+      metadata: {}, // Initialize with empty object
     };
 
     // Get table info to check column names for metadata

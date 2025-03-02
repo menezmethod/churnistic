@@ -84,3 +84,24 @@ html, body {
   margin: 0;
   padding: 0;
 }
+
+/* Add space for the fixed navbar */
+main, .main-content {
+  padding-top: 72px; /* Match the height of the navbar */
+}
+
+/* For smaller screens, adjust the padding */
+@media (max-width: 600px) {
+  main, .main-content {
+    padding-top: 56px; /* Smaller navbar height on mobile */
+  }
+}
+
+/* Fix for hero section on mobile devices */
+@media (max-width: 600px) {
+  .hero-section {
+    margin-top: -56px !important;
+    padding-top: 56px !important;
+    min-height: calc(100vh - 56px) !important;
+  }
+}
