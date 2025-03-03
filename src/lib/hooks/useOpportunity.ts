@@ -3,8 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
-import { Opportunity } from '@/types/opportunity';
 import { supabase } from '@/lib/supabase/client';
+import { Opportunity } from '@/types/opportunity';
 
 const API_BASE = '/api/opportunities';
 
@@ -31,15 +31,15 @@ const getOpportunityById = async (id: string): Promise<Opportunity> => {
       .select('*')
       .eq('id', id)
       .single();
-    
+
     if (data && !error) {
       return data as Opportunity;
     }
-    
+
     if (error) {
       console.error(`Error fetching opportunity ${id} from Supabase:`, error);
     }
-    
+
     // Fall back to API if direct query fails
     console.log(`Falling back to API for opportunity ${id}`);
     const response = await fetch(`${API_BASE}/${id}`);
@@ -80,7 +80,7 @@ export function useOpportunity(id: string) {
         },
         (payload: { eventType: string; new: Opportunity }) => {
           console.log(`Received real-time update for opportunity ${id}:`, payload);
-          
+
           // Handle different types of changes
           if (payload.eventType === 'DELETE') {
             // If the opportunity was deleted, remove it from cache
@@ -88,14 +88,17 @@ export function useOpportunity(id: string) {
           } else {
             // For updates or inserts, update the cache with the new data
             const updatedOpportunity = payload.new as Opportunity;
-            
+
             // Merge with existing data to preserve any fields not included in the update
-            const existingData = queryClient.getQueryData<Opportunity>(['opportunity', id]);
+            const existingData = queryClient.getQueryData<Opportunity>([
+              'opportunity',
+              id,
+            ]);
             if (existingData) {
-              queryClient.setQueryData<Opportunity>(
-                ['opportunity', id],
-                { ...existingData, ...updatedOpportunity }
-              );
+              queryClient.setQueryData<Opportunity>(['opportunity', id], {
+                ...existingData,
+                ...updatedOpportunity,
+              });
             } else {
               // If no existing data, just set the new data
               queryClient.setQueryData(['opportunity', id], updatedOpportunity);
@@ -117,7 +120,7 @@ export function useOpportunity(id: string) {
 
 export function useUpdateOpportunity() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Opportunity> }) => {
       const { data: updatedOpportunity, error } = await supabase
@@ -126,25 +129,28 @@ export function useUpdateOpportunity() {
         .eq('id', id)
         .select()
         .single();
-        
+
       if (error) throw error;
       return updatedOpportunity as Opportunity;
     },
     onMutate: async ({ id, data }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['opportunity', id] });
-      
+
       // Snapshot the previous value
-      const previousOpportunity = queryClient.getQueryData<Opportunity>(['opportunity', id]);
-      
+      const previousOpportunity = queryClient.getQueryData<Opportunity>([
+        'opportunity',
+        id,
+      ]);
+
       // Optimistically update to the new value
       if (previousOpportunity) {
-        queryClient.setQueryData<Opportunity>(
-          ['opportunity', id], 
-          { ...previousOpportunity, ...data }
-        );
+        queryClient.setQueryData<Opportunity>(['opportunity', id], {
+          ...previousOpportunity,
+          ...data,
+        });
       }
-      
+
       return { previousOpportunity };
     },
     onError: (err, { id }, context) => {
@@ -164,14 +170,11 @@ export function useUpdateOpportunity() {
 
 export function useDeleteOpportunity() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('opportunities')
-        .delete()
-        .eq('id', id);
-        
+      const { error } = await supabase.from('opportunities').delete().eq('id', id);
+
       if (error) throw error;
       return id;
     },
@@ -179,36 +182,41 @@ export function useDeleteOpportunity() {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['opportunity', id] });
       await queryClient.cancelQueries({ queryKey: ['opportunities'] });
-      
+
       // Snapshot the previous opportunity
-      const previousOpportunity = queryClient.getQueryData<Opportunity>(['opportunity', id]);
-      
+      const previousOpportunity = queryClient.getQueryData<Opportunity>([
+        'opportunity',
+        id,
+      ]);
+
       // Snapshot the previous opportunities list
-      const previousOpportunities = queryClient.getQueryData<Opportunity[]>(['opportunities']);
-      
+      const previousOpportunities = queryClient.getQueryData<Opportunity[]>([
+        'opportunities',
+      ]);
+
       // Optimistically remove from cache
       if (previousOpportunity) {
         queryClient.removeQueries({ queryKey: ['opportunity', id] });
       }
-      
+
       // Optimistically remove from list if it exists
       if (previousOpportunities) {
         queryClient.setQueryData(
           ['opportunities'],
-          previousOpportunities.filter(opp => opp.id !== id)
+          previousOpportunities.filter((opp) => opp.id !== id)
         );
       }
-      
+
       return { previousOpportunity, previousOpportunities };
     },
     onError: (err, id, context) => {
       console.error(`Error deleting opportunity ${id}:`, err);
-      
+
       // Restore the opportunity if available
       if (context?.previousOpportunity) {
         queryClient.setQueryData(['opportunity', id], context.previousOpportunity);
       }
-      
+
       // Restore the opportunities list if available
       if (context?.previousOpportunities) {
         queryClient.setQueryData(['opportunities'], context.previousOpportunities);

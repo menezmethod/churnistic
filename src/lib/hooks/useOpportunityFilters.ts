@@ -1,17 +1,17 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useState, useMemo, useCallback, useEffect, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useMemo, useCallback, useEffect, useTransition } from 'react';
 import { useDebounce } from 'use-debounce';
 
 import { Opportunity } from '@/types/opportunity';
 
-export type FilterType = 
-  | 'premium_offers' 
-  | 'credit_card' 
-  | 'bank' 
-  | 'brokerage' 
-  | 'quick_bonus' 
-  | 'nationwide' 
+export type FilterType =
+  | 'premium_offers'
+  | 'credit_card'
+  | 'bank'
+  | 'brokerage'
+  | 'quick_bonus'
+  | 'nationwide'
   | null;
 
 export type SortType = 'value' | 'regions' | 'date';
@@ -42,7 +42,8 @@ export function useOpportunityFilters({
   // Initialize filters from URL or initial props
   const [filters, setFilters] = useState<OpportunityFiltersState>({
     searchTerm: searchParams.get('search') || initialFilters?.searchTerm || '',
-    activeFilter: (searchParams.get('filter') as FilterType) || initialFilters?.activeFilter || null,
+    activeFilter:
+      (searchParams.get('filter') as FilterType) || initialFilters?.activeFilter || null,
     selectedBank: searchParams.get('bank') || initialFilters?.selectedBank || null,
     sortBy: (searchParams.get('sortBy') as SortType) || initialFilters?.sortBy || 'value',
   });
@@ -54,12 +55,12 @@ export function useOpportunityFilters({
   useEffect(() => {
     startTransition(() => {
       const params = new URLSearchParams();
-      
+
       if (filters.searchTerm) params.set('search', filters.searchTerm);
       if (filters.activeFilter) params.set('filter', filters.activeFilter);
       if (filters.selectedBank) params.set('bank', filters.selectedBank);
       if (filters.sortBy) params.set('sortBy', filters.sortBy);
-      
+
       const newUrl = `${window.location.pathname}?${params.toString()}`;
       router.replace(newUrl, { scroll: false });
     });
@@ -85,14 +86,17 @@ export function useOpportunityFilters({
   }, [opportunities]);
 
   // Update a single filter
-  const updateFilter = useCallback(<K extends keyof OpportunityFiltersState>(
-    key: K,
-    value: OpportunityFiltersState[K]
-  ) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    // Invalidate relevant queries when filters change
-    queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-  }, [queryClient]);
+  const updateFilter = useCallback(
+    <K extends keyof OpportunityFiltersState>(
+      key: K,
+      value: OpportunityFiltersState[K]
+    ) => {
+      setFilters((prev) => ({ ...prev, [key]: value }));
+      // Invalidate relevant queries when filters change
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+    },
+    [queryClient]
+  );
 
   // Reset all filters
   const resetFilters = useCallback(() => {
@@ -123,7 +127,7 @@ export function useOpportunityFilters({
         (opp) =>
           opp.name.toLowerCase().includes(term) ||
           opp.type.toLowerCase().includes(term) ||
-          (typeof opp.bonus?.description === 'string' && 
+          (typeof opp.bonus?.description === 'string' &&
             opp.bonus.description.toLowerCase().includes(term))
       );
     }
@@ -145,9 +149,10 @@ export function useOpportunityFilters({
           break;
         case 'quick_bonus':
           filtered = filtered.filter((opp) => {
-            const bonusDesc = typeof opp.bonus?.description === 'string' 
-              ? opp.bonus.description.toLowerCase() 
-              : '';
+            const bonusDesc =
+              typeof opp.bonus?.description === 'string'
+                ? opp.bonus.description.toLowerCase()
+                : '';
             return (
               bonusDesc.includes('single') ||
               bonusDesc.includes('one time') ||
@@ -183,36 +188,46 @@ export function useOpportunityFilters({
         });
         break;
       case 'date':
-        filtered.sort(
-          (a, b) => {
-            const aDate = a.created_at || (a.metadata?.created_at ? new Date(a.metadata.created_at).getTime() : 0);
-            const bDate = b.created_at || (b.metadata?.created_at ? new Date(b.metadata.created_at).getTime() : 0);
-            return typeof bDate === 'number' && typeof aDate === 'number' ? bDate - aDate : 0;
-          }
-        );
+        filtered.sort((a, b) => {
+          const aDate =
+            a.created_at ||
+            (a.metadata?.created_at ? new Date(a.metadata.created_at).getTime() : 0);
+          const bDate =
+            b.created_at ||
+            (b.metadata?.created_at ? new Date(b.metadata.created_at).getTime() : 0);
+          return typeof bDate === 'number' && typeof aDate === 'number'
+            ? bDate - aDate
+            : 0;
+        });
         break;
     }
 
     console.log('Filtered opportunities:', filtered.length);
     return filtered;
-  }, [opportunities, debouncedSearchTerm, filters.activeFilter, filters.selectedBank, filters.sortBy]);
+  }, [
+    opportunities,
+    debouncedSearchTerm,
+    filters.activeFilter,
+    filters.selectedBank,
+    filters.sortBy,
+  ]);
 
   return {
     // Filter state
     filters,
-    
+
     // Derived data
     filteredOpportunities,
     availableBanks,
     isPending,
-    
+
     // Filter actions
     setSearchTerm: (value: string) => updateFilter('searchTerm', value),
     setActiveFilter: (value: FilterType) => updateFilter('activeFilter', value),
     setSelectedBank: (value: string | null) => updateFilter('selectedBank', value),
     setSortBy: (value: SortType) => updateFilter('sortBy', value),
     resetFilters,
-    
+
     // For backward compatibility
     searchTerm: filters.searchTerm,
     activeFilter: filters.activeFilter,

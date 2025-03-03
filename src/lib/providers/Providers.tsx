@@ -1,14 +1,13 @@
 'use client';
 
-import CssBaseline from '@mui/material/CssBaseline';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState, useEffect } from 'react';
 
 // Import our custom ThemeProvider instead of MUI's
 import { ThemeProvider } from '@/app/styles/theme/ThemeContext';
-
 import { AuthProvider } from '@/lib/auth/AuthContext';
+
 import { SupabaseProvider } from './SupabaseProvider';
 import { ToastProvider } from './ToastProvider';
 
@@ -32,8 +31,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       // Only log events related to auth queries
       if (
-        event.query && 
-        Array.isArray(event.query.queryKey) && 
+        event.query &&
+        Array.isArray(event.query.queryKey) &&
         event.query.queryKey[0] === 'authenticated-user'
       ) {
         // Simplified logging for auth query events
@@ -41,11 +40,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
           status: event.query.state.status,
           fetchStatus: event.query.state.fetchStatus,
           hasData: !!event.query.state.data,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
     });
-    
+
     return () => unsubscribe();
   }, [queryClient]);
 

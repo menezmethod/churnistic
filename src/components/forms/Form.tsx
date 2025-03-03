@@ -1,6 +1,5 @@
 'use client';
 
-import React, { useState, useRef, FormEvent, ReactNode } from 'react';
 import {
   Box,
   Button,
@@ -10,7 +9,15 @@ import {
   Paper,
   Slide,
 } from '@mui/material';
+import React, { useState, useRef, FormEvent, ReactNode } from 'react';
 import { z } from 'zod';
+
+// Add an interface for form field props
+interface FormFieldProps {
+  name: string;
+  error?: string;
+  [key: string]: unknown;
+}
 
 export interface FormProps<T> {
   onSubmit: (data: T) => Promise<void>;
@@ -29,7 +36,7 @@ export interface FormProps<T> {
   isPaper?: boolean;
 }
 
-export function Form<T extends Record<string, any>>({
+export function Form<T extends Record<string, unknown>>({
   onSubmit,
   children,
   title,
@@ -51,29 +58,29 @@ export function Form<T extends Record<string, any>>({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const formRef = useRef<HTMLFormElement>(null);
   const submissionTimeRef = useRef<number>(0);
-  
+
   // Prevent duplicate submissions in quick succession (debounce)
   const MIN_SUBMISSION_INTERVAL = 1000; // 1 second
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     // Reset states
     setError(null);
     setSuccess(false);
     setValidationErrors({});
-    
+
     // Prevent double submissions
     const now = Date.now();
     if (now - submissionTimeRef.current < MIN_SUBMISSION_INTERVAL) {
       return;
     }
     submissionTimeRef.current = now;
-    
+
     // Handle form data
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries()) as unknown as T;
-    
+
     // Validate with Zod schema if provided
     if (schema) {
       try {
@@ -91,20 +98,20 @@ export function Form<T extends Record<string, any>>({
         }
       }
     }
-    
+
     // Submit the form
     setIsSubmitting(true);
-    
+
     try {
       await onSubmit(data);
       setSuccess(true);
       setError(null);
-      
+
       // Reset the form if needed
       if (initialValues) {
         formRef.current?.reset();
       }
-      
+
       // After success, hide the success message after a delay
       setTimeout(() => {
         setSuccess(false);
@@ -117,28 +124,29 @@ export function Form<T extends Record<string, any>>({
       setIsSubmitting(false);
     }
   };
-  
+
   const handleReset = () => {
     formRef.current?.reset();
     setError(null);
     setSuccess(false);
     setValidationErrors({});
   };
-  
+
   // Inject validation errors as props to children
   const childrenWithValidation = React.Children.map(children, (child) => {
-    if (React.isValidElement(child) && child.props.name) {
+    if (React.isValidElement<FormFieldProps>(child) && child.props.name) {
       return React.cloneElement(child, {
-        error: validationErrors[child.props.name],
+        error: validationErrors[child.props.name] || undefined, // Ensure error is defined
+        ...child.props,
       });
     }
     return child;
   });
-  
+
   const formContent = (
-    <Box 
-      component="form" 
-      onSubmit={handleSubmit} 
+    <Box
+      component="form"
+      onSubmit={handleSubmit}
       ref={formRef}
       sx={{ width: fullWidth ? '100%' : 'auto' }}
       noValidate
@@ -148,33 +156,25 @@ export function Form<T extends Record<string, any>>({
           {title}
         </Typography>
       )}
-      
+
       {error && (
         <Slide direction="down" in={!!error} mountOnEnter unmountOnExit>
-          <Alert 
-            severity="error" 
-            sx={{ mb: 2 }}
-            onClose={() => setError(null)}
-          >
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         </Slide>
       )}
-      
+
       {success && (
         <Slide direction="down" in={success} mountOnEnter unmountOnExit>
-          <Alert 
-            severity="success" 
-            sx={{ mb: 2 }}
-            onClose={() => setSuccess(false)}
-          >
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(false)}>
             {successMessage}
           </Alert>
         </Slide>
       )}
-      
+
       {childrenWithValidation}
-      
+
       <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
         <Button
           type="submit"
@@ -199,7 +199,7 @@ export function Form<T extends Record<string, any>>({
             {submitLabel}
           </span>
         </Button>
-        
+
         {showReset && (
           <Button
             type="button"
@@ -214,17 +214,14 @@ export function Form<T extends Record<string, any>>({
       </Box>
     </Box>
   );
-  
+
   if (isPaper) {
     return (
-      <Paper 
-        elevation={2} 
-        sx={{ p: 3, borderRadius: 2 }}
-      >
+      <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
         {formContent}
       </Paper>
     );
   }
-  
+
   return formContent;
-} 
+}

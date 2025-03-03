@@ -1,6 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import {
+  Delete as DeleteIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
+} from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -18,20 +22,28 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import {
-  Delete as DeleteIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-} from '@mui/icons-material';
 import { User } from '@supabase/supabase-js';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { useState } from 'react';
+
 import { UserSettings } from '@/lib/hooks/useSettings';
 
 interface AccountSectionProps {
   user: User;
   settings: UserSettings;
   supabase: SupabaseClient;
-  StyledTextField: any;
+  StyledTextField: React.ComponentType<{
+    fullWidth?: boolean;
+    label?: string;
+    value?: string;
+    disabled?: boolean;
+    type?: string;
+    name?: string;
+    onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    InputProps?: {
+      endAdornment?: React.ReactNode;
+    };
+  }>;
 }
 
 export function AccountSection({
@@ -57,6 +69,11 @@ export function AccountSection({
     new: false,
     confirm: false,
   });
+
+  // Use settings to customize the component behavior
+  const accountSettings = settings?.account || {};
+  const allowPasswordChange = accountSettings.allowPasswordChange !== false;
+  const allowAccountDeletion = accountSettings.allowAccountDeletion !== false;
 
   const handleOpenPasswordDialog = () => {
     setShowPasswordDialog(true);
@@ -130,12 +147,11 @@ export function AccountSection({
         newPassword: '',
         confirmPassword: '',
       });
-      
+
       // Close dialog after short delay
       setTimeout(() => {
         handleClosePasswordDialog();
       }, 2000);
-      
     } catch (err) {
       console.error('Error changing password:', err);
       setError((err as Error).message || 'Failed to change password');
@@ -168,10 +184,9 @@ export function AccountSection({
 
       // Sign out
       await supabase.auth.signOut();
-      
+
       // Redirect to home (this will be handled by AuthContext)
       window.location.href = '/';
-      
     } catch (err) {
       console.error('Error deleting account:', err);
       setError((err as Error).message || 'Failed to delete account');
@@ -210,7 +225,8 @@ export function AccountSection({
           sx={{
             p: 2,
             borderRadius: 1,
-            bgcolor: theme.palette.mode === 'light' ? 'background.paper' : 'hsl(220, 35%, 3%)',
+            bgcolor:
+              theme.palette.mode === 'light' ? 'background.paper' : 'hsl(220, 35%, 3%)',
             border: `1px solid ${theme.palette.mode === 'light' ? 'hsl(220, 20%, 88%)' : 'hsl(220, 20%, 25%)'}`,
           }}
         >
@@ -234,37 +250,10 @@ export function AccountSection({
               Security
             </Typography>
 
-            <Button
-              variant="outlined"
-              onClick={handleOpenPasswordDialog}
-              size="small"
-              sx={{
-                py: 1,
-                px: 2,
-                maxWidth: 'fit-content',
-                borderRadius: 1,
-                textTransform: 'none',
-                fontSize: '0.875rem',
-              }}
-            >
-              Change Password
-            </Button>
-
-            <Divider />
-
-            <Stack spacing={1}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'error.main' }}>
-                Danger Zone
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Permanently delete your account and all of your data. This action cannot be
-                undone.
-              </Typography>
+            {allowPasswordChange && (
               <Button
                 variant="outlined"
-                color="error"
-                startIcon={<DeleteIcon />}
-                onClick={handleOpenDeleteDialog}
+                onClick={handleOpenPasswordDialog}
                 size="small"
                 sx={{
                   py: 1,
@@ -275,9 +264,43 @@ export function AccountSection({
                   fontSize: '0.875rem',
                 }}
               >
-                Delete Account
+                Change Password
               </Button>
-            </Stack>
+            )}
+
+            <Divider />
+
+            {allowAccountDeletion && (
+              <Stack spacing={1}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{ fontWeight: 600, color: 'error.main' }}
+                >
+                  Danger Zone
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Permanently delete your account and all of your data. This action cannot
+                  be undone.
+                </Typography>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={handleOpenDeleteDialog}
+                  size="small"
+                  sx={{
+                    py: 1,
+                    px: 2,
+                    maxWidth: 'fit-content',
+                    borderRadius: 1,
+                    textTransform: 'none',
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  Delete Account
+                </Button>
+              </Stack>
+            )}
           </Stack>
         </Box>
       </Stack>
@@ -444,8 +467,8 @@ export function AccountSection({
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete your account? This action cannot be
-            undone and all your data will be permanently deleted.
+            Are you sure you want to delete your account? This action cannot be undone and
+            all your data will be permanently deleted.
           </DialogContentText>
 
           {error && (
@@ -478,7 +501,11 @@ export function AccountSection({
               px: 2,
             }}
           >
-            {isDeleting ? <CircularProgress size={24} color="inherit" /> : 'Delete Account'}
+            {isDeleting ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              'Delete Account'
+            )}
           </Button>
         </DialogActions>
       </Dialog>

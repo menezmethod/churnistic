@@ -12,6 +12,8 @@
     "@typescript-eslint/no-explicit-any": "error",
     "quotes": ["warn", "single", { "avoidEscape": true }],
     "react/no-unescaped-entities": ["error", { "forbid": [">", "}"] }],
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
     "import/order": [
       "error",
       {

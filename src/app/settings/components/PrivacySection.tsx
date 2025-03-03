@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import {
   Box,
   Typography,
@@ -17,35 +16,35 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { User } from '@supabase/supabase-js';
+import { useState } from 'react';
+
 import { PrivacySettings, UserSettings } from '@/lib/hooks/useSettings';
 
 interface PrivacySectionProps {
   user: User;
   settings: UserSettings;
-  onUpdate: (updates: any) => Promise<void>;
+  onUpdate: (updates: Partial<UserSettings>) => Promise<void>;
   updatePrivacySettings: (settings: Partial<PrivacySettings>) => Promise<void>;
 }
 
-export function PrivacySection({
-  user,
-  settings,
-  onUpdate,
-  updatePrivacySettings,
-}: PrivacySectionProps) {
+export function PrivacySection({ settings, updatePrivacySettings }: PrivacySectionProps) {
   const theme = useTheme();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const handlePrivacyChange = async (key: keyof PrivacySettings, value: any) => {
+  const handlePrivacyChange = async (
+    key: keyof PrivacySettings,
+    value: boolean | 'public' | 'private'
+  ) => {
     setLoading(key);
     setError(null);
     setSuccess(null);
-    
+
     try {
       await updatePrivacySettings({ [key]: value });
       setSuccess('Privacy settings updated successfully');
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -58,7 +57,7 @@ export function PrivacySection({
 
   const handleTogglePrivacy = async (key: keyof PrivacySettings) => {
     if (key === 'profileVisibility') return;
-    
+
     const newValue = !settings.privacy[key];
     await handlePrivacyChange(key, newValue);
   };
@@ -94,7 +93,8 @@ export function PrivacySection({
           sx={{
             p: 2,
             borderRadius: 1,
-            bgcolor: theme.palette.mode === 'light' ? 'background.paper' : 'hsl(220, 35%, 3%)',
+            bgcolor:
+              theme.palette.mode === 'light' ? 'background.paper' : 'hsl(220, 35%, 3%)',
             border: `1px solid ${theme.palette.mode === 'light' ? 'hsl(220, 20%, 88%)' : 'hsl(220, 20%, 25%)'}`,
           }}
         >
@@ -109,11 +109,16 @@ export function PrivacySection({
                 aria-label="profile-visibility"
                 name="profileVisibility"
                 value={settings.privacy.profileVisibility}
-                onChange={(e) => handlePrivacyChange('profileVisibility', e.target.value)}
+                onChange={(e) =>
+                  handlePrivacyChange(
+                    'profileVisibility',
+                    e.target.value as 'public' | 'private'
+                  )
+                }
               >
-                <FormControlLabel 
-                  value="public" 
-                  control={<Radio />} 
+                <FormControlLabel
+                  value="public"
+                  control={<Radio />}
                   label={
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Typography variant="body2">Public</Typography>
@@ -121,12 +126,10 @@ export function PrivacySection({
                     </Stack>
                   }
                 />
-                <FormControlLabel 
-                  value="private" 
-                  control={<Radio />} 
-                  label={
-                    <Typography variant="body2">Private</Typography>
-                  }
+                <FormControlLabel
+                  value="private"
+                  control={<Radio />}
+                  label={<Typography variant="body2">Private</Typography>}
                 />
               </RadioGroup>
             </FormControl>

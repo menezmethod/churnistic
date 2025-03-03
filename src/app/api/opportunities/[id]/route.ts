@@ -3,8 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { createClient } from '@/lib/supabase/server';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
+type Params = Promise<{ id: string }>;
+
+export async function GET(
+  request: NextRequest,
+  context: { params: Params }
+) {
+  const { id } = await context.params;
   if (!id) {
     return NextResponse.json({ error: 'Missing opportunity ID' }, { status: 400 });
   }
@@ -31,8 +36,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function PUT(
+  request: NextRequest,
+  context: { params: Params }
+) {
+  const { id } = await context.params;
   if (!id) {
     return NextResponse.json({ error: 'Missing opportunity ID' }, { status: 400 });
   }
@@ -188,9 +196,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Params }
 ) {
-  const { id } = params;
+  const { id } = await context.params;
   if (!id) {
     return NextResponse.json({ error: 'Missing opportunity ID' }, { status: 400 });
   }

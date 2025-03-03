@@ -12,23 +12,28 @@ import {
   Divider,
   useTheme,
   Alert,
+  TextFieldProps,
 } from '@mui/material';
-import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { useState, useEffect } from 'react';
+
 import { UserSettings } from '@/lib/hooks/useSettings';
 
 interface ProfileSectionProps {
   user: User;
   settings: UserSettings;
   supabase: SupabaseClient;
-  onSave: (updates: any) => Promise<void>;
-  StyledTextField: any;
+  onSave: (updates: {
+    firstName?: string;
+    lastName?: string;
+    avatar_url?: string;
+  }) => Promise<void>;
+  StyledTextField: React.ComponentType<TextFieldProps>;
 }
 
 export function ProfileSection({
   user,
-  settings,
   supabase,
   onSave,
   StyledTextField,
@@ -42,7 +47,7 @@ export function ProfileSection({
   const [loading, setLoading] = useState({
     save: false,
     upload: false,
-    init: true, 
+    init: true,
   });
   const [isDirty, setIsDirty] = useState(false);
   const [photoURL, setPhotoURL] = useState<string | null>(null);
@@ -52,23 +57,24 @@ export function ProfileSection({
   useEffect(() => {
     async function fetchUserData() {
       if (!user) return;
-      
+
       try {
         console.log('Fetching user data for ID:', user.id);
-        
+
         // Fetch from users table
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('custom_display_name, display_name, avatar_url')
           .eq('id', user.id)
           .single();
-          
+
         if (userError) {
           console.error('Error fetching user data:', userError);
           // If the user doesn't exist yet in the users table, we need to insert them
-          if (userError.code === 'PGRST116') { // No rows found
+          if (userError.code === 'PGRST116') {
+            // No rows found
             console.log('User not found in database, creating record...');
-            
+
             // Extract display name from user object if available
             let displayName = '';
             if (user.user_metadata?.full_name) {
@@ -79,10 +85,10 @@ export function ProfileSection({
               // Use email as fallback (excluding domain part)
               displayName = user.email ? user.email.split('@')[0] : '';
             }
-            
+
             // Extract avatar URL if available in user metadata
             const avatarUrl = user.user_metadata?.avatar_url || null;
-            
+
             // Create the user record
             const { data: newUserData, error: createError } = await supabase
               .from('users')
@@ -94,31 +100,45 @@ export function ProfileSection({
                 avatar_url: avatarUrl,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
-                old_id: user.id // Ensure this field is populated
+                old_id: user.id, // Ensure this field is populated
               })
               .select('custom_display_name, display_name, avatar_url')
               .single();
-              
+
             if (createError) {
               console.error('Error creating user record:', createError);
               setError(`Failed to create user record: ${createError.message}`);
               return;
             }
-            
-            userData = newUserData;
-            console.log('Created new user record:', userData);
+
+            // Use the new user data
+            if (newUserData) {
+              // Get the display name from custom_display_name or display_name
+              const newDisplayName =
+                newUserData.custom_display_name || newUserData.display_name || '';
+
+              // Split display name into first and last name
+              const nameParts = newDisplayName.split(' ');
+              setFormData({
+                firstName: nameParts[0] || '',
+                lastName: nameParts.slice(1).join(' ') || '',
+                fullName: newDisplayName,
+              });
+              setPhotoURL(newUserData.avatar_url);
+              console.log('Created new user record:', newUserData);
+            }
           } else {
             setError(`Failed to load user data: ${userError.message}`);
             return;
           }
         }
-        
+
         if (userData) {
           console.log('Found user data:', userData);
-          
+
           // Get the display name from custom_display_name or display_name
           const displayName = userData.custom_display_name || userData.display_name || '';
-          
+
           // Split display name into first and last name
           const nameParts = displayName.split(' ');
           setFormData({
@@ -132,10 +152,10 @@ export function ProfileSection({
         console.error('Error in user data management:', err);
         setError('Failed to initialize user data. Please try again later.');
       } finally {
-        setLoading(prev => ({ ...prev, init: false }));
+        setLoading((prev) => ({ ...prev, init: false }));
       }
     }
-    
+
     if (user) {
       fetchUserData();
     }
@@ -143,33 +163,35 @@ export function ProfileSection({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     setLoading((prev) => ({ ...prev, save: true }));
     setError(null);
-    
+
     try {
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
-      
+
       // Update user in database
       const { error } = await supabase
         .from('users')
-        .update({ 
+        .update({
           custom_display_name: fullName,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
-        
+
       if (error) {
         throw new Error(`Failed to update profile: ${error.message}`);
       }
-      
+
       // Update local state
-      setFormData(prev => ({ ...prev, fullName }));
+      setFormData((prev) => ({ ...prev, fullName }));
       setIsDirty(false);
-      
+
       // Call the parent component's onSave function
-      await onSave({ fullName });
-      
+      await onSave({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+      });
     } catch (err) {
       console.error('Error saving profile:', err);
       setError((err as Error).message || 'Failed to save profile');
@@ -181,47 +203,44 @@ export function ProfileSection({
   const handlePhotoUpload = async (file: File) => {
     setLoading((prev) => ({ ...prev, upload: true }));
     setError(null);
-    
+
     try {
       // Create a unique file path for the user's avatar
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}/avatar-${Date.now()}.${fileExt}`;
-      
+
       // Upload the file to Supabase Storage
-      const { error: uploadError } = await supabase
-        .storage
+      const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
           upsert: true,
-          contentType: file.type
+          contentType: file.type,
         });
-        
+
       if (uploadError) {
         throw new Error(`Failed to upload avatar: ${uploadError.message}`);
       }
-      
+
       // Get the public URL for the file
-      const { data: { publicUrl } } = supabase
-        .storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-        
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
       // Update the user's profile with the new avatar URL
       const { error: updateError } = await supabase
         .from('users')
-        .update({ 
+        .update({
           avatar_url: publicUrl,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
-        
+
       if (updateError) {
         throw new Error(`Failed to update avatar: ${updateError.message}`);
       }
-      
+
       // Update local state
       setPhotoURL(publicUrl);
-      
     } catch (err) {
       console.error('Error uploading photo:', err);
       setError((err as Error).message || 'Failed to upload photo');
@@ -237,7 +256,7 @@ export function ProfileSection({
 
   const handleReset = () => {
     const nameParts = (formData.fullName || '').split(' ');
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       firstName: nameParts[0] || '',
       lastName: nameParts.slice(1).join(' ') || '',
@@ -280,7 +299,8 @@ export function ProfileSection({
             sx={{
               p: 2,
               borderRadius: 1,
-              bgcolor: theme.palette.mode === 'light' ? 'background.paper' : 'hsl(220, 35%, 3%)',
+              bgcolor:
+                theme.palette.mode === 'light' ? 'background.paper' : 'hsl(220, 35%, 3%)',
               border: `1px solid ${theme.palette.mode === 'light' ? 'hsl(220, 20%, 88%)' : 'hsl(220, 20%, 25%)'}`,
             }}
           >

@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import {
   Box,
   Typography,
@@ -12,21 +11,22 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { User } from '@supabase/supabase-js';
-import { EmailPreferences, NotificationSettings, UserSettings } from '@/lib/hooks/useSettings';
+import { useState } from 'react';
+
+import {
+  EmailPreferences,
+  NotificationSettings,
+  UserSettings,
+} from '@/lib/hooks/useSettings';
 
 interface NotificationsSectionProps {
-  user: User;
   settings: UserSettings;
-  onUpdate: (updates: any) => Promise<void>;
   updateEmailPreferences: (settings: Partial<EmailPreferences>) => Promise<void>;
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => Promise<void>;
 }
 
 export function NotificationsSection({
-  user,
   settings,
-  onUpdate,
   updateEmailPreferences,
   updateNotificationSettings,
 }: NotificationsSectionProps) {
@@ -39,12 +39,12 @@ export function NotificationsSection({
     setLoading(key);
     setError(null);
     setSuccess(null);
-    
+
     try {
       const newValue = !settings.emailPreferences[key];
       await updateEmailPreferences({ [key]: newValue });
-      setSuccess(`Email preferences updated successfully`);
-      
+      setSuccess('Email preferences updated successfully');
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -59,12 +59,12 @@ export function NotificationsSection({
     setLoading(key);
     setError(null);
     setSuccess(null);
-    
+
     try {
       const newValue = !settings.notifications[key];
       await updateNotificationSettings({ [key]: newValue });
-      setSuccess(`Notification settings updated successfully`);
-      
+      setSuccess('Notification settings updated successfully');
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -106,7 +106,8 @@ export function NotificationsSection({
           sx={{
             p: 2,
             borderRadius: 1,
-            bgcolor: theme.palette.mode === 'light' ? 'background.paper' : 'hsl(220, 35%, 3%)',
+            bgcolor:
+              theme.palette.mode === 'light' ? 'background.paper' : 'hsl(220, 35%, 3%)',
             border: `1px solid ${theme.palette.mode === 'light' ? 'hsl(220, 20%, 88%)' : 'hsl(220, 20%, 25%)'}`,
           }}
         >

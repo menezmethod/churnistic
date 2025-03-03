@@ -12,12 +12,19 @@ import {
   Typography,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { JSX, useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useTheme } from '@/app/styles/theme/ThemeContext';
 import { useAuth } from '@/lib/auth/AuthContext';
+import {
+  EmailPreferences,
+  NotificationSettings,
+  PrivacySettings,
+  ThemeSettings,
+  UserSettings,
+  useSettings,
+} from '@/lib/hooks/useSettings';
 import { supabase } from '@/lib/supabase/client';
-import { useSettings } from '@/lib/hooks/useSettings';
 
 import { AccountSection } from './components/AccountSection';
 import { NotificationsSection } from './components/NotificationsSection';
@@ -45,7 +52,7 @@ interface TabPanelProps {
   value: number;
 }
 
-function TabPanel(props: TabPanelProps): JSX.Element {
+function TabPanel(props: TabPanelProps): React.ReactElement {
   const { children, value, index, ...other } = props;
 
   return (
@@ -156,7 +163,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
   },
 }));
 
-const SettingsPage = (): JSX.Element => {
+const SettingsPage = (): React.ReactElement => {
   const { user } = useAuth();
   const { mode, setMode } = useTheme();
   const [activeTab, setActiveTab] = useState(0);
@@ -165,11 +172,10 @@ const SettingsPage = (): JSX.Element => {
     message: '',
     severity: 'success' as 'success' | 'error',
   });
-  
+
   const {
     settings,
     isLoading,
-    isError,
     updateThemeSettings,
     updateNotificationSettings,
     updatePrivacySettings,
@@ -183,30 +189,32 @@ const SettingsPage = (): JSX.Element => {
     if (settings && !settings.preferences?.theme) {
       // If no theme is set, initialize it with the current mode
       console.log('🎨 [SettingsPage] Initializing theme settings with mode:', mode);
-      updateThemeSettings({ theme: mode === 'system' ? 'system' : mode as 'light' | 'dark' })
-        .catch(err => console.error('Failed to initialize theme settings:', err));
+      updateThemeSettings({
+        theme: mode === 'system' ? 'system' : (mode as 'light' | 'dark'),
+      }).catch((err) => console.error('Failed to initialize theme settings:', err));
     }
   }, [settings, mode, updateThemeSettings]);
 
   // Sync theme mode from settings whenever settings change - make it more direct
   useEffect(() => {
     if (settings?.preferences?.theme) {
-      const themeToApply = settings.preferences.theme === 'system' 
-        ? systemPreference 
-        : settings.preferences.theme;
-        
+      const themeToApply =
+        settings.preferences.theme === 'system'
+          ? systemPreference
+          : settings.preferences.theme;
+
       console.log('🎨 [SettingsPage] Syncing theme from settings:', {
         settingsTheme: settings.preferences.theme,
         systemPreference,
         themeToApply,
-        currentMode: mode
+        currentMode: mode,
       });
-      
+
       // Direct, forced theme application to ensure it takes effect
       if (themeToApply !== mode) {
         console.log('🎨 [SettingsPage] Forcing theme change to:', themeToApply);
         setMode(themeToApply);
-        
+
         // Apply a CSS class to the document root for immediate visual feedback
         document.documentElement.classList.remove('light-theme', 'dark-theme');
         document.documentElement.classList.add(`${themeToApply}-theme`);
@@ -218,9 +226,14 @@ const SettingsPage = (): JSX.Element => {
     setActiveTab(newValue);
   };
 
-  const handleProfileUpdate = async (updates: any): Promise<void> => {
+  const handleProfileUpdate = async (updates: {
+    firstName?: string;
+    lastName?: string;
+    avatar_url?: string;
+  }): Promise<void> => {
     try {
-      await updateAllSettings(updates);
+      // Cast updates to align with UserSettings type
+      await updateAllSettings(updates as unknown as Partial<UserSettings>);
       setSnackbar({
         open: true,
         message: 'Profile updated successfully',
@@ -233,6 +246,60 @@ const SettingsPage = (): JSX.Element => {
         message: 'Failed to update profile',
         severity: 'error',
       });
+    }
+  };
+
+  // Create properly typed wrapper functions for the component props
+  const updateUserSettings = async (updates: Partial<UserSettings>): Promise<void> => {
+    try {
+      await updateAllSettings(updates);
+    } catch (error) {
+      console.error('Error updating user settings:', error);
+      throw error;
+    }
+  };
+
+  const updateThemeSettingsWrapper = async (
+    settings: Partial<ThemeSettings>
+  ): Promise<void> => {
+    try {
+      await updateThemeSettings(settings);
+    } catch (error) {
+      console.error('Error updating theme settings:', error);
+      throw error;
+    }
+  };
+
+  const updateEmailPreferencesWrapper = async (
+    settings: Partial<EmailPreferences>
+  ): Promise<void> => {
+    try {
+      await updateEmailPreferences(settings);
+    } catch (error) {
+      console.error('Error updating email preferences:', error);
+      throw error;
+    }
+  };
+
+  const updateNotificationSettingsWrapper = async (
+    settings: Partial<NotificationSettings>
+  ): Promise<void> => {
+    try {
+      await updateNotificationSettings(settings);
+    } catch (error) {
+      console.error('Error updating notification settings:', error);
+      throw error;
+    }
+  };
+
+  const updatePrivacySettingsWrapper = async (
+    settings: Partial<PrivacySettings>
+  ): Promise<void> => {
+    try {
+      await updatePrivacySettings(settings);
+    } catch (error) {
+      console.error('Error updating privacy settings:', error);
+      throw error;
     }
   };
 
@@ -263,7 +330,8 @@ const SettingsPage = (): JSX.Element => {
               sx={{
                 fontSize: { xs: '1.75rem', sm: '2rem' },
                 fontWeight: 600,
-                color: (theme) => (theme.palette.mode === 'light' ? gray[800] : '#FFFFFF'),
+                color: (theme) =>
+                  theme.palette.mode === 'light' ? gray[800] : '#FFFFFF',
                 mb: 1.5,
                 letterSpacing: '-0.02em',
               }}
@@ -369,22 +437,20 @@ const SettingsPage = (): JSX.Element => {
           </TabPanel>
           <TabPanel value={activeTab} index={2}>
             {settings && (
-              <NotificationsSection 
-                user={user}
-                settings={settings} 
-                onUpdate={handleProfileUpdate} 
-                updateEmailPreferences={updateEmailPreferences} 
-                updateNotificationSettings={updateNotificationSettings}
+              <NotificationsSection
+                settings={settings}
+                updateEmailPreferences={updateEmailPreferencesWrapper}
+                updateNotificationSettings={updateNotificationSettingsWrapper}
               />
             )}
           </TabPanel>
           <TabPanel value={activeTab} index={3}>
             {settings && (
-              <PrivacySection 
+              <PrivacySection
                 user={user}
-                settings={settings} 
-                onUpdate={handleProfileUpdate}
-                updatePrivacySettings={updatePrivacySettings}
+                settings={settings}
+                onUpdate={updateUserSettings}
+                updatePrivacySettings={updatePrivacySettingsWrapper}
               />
             )}
           </TabPanel>
@@ -393,8 +459,8 @@ const SettingsPage = (): JSX.Element => {
               <PreferencesSection
                 user={user}
                 settings={settings}
-                onUpdate={handleProfileUpdate}
-                updateThemeSettings={updateThemeSettings}
+                onUpdate={updateUserSettings}
+                updateThemeSettings={updateThemeSettingsWrapper}
                 StyledTextField={StyledTextField}
               />
             )}

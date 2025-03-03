@@ -338,7 +338,9 @@ export interface DatabaseOpportunity {
 }
 
 // Helper functions to convert between database and frontend formats
-export function mapDatabaseOpportunityToOpportunity(dbOpp: DatabaseOpportunity): Opportunity {
+export function mapDatabaseOpportunityToOpportunity(
+  dbOpp: DatabaseOpportunity
+): Opportunity {
   return {
     id: dbOpp.id,
     name: dbOpp.name,
@@ -358,13 +360,15 @@ export function mapDatabaseOpportunityToOpportunity(dbOpp: DatabaseOpportunity):
     processing_status: dbOpp.processing_status,
     ai_insights: dbOpp.ai_insights,
     createdAt: dbOpp.created_at,
-    updatedAt: dbOpp.updated_at
+    updatedAt: dbOpp.updated_at,
   };
 }
 
-export function mapOpportunityToDatabaseFields(opp: Partial<Opportunity>): Partial<DatabaseOpportunity> {
+export function mapOpportunityToDatabaseFields(
+  opp: Partial<Opportunity>
+): Partial<DatabaseOpportunity> {
   const dbOpp: Partial<DatabaseOpportunity> = {};
-  
+
   if (opp.id !== undefined) dbOpp.id = opp.id;
   if (opp.name !== undefined) dbOpp.name = opp.name;
   if (opp.type !== undefined) dbOpp.type = opp.type;
@@ -380,10 +384,11 @@ export function mapOpportunityToDatabaseFields(opp: Partial<Opportunity>): Parti
   if (opp.card_image !== undefined) dbOpp.card_image = opp.card_image;
   if (opp.offer_link !== undefined) dbOpp.offer_link = opp.offer_link;
   if (opp.description !== undefined) dbOpp.description = opp.description;
-  if (opp.processing_status !== undefined) dbOpp.processing_status = opp.processing_status;
+  if (opp.processing_status !== undefined)
+    dbOpp.processing_status = opp.processing_status;
   if (opp.ai_insights !== undefined) dbOpp.ai_insights = opp.ai_insights;
   if (opp.createdAt !== undefined) dbOpp.created_at = opp.createdAt;
   if (opp.updatedAt !== undefined) dbOpp.updated_at = opp.updatedAt;
-  
+
   return dbOpp;
 }

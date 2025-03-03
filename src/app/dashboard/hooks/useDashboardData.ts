@@ -6,9 +6,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { supabase } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils/formatters';
-import type { Opportunity } from '@/types/opportunity';
 import { DashboardOpportunity } from '@/types/opportunity';
-import type { Database } from '@/types/supabase';
 
 export interface UserProfile {
   displayName?: string;
@@ -103,7 +101,11 @@ export function useDashboardData() {
   };
 
   // Fetch opportunities for the dashboard using @supabase/ssr client
-  const { data: opportunities = [], isLoading: isLoadingOpportunities, error: opportunitiesError } = useQuery({
+  const {
+    data: opportunities = [],
+    isLoading: isLoadingOpportunities,
+    error: opportunitiesError,
+  } = useQuery({
     queryKey: ['dashboard-opportunities'],
     queryFn: async () => {
       try {

@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     // Get the session context
     const { session } = await createAuthContext();
@@ -40,11 +40,11 @@ export async function GET(req: NextRequest) {
         'Vercel-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in stats API:', error);
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: error.status || 500 }
-    );
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    const errorStatus = (error as { status?: number })?.status || 500;
+
+    return NextResponse.json({ error: errorMessage }, { status: errorStatus });
   }
 }

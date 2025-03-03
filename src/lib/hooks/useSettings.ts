@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase/client';
-import { useAuth } from '@/lib/auth/AuthContext';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useCallback, useEffect } from 'react';
+
+import { useAuth } from '@/lib/auth/AuthContext';
+import { supabase } from '@/lib/supabase/client';
 
 // Types for the different settings categories
 export interface ThemeSettings {
@@ -73,19 +74,19 @@ export function useSettings() {
   useEffect(() => {
     // Only run in browser
     if (typeof window === 'undefined') return;
-    
+
     // Check initial preference
     const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     setSystemPreference(darkModeMediaQuery.matches ? 'dark' : 'light');
-    
+
     // Set up listener for changes
     const handleChange = (e: MediaQueryListEvent) => {
       setSystemPreference(e.matches ? 'dark' : 'light');
     };
-    
+
     // Add listener
     darkModeMediaQuery.addEventListener('change', handleChange);
-    
+
     // Clean up
     return () => {
       darkModeMediaQuery.removeEventListener('change', handleChange);
@@ -107,9 +108,7 @@ export function useSettings() {
 
       const { data, error: fetchError } = await supabase
         .from('users')
-        .select(
-          'preferences, email_preferences, notifications, privacy'
-        )
+        .select('preferences, email_preferences, notifications, privacy')
         .eq('id', authUser.id)
         .single();
 
@@ -147,16 +146,37 @@ export function useSettings() {
           table: 'users',
           filter: `id=eq.${authUser.id}`,
         },
-        (payload: RealtimePostgresChangesPayload<any>) => {
+        (
+          payload: RealtimePostgresChangesPayload<{
+            id: string;
+            preferences?: ThemeSettings;
+            email_preferences?: EmailPreferences;
+            notifications?: NotificationSettings;
+            privacy?: PrivacySettings;
+            updated_at?: string;
+          }>
+        ) => {
           if (payload.new) {
             const newData = payload.new;
-            
+
             // Update cache with new settings
             queryClient.setQueryData(['settings', authUser.id], {
-              preferences: newData.preferences || defaultSettings.preferences,
-              emailPreferences: newData.email_preferences || defaultSettings.emailPreferences,
-              notifications: newData.notifications || defaultSettings.notifications,
-              privacy: newData.privacy || defaultSettings.privacy,
+              preferences:
+                newData && 'preferences' in newData
+                  ? newData.preferences
+                  : defaultSettings.preferences,
+              emailPreferences:
+                newData && 'email_preferences' in newData
+                  ? newData.email_preferences
+                  : defaultSettings.emailPreferences,
+              notifications:
+                newData && 'notifications' in newData
+                  ? newData.notifications
+                  : defaultSettings.notifications,
+              privacy:
+                newData && 'privacy' in newData
+                  ? newData.privacy
+                  : defaultSettings.privacy,
             });
           }
         }
@@ -196,7 +216,10 @@ export function useSettings() {
         throw new Error(`Failed to update theme settings: ${updateError.message}`);
       }
 
-      console.log('✅ [useSettings] Theme settings updated successfully:', updatedPreferences);
+      console.log(
+        '✅ [useSettings] Theme settings updated successfully:',
+        updatedPreferences
+      );
 
       return {
         ...settings,
@@ -204,7 +227,10 @@ export function useSettings() {
       };
     },
     onSuccess: (data) => {
-      console.log('🎨 [useSettings] Theme settings mutation successful:', data.preferences);
+      console.log(
+        '🎨 [useSettings] Theme settings mutation successful:',
+        data.preferences
+      );
       queryClient.setQueryData(['settings', authUser?.id], data);
     },
     onError: (error) => {
@@ -338,7 +364,7 @@ export function useSettings() {
       }
 
       // Prepare the update object, only including fields that are provided
-      const updateObject: Record<string, any> = {
+      const updateObject: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
       };
 
@@ -382,10 +408,21 @@ export function useSettings() {
       // Construct the updated settings object
       const updatedSettings = {
         ...settings,
-        ...(newSettings.preferences && { preferences: { ...settings?.preferences, ...newSettings.preferences } }),
-        ...(newSettings.emailPreferences && { emailPreferences: { ...settings?.emailPreferences, ...newSettings.emailPreferences } }),
-        ...(newSettings.notifications && { notifications: { ...settings?.notifications, ...newSettings.notifications } }),
-        ...(newSettings.privacy && { privacy: { ...settings?.privacy, ...newSettings.privacy } }),
+        ...(newSettings.preferences && {
+          preferences: { ...settings?.preferences, ...newSettings.preferences },
+        }),
+        ...(newSettings.emailPreferences && {
+          emailPreferences: {
+            ...settings?.emailPreferences,
+            ...newSettings.emailPreferences,
+          },
+        }),
+        ...(newSettings.notifications && {
+          notifications: { ...settings?.notifications, ...newSettings.notifications },
+        }),
+        ...(newSettings.privacy && {
+          privacy: { ...settings?.privacy, ...newSettings.privacy },
+        }),
       };
 
       return updatedSettings as UserSettings;
@@ -407,7 +444,7 @@ export function useSettings() {
       }
 
       // If no specific settings categories are provided, reset all
-      const updateObject: Record<string, any> = {
+      const updateObject: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
       };
 
@@ -468,55 +505,62 @@ export function useSettings() {
 
   // Convenience functions
   const updateThemeSettings = useCallback(
-    (newThemeSettings: Partial<ThemeSettings>) => updateThemeMutation.mutateAsync(newThemeSettings),
+    (newThemeSettings: Partial<ThemeSettings>) =>
+      updateThemeMutation.mutateAsync(newThemeSettings),
     [updateThemeMutation]
   );
 
   // Add a convenience function for toggling dark mode
   const toggleDarkMode = useCallback(() => {
     if (!authUser?.id || !settings) return;
-    
+
     // Current effective theme - either explicit or derived from system
-    const currentTheme = settings.preferences.theme === 'system' 
-      ? systemPreference
-      : settings.preferences.theme;
-      
+    const currentTheme =
+      settings.preferences.theme === 'system'
+        ? systemPreference
+        : settings.preferences.theme;
+
     // New theme is the opposite of current
     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    
+
     console.log('🎨 [useSettings] Toggling dark mode:', {
       currentTheme,
       newTheme,
       systemPreference,
       settingsTheme: settings.preferences.theme,
     });
-    
+
     // Update theme setting but don't switch to system
     updateThemeMutation.mutate({ theme: newTheme });
   }, [authUser?.id, settings, systemPreference, updateThemeMutation]);
 
   const updateEmailPreferences = useCallback(
-    (newEmailPreferences: Partial<EmailPreferences>) => updateEmailPreferencesMutation.mutateAsync(newEmailPreferences),
+    (newEmailPreferences: Partial<EmailPreferences>) =>
+      updateEmailPreferencesMutation.mutateAsync(newEmailPreferences),
     [updateEmailPreferencesMutation]
   );
 
   const updateNotificationSettings = useCallback(
-    (newNotificationSettings: Partial<NotificationSettings>) => updateNotificationSettingsMutation.mutateAsync(newNotificationSettings),
+    (newNotificationSettings: Partial<NotificationSettings>) =>
+      updateNotificationSettingsMutation.mutateAsync(newNotificationSettings),
     [updateNotificationSettingsMutation]
   );
 
   const updatePrivacySettings = useCallback(
-    (newPrivacySettings: Partial<PrivacySettings>) => updatePrivacySettingsMutation.mutateAsync(newPrivacySettings),
+    (newPrivacySettings: Partial<PrivacySettings>) =>
+      updatePrivacySettingsMutation.mutateAsync(newPrivacySettings),
     [updatePrivacySettingsMutation]
   );
 
   const updateAllSettings = useCallback(
-    (newSettings: Partial<UserSettings>) => updateAllSettingsMutation.mutateAsync(newSettings),
+    (newSettings: Partial<UserSettings>) =>
+      updateAllSettingsMutation.mutateAsync(newSettings),
     [updateAllSettingsMutation]
   );
 
   const resetSettings = useCallback(
-    (settingsToReset?: Array<keyof UserSettings>) => resetSettingsMutation.mutateAsync(settingsToReset),
+    (settingsToReset?: Array<keyof UserSettings>) =>
+      resetSettingsMutation.mutateAsync(settingsToReset),
     [resetSettingsMutation]
   );
 
@@ -524,25 +568,25 @@ export function useSettings() {
   const useSystemPreference = useCallback(() => {
     // Use system preference and save to database
     if (!authUser?.id) return;
-    
+
     console.log('🎨 [useSettings] Switching to system preference:', { systemPreference });
-    
+
     updateThemeMutation.mutate({ theme: 'system' });
   }, [authUser?.id, systemPreference, updateThemeMutation]);
 
   return {
     // Current settings data
     settings: settings || defaultSettings,
-    
+
     // System preference
     systemPreference,
-    
+
     // Loading and error states
     isLoading,
     isError,
     error,
     refetch,
-    
+
     // Theme settings
     updateThemeSettings,
     toggleDarkMode,
@@ -553,7 +597,7 @@ export function useSettings() {
       isError: updateThemeMutation.isError,
       error: updateThemeMutation.error,
     },
-    
+
     // Email preferences
     updateEmailPreferences,
     emailPreferencesStatus: {
@@ -562,7 +606,7 @@ export function useSettings() {
       isError: updateEmailPreferencesMutation.isError,
       error: updateEmailPreferencesMutation.error,
     },
-    
+
     // Notification settings
     updateNotificationSettings,
     notificationSettingsStatus: {
@@ -571,7 +615,7 @@ export function useSettings() {
       isError: updateNotificationSettingsMutation.isError,
       error: updateNotificationSettingsMutation.error,
     },
-    
+
     // Privacy settings
     updatePrivacySettings,
     privacySettingsStatus: {
@@ -580,7 +624,7 @@ export function useSettings() {
       isError: updatePrivacySettingsMutation.isError,
       error: updatePrivacySettingsMutation.error,
     },
-    
+
     // All settings
     updateAllSettings,
     allSettingsStatus: {
@@ -589,7 +633,7 @@ export function useSettings() {
       isError: updateAllSettingsMutation.isError,
       error: updateAllSettingsMutation.error,
     },
-    
+
     // Reset settings
     resetSettings,
     resetSettingsStatus: {
@@ -602,4 +646,4 @@ export function useSettings() {
     // Default settings for reference
     defaultSettings,
   };
-} 
+}
