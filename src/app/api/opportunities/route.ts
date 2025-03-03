@@ -1,27 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { createAuthContext } from '@/lib/auth/authUtils';
-import { type Opportunity } from '@/types/opportunity';
 
 // Helper function to map column names based on database schema
-function mapColumnName(columnName: string, tableInfo: any[]): string {
+function mapColumnName(columnName: string, tableInfo: Record<string, unknown>[]): string {
   if (!tableInfo || tableInfo.length === 0) {
     return columnName; // No info to map with, return original
   }
-  
+
   const availableColumns = Object.keys(tableInfo[0]);
-  
+
   // Direct match
   if (availableColumns.includes(columnName)) {
     return columnName;
   }
-  
+
   // Try camelCase to snake_case
   if (columnName.includes('_')) {
     // Convert snake_case to camelCase
-    const camelCase = columnName.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    const camelCase = columnName.replace(/_([a-z])/g, (match: string, letter: string) =>
+      letter.toUpperCase()
+    );
     if (availableColumns.includes(camelCase)) {
       console.log(`🔄 Mapped column from ${columnName} to ${camelCase}`);
       return camelCase;
@@ -34,7 +34,7 @@ function mapColumnName(columnName: string, tableInfo: any[]): string {
       return snakeCase;
     }
   }
-  
+
   // Special cases
   if (columnName === 'created_at' && availableColumns.includes('createdat')) {
     return 'createdat';
@@ -42,7 +42,7 @@ function mapColumnName(columnName: string, tableInfo: any[]): string {
   if (columnName === 'updated_at' && availableColumns.includes('updatedat')) {
     return 'updatedat';
   }
-  
+
   // No mapping found, return original
   return columnName;
 }
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
       .from('opportunities')
       .select('*')
       .limit(1);
-    
+
     if (tableInfoError) {
       console.error('❌ Error fetching table info:', tableInfoError);
       return NextResponse.json(
@@ -98,7 +98,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('📊 Table columns:', tableInfo && tableInfo.length > 0 ? Object.keys(tableInfo[0]) : 'No data');
+    console.log(
+      '📊 Table columns:',
+      tableInfo && tableInfo.length > 0 ? Object.keys(tableInfo[0]) : 'No data'
+    );
 
     // Build the query
     let query = supabase.from('opportunities').select('*', { count: 'exact' });
@@ -130,8 +133,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Map sortBy to the correct column name based on what exists in the database
-    let actualSortBy = mapColumnName(sortBy, tableInfo || []);
-    
+    const actualSortBy = mapColumnName(sortBy, tableInfo || []);
+
     console.log('🔢 Using sort column:', actualSortBy);
 
     // Apply sorting and pagination
@@ -220,22 +223,48 @@ export async function POST(req: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // Create the opportunity object with metadata property in its type
-    const opportunity: {
-      id: any;
+    // Create the opportunity object with more specific types instead of any
+    interface OpportunityData {
+      id: string;
       name: string;
-      type: any;
+      type: string;
       description: string;
       offer_link: string;
       value: number;
-      source_id: any;
-      source: any;
-      bonus: any;
-      details: any;
-      logo: any;
-      card_image: any;
-      metadata: any; // Adding metadata to the type definition
-    } = {
+      source_id: string;
+      source: {
+        name: string;
+        collected_at: string;
+        original_id: string;
+        timing: null | Record<string, unknown>;
+        availability: null | Record<string, unknown>;
+        credit: null | Record<string, unknown>;
+      };
+      bonus: {
+        title: string;
+        description: string;
+        requirements: {
+          title: string;
+          description: string;
+        };
+        additional_info: null | Record<string, unknown>;
+        tiers: null | Array<Record<string, unknown>>;
+      };
+      details: Record<string, unknown>;
+      logo: {
+        type: string;
+        url: string;
+      };
+      card_image: null | {
+        url: string;
+        network: string;
+        color: string;
+        badge: null | string;
+      };
+      metadata: Record<string, unknown>;
+    }
+
+    const opportunity: OpportunityData = {
       id: body.id,
       name: body.name.trim(),
       type: body.type,
@@ -302,7 +331,7 @@ export async function POST(req: NextRequest) {
       .from('opportunities')
       .select('*')
       .limit(1);
-    
+
     if (tableInfoError) {
       console.error('❌ Error fetching table info:', tableInfoError);
       return NextResponse.json(
@@ -335,12 +364,19 @@ export async function POST(req: NextRequest) {
     // Add metadata to opportunity
     opportunity.metadata = metadata;
 
-    console.log('📦 Opportunity to insert:', JSON.stringify({
-      id: opportunity.id,
-      name: opportunity.name,
-      type: opportunity.type,
-      metadata: opportunity.metadata
-    }, null, 2));
+    console.log(
+      '📦 Opportunity to insert:',
+      JSON.stringify(
+        {
+          id: opportunity.id,
+          name: opportunity.name,
+          type: opportunity.type,
+          metadata: opportunity.metadata,
+        },
+        null,
+        2
+      )
+    );
 
     const { error } = await supabase
       .from('opportunities')

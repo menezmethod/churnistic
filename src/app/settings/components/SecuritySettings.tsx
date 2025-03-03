@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import {
   Box,
   Button,
@@ -16,14 +16,13 @@ import {
   InputLabel,
   OutlinedInput,
   Stack,
-  TextField,
   Typography,
   Alert,
   AlertTitle,
 } from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { User } from '@supabase/supabase-js';
 import { SupabaseClient } from '@supabase/supabase-js';
+import React, { useState } from 'react';
 
 interface SecuritySettingsProps {
   user: User;
@@ -95,8 +94,8 @@ export default function SecuritySettings({ user, supabase }: SecuritySettingsPro
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to update password');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update password');
     } finally {
       setIsUpdating(false);
     }
@@ -119,8 +118,10 @@ export default function SecuritySettings({ user, supabase }: SecuritySettingsPro
       }
 
       setSuccess('Password reset email sent successfully');
-    } catch (err: any) {
-      setError(err.message || 'Failed to send password reset email');
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to send password reset email'
+      );
     } finally {
       setIsUpdating(false);
     }
@@ -270,7 +271,12 @@ export default function SecuritySettings({ user, supabase }: SecuritySettingsPro
           </Typography>
           <Divider sx={{ mb: 3 }} />
 
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            sx={{ mb: 2 }}
+          >
             <Box>
               <Typography variant="subtitle1">Current Session</Typography>
               <Typography variant="body2" color="text.secondary">
@@ -305,7 +311,8 @@ export default function SecuritySettings({ user, supabase }: SecuritySettingsPro
               Status: <strong>Not Enabled</strong>
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Two-factor authentication adds an additional layer of security to your account by requiring more than just a password to sign in.
+              Two-factor authentication adds an additional layer of security to your
+              account by requiring more than just a password to sign in.
             </Typography>
           </Box>
 
@@ -316,4 +323,4 @@ export default function SecuritySettings({ user, supabase }: SecuritySettingsPro
       </Card>
     </Stack>
   );
-} 
+}

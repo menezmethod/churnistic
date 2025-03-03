@@ -551,12 +551,14 @@ This document tracks the progress of migrating from Firebase to Supabase.
 ### Hooks Migration
 
 #### useSession
+
 - [x] Replaced direct use of `@supabase/supabase-js` with `@supabase/ssr`
 - [x] Integrated cookie handling for server-side rendering
 - [x] Added auth state listener for real-time updates
 - [x] Improved error handling and loading states
 
 #### useOpportunity
+
 - [x] Transitioned from Firebase types to Supabase types
 - [x] Implemented direct Supabase client queries
 - [x] Added optimistic updates for better UX
@@ -564,6 +566,7 @@ This document tracks the progress of migrating from Firebase to Supabase.
 - [x] Integrated with React Query for caching and state management
 
 #### useOpportunities
+
 - [x] Implemented cursor-based pagination for better performance
 - [x] Added search functionality with debouncing
 - [x] Integrated filtering with URL synchronization
@@ -571,6 +574,7 @@ This document tracks the progress of migrating from Firebase to Supabase.
 - [x] Enhanced error handling and loading states
 
 #### useOpportunityFilters
+
 - [x] Implemented URL synchronization for filter persistence
 - [x] Added debounced search functionality
 - [x] Integrated with React Query for caching
@@ -578,6 +582,7 @@ This document tracks the progress of migrating from Firebase to Supabase.
 - [x] Improved type safety with TypeScript
 
 #### useOpportunityForm
+
 - [x] Migrated to React Hook Form with Zod validation
 - [x] Implemented direct Supabase client mutations
 - [x] Added optimistic updates for better UX
@@ -587,6 +592,7 @@ This document tracks the progress of migrating from Firebase to Supabase.
 - [x] Maintained backward compatibility with existing components
 
 #### useUser
+
 - [x] Removed dependency on `authService.ts` for better maintainability
 - [x] Implemented direct Supabase client queries
 - [x] Enhanced user profile data fetching and creation

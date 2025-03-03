@@ -104,9 +104,7 @@ export async function middleware(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    console.log(
-      `[Middleware] Session state: ${!!user}, User ID: ${user?.id || 'none'}`
-    );
+    console.log(`[Middleware] Session state: ${!!user}, User ID: ${user?.id || 'none'}`);
 
     // Check if the path is public
     const isPublicPath = PUBLIC_PATHS.some(

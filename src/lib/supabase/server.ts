@@ -29,7 +29,7 @@ export async function createClient() {
       },
       auth: {
         storageKey: STORAGE_KEY,
-      }
+      },
     }
   );
 }

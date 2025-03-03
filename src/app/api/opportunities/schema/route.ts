@@ -15,7 +15,7 @@ export async function GET() {
       .from('opportunities')
       .select('*')
       .limit(1);
-    
+
     if (tableInfoError) {
       console.error('❌ Error fetching table info:', tableInfoError);
       return NextResponse.json(
@@ -25,9 +25,8 @@ export async function GET() {
     }
 
     // Get column names
-    const columnNames = tableInfo && tableInfo.length > 0 
-      ? Object.keys(tableInfo[0]) 
-      : [];
+    const columnNames =
+      tableInfo && tableInfo.length > 0 ? Object.keys(tableInfo[0]) : [];
 
     // Try to get more detailed schema info if available
     let detailedSchema = null;
@@ -36,7 +35,7 @@ export async function GET() {
         'get_schema_info',
         { table_name: 'opportunities' }
       );
-      
+
       if (!schemaError && schemaInfo) {
         detailedSchema = schemaInfo;
       }
@@ -51,9 +50,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error('❌ Error in GET /api/opportunities/schema:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch table schema' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch table schema' }, { status: 500 });
   }
-} 
+}

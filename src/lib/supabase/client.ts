@@ -3,8 +3,6 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 import { Database } from '@/types/supabase';
 
-// Define the storage key consistently across all client instances
-const STORAGE_KEY = 'sb-upumyguwlzscczhanlhd-auth-token';
 let browserClient: ReturnType<typeof createBrowserClient> | null = null;
 
 // Create a single supabase client for the browser
@@ -60,7 +58,9 @@ export const createAdminClient = () => {
 // Helper to get user's role and permissions
 export const getUserRoleAndPermissions = async () => {
   try {
-    console.log('[getUserRoleAndPermissions] Starting to fetch user role and permissions');
+    console.log(
+      '[getUserRoleAndPermissions] Starting to fetch user role and permissions'
+    );
     const client = supabase;
     if (!client) {
       console.error('[getUserRoleAndPermissions] Supabase client not initialized');
@@ -71,18 +71,20 @@ export const getUserRoleAndPermissions = async () => {
     console.log('[getUserRoleAndPermissions] Getting current user');
     const {
       data: { user },
-      error: userError
+      error: userError,
     } = await client.auth.getUser();
-    
-    console.log('[getUserRoleAndPermissions] Auth user result:', { 
-      exists: !!user, 
+
+    console.log('[getUserRoleAndPermissions] Auth user result:', {
+      exists: !!user,
       id: user?.id,
       email: user?.email,
-      error: userError?.message
+      error: userError?.message,
     });
-    
+
     if (!user) {
-      console.log('[getUserRoleAndPermissions] No authenticated user, returning default role');
+      console.log(
+        '[getUserRoleAndPermissions] No authenticated user, returning default role'
+      );
       return {
         role: 'user',
         permissions: [],
@@ -92,13 +94,13 @@ export const getUserRoleAndPermissions = async () => {
     console.log('[getUserRoleAndPermissions] Fetching session for access token');
     const sessionResult = await client.auth.getSession();
     const accessToken = sessionResult.data.session?.access_token;
-    
-    console.log('[getUserRoleAndPermissions] Session result:', { 
+
+    console.log('[getUserRoleAndPermissions] Session result:', {
       hasSession: !!sessionResult.data.session,
       hasAccessToken: !!accessToken,
-      error: sessionResult.error?.message
+      error: sessionResult.error?.message,
     });
-    
+
     if (!accessToken) {
       console.error('[getUserRoleAndPermissions] No access token available');
       return {
@@ -115,15 +117,18 @@ export const getUserRoleAndPermissions = async () => {
     });
 
     console.log('[getUserRoleAndPermissions] API response status:', response.status);
-    
+
     if (!response.ok) {
-      console.error('[getUserRoleAndPermissions] Failed to fetch user role, status:', response.status);
+      console.error(
+        '[getUserRoleAndPermissions] Failed to fetch user role, status:',
+        response.status
+      );
       throw new Error('Failed to fetch user role');
     }
 
     const data = await response.json();
     console.log('[getUserRoleAndPermissions] User role data received:', data);
-    
+
     return {
       role: data.role || 'user',
       permissions: data.permissions || [],

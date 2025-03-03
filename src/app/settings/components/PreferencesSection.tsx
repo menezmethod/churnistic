@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { WbSunny, DarkMode, SettingsSystemDaydreamOutlined } from '@mui/icons-material';
 import {
   Box,
   Typography,
@@ -8,56 +8,65 @@ import {
   Stack,
   Button,
   useTheme as useMuiTheme,
-  CircularProgress,
   Divider,
   Alert,
   Select,
   MenuItem,
   InputLabel,
   styled,
+  SelectChangeEvent,
+  TextFieldProps,
 } from '@mui/material';
-import { WbSunny, DarkMode, SettingsSystemDaydreamOutlined } from '@mui/icons-material';
 import { User } from '@supabase/supabase-js';
-import { UserSettings, ThemeSettings } from '@/lib/hooks/useSettings';
+import { useState, useEffect } from 'react';
+
 import { useTheme } from '@/app/styles/theme/ThemeContext';
+import { UserSettings, ThemeSettings } from '@/lib/hooks/useSettings';
 
 interface PreferencesSectionProps {
   user: User;
   settings: UserSettings;
-  onUpdate: (updates: any) => Promise<void>;
+  onUpdate: (updates: Partial<UserSettings>) => Promise<void>;
   updateThemeSettings: (settings: Partial<ThemeSettings>) => Promise<void>;
-  StyledTextField: any;
+  StyledTextField: React.ComponentType<TextFieldProps>;
 }
 
 // Create styled theme option buttons to match original design
-const ThemeOptionButton = styled(Button)<{ selected: boolean }>(({ theme, selected }) => ({
-  minWidth: 120,
-  backgroundColor: selected ? theme.palette.primary.main : theme.palette.mode === 'light' ? '#ffffff' : 'hsla(220, 30%, 6%, 0.8)',
-  color: selected ? '#fff' : theme.palette.text.primary,
-  border: `1px solid ${selected ? theme.palette.primary.main : theme.palette.divider}`,
-  borderRadius: 8,
-  padding: '12px 20px',
-  textTransform: 'none',
-  fontWeight: 500,
-  transition: 'all 0.2s ease-in-out',
-  boxShadow: selected ? '0 2px 6px rgba(0,0,0,0.15)' : 'none',
-  '&:hover': {
-    backgroundColor: selected ? theme.palette.primary.dark : theme.palette.mode === 'light' ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.05)',
-    borderColor: selected ? theme.palette.primary.dark : theme.palette.primary.main,
-    boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
-    transform: 'translateY(-1px)',
-  },
-}));
+const ThemeOptionButton = styled(Button)<{ selected: boolean }>(
+  ({ theme, selected }) => ({
+    minWidth: 120,
+    backgroundColor: selected
+      ? theme.palette.primary.main
+      : theme.palette.mode === 'light'
+        ? '#ffffff'
+        : 'hsla(220, 30%, 6%, 0.8)',
+    color: selected ? '#fff' : theme.palette.text.primary,
+    border: `1px solid ${selected ? theme.palette.primary.main : theme.palette.divider}`,
+    borderRadius: 8,
+    padding: '12px 20px',
+    textTransform: 'none',
+    fontWeight: 500,
+    transition: 'all 0.2s ease-in-out',
+    boxShadow: selected ? '0 2px 6px rgba(0,0,0,0.15)' : 'none',
+    '&:hover': {
+      backgroundColor: selected
+        ? theme.palette.primary.dark
+        : theme.palette.mode === 'light'
+          ? 'rgba(0,0,0,0.03)'
+          : 'rgba(255,255,255,0.05)',
+      borderColor: selected ? theme.palette.primary.dark : theme.palette.primary.main,
+      boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
+      transform: 'translateY(-1px)',
+    },
+  })
+);
 
 export function PreferencesSection({
-  user,
   settings,
-  onUpdate,
   updateThemeSettings,
-  StyledTextField,
 }: PreferencesSectionProps) {
   const muiTheme = useMuiTheme();
-  const { mode, setMode, actualMode, toggleMode } = useTheme();
+  const { mode, setMode, actualMode } = useTheme();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -66,9 +75,7 @@ export function PreferencesSection({
     language: settings.preferences.language || 'en',
     timezone: settings.preferences.timezone || 'UTC',
   });
-  const [systemPreference, setSystemPreference] = useState<'light' | 'dark'>(
-    actualMode
-  );
+  const [systemPreference, setSystemPreference] = useState<'light' | 'dark'>(actualMode);
 
   // Set initial state based on settings
   useEffect(() => {
@@ -78,12 +85,14 @@ export function PreferencesSection({
       language: settings.preferences.language || 'en',
       timezone: settings.preferences.timezone || 'UTC',
     });
-    
+
     console.log('🎨 [PreferencesSection] Initializing with settings:', {
       themePreference: settings.preferences.theme,
       currentMode: mode,
       actualMode,
-      systemDetectedMode: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      systemDetectedMode: window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light',
     });
   }, [settings, mode, actualMode]);
 
@@ -91,25 +100,25 @@ export function PreferencesSection({
   useEffect(() => {
     // Only run in browser
     if (typeof window === 'undefined') return;
-    
+
     // Check initial preference
     const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     setSystemPreference(darkModeMediaQuery.matches ? 'dark' : 'light');
-    
+
     // Set up listener for changes
     const handleChange = (e: MediaQueryListEvent) => {
       const newPreference = e.matches ? 'dark' : 'light';
       setSystemPreference(newPreference);
-      
+
       console.log('🎨 [PreferencesSection] System preference changed:', {
         newPreference,
-        currentThemeSetting: preferences.theme
+        currentThemeSetting: preferences.theme,
       });
     };
-    
+
     // Add listener
     darkModeMediaQuery.addEventListener('change', handleChange);
-    
+
     // Clean up
     return () => {
       darkModeMediaQuery.removeEventListener('change', handleChange);
@@ -120,7 +129,7 @@ export function PreferencesSection({
     setLoading(true);
     setError(null);
     setSuccess(null);
-    
+
     // Debug logging before theme change
     console.log('🔍 [THEME DEBUG] Apply theme requested:', {
       from: preferences.theme,
@@ -128,37 +137,43 @@ export function PreferencesSection({
       currentMode: mode,
       actualMode,
       systemPreference,
-      currentBodyClass: typeof document !== 'undefined' ? document.body.className : 'unknown',
-      currentHtmlClass: typeof document !== 'undefined' ? document.documentElement.className : 'unknown'
+      currentBodyClass:
+        typeof document !== 'undefined' ? document.body.className : 'unknown',
+      currentHtmlClass:
+        typeof document !== 'undefined' ? document.documentElement.className : 'unknown',
     });
-    
+
     try {
       // Update the UI state immediately for feedback
       setPreferences((prev) => ({ ...prev, theme: newTheme }));
-      
+
       // Apply the theme right away via the theme context
       setMode(newTheme);
-      
+
       // Log after theme context update
       console.log('🔍 [THEME DEBUG] Applied theme via context:', {
         newTheme,
         systemPreference,
-        bodyClasses: typeof document !== 'undefined' ? document.body.className : 'unknown',
-        htmlClasses: typeof document !== 'undefined' ? document.documentElement.className : 'unknown'
+        bodyClasses:
+          typeof document !== 'undefined' ? document.body.className : 'unknown',
+        htmlClasses:
+          typeof document !== 'undefined'
+            ? document.documentElement.className
+            : 'unknown',
       });
-      
+
       // Then persist to database
       await updateThemeSettings({ theme: newTheme });
-      
+
       // Log after database update
       console.log('✅ [THEME DEBUG] Theme saved to database:', {
         theme: newTheme,
-        systemPreference
+        systemPreference,
       });
-      
+
       setSuccess('Theme updated successfully');
       setTimeout(() => setSuccess(null), 3000);
-      
+
       // Final check to see if theme was properly applied
       setTimeout(() => {
         if (typeof document !== 'undefined') {
@@ -171,103 +186,76 @@ export function PreferencesSection({
             computedTextColor,
             currentMode: mode,
             bodyClasses: document.body.className,
-            htmlClasses: document.documentElement.className
+            htmlClasses: document.documentElement.className,
           });
         }
       }, 200);
     } catch (err) {
       console.error('❌ [THEME DEBUG] Error updating theme:', err);
       setError((err as Error).message || 'Failed to update theme');
-      
+
       // Revert preferences state on error
       setPreferences((prev) => ({ ...prev, theme: settings.preferences.theme }));
     } finally {
       setLoading(false);
     }
   };
-  
-  const handleLanguageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+
+  const handleLanguageChange = async (event: SelectChangeEvent) => {
     const newLanguage = event.target.value;
     setLoading(true);
     setError(null);
     setSuccess(null);
-    
+
     try {
       // Update state for immediate feedback
       setPreferences((prev) => ({ ...prev, language: newLanguage }));
-      
+
       // Persist to database
       await updateThemeSettings({ language: newLanguage });
       setSuccess('Language updated successfully');
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error('Error updating language:', err);
       setError((err as Error).message || 'Failed to update language');
       // Revert on error - ensure fallback to a valid string
-      setPreferences((prev) => ({ 
-        ...prev, 
-        language: settings.preferences.language || 'en'
-      }));
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleTimezoneChange = async (event: React.ChangeEvent<{ value: unknown }>) => {
-    const newTimezone = event.target.value as string;
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-    
-    try {
-      // Update state for immediate feedback
-      setPreferences((prev) => ({ ...prev, timezone: newTimezone }));
-      
-      // Persist to database
-      await updateThemeSettings({ timezone: newTimezone });
-      setSuccess('Timezone updated successfully');
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      console.error('Error updating timezone:', err);
-      setError((err as Error).message || 'Failed to update timezone');
-      // Revert on error - ensure fallback to a valid string
-      setPreferences((prev) => ({ 
-        ...prev, 
-        timezone: settings.preferences.timezone || 'UTC'
+      setPreferences((prev) => ({
+        ...prev,
+        language: settings.preferences.language || 'en',
       }));
     } finally {
       setLoading(false);
     }
   };
 
-  // Toggle between light and dark mode
-  const toggleDarkMode = async () => {
-    // Use the direct toggle function from context
-    toggleMode();
-    
-    // Update the local state
-    const newTheme = actualMode === 'light' ? 'dark' : 'light';
-    setPreferences((prev) => ({ ...prev, theme: newTheme }));
-    
-    console.log('🎨 [PreferencesSection] Toggling dark mode:', {
-      currentTheme: preferences.theme,
-      newTheme,
-      actualMode,
-      systemPreference
-    });
-    
+  const handleTimezoneChange = async (event: SelectChangeEvent) => {
+    const newTimezone = event.target.value;
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
     try {
+      // Update state for immediate feedback
+      setPreferences((prev) => ({ ...prev, timezone: newTimezone }));
+
       // Persist to database
-      await updateThemeSettings({ theme: newTheme });
-      setSuccess('Theme updated successfully');
+      await updateThemeSettings({ timezone: newTimezone });
+      setSuccess('Timezone updated successfully');
+
+      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      console.error('❌ [THEME DEBUG] Error updating theme in database:', err);
-      setError((err as Error).message || 'Failed to save theme preference');
+      console.error('Error updating timezone:', err);
+      setError((err as Error).message || 'Failed to update timezone');
+      // Revert on error - ensure fallback to a valid string
+      setPreferences((prev) => ({
+        ...prev,
+        timezone: settings.preferences.timezone || 'UTC',
+      }));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -286,11 +274,7 @@ export function PreferencesSection({
           Preferences
         </Typography>
 
-        <Typography 
-          variant="body2" 
-          color="text.secondary"
-          sx={{ mt: -1 }}
-        >
+        <Typography variant="body2" color="text.secondary" sx={{ mt: -1 }}>
           Customize your experience with personal preferences
         </Typography>
 
@@ -310,7 +294,10 @@ export function PreferencesSection({
           sx={{
             p: 3,
             borderRadius: 2,
-            bgcolor: muiTheme.palette.mode === 'light' ? 'background.paper' : 'hsl(220, 35%, 3%)',
+            bgcolor:
+              muiTheme.palette.mode === 'light'
+                ? 'background.paper'
+                : 'hsl(220, 35%, 3%)',
             border: `1px solid ${muiTheme.palette.mode === 'light' ? 'hsl(220, 20%, 88%)' : 'hsl(220, 20%, 25%)'}`,
           }}
         >
@@ -319,11 +306,7 @@ export function PreferencesSection({
               Theme
             </Typography>
 
-            <Stack 
-              direction={{ xs: 'column', sm: 'row' }} 
-              spacing={2}
-              sx={{ mb: 1 }}
-            >
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 1 }}>
               <ThemeOptionButton
                 selected={preferences.theme === 'light'}
                 onClick={() => applyTheme('light')}
@@ -365,7 +348,7 @@ export function PreferencesSection({
                 id="language-select"
                 value={preferences.language}
                 label="Language"
-                onChange={(e) => handleLanguageChange(e as any)}
+                onChange={(e: SelectChangeEvent) => handleLanguageChange(e)}
               >
                 <MenuItem value="en">English</MenuItem>
                 <MenuItem value="es">Spanish</MenuItem>
@@ -386,7 +369,7 @@ export function PreferencesSection({
                 id="timezone-select"
                 value={preferences.timezone}
                 label="Timezone"
-                onChange={handleTimezoneChange as any}
+                onChange={handleTimezoneChange}
               >
                 <MenuItem value="UTC">UTC</MenuItem>
                 <MenuItem value="America/New_York">Eastern Time (ET)</MenuItem>

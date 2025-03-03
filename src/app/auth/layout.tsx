@@ -3,7 +3,7 @@
 import { Box, CircularProgress, Container } from '@mui/material';
 import { usePathname } from 'next/navigation';
 
-import { useAuth } from '@/lib/providers/AuthProvider';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

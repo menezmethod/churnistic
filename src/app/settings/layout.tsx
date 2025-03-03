@@ -1,6 +1,6 @@
 'use client';
 
-import { CircularProgress, Box } from '@mui/material';
+import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -15,7 +15,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   useEffect(() => {
     // Set mounted state to true after component mounts
     setIsMounted(true);
-    
+
     if (!authLoading && !user) {
       console.log('No authenticated user, redirecting to signin');
       router.push('/auth/signin');

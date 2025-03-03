@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import {
   Box,
   Button,
@@ -20,14 +19,17 @@ import {
   Alert,
 } from '@mui/material';
 import { User } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import React from 'react';
+
 import { useSettings } from '@/lib/hooks/useSettings';
 
 interface PrivacySettingsProps {
   user: User;
-  supabase: any;
+  supabase: SupabaseClient;
 }
 
-export default function PrivacySettings({ user }: PrivacySettingsProps) {
+export default function PrivacySettings({}: PrivacySettingsProps) {
   const {
     settings,
     isLoading,
@@ -60,7 +62,9 @@ export default function PrivacySettings({ user }: PrivacySettingsProps) {
   };
 
   const handleProfileVisibilityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    updatePrivacySettings({ profileVisibility: event.target.value as 'public' | 'private' });
+    updatePrivacySettings({
+      profileVisibility: event.target.value as 'public' | 'private',
+    });
   };
 
   const handleResetPrivacySettings = () => {
@@ -78,7 +82,7 @@ export default function PrivacySettings({ user }: PrivacySettingsProps) {
             Control who can see your profile and activity
           </Typography>
           <Divider sx={{ mb: 3 }} />
-          
+
           <FormControl component="fieldset" sx={{ mb: 3 }}>
             <FormLabel component="legend">Profile Visibility</FormLabel>
             <RadioGroup
@@ -87,19 +91,19 @@ export default function PrivacySettings({ user }: PrivacySettingsProps) {
               value={settings.privacy.profileVisibility}
               onChange={handleProfileVisibilityChange}
             >
-              <FormControlLabel 
-                value="public" 
-                control={<Radio disabled={privacySettingsStatus.isLoading} />} 
-                label="Public - Anyone can view your profile" 
+              <FormControlLabel
+                value="public"
+                control={<Radio disabled={privacySettingsStatus.isLoading} />}
+                label="Public - Anyone can view your profile"
               />
-              <FormControlLabel 
-                value="private" 
-                control={<Radio disabled={privacySettingsStatus.isLoading} />} 
-                label="Private - Only you can view your profile" 
+              <FormControlLabel
+                value="private"
+                control={<Radio disabled={privacySettingsStatus.isLoading} />}
+                label="Private - Only you can view your profile"
               />
             </RadioGroup>
           </FormControl>
-          
+
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <FormControlLabel
@@ -118,7 +122,7 @@ export default function PrivacySettings({ user }: PrivacySettingsProps) {
                 Allow other users to see your email address
               </Typography>
             </Grid>
-            
+
             <Grid item xs={12}>
               <FormControlLabel
                 control={
@@ -137,10 +141,11 @@ export default function PrivacySettings({ user }: PrivacySettingsProps) {
               </Typography>
             </Grid>
           </Grid>
-          
+
           {privacySettingsStatus.isError && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              Error updating privacy settings: {privacySettingsStatus.error?.message || 'Unknown error'}
+              Error updating privacy settings:{' '}
+              {privacySettingsStatus.error?.message || 'Unknown error'}
             </Alert>
           )}
         </CardContent>
@@ -155,9 +160,9 @@ export default function PrivacySettings({ user }: PrivacySettingsProps) {
             Manage how your data is used and stored
           </Typography>
           <Divider sx={{ mb: 3 }} />
-          
-          <Button 
-            variant="outlined" 
+
+          <Button
+            variant="outlined"
             color="primary"
             onClick={handleResetPrivacySettings}
             disabled={privacySettingsStatus.isLoading}
@@ -165,12 +170,8 @@ export default function PrivacySettings({ user }: PrivacySettingsProps) {
           >
             Reset Privacy Settings
           </Button>
-          
-          <Button 
-            variant="outlined" 
-            color="error"
-            disabled
-          >
+
+          <Button variant="outlined" color="error" disabled>
             Request Data Export
           </Button>
         </CardContent>
@@ -185,20 +186,17 @@ export default function PrivacySettings({ user }: PrivacySettingsProps) {
             Manage cookies and tracking preferences
           </Typography>
           <Divider sx={{ mb: 3 }} />
-          
+
           <Typography variant="body2" paragraph>
-            We use cookies and similar technologies to provide, protect, and improve our services.
-            You can manage your cookie preferences at any time.
+            We use cookies and similar technologies to provide, protect, and improve our
+            services. You can manage your cookie preferences at any time.
           </Typography>
-          
-          <Button 
-            variant="outlined"
-            disabled
-          >
+
+          <Button variant="outlined" disabled>
             Manage Cookie Preferences
           </Button>
         </CardContent>
       </Card>
     </Stack>
   );
-} 
+}

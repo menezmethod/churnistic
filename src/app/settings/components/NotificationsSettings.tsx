@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import {
   Box,
   Card,
@@ -15,14 +14,17 @@ import {
   Alert,
 } from '@mui/material';
 import { User } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import React from 'react';
+
 import { useSettings } from '@/lib/hooks/useSettings';
 
 interface NotificationsSettingsProps {
   user: User;
-  supabase: any;
+  supabase: SupabaseClient;
 }
 
-export default function NotificationsSettings({ user }: NotificationsSettingsProps) {
+export default function NotificationsSettings({}: NotificationsSettingsProps) {
   const {
     settings,
     isLoading,
@@ -71,7 +73,7 @@ export default function NotificationsSettings({ user }: NotificationsSettingsPro
             Manage the emails you want to receive
           </Typography>
           <Divider sx={{ mb: 3 }} />
-          
+
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <FormControlLabel
@@ -90,7 +92,7 @@ export default function NotificationsSettings({ user }: NotificationsSettingsPro
                 Receive emails about new features, promotional offers, and updates
               </Typography>
             </Grid>
-            
+
             <Grid item xs={12}>
               <FormControlLabel
                 control={
@@ -109,10 +111,11 @@ export default function NotificationsSettings({ user }: NotificationsSettingsPro
               </Typography>
             </Grid>
           </Grid>
-          
+
           {emailPreferencesStatus.isError && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              Error updating email preferences: {emailPreferencesStatus.error?.message || 'Unknown error'}
+              Error updating email preferences:{' '}
+              {emailPreferencesStatus.error?.message || 'Unknown error'}
             </Alert>
           )}
         </CardContent>
@@ -127,7 +130,7 @@ export default function NotificationsSettings({ user }: NotificationsSettingsPro
             Configure which notifications you receive in the application
           </Typography>
           <Divider sx={{ mb: 3 }} />
-          
+
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <FormControlLabel
@@ -146,7 +149,7 @@ export default function NotificationsSettings({ user }: NotificationsSettingsPro
                 Receive notifications about new credit card opportunities
               </Typography>
             </Grid>
-            
+
             <Grid item xs={12}>
               <FormControlLabel
                 control={
@@ -164,7 +167,7 @@ export default function NotificationsSettings({ user }: NotificationsSettingsPro
                 Receive notifications about new bank account bonuses
               </Typography>
             </Grid>
-            
+
             <Grid item xs={12}>
               <FormControlLabel
                 control={
@@ -182,7 +185,7 @@ export default function NotificationsSettings({ user }: NotificationsSettingsPro
                 Receive notifications about new investment opportunities
               </Typography>
             </Grid>
-            
+
             <Grid item xs={12}>
               <FormControlLabel
                 control={
@@ -201,14 +204,15 @@ export default function NotificationsSettings({ user }: NotificationsSettingsPro
               </Typography>
             </Grid>
           </Grid>
-          
+
           {notificationSettingsStatus.isError && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              Error updating notification settings: {notificationSettingsStatus.error?.message || 'Unknown error'}
+              Error updating notification settings:{' '}
+              {notificationSettingsStatus.error?.message || 'Unknown error'}
             </Alert>
           )}
         </CardContent>
       </Card>
     </Stack>
   );
-} 
+}

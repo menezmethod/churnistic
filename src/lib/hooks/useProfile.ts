@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { User, UserProfile, DatabaseUser, mapDatabaseUserToUser } from '@/types/user';
-import { supabase } from '@/lib/supabase/client';
+import { useState, useCallback } from 'react';
+
 import { useAuth } from '@/lib/auth/AuthContext';
+import { supabase } from '@/lib/supabase/client';
+import { DatabaseUser, mapDatabaseUserToUser } from '@/types/user';
 
 interface ProfileData {
   displayName: string;
@@ -92,9 +93,9 @@ export function useProfile() {
       }
 
       // Prepare the data for database
-      const dbFields: Record<string, any> = {
-        display_name: data.displayName,
-        avatar_url: data.avatarUrl,
+      const dbFields: Partial<ProfileData> & { updated_at: string } = {
+        displayName: data.displayName,
+        avatarUrl: data.avatarUrl,
         bio: data.bio,
         phone: data.phone,
         location: data.location,
@@ -103,8 +104,10 @@ export function useProfile() {
       };
 
       // Filter out undefined values
-      Object.keys(dbFields).forEach(key => {
-        if (dbFields[key] === undefined) delete dbFields[key];
+      Object.keys(dbFields).forEach((key) => {
+        if (key in dbFields && dbFields[key as keyof typeof dbFields] === undefined) {
+          delete dbFields[key as keyof typeof dbFields];
+        }
       });
 
       // If profile exists, update it
@@ -122,7 +125,7 @@ export function useProfile() {
         }
 
         return updatedProfile;
-      } 
+      }
       // If not, insert a new profile
       else {
         const { data: newProfile, error: insertError } = await supabase
@@ -167,7 +170,10 @@ export function useProfile() {
           .from('profiles')
           .upload(filePath, file, {
             upsert: true,
-            onUploadProgress: (progress: { uploadedBytes: number; totalBytes: number }) => {
+            onUploadProgress: (progress: {
+              uploadedBytes: number;
+              totalBytes: number;
+            }) => {
               const percent = (progress.uploadedBytes / progress.totalBytes) * 100;
               setUploadProgress(Math.round(percent));
             },
@@ -179,9 +185,9 @@ export function useProfile() {
         }
 
         // Get the public URL for the uploaded file
-        const { data: { publicUrl } } = supabase.storage
-          .from('profiles')
-          .getPublicUrl(uploadData.path);
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from('profiles').getPublicUrl(uploadData.path);
 
         // Update the profile with the new avatar URL
         return await updateProfileMutation.mutateAsync({ avatarUrl: publicUrl });
@@ -190,7 +196,9 @@ export function useProfile() {
       }
     },
     onError: (error) => {
-      setUploadError(error instanceof Error ? error.message : 'Unknown error during upload');
+      setUploadError(
+        error instanceof Error ? error.message : 'Unknown error during upload'
+      );
     },
   });
 
@@ -263,4 +271,4 @@ export function useProfile() {
       deleteError: deleteAvatarMutation.error,
     },
   };
-} 
+}

@@ -1,16 +1,17 @@
 'use client';
 
 import { Box, Button, Container, Paper, Typography } from '@mui/material';
+import { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 
-import { useAuth } from '@/lib/providers/AuthProvider';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { useToast } from '@/lib/providers/ToastProvider';
 import { supabase } from '@/lib/supabase/client';
 
 export default function AuthTestPage() {
   const { user, signIn, signUp, signOut, signInWithGoogle } = useAuth();
   const { showToast } = useToast();
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
     const getSession = async () => {

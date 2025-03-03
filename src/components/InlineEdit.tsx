@@ -50,10 +50,10 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
   const [showSuccess, setShowSuccess] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isDirty, setIsDirty] = useState(false);
-  
+
   // Use a ref to track if a save operation is in progress
   const isSaving = useRef(false);
-  
+
   // Update value when initialValue changes
   useEffect(() => {
     if (!isEditing) {
@@ -64,7 +64,7 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
   const validate = useCallback(
     (val: string | number) => {
       if (validationRules.length === 0) return null;
-      
+
       for (const rule of validationRules) {
         if (!rule.validate(val)) {
           return rule.message;
@@ -78,12 +78,12 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
   // Debounced validation to avoid triggering on every keystroke
   useEffect(() => {
     if (!isDirty) return;
-    
+
     const timer = setTimeout(() => {
       const validationError = validate(value);
       setError(validationError);
     }, 300);
-    
+
     return () => clearTimeout(timer);
   }, [value, validate, isDirty]);
 
@@ -98,7 +98,7 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
   const handleSave = useCallback(async () => {
     // Prevent multiple simultaneous save operations
     if (isSaving.current) return;
-    
+
     if (value === initialValue) {
       setIsEditing(false);
       return;
@@ -113,7 +113,7 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
     setIsLoading(true);
     setError(null);
     isSaving.current = true;
-    
+
     try {
       await onSave(value);
       setShowSuccess(true);
@@ -121,13 +121,13 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
       setRetryCount(0);
       setIsDirty(false);
     } catch (error) {
-      console.error("Error saving:", error);
+      console.error('Error saving:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to save';
-      
+
       // Handle retry logic
       if (retryCount < maxRetries) {
         setError(`Save failed: ${errorMessage}. Retrying...`);
-        setRetryCount(prev => prev + 1);
+        setRetryCount((prev) => prev + 1);
         setTimeout(() => {
           handleSave();
         }, retryDelay);
@@ -178,11 +178,14 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
     }
   }, [handleSave, handleCancel, value, initialValue, error]);
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = type === 'number' ? Number(e.target.value) : e.target.value;
-    setValue(newValue);
-    setIsDirty(true);
-  }, [type]);
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newValue = type === 'number' ? Number(e.target.value) : e.target.value;
+      setValue(newValue);
+      setIsDirty(true);
+    },
+    [type]
+  );
 
   const displayValue = formatValue ? formatValue(initialValue) : initialValue;
 
@@ -240,9 +243,9 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
               }}
             />
             {error && (
-              <Typography 
-                variant="caption" 
-                color="error" 
+              <Typography
+                variant="caption"
+                color="error"
                 sx={{ display: 'block', mt: 1 }}
               >
                 {error}

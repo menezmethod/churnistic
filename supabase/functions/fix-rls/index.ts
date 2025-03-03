@@ -1,18 +1,18 @@
 // Follow this setup guide to integrate the Deno runtime and Supabase functions:
 // https://supabase.com/docs/guides/functions/deno-runtime
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -26,7 +26,7 @@ serve(async (req) => {
           persistSession: false,
         },
       }
-    )
+    );
 
     // SQL to fix RLS policies
     const sql = `
@@ -78,17 +78,17 @@ serve(async (req) => {
         RETURN false;
     END;
     $$;
-    `
+    `;
 
     // Execute the SQL
-    const { error } = await supabaseClient.rpc('exec_sql', { sql })
+    const { error } = await supabaseClient.rpc('exec_sql', { sql });
 
     if (error) {
-      console.error('Error executing SQL:', error)
+      console.error('Error executing SQL:', error);
       return new Response(JSON.stringify({ error: error.message }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
-      })
+      });
     }
 
     return new Response(
@@ -97,12 +97,12 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       }
-    )
+    );
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
-    })
+    });
   }
-}) 
+});

@@ -1,10 +1,7 @@
 'use client';
 
-import { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
-
 import { UserRole, type AuthUser } from '@/lib/auth/types';
 import { supabase } from '@/lib/supabase/client';
-import { getUserRoleAndPermissions } from '@/lib/supabase/client';
 
 export type { AuthUser };
 
@@ -46,29 +43,32 @@ export const loadUser = async (): Promise<AuthUser | null> => {
       .select('role')
       .eq('id', user.id)
       .maybeSingle();
-    
+
     if (profileError) {
       console.error('[AuthService] Error fetching user profile:', profileError);
-      
+
       // If there was an error fetching the profile, try to create it
       console.log('[AuthService] Attempting to create user profile...');
       const { data: newProfile, error: insertError } = await supabase
         .from('users')
-        .upsert([
+        .upsert(
+          [
+            {
+              id: user.id,
+              email: user.email,
+              role: UserRole.USER,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+          ],
           {
-            id: user.id,
-            email: user.email,
-            role: UserRole.USER,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            onConflict: 'id',
+            ignoreDuplicates: false,
           }
-        ], {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        })
+        )
         .select('role')
         .maybeSingle();
-      
+
       if (insertError) {
         console.error('[AuthService] Error creating user profile:', insertError);
         // Continue with default role
@@ -77,13 +77,13 @@ export const loadUser = async (): Promise<AuthUser | null> => {
         const authUser = user as AuthUser;
         authUser.role = (newProfile.role || UserRole.USER) as UserRole;
         authUser.isSuperAdmin = isSuperAdmin(authUser);
-        
+
         console.log('[AuthService] User profile created:', {
           email: authUser.email,
-          role: authUser.role, 
-          isSuperAdmin: authUser.isSuperAdmin
+          role: authUser.role,
+          isSuperAdmin: authUser.isSuperAdmin,
         });
-        
+
         return authUser;
       }
     }
@@ -138,40 +138,49 @@ export const loginWithEmail = async (
       .maybeSingle();
 
     if (profileError) {
-      console.error('[AuthService] Error fetching user profile after login:', profileError);
-      
+      console.error(
+        '[AuthService] Error fetching user profile after login:',
+        profileError
+      );
+
       // If profile doesn't exist, create one
       console.log('[AuthService] Creating user profile after login');
       const { data: newProfile, error: insertError } = await supabase
         .from('users')
-        .upsert([
+        .upsert(
+          [
+            {
+              id: data.user.id,
+              email: data.user.email,
+              role: UserRole.USER,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+          ],
           {
-            id: data.user.id,
-            email: data.user.email,
-            role: UserRole.USER,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            onConflict: 'id',
+            ignoreDuplicates: false,
           }
-        ], {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        })
+        )
         .select('role')
         .maybeSingle();
-        
+
       if (insertError) {
-        console.error('[AuthService] Error creating user profile after login:', insertError);
+        console.error(
+          '[AuthService] Error creating user profile after login:',
+          insertError
+        );
         // Continue with default role
       } else if (newProfile) {
         const authUser = data.user as AuthUser;
         authUser.role = (newProfile.role || UserRole.USER) as UserRole;
         authUser.isSuperAdmin = isSuperAdmin(authUser);
-        
+
         console.log('[AuthService] Created user profile after login:', {
           email: authUser.email,
-          role: authUser.role
+          role: authUser.role,
         });
-        
+
         return authUser;
       }
     }
@@ -224,9 +233,8 @@ export const registerWithEmail = async (
     console.log('[AuthService] Registration successful, creating user profile');
 
     // Create user profile with upsert instead of insert for better error handling
-    const { error: profileError } = await supabase
-      .from('users')
-      .upsert([
+    const { error: profileError } = await supabase.from('users').upsert(
+      [
         {
           id: data.user.id,
           email: data.user.email,
@@ -235,10 +243,12 @@ export const registerWithEmail = async (
           updated_at: new Date().toISOString(),
           display_name: credentials.displayName || data.user.email?.split('@')[0],
         },
-      ], {
+      ],
+      {
         onConflict: 'id',
-        ignoreDuplicates: false
-      });
+        ignoreDuplicates: false,
+      }
+    );
 
     if (profileError) {
       console.error('[AuthService] Error creating user profile:', profileError);
@@ -265,7 +275,7 @@ export const registerWithEmail = async (
 // Login with Google
 export const loginWithGoogle = async (): Promise<void> => {
   console.log('[AuthService] Initiating Google login...');
-  
+
   try {
     // Use @supabase/ssr client for OAuth
     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -290,7 +300,7 @@ export const loginWithGoogle = async (): Promise<void> => {
 // Login with GitHub
 export const loginWithGithub = async (): Promise<void> => {
   console.log('[AuthService] Initiating GitHub login...');
-  
+
   try {
     // Use @supabase/ssr client for OAuth
     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -315,7 +325,7 @@ export const loginWithGithub = async (): Promise<void> => {
 // Reset password
 export const resetPassword = async (email: string): Promise<void> => {
   console.log('[AuthService] Initiating password reset...');
-  
+
   try {
     // Use @supabase/ssr client for password reset
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -340,25 +350,25 @@ export const isSuperAdmin = (user: AuthUser | null): boolean => {
     console.log('[authService] isSuperAdmin check: No user provided');
     return false;
   }
-  
+
   // Handle case where role might be undefined
   if (user.role === undefined || user.role === null) {
     console.warn('[authService] isSuperAdmin check: User has no role property', user.id);
     return false;
   }
-  
+
   // Convert both to lowercase strings for comparison to handle any format differences
   const userRoleStr = String(user.role).toLowerCase();
   const superAdminRoleStr = String(UserRole.SUPER_ADMIN).toLowerCase();
-  
+
   // Add detailed logging to diagnose role comparison issues
   console.log('[authService] isSuperAdmin check details:', {
     userRoleType: typeof user.role,
     userRoleValue: user.role,
     userRoleStr: userRoleStr,
     superAdminRoleStr: superAdminRoleStr,
-    isMatch: userRoleStr === superAdminRoleStr
+    isMatch: userRoleStr === superAdminRoleStr,
   });
-  
+
   return userRoleStr === superAdminRoleStr;
 };

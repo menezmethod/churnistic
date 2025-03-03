@@ -91,7 +91,7 @@ export function mapDatabaseUserToUser(dbUser: DatabaseUser): User {
     monthlyIncome: dbUser.monthly_income,
     permissions: dbUser.permissions,
     createdAt: dbUser.created_at,
-    updatedAt: dbUser.updated_at
+    updatedAt: dbUser.updated_at,
   };
 }
 
@@ -109,6 +109,6 @@ export function mapUserToDatabaseFields(user: Partial<User>): Partial<DatabaseUs
   if (user.permissions !== undefined) dbUser.permissions = user.permissions;
   if (user.createdAt !== undefined) dbUser.created_at = user.createdAt;
   if (user.updatedAt !== undefined) dbUser.updated_at = user.updatedAt;
-  
+
   return dbUser;
 }

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { UserRole } from '@/lib/auth/types';
 import { supabase } from '@/lib/supabase/client';
-import { DatabaseUser, mapDatabaseUserToUser, mapUserToDatabaseFields } from '@/types/user';
+import { mapUserToDatabaseFields } from '@/types/user';
 
 export interface User {
   id: string;
@@ -25,28 +25,33 @@ export function useUsers() {
     queryFn: async () => {
       try {
         // Get the current session using the @supabase/ssr client
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
         if (sessionError) {
           console.error('Error getting session:', sessionError);
           throw new Error('Authentication error');
         }
-        
+
         if (!session) {
           throw new Error('No active session');
         }
-        
+
         const response = await fetch('/api/functions/users', {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `Failed to fetch users: ${response.status}`);
+          throw new Error(
+            errorData.message || `Failed to fetch users: ${response.status}`
+          );
         }
-        
+
         const data = await response.json();
         return data.users as User[];
       } catch (error) {
@@ -67,43 +72,41 @@ export function useUpdateUser() {
     mutationFn: async ({ userId, data }: { userId: string; data: Partial<User> }) => {
       // Convert from frontend format to database format
       const dbFields = mapUserToDatabaseFields(data);
-      
+
       // Add updated_at field
       dbFields.updated_at = new Date().toISOString();
-      
-      const { error } = await supabase
-        .from('users')
-        .update(dbFields)
-        .eq('id', userId);
+
+      const { error } = await supabase.from('users').update(dbFields).eq('id', userId);
 
       if (error) throw error;
-      
+
       return { userId, data };
     },
     onMutate: async ({ userId, data }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['users'] });
-      
+
       // Snapshot the previous value
       const previousUsers = queryClient.getQueryData<User[]>(['users']);
-      
+
       // Optimistically update to the new value
       if (previousUsers) {
-        queryClient.setQueryData<User[]>(['users'], 
-          previousUsers.map(user => 
-            user.id === userId 
-              ? { 
-                  ...user, 
+        queryClient.setQueryData<User[]>(
+          ['users'],
+          previousUsers.map((user) =>
+            user.id === userId
+              ? {
+                  ...user,
                   role: data.role || user.role,
                   displayName: data.displayName || user.displayName,
                   avatarUrl: data.avatarUrl || user.avatarUrl,
                   updatedAt: new Date().toISOString(),
-                } 
+                }
               : user
           )
         );
       }
-      
+
       return { previousUsers };
     },
     onError: (err, { userId }, context) => {
@@ -131,18 +134,18 @@ export function useDeleteUser() {
     onMutate: async (userId) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['users'] });
-      
+
       // Snapshot the previous value
       const previousUsers = queryClient.getQueryData<User[]>(['users']);
-      
+
       // Optimistically update to the new value
       if (previousUsers) {
         queryClient.setQueryData<User[]>(
-          ['users'], 
-          previousUsers.filter(user => user.id !== userId)
+          ['users'],
+          previousUsers.filter((user) => user.id !== userId)
         );
       }
-      
+
       return { previousUsers };
     },
     onError: (err, userId, context) => {

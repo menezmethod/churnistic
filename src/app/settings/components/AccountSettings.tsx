@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import {
   Box,
   Button,
@@ -19,11 +18,14 @@ import {
   Alert,
 } from '@mui/material';
 import { User } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import React from 'react';
+
 import { useSettings } from '@/lib/hooks/useSettings';
 
 interface AccountSettingsProps {
   user: User;
-  supabase: any;
+  supabase: SupabaseClient;
 }
 
 export default function AccountSettings({ user }: AccountSettingsProps) {
@@ -36,7 +38,7 @@ export default function AccountSettings({ user }: AccountSettingsProps) {
     toggleDarkMode,
     useSystemPreference,
     systemPreference,
-    themeSettingsStatus
+    themeSettingsStatus,
   } = useSettings();
 
   if (isLoading) {
@@ -104,16 +106,16 @@ export default function AccountSettings({ user }: AccountSettingsProps) {
             >
               <FormControlLabel value="light" control={<Radio />} label="Light" />
               <FormControlLabel value="dark" control={<Radio />} label="Dark" />
-              <FormControlLabel 
-                value="system" 
-                control={<Radio />} 
-                label={`System (Currently ${systemPreference})`} 
+              <FormControlLabel
+                value="system"
+                control={<Radio />}
+                label={`System (Currently ${systemPreference})`}
               />
             </RadioGroup>
           </FormControl>
           <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={() => toggleDarkMode()}
               disabled={themeSettingsStatus.isLoading}
             >
@@ -125,15 +127,18 @@ export default function AccountSettings({ user }: AccountSettingsProps) {
             </Button>
             <Button
               variant="outlined"
-              onClick={() => useSystemPreference()}
-              disabled={themeSettingsStatus.isLoading || settings.preferences.theme === 'system'}
+              onClick={useSystemPreference}
+              disabled={
+                themeSettingsStatus.isLoading || settings.preferences.theme === 'system'
+              }
             >
               Use System Setting
             </Button>
           </Box>
           {themeSettingsStatus.isError && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              Error updating theme: {themeSettingsStatus.error?.message || 'Unknown error'}
+              Error updating theme:{' '}
+              {themeSettingsStatus.error?.message || 'Unknown error'}
             </Alert>
           )}
         </CardContent>
@@ -186,4 +191,4 @@ export default function AccountSettings({ user }: AccountSettingsProps) {
       </Card>
     </Stack>
   );
-} 
+}

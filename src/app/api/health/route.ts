@@ -23,6 +23,7 @@ export async function GET() {
     return NextResponse.json({
       status: 'healthy',
       database: 'connected',
+      userCount: data?.[0]?.count || 0,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

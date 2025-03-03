@@ -30,7 +30,7 @@ export default function EditUserModal({ user, open, onClose }: EditUserModalProp
   const [error, setError] = useState<string | null>(null);
   const updateUser = useUpdateUser();
 
-  const handleChange = (field: keyof User, value: any) => {
+  const handleChange = (field: keyof User, value: string | number) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,

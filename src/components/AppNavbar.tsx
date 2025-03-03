@@ -55,7 +55,15 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useState, type JSX, useEffect, ReactElement, Fragment, Suspense, useRef } from 'react';
+import {
+  useState,
+  type JSX,
+  useEffect,
+  ReactElement,
+  Fragment,
+  Suspense,
+  useRef,
+} from 'react';
 import React from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -267,26 +275,28 @@ function AppNavbarContent() {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(null);
+  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(
+    null
+  );
   const [offersAnchorEl, setOffersAnchorEl] = useState<null | HTMLElement>(null);
   const renderCountRef = useRef(0);
-  
+
   // Log component mount/unmount to track lifecycle
   useEffect(() => {
     console.log('🔄 [AppNavbar] Component mounted', {
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     return () => {
       console.log('🔄 [AppNavbar] Component unmounted', {
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     };
   }, []);
-  
+
   // Enhanced logging for auth state tracking
   useEffect(() => {
-    console.log('🔐 [AppNavbar] Auth state update:', { 
+    console.log('🔐 [AppNavbar] Auth state update:', {
       isAuthenticated: !!user,
       loading,
       userID: user?.id || 'none',
@@ -297,19 +307,19 @@ function AppNavbarContent() {
       // Add render timestamp to track when this effect runs
       renderTimestamp: new Date().toISOString(),
       // Add performance timing
-      performanceNow: performance.now()
+      performanceNow: performance.now(),
     });
   }, [user, loading, hasRole, isSuperAdmin]);
-  
+
   // Add a specific effect to monitor just the loading state
   useEffect(() => {
     console.log('⏳ [AppNavbar] Loading state changed:', {
       loading,
       hasUser: !!user,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }, [loading, user]);
-  
+
   // Log the loading decision logic
   const shouldShowSkeleton = loading && !user;
   console.log('🧩 [AppNavbar] Render decision:', {
@@ -318,25 +328,25 @@ function AppNavbarContent() {
     shouldShowSkeleton,
     userEmail: user?.email || 'none',
     timestamp: new Date().toISOString(),
-    renderCount: renderCountRef.current++
+    renderCount: renderCountRef.current++,
   });
-  
+
   // Show skeleton ONLY when we're truly in an uncertain loading state
   if (shouldShowSkeleton) {
     console.log('🦴 [AppNavbar] Showing skeleton loader', {
       reason: 'Loading without cached user data',
       timestamp: new Date().toISOString(),
-      performanceNow: performance.now()
+      performanceNow: performance.now(),
     });
     return <AppNavbarSkeleton />;
   }
-  
+
   console.log('👤 [AppNavbar] Rendering authenticated navbar:', {
     hasUser: !!user,
     email: user?.email || 'none',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
-  
+
   // Auth state is resolved - either we have a user or we're definitely not authenticated
   const isAuthenticated = !!user;
   const isAdmin = isAuthenticated ? hasRole(UserRole.ADMIN) : false;
@@ -1299,7 +1309,7 @@ function AppNavbarContent() {
 
 function AppNavbarSkeleton() {
   const theme = useTheme();
-  
+
   return (
     <AppBar
       position="fixed"
@@ -1314,14 +1324,14 @@ function AppNavbarSkeleton() {
       <Toolbar sx={{ minHeight: { xs: 56, md: 72 }, px: { xs: 1, sm: 2 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
           <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
-          
+
           <Skeleton variant="rectangular" width={120} height={32} sx={{ mr: 4 }} />
-          
+
           <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' }, gap: 2 }}>
             <Skeleton variant="rectangular" width={80} height={36} />
             <Skeleton variant="rectangular" width={80} height={36} />
           </Box>
-          
+
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Skeleton variant="circular" width={40} height={40} />
             <Skeleton variant="circular" width={40} height={40} />

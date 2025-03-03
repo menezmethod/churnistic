@@ -17,7 +17,7 @@ import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import type { JSX } from 'react';
 
-import { useAuth } from '@/lib/providers/AuthProvider';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { useToast } from '@/lib/providers/ToastProvider';
 
 import { ForgotPassword } from './ForgotPassword';

@@ -61,6 +61,30 @@ interface PaginatedResponse {
 
 const ITEMS_PER_PAGE = 20;
 
+// Default stats object to use as fallback
+const defaultStats: Stats = {
+  total: 0,
+  pending: 0,
+  approved: 0,
+  rejected: 0,
+  avgValue: 0,
+  highValue: 0,
+  byType: {
+    bank: 0,
+    credit_card: 0,
+    brokerage: 0,
+  },
+  bankRewards: {
+    total: 0,
+    active: 0,
+    expired: 0,
+  },
+  processingRate: '0%',
+};
+
+// Keeping these functions (though unused) as they might be needed in the future
+// or for reference as per the TODO comment at the top of the file
+/* eslint-disable @typescript-eslint/no-unused-vars */
 const parseRequirements = (
   description: string = '',
   type: 'bank' | 'credit_card' | 'brokerage',
@@ -311,13 +335,15 @@ const fetchStagedOpportunities = async (): Promise<
     throw new Error(error.message);
   }
 
-  return data.map((offer: any) => ({
+  return data.map((offer: Record<string, unknown>) => ({
     ...offer,
     isStaged: true,
   }));
 };
 
 // Query keys for React Query
+// Keeping this for future reference when migrating to Supabase
+/* eslint-disable @typescript-eslint/no-unused-vars */
 const queryKeys = {
   opportunities: {
     all: ['opportunities'] as const,
@@ -329,6 +355,7 @@ const queryKeys = {
     stats: ['opportunities', 'stats'] as const,
   },
 };
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 interface UseOpportunitiesReturn {
   pagination: PaginationState;
@@ -357,27 +384,6 @@ interface UseOpportunitiesReturn {
   };
 }
 
-// Default stats object to use as fallback
-const defaultStats: Stats = {
-  total: 0,
-  pending: 0,
-  approved: 0,
-  rejected: 0,
-  avgValue: 0,
-  highValue: 0,
-  byType: {
-    bank: 0,
-    credit_card: 0,
-    brokerage: 0,
-  },
-  bankRewards: {
-    total: 0,
-    active: 0,
-    expired: 0,
-  },
-  processingRate: '0%',
-};
-
 export function useOpportunities(): UseOpportunitiesReturn {
   const queryClient = useQueryClient();
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
@@ -391,7 +397,10 @@ export function useOpportunities(): UseOpportunitiesReturn {
 
   // Fetch opportunities with pagination and filters
   const {
-    data: paginatedData,
+    // Not using paginatedData directly, but kept as reference
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    data: paginatedData = { items: [], total: 0, hasMore: false },
     isLoading: isLoadingPaginated,
     isFetching,
     error,

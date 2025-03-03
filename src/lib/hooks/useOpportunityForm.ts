@@ -1,11 +1,11 @@
-import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { z } from 'zod';
 
+import { supabase } from '@/lib/supabase/client';
 import { opportunitySchema } from '@/lib/validations/opportunity';
 import { Opportunity } from '@/types/opportunity';
-import { supabase } from '@/lib/supabase/client';
 
 type NotificationState = {
   open: boolean;
@@ -57,7 +57,7 @@ function updateNestedValue(obj: Record<string, unknown>, path: string, value: un
 export function useOpportunityForm(initialData?: Partial<Opportunity>) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  
+
   const [formData, setFormData] = useState<Opportunity>({
     created_at: Date.now(),
     type: 'bank',
@@ -220,7 +220,7 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
         .insert([data])
         .select()
         .single();
-        
+
       if (error) throw error;
       return result as Opportunity;
     },
@@ -228,7 +228,7 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
       // Invalidate and refetch relevant queries
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
       showNotification('Opportunity created successfully!', 'success');
-      
+
       // Redirect to the individual opportunity page after a short delay
       setTimeout(() => {
         router.push(`/opportunities/${result.id}`);
@@ -251,7 +251,7 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
         .eq('id', id)
         .select()
         .single();
-        
+
       if (error) throw error;
       return result as Opportunity;
     },
@@ -278,9 +278,9 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
 
     if (formData.id) {
       // Update existing opportunity
-      await updateOpportunityMutation.mutateAsync({ 
-        id: formData.id, 
-        data: formData 
+      await updateOpportunityMutation.mutateAsync({
+        id: formData.id,
+        data: formData,
       });
     } else {
       // Create new opportunity
@@ -291,7 +291,8 @@ export function useOpportunityForm(initialData?: Partial<Opportunity>) {
   return {
     formData,
     errors,
-    isSubmitting: createOpportunityMutation.isPending || updateOpportunityMutation.isPending,
+    isSubmitting:
+      createOpportunityMutation.isPending || updateOpportunityMutation.isPending,
     submitError,
     notification,
     handleChange,

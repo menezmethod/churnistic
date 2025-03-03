@@ -22,9 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <Providers>
           <AppNavbar />
-          <main className="main-content">
-            {children}
-          </main>
+          <main className="main-content">{children}</main>
         </Providers>
       </body>
     </html>

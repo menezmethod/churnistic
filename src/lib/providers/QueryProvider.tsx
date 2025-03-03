@@ -19,7 +19,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
   const queryClientRef = useRef<QueryClient | null>(null);
   // State to track if we're on the client
   const [isClient, setIsClient] = useState(false);
-  
+
   // Initialize query client only on the client side
   useEffect(() => {
     if (!queryClientRef.current) {
@@ -31,7 +31,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
             refetchOnWindowFocus: false,
             retry: 1,
             networkMode: 'offlineFirst',
-            refetchOnMount: true, 
+            refetchOnMount: true,
             refetchOnReconnect: true,
           },
         },
@@ -39,12 +39,12 @@ export function QueryProvider({ children }: QueryProviderProps) {
     }
     setIsClient(true);
   }, []);
-  
+
   // Return an empty fragment during SSR/first render to avoid hydration mismatches
   if (!isClient) {
     return <>{children}</>;
   }
-  
+
   return (
     <QueryClientProvider client={queryClientRef.current!}>
       {children}
