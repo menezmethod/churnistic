@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAuthContext } from '@/lib/auth/authUtils';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { FirestoreOpportunity } from '@/types/opportunity';
+import { processNestedUpdates, prepareUpdateData } from '@/utils/objectUtils';
 
 const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
 
@@ -49,6 +50,9 @@ export async function PUT(
   if (!id) {
     return NextResponse.json({ error: 'Missing opportunity ID' }, { status: 400 });
   }
+  
+  console.log(`PUT request received for opportunity ${id}`);
+  
   try {
     const { session } = await createAuthContext(request);
 
@@ -147,7 +151,9 @@ export async function PUT(
     let body;
     try {
       body = await request.json();
-    } catch {
+      console.log(`Request body for opportunity ${id}:`, body);
+    } catch (e) {
+      console.error(`Invalid JSON in request for opportunity ${id}:`, e);
       return NextResponse.json(
         { error: 'Invalid JSON in request body' },
         { status: 400 }
@@ -155,6 +161,7 @@ export async function PUT(
     }
 
     if (!body || typeof body !== 'object') {
+      console.error(`Invalid request body type for opportunity ${id}:`, body);
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
@@ -167,39 +174,81 @@ export async function PUT(
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
-    // Update the opportunity
+    // Process update data using our utility function to handle nested fields properly
     const db = getAdminDb();
-    const firestoreUpdateData = Object.entries(body).reduce(
-      (acc, [key, value]) => {
-        if (key.startsWith('details.')) {
-          acc[key] = value;
-        } else {
-          acc[key] = value;
-        }
-        return acc;
-      },
-      {} as Record<string, unknown>
-    );
+    
+    // First, get the current document to properly merge with existing data
+    const currentDoc = await db.collection('opportunities').doc(id).get();
+    
+    if (!currentDoc.exists) {
+      console.error(`Opportunity ${id} not found during update`);
+      return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
+    }
+    
+    const currentData = currentDoc.data() as FirestoreOpportunity;
+    console.log(`Current data for opportunity ${id} before update:`, currentData);
+    
+    // Use our improved update data preparation that preserves nested objects
+    // It will first create a properly merged document, then process it for Firestore
+    const mergedData = prepareUpdateData(currentData, body);
+    const firestoreUpdateData = processNestedUpdates(mergedData);
 
-    const updatedDoc = await db.collection('opportunities').doc(id);
+    // Debug logging
+    console.log(`Received update data for opportunity ${id}:`, body);
+    console.log(`Merged update data for opportunity ${id}:`, mergedData);
+    console.log(`Processed update data for Firestore for opportunity ${id}:`, firestoreUpdateData);
+
+    // Compare keys to verify no data loss
+    if (currentData.details && mergedData.details) {
+      console.log('Details object key comparison:', {
+        currentDetailsKeys: Object.keys(currentData.details),
+        mergedDetailsKeys: Object.keys(mergedData.details as Record<string, unknown>),
+        missingKeys: Object.keys(currentData.details).filter(
+          key => !(mergedData.details as Record<string, unknown>)[key]
+        )
+      });
+    }
+
+    // Update the document
+    const updatedDoc = db.collection('opportunities').doc(id);
     await updatedDoc.update(firestoreUpdateData);
+    console.log(`Successfully updated opportunity ${id} in Firestore`);
 
     // Get the fresh data after update
     const freshDoc = await updatedDoc.get();
     if (!freshDoc.exists) {
+      console.error(`Could not retrieve updated opportunity ${id}`);
       return NextResponse.json({ error: 'Update failed' }, { status: 500 });
     }
 
-    return NextResponse.json({
+    // Ensure all the data is preserved by deep merging with the original
+    const freshData = freshDoc.data() as FirestoreOpportunity;
+    console.log(`Raw data after Firestore update for ${id}:`, freshData);
+    
+    // Verify that all expected fields are still present
+    if (currentData.details && freshData.details) {
+      const missingKeys = Object.keys(currentData.details).filter(
+        key => !Object.keys(freshData.details).includes(key)
+      );
+      
+      if (missingKeys.length > 0) {
+        console.warn(`Missing keys in details object after update for ${id}:`, missingKeys);
+      }
+    }
+    
+    const responseData = {
       id: freshDoc.id,
-      ...freshDoc.data(),
+      ...freshData,
       metadata: {
-        ...freshDoc.data()?.metadata,
+        ...freshData.metadata,
         updated_at: new Date().toISOString(),
       },
-    });
+    };
+    
+    console.log(`Response data for opportunity ${id} update:`, responseData);
+    return NextResponse.json(responseData);
   } catch (error) {
-    console.error('Error updating opportunity:', error);
+    console.error(`Error updating opportunity ${id}:`, error);
     return NextResponse.json(
       {
         error: 'Failed to update opportunity',

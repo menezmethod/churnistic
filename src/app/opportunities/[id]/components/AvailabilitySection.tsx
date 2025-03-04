@@ -107,22 +107,36 @@ export default function AvailabilitySection({
   const [searchTerm, setSearchTerm] = React.useState('');
   const open = Boolean(anchorEl);
 
+  // Helper function to convert states object to array if needed
+  const getStatesArray = (states: any): string[] => {
+    if (!states) return [];
+    if (Array.isArray(states)) return states;
+    if (typeof states === 'object') {
+      return Object.values(states).filter(Boolean).map(String);
+    }
+    return [];
+  };
+
   const [chipData, setChipData] = React.useState<readonly ChipData[]>(
-    availability?.states?.map((state) => ({
-      key: state,
-      label: state,
-      abbr: Object.entries(US_STATES_MAP).find(([name]) => name === state)?.[0] || state,
-    })) || []
+    availability?.states 
+      ? getStatesArray(availability.states).map((state) => ({
+          key: state,
+          label: state,
+          abbr: Object.entries(US_STATES_MAP).find(([name]) => name === state)?.[0] || state,
+        }))
+      : []
   );
 
   React.useEffect(() => {
     setChipData(
-      availability?.states?.map((state) => ({
-        key: state,
-        label: state,
-        abbr:
-          Object.entries(US_STATES_MAP).find(([name]) => name === state)?.[0] || state,
-      })) || []
+      availability?.states
+        ? getStatesArray(availability.states).map((state) => ({
+            key: state,
+            label: state,
+            abbr:
+              Object.entries(US_STATES_MAP).find(([name]) => name === state)?.[0] || state,
+          }))
+        : []
     );
   }, [availability?.states]);
 
@@ -130,7 +144,8 @@ export default function AvailabilitySection({
 
   const isNationwide =
     availability?.type === 'Nationwide' ||
-    !availability?.states?.length ||
+    !availability?.states || 
+    getStatesArray(availability?.states).length === 0 ||
     availability === null;
 
   const handleAddClick = (
