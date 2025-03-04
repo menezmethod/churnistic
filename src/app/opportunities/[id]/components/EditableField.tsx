@@ -12,7 +12,7 @@ import {
   CircularProgress,
   Tooltip,
 } from '@mui/material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
 export interface EditableFieldProps {
@@ -21,6 +21,7 @@ export interface EditableFieldProps {
     isEditing: boolean;
     type: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'multiline' | 'title';
     options?: string[];
+    optionLabels?: Record<string, string>;
   };
   onEdit: (value: string | number | boolean) => void;
   onStartEdit: () => void;
@@ -31,6 +32,7 @@ export interface EditableFieldProps {
   hideIcon?: boolean;
   isUpdating?: boolean;
   fieldKey?: string;
+  placeholder?: string;
 }
 
 export const EditableField = ({
@@ -43,6 +45,7 @@ export const EditableField = ({
   hideIcon = false,
   isUpdating = false,
   fieldKey,
+  placeholder,
 }: EditableFieldProps) => {
   const theme = useTheme();
   const [localValue, setLocalValue] = useState<string | number | boolean>(
@@ -64,7 +67,7 @@ export const EditableField = ({
         return false;
       }
     }
-    
+
     setError(null);
     return true;
   };
@@ -85,7 +88,7 @@ export const EditableField = ({
       oldValue: field.value,
       newValue: localValue,
     });
-    
+
     if (validateValue(localValue)) {
       onEdit(localValue);
       setIsEditing(false);
@@ -125,7 +128,6 @@ export const EditableField = ({
       size: 'small' as const,
       fullWidth: true,
       error: Boolean(error),
-      helperText: error,
       sx: {
         '& .MuiInputBase-root': {
           bgcolor: alpha(theme.palette.background.paper, 0.6),
@@ -173,7 +175,9 @@ export const EditableField = ({
       return (
         <Select
           {...commonProps}
-          value={String(localValue)}
+          value={
+            typeof localValue === 'string' ? localValue : localValue?.toString() || ''
+          }
           onChange={handleSelectChange}
           MenuProps={{
             PaperProps: {
@@ -191,9 +195,9 @@ export const EditableField = ({
             },
           }}
         >
-          {field.options.map((option: string) => (
+          {field.options.map((option) => (
             <MenuItem key={option} value={option}>
-              {option}
+              {field.optionLabels?.[option] || option}
             </MenuItem>
           ))}
         </Select>
@@ -207,7 +211,8 @@ export const EditableField = ({
         multiline={field.type === 'multiline'}
         minRows={field.type === 'multiline' ? 3 : 1}
         onChange={handleChange}
-        placeholder={field.type === 'multiline' ? 'Enter text here...' : ''}
+        helperText={error}
+        placeholder={placeholder}
       />
     );
   };

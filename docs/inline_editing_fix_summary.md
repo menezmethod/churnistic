@@ -25,14 +25,11 @@ The most critical fix is to update the optimistic update in `useEditMode.ts` to 
 
 ```typescript
 // Modify this section in useEditMode.ts
-queryClient.setQueryData(
-  opportunityKeys.detail(opportunity.id),
-  (oldData) => {
-    if (!oldData) return updatedOpportunity;
-    // Deep merge to preserve all nested fields
-    return merge({}, oldData, updatedOpportunity);
-  }
-);
+queryClient.setQueryData(opportunityKeys.detail(opportunity.id), (oldData) => {
+  if (!oldData) return updatedOpportunity;
+  // Deep merge to preserve all nested fields
+  return merge({}, oldData, updatedOpportunity);
+});
 ```
 
 ### 2. Ensure Consistent Data Structure in API Updates
@@ -78,7 +75,7 @@ Add logging at key points to track data flow:
 ## Implementation Checklist
 
 1. [ ] Fix optimistic updates in useEditMode.ts
-2. [ ] Fix optimistic updates in useUpdateOpportunity.ts  
+2. [ ] Fix optimistic updates in useUpdateOpportunity.ts
 3. [ ] Improve server-side handling of nested objects
 4. [ ] Add debugging logs to track data flow
 5. [ ] Create helper utilities for working with nested data
@@ -108,4 +105,4 @@ For a complete fix, review all the documents in the docs folder:
 - `docs/implementation_examples.md` - Code examples for fixes
 - `docs/react_query_v5_best_practices.md` - Best practices reference
 
-By implementing these changes, you should be able to resolve the issue of sections being deleted upon submission in your inline editing functionality. 
+By implementing these changes, you should be able to resolve the issue of sections being deleted upon submission in your inline editing functionality.

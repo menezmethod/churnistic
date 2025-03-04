@@ -1,10 +1,13 @@
 # Inline Editing Checklist
 
 ## Overview
+
 This document provides a comprehensive checklist for debugging and fixing the inline editing functionality, with a specific focus on resolving the issue where sections are being deleted upon submission. The checklist ensures proper implementation of API routes for server-side updates and leverages the latest React Query v5 best practices on the client side.
 
 ## Problem Statement
+
 When submitting an inline edit, a section is being deleted. This suggests potential issues with:
+
 1. How data is being transformed before submission
 2. How optimistic updates are being handled
 3. How the server-side API is processing the update
@@ -13,6 +16,7 @@ When submitting an inline edit, a section is being deleted. This suggests potent
 ## Component-Level Checklist
 
 ### EditableField Component
+
 - [ ] Verify the `handleSubmit` function correctly passes the `localValue` to the parent via `onEdit`
 - [ ] Confirm that `setIsEditing(false)` is called at the correct time (after successful submission)
 - [ ] Ensure the `useEffect` dependency array is properly tracking field.value changes
@@ -21,6 +25,7 @@ When submitting an inline edit, a section is being deleted. This suggests potent
 - [ ] Ensure form validation is applied before submission
 
 ### useEditMode Hook
+
 - [ ] Verify `updateField` function builds the nested object structure correctly
 - [ ] Check that `queryClient.setQueryData` has proper structure for optimistic updates
 - [ ] Confirm the mutation function receives the correct data format
@@ -30,6 +35,7 @@ When submitting an inline edit, a section is being deleted. This suggests potent
 ## API Route Implementation Checklist
 
 ### Server-Side Updates
+
 - [ ] Verify route handler properly processes nested object updates
 - [ ] Check for potential data transformation issues in the API route
 - [ ] Ensure updates only affect specified fields and not entire sections
@@ -40,6 +46,7 @@ When submitting an inline edit, a section is being deleted. This suggests potent
 ## React Query v5 Implementation
 
 ### Mutation Configuration
+
 - [ ] Implement proper `useMutation` error handling with fallbacks
 - [ ] Ensure `onMutate` creates accurate optimistic updates
 - [ ] Verify `onError` properly rolls back changes if necessary
@@ -48,6 +55,7 @@ When submitting an inline edit, a section is being deleted. This suggests potent
 - [ ] Return proper data structure from successful mutations
 
 ### Best Practices
+
 - [ ] Use query keys consistently throughout the application
 - [ ] Implement proper data transformation in hooks, not components
 - [ ] Utilize React Query's `select` option for data transformation where needed
@@ -58,21 +66,25 @@ When submitting an inline edit, a section is being deleted. This suggests potent
 ## Field Type-Specific Checks
 
 ### Text Fields
+
 - [ ] Verify empty string vs null handling
 - [ ] Ensure proper focus/blur behavior
 - [ ] Check for proper change event handling
 
 ### Select Fields
+
 - [ ] Confirm option values match expected backend format
 - [ ] Verify selected value is properly serialized for submission
 - [ ] Check for potential issues with string vs number conversions
 
 ### Multiline Text
+
 - [ ] Ensure line breaks are preserved properly
 - [ ] Verify autosizing behavior works as expected
 - [ ] Check for potential HTML escaping issues
 
 ## Styling Checks
+
 - [ ] Confirm that no styling is lost during inline editing
 - [ ] Verify that animation transitions work smoothly
 - [ ] Ensure proper spacing is maintained during and after editing
@@ -80,6 +92,7 @@ When submitting an inline edit, a section is being deleted. This suggests potent
 - [ ] Verify focus/hover states have the correct styling
 
 ## Testing Steps
+
 1. Edit a text field, submit, and verify the content remains correct
 2. Edit a select field, submit, and verify the selection remains correct
 3. Edit a multiline field with complex content, submit, and verify all content remains
@@ -88,8 +101,9 @@ When submitting an inline edit, a section is being deleted. This suggests potent
 6. Test rapid edits to ensure no race conditions
 
 ## Debugging Recommendations
+
 1. Add console logs in the mutation flow to track exact data being sent/received
 2. Check browser network tab to see the exact payload being sent
 3. Verify server logs for any errors or transformations happening
 4. Add React Query DevTools to visualize cache state during mutations
-5. Test a simplified case to isolate if the issue is in UI or API side 
+5. Test a simplified case to isolate if the issue is in UI or API side

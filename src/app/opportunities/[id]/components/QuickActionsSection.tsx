@@ -1,21 +1,21 @@
 import {
   AccountBalance,
   Category,
-  Delete as DeleteIcon,
+  DeleteOutline,
   Edit as EditIcon,
   MonetizationOn,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
+  Star,
+  StarBorder,
 } from '@mui/icons-material';
 import {
+  alpha,
   Box,
-  CircularProgress,
   Chip,
+  CircularProgress,
   IconButton,
   Paper,
   Stack,
   Typography,
-  alpha,
   useTheme,
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -23,10 +23,11 @@ import { useState } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Permission, UserRole } from '@/lib/auth/types';
-import { FirestoreOpportunity, OfferType } from '@/types/opportunity';
+import { FirestoreOpportunity } from '@/types/opportunity';
 
 import { EditableField } from './EditableField';
 import { EditableWrapper } from './EditableWrapper';
+import { useQuickStats } from '../hooks/useQuickStats';
 
 interface QuickActionsSectionProps {
   opportunity: FirestoreOpportunity;
@@ -38,6 +39,16 @@ interface QuickActionsSectionProps {
   isGlobalEditMode?: boolean;
   onUpdate?: (field: string, value: string | number | string[]) => void;
 }
+
+/**
+ * Format a date string to a localized date string
+ * @param date The date string to format
+ * @returns Formatted date string or empty string if input is invalid
+ */
+const formatDate = (date?: string) => {
+  if (!date) return 'N/A';
+  return new Date(date).toLocaleDateString();
+};
 
 export const QuickActionsSection = ({
   opportunity,
@@ -53,28 +64,35 @@ export const QuickActionsSection = ({
   const isDark = theme.palette.mode === 'dark';
   const { user, isAdmin, hasRole, hasPermission } = useAuth();
 
+  // Logger for debugging
+  const logDebug = (action: string, details: Record<string, unknown>) => {
+    console.log(`[QuickActionsSection] ${action}:`, details);
+  };
+
+  logDebug('Rendering with roles', { canModify });
+  logDebug('Opportunity data', { opportunity });
+
   // Check if user can edit this section
-  const canEdit =
+  const canEditSection =
     !!user &&
     canModify &&
     (isAdmin ||
-      hasRole(UserRole.SUPER_ADMIN) ||
-      (hasRole(UserRole.CONTRIBUTOR) && hasPermission(Permission.MANAGE_OPPORTUNITIES)) ||
-      opportunity.metadata?.created_by === user.email);
-
-  // Debug logging
-  console.log('QuickActionsSection Debug:', {
-    userEmail: user?.email,
-    creatorEmail: opportunity.metadata?.created_by,
-    isAdmin,
-    hasRole: hasRole(UserRole.SUPER_ADMIN),
-    canModify,
-    canEdit,
-  });
+      hasPermission(Permission.MANAGE_OPPORTUNITIES) ||
+      hasRole(UserRole.ADMIN) ||
+      hasRole(UserRole.SUPER_ADMIN));
 
   const isFeatured = Boolean(opportunity.metadata?.featured);
   const [isLocalFeatureLoading, setIsLocalFeatureLoading] = useState(false);
   const isFeatureLoading = isFeatureLoadingProp || isLocalFeatureLoading;
+
+  // Use the specialized hook for quick stats fields
+  // Only initialize if we have an opportunity ID
+  const { updateValue, updateType, updateBank, isUpdating } = useQuickStats(
+    opportunity.id || ''
+  );
+
+  // Only allow editing if we have an opportunity ID and user has permission
+  const canEdit = !!opportunity.id && canEditSection;
 
   const handleFeatureClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -85,29 +103,6 @@ export const QuickActionsSection = ({
     } finally {
       setIsLocalFeatureLoading(false);
     }
-  };
-
-  const handleFieldUpdate = (field: string, value: string | number | string[]) => {
-    if (!onUpdate) return;
-    onUpdate(`metadata.${field}`, value);
-  };
-
-  const handleValueChange = (value: string | number) => {
-    if (!onUpdate || !canEdit) return;
-    const numValue = typeof value === 'string' ? parseFloat(value) : value;
-    if (!isNaN(numValue)) {
-      onUpdate('value', numValue);
-    }
-  };
-
-  const handleTypeChange = (value: string) => {
-    if (!onUpdate || !canEdit) return;
-    onUpdate('type', value as OfferType);
-  };
-
-  const handleBankChange = (value: string) => {
-    if (!onUpdate || !canEdit) return;
-    onUpdate('bank', value);
   };
 
   return (
@@ -147,7 +142,7 @@ export const QuickActionsSection = ({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.2 }}
-              icon={<StarIcon sx={{ color: theme.palette.warning.main }} />}
+              icon={<Star sx={{ color: theme.palette.warning.main }} />}
               label="Featured Offer"
               size="small"
               sx={{
@@ -199,177 +194,99 @@ export const QuickActionsSection = ({
           {/* Quick Stats */}
           <Box
             sx={{
-              p: 2,
+              backgroundColor: (theme) => theme.palette.background.paper,
               borderRadius: 2,
-              bgcolor: alpha(theme.palette.primary.main, 0.05),
-              border: '1px solid',
-              borderColor: alpha(theme.palette.primary.main, 0.1),
+              p: 2,
+              mb: 2,
+              boxShadow: (theme) =>
+                `0 2px 8px ${alpha(theme.palette.common.black, 0.05)}`,
             }}
           >
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
               Quick Stats
             </Typography>
-            <Stack spacing={1.5}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <MonetizationOn sx={{ color: 'primary.main' }} />
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Value
-                  </Typography>
-                  <EditableWrapper
-                    fieldName="value"
-                    value={opportunity.value}
-                    type="number"
-                    isGlobalEditMode={isGlobalEditMode}
-                    onUpdate={handleValueChange}
-                    hideIcon={!canEdit}
-                    customStyles={{
-                      wrapper: {
-                        width: '100%',
-                      },
-                      input: {
-                        '& .MuiInputBase-root': {
-                          bgcolor: 'transparent',
-                          '&:hover, &:focus-within': {
-                            bgcolor: alpha(theme.palette.background.paper, 0.6),
-                          },
-                        },
-                      },
-                    }}
-                  >
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                      ${opportunity.value.toLocaleString()}
-                    </Typography>
-                  </EditableWrapper>
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Category sx={{ color: 'primary.main' }} />
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Type
-                  </Typography>
-                  <EditableWrapper
-                    fieldName="type"
-                    value={opportunity.type}
-                    type="select"
-                    options={['credit_card', 'bank', 'brokerage']}
-                    isGlobalEditMode={isGlobalEditMode}
-                    onUpdate={handleTypeChange}
-                    hideIcon={!canEdit}
-                    customStyles={{
-                      wrapper: {
-                        width: '100%',
-                      },
-                      input: {
-                        '& .MuiInputBase-root': {
-                          bgcolor: 'transparent',
-                          '&:hover, &:focus-within': {
-                            bgcolor: alpha(theme.palette.background.paper, 0.6),
-                          },
-                        },
-                      },
-                    }}
-                  >
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                      {opportunity.type.replace('_', ' ').toUpperCase()}
-                    </Typography>
-                  </EditableWrapper>
-                </Box>
-              </Box>
+            <Stack spacing={2}>
+              <EditableWrapper
+                fieldName="value"
+                value={opportunity.value || 0}
+                type="number"
+                formatter={(val) => `$${Number(val).toLocaleString()}`}
+                canEdit={canEdit}
+                isGlobalEditMode={isGlobalEditMode}
+                onUpdate={(value) => updateValue(value)}
+                isLoading={isUpdating('value')}
+                icon={<MonetizationOn />}
+                label="Value"
+              />
+              <EditableWrapper
+                fieldName="type"
+                value={opportunity.type || 'credit_card'}
+                type="select"
+                options={['credit_card', 'bank', 'brokerage']}
+                optionLabels={{
+                  credit_card: 'Credit Card',
+                  bank: 'Bank Account',
+                  brokerage: 'Brokerage',
+                }}
+                canEdit={canEdit}
+                isGlobalEditMode={isGlobalEditMode}
+                onUpdate={(value) => updateType(value)}
+                isLoading={isUpdating('type')}
+                icon={<Category />}
+                label="Type"
+              />
               {(isGlobalEditMode || opportunity.bank) && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AccountBalance sx={{ color: 'primary.main' }} />
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Bank
-                    </Typography>
-                    <EditableWrapper
-                      fieldName="bank"
-                      value={opportunity.bank || ''}
-                      type="text"
-                      isGlobalEditMode={isGlobalEditMode}
-                      onUpdate={handleBankChange}
-                      hideIcon={!canEdit}
-                      showEmpty={isGlobalEditMode}
-                      customStyles={{
-                        wrapper: {
-                          width: '100%',
-                        },
-                        input: {
-                          '& .MuiInputBase-root': {
-                            bgcolor: 'transparent',
-                            '&:hover, &:focus-within': {
-                              bgcolor: alpha(theme.palette.background.paper, 0.6),
-                            },
-                          },
-                        },
-                      }}
-                    >
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                        {opportunity.bank ||
-                          (isGlobalEditMode ? '(Click to add bank)' : '')}
-                      </Typography>
-                    </EditableWrapper>
-                  </Box>
-                </Box>
+                <EditableWrapper
+                  fieldName="bank"
+                  value={opportunity.bank || ''}
+                  type="text"
+                  placeholder="Enter bank name"
+                  canEdit={canEdit}
+                  isGlobalEditMode={isGlobalEditMode}
+                  onUpdate={(value) => updateBank(value)}
+                  isLoading={isUpdating('bank')}
+                  icon={<AccountBalance />}
+                  label="Bank"
+                />
               )}
-            </Stack>
-          </Box>
 
-          {/* Metadata */}
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: 2,
-              bgcolor: alpha(theme.palette.secondary.main, 0.05),
-              border: '1px solid',
-              borderColor: alpha(theme.palette.secondary.main, 0.1),
-            }}
-          >
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Metadata
-            </Typography>
-            <Stack spacing={1}>
-              <Typography variant="caption" color="text.secondary">
-                Created:{' '}
-                {new Date(
-                  opportunity.metadata?.created_at || new Date()
-                ).toLocaleDateString()}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Last Updated:{' '}
-                {new Date(
-                  opportunity.metadata?.updated_at || new Date()
-                ).toLocaleDateString()}
-              </Typography>
-              {isGlobalEditMode ? (
+              {/* Metadata section remains unchanged */}
+              <Box sx={{ pt: 1 }}>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Created: {formatDate(opportunity.metadata?.created_at)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Last Updated: {formatDate(opportunity.metadata?.updated_at)}
+                </Typography>
+              </Box>
+
+              {/* Opportunity status field */}
+              {canEdit && (
                 <EditableField
-                  editable={canEdit}
                   field={{
                     value: opportunity.metadata?.status || 'active',
                     isEditing: false,
                     type: 'select',
-                    options: ['ACTIVE', 'INACTIVE'],
-                  }}
-                  onEdit={(value) =>
-                    handleFieldUpdate('status', (value as string).toLowerCase())
-                  }
-                  onStartEdit={() => {}}
-                  onCancelEdit={() => {}}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      bgcolor: 'transparent',
-                      '&:hover, &:focus-within': {
-                        bgcolor: alpha(theme.palette.background.paper, 0.6),
-                      },
+                    options: ['active', 'expired', 'paused'],
+                    optionLabels: {
+                      active: 'Active',
+                      expired: 'Expired',
+                      paused: 'Paused',
                     },
                   }}
+                  onEdit={(value) => {
+                    // We know this is a string since it's from a select field
+                    if (typeof value === 'string') {
+                      onUpdate?.('metadata.status', value);
+                    }
+                  }}
+                  onStartEdit={() => {}}
+                  onCancelEdit={() => {}}
+                  editable={true}
+                  fieldKey="status"
+                  placeholder="Select status"
+                  isUpdating={false}
                 />
-              ) : (
-                <Typography variant="caption" color="text.secondary">
-                  Status: {opportunity.metadata?.status.toUpperCase()}
-                </Typography>
               )}
             </Stack>
           </Box>
@@ -418,11 +335,11 @@ export const QuickActionsSection = ({
                         color={isFeatured ? 'warning' : 'primary'}
                       />
                     ) : isFeatured ? (
-                      <StarIcon
+                      <Star
                         sx={{ color: theme.palette.warning.main, fontSize: '1.5rem' }}
                       />
                     ) : (
-                      <StarBorderIcon sx={{ fontSize: '1.5rem' }} />
+                      <StarBorder sx={{ fontSize: '1.5rem' }} />
                     )}
                   </IconButton>
                 )}
@@ -462,7 +379,7 @@ export const QuickActionsSection = ({
                     },
                   }}
                 >
-                  <DeleteIcon />
+                  <DeleteOutline />
                 </IconButton>
               </Stack>
             </Box>

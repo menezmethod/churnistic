@@ -36,15 +36,12 @@ const updateField = useCallback(
     };
 
     // Optimistically update the cache WITH PROPER MERGING
-    queryClient.setQueryData(
-      opportunityKeys.detail(opportunity.id),
-      (oldData) => {
-        if (!oldData) return updatedOpportunity;
-        
-        // Deep merge to preserve all nested fields
-        return merge({}, oldData, updatedOpportunity);
-      }
-    );
+    queryClient.setQueryData(opportunityKeys.detail(opportunity.id), (oldData) => {
+      if (!oldData) return updatedOpportunity;
+
+      // Deep merge to preserve all nested fields
+      return merge({}, oldData, updatedOpportunity);
+    });
 
     // Send update to server (keep the existing nested object construction)
     const fieldParts = fieldKey.split('.');
@@ -102,7 +99,7 @@ onMutate: async ({ id, data }) => {
       opportunityKeys.detail(id),
       (oldData) => {
         if (!oldData) return { ...data, id };
-        
+
         // Use deep merge to properly handle nested fields
         return merge({}, oldData, data, {
           metadata: {
@@ -131,12 +128,15 @@ Improve the server-side processing of updates in `src/app/api/opportunities/[id]
 const firestoreUpdateData = processUpdateData(body);
 
 // Helper function to properly handle nested objects
-function processUpdateData(data: Record<string, unknown>, prefix = ''): Record<string, unknown> {
+function processUpdateData(
+  data: Record<string, unknown>,
+  prefix = ''
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  
+
   for (const [key, value] of Object.entries(data)) {
     const fullKey = prefix ? `${prefix}.${key}` : key;
-    
+
     // If this is a nested object (but not an array or null), process it recursively
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       // Special handling for metadata and other known structures
@@ -144,14 +144,17 @@ function processUpdateData(data: Record<string, unknown>, prefix = ''): Record<s
         result[fullKey] = value;
       } else {
         // Process nested objects
-        Object.assign(result, processUpdateData(value as Record<string, unknown>, fullKey));
+        Object.assign(
+          result,
+          processUpdateData(value as Record<string, unknown>, fullKey)
+        );
       }
     } else {
       // Handle primitive values (including arrays)
       result[fullKey] = value;
     }
   }
-  
+
   return result;
 }
 
@@ -186,16 +189,19 @@ export function deepMergeObjects<T>(target: T, ...sources: Partial<T>[]): T {
  * // Returns { user: { profile: { name: 'John' } } }
  * createNestedObject('user.profile.name', 'John')
  */
-export function createNestedObject(path: string, value: unknown): Record<string, unknown> {
+export function createNestedObject(
+  path: string,
+  value: unknown
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   const parts = path.split('.');
-  
+
   let current = result;
   for (let i = 0; i < parts.length - 1; i++) {
     current[parts[i]] = {};
     current = current[parts[i]] as Record<string, unknown>;
   }
-  
+
   current[parts[parts.length - 1]] = value;
   return result;
 }
@@ -206,19 +212,22 @@ export function createNestedObject(path: string, value: unknown): Record<string,
  * // Returns { 'user.profile.name': 'John' }
  * flattenObject({ user: { profile: { name: 'John' } } })
  */
-export function flattenObject(obj: Record<string, unknown>, prefix = ''): Record<string, unknown> {
+export function flattenObject(
+  obj: Record<string, unknown>,
+  prefix = ''
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  
+
   for (const [key, value] of Object.entries(obj)) {
     const newKey = prefix ? `${prefix}.${key}` : key;
-    
+
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       Object.assign(result, flattenObject(value as Record<string, unknown>, newKey));
     } else {
       result[newKey] = value;
     }
   }
-  
+
   return result;
 }
 ```
@@ -233,19 +242,21 @@ Add error handling to improve the robustness of the component:
 const handleSubmit = () => {
   try {
     // Log before submission for debugging
-    console.log(`Submitting field: ${JSON.stringify({
-      field: field.type,
-      before: field.value,
-      after: localValue
-    })}`);
-    
+    console.log(
+      `Submitting field: ${JSON.stringify({
+        field: field.type,
+        before: field.value,
+        after: localValue,
+      })}`
+    );
+
     onEdit(localValue);
     setIsEditing(false);
   } catch (error) {
     console.error('Error submitting field edit:', error);
     // Show error to user
     // You could add a toast notification here
-    
+
     // Reset to original value
     setLocalValue(field.value ?? '');
     setIsEditing(false);
@@ -271,28 +282,24 @@ export function testInlineEditing(opportunityId: string) {
     console.error('React Query client not found');
     return;
   }
-  
+
   // Get the current state
-  const before = queryClient.getQueryData(
-    ['opportunity', 'detail', opportunityId]
-  );
+  const before = queryClient.getQueryData(['opportunity', 'detail', opportunityId]);
   console.log('Before update:', JSON.stringify(before, null, 2));
-  
+
   // Simulate a field update
   // Update a nested field to test the fix
   const testFieldKey = 'details.some_nested_field';
   const testValue = 'Test value ' + new Date().toISOString();
-  
+
   // Log the update
   console.log(`Testing update of ${testFieldKey} to ${testValue}`);
-  
+
   // After a short delay, get the updated state
   setTimeout(() => {
-    const after = queryClient.getQueryData(
-      ['opportunity', 'detail', opportunityId]
-    );
+    const after = queryClient.getQueryData(['opportunity', 'detail', opportunityId]);
     console.log('After update:', JSON.stringify(after, null, 2));
-    
+
     // Check if data was lost
     console.log('Was any data lost?', detectDataLoss(before, after, testFieldKey));
   }, 2000);
@@ -303,30 +310,36 @@ export function testInlineEditing(opportunityId: string) {
  */
 function detectDataLoss(before: any, after: any, excludedField: string): string[] {
   const lostFields: string[] = [];
-  
+
   function compareObjects(a: any, b: any, path = '') {
     if (!a || !b) return;
-    
+
     for (const key in a) {
       const currentPath = path ? `${path}.${key}` : key;
-      
+
       // Skip the field we intentionally changed
       if (currentPath === excludedField) continue;
-      
+
       // Check if the field exists in the updated object
       if (!(key in b)) {
         lostFields.push(currentPath);
         continue;
       }
-      
+
       // Recursively check nested objects
-      if (a[key] && typeof a[key] === 'object' && !Array.isArray(a[key]) &&
-          b[key] && typeof b[key] === 'object' && !Array.isArray(b[key])) {
+      if (
+        a[key] &&
+        typeof a[key] === 'object' &&
+        !Array.isArray(a[key]) &&
+        b[key] &&
+        typeof b[key] === 'object' &&
+        !Array.isArray(b[key])
+      ) {
         compareObjects(a[key], b[key], currentPath);
       }
     }
   }
-  
+
   compareObjects(before, after);
   return lostFields;
 }

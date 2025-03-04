@@ -1,19 +1,43 @@
 import { Edit as EditIcon } from '@mui/icons-material';
-import { Box, IconButton, alpha, useTheme, Tooltip, SxProps, Theme } from '@mui/material';
+import {
+  Box,
+  IconButton,
+  alpha,
+  useTheme,
+  Tooltip,
+  SxProps,
+  Theme,
+  CircularProgress,
+} from '@mui/material';
 import { SystemStyleObject } from '@mui/system';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 
 import { EditableField } from './EditableField';
 
+// New interface with improved props
 interface EditableWrapperProps {
-  children: React.ReactNode;
-  fieldName: string;
+  // Core props
   value: string | number | boolean | null;
-  type: 'text' | 'number' | 'select' | 'multiline' | 'date' | 'boolean';
-  options?: string[];
+  onUpdate?: (value: string | number) => void;
+  canEdit?: boolean;
   isGlobalEditMode?: boolean;
-  onUpdate?: (field: string, value: string | number | string[]) => void;
+  isLoading?: boolean;
+
+  // Field configuration
+  label?: string;
+  icon?: React.ReactNode;
+  placeholder?: string;
+  formatter?: (value: string | number) => string;
+  inputType?: 'text' | 'number' | 'select' | 'multiline' | 'date' | 'boolean';
+  selectOptions?: Array<{ value: string; label: string }>;
+
+  // Legacy props for backward compatibility
+  children?: React.ReactNode;
+  fieldName?: string;
+  type?: 'text' | 'number' | 'select' | 'multiline' | 'date' | 'boolean';
+  options?: string[];
+  optionLabels?: Record<string, string>;
   customStyles?: {
     wrapper?: SxProps<Theme>;
     overlay?: SxProps<Theme>;
@@ -26,13 +50,27 @@ interface EditableWrapperProps {
 }
 
 export const EditableWrapper = ({
+  // Core props
+  value,
+  onUpdate,
+  canEdit = true,
+  isGlobalEditMode = false,
+  isLoading = false,
+
+  // Field configuration
+  label,
+  icon,
+  placeholder,
+  formatter,
+  inputType = 'text',
+  selectOptions,
+
+  // Legacy props
   children,
   fieldName,
-  value,
-  type = 'text',
+  type,
   options,
-  isGlobalEditMode = false,
-  onUpdate,
+  optionLabels,
   customStyles = {},
   placement = 'overlay',
   tooltip,
@@ -41,14 +79,21 @@ export const EditableWrapper = ({
 }: EditableWrapperProps) => {
   const theme = useTheme();
   const [hoveredField, setHoveredField] = useState<string | null>(null);
-  const isHovered = hoveredField === fieldName;
-  const showEdit = isHovered || isGlobalEditMode;
+
+  // For backward compatibility
+  const effectiveFieldName = fieldName || label || 'field';
+  const effectiveInputType = type || inputType;
+  const isHovered = hoveredField === effectiveFieldName;
+  const showEdit = (isHovered || isGlobalEditMode) && canEdit;
 
   // Don't render if value is empty and we're not in global edit mode
-  if (!value && !isGlobalEditMode && !showEmpty) return null;
+  if (!value && !isGlobalEditMode && !showEmpty && !children) return null;
 
   // Convert array value to string for display
   const displayValue = Array.isArray(value) ? value.join(', ') : value;
+  const formattedValue = formatter
+    ? formatter(displayValue as string | number)
+    : displayValue;
 
   const getOverlayStyles = () => {
     const baseStyles = {
@@ -60,7 +105,7 @@ export const EditableWrapper = ({
       borderRadius: 1,
       opacity: 0,
       transition: 'all 0.2s ease',
-      cursor: 'pointer',
+      cursor: canEdit ? 'pointer' : 'default',
       border: '1px dashed',
       borderColor: alpha(theme.palette.primary.main, 0.3),
       ...customStyles.overlay,
@@ -103,8 +148,8 @@ export const EditableWrapper = ({
   };
 
   const handleMouseEnter = () => {
-    if (!isGlobalEditMode) {
-      setHoveredField(fieldName);
+    if (!isGlobalEditMode && canEdit) {
+      setHoveredField(effectiveFieldName);
     }
   };
 
@@ -135,11 +180,36 @@ export const EditableWrapper = ({
             },
           }}
         >
-          <EditIcon fontSize="small" />
+          {isLoading ? (
+            <CircularProgress size={16} color="primary" />
+          ) : (
+            <EditIcon fontSize="small" />
+          )}
         </IconButton>
       </Tooltip>
     );
   };
+
+  // Generate content if children not provided
+  const defaultContent = !children && (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      {icon && <Box sx={{ color: 'primary.main' }}>{icon}</Box>}
+      <Box sx={{ flex: 1 }}>
+        {label && (
+          <Box
+            component="span"
+            sx={{ fontSize: '0.75rem', color: 'text.secondary', display: 'block' }}
+          >
+            {label}
+          </Box>
+        )}
+        <Box component="span" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+          {formattedValue || placeholder || '—'}
+        </Box>
+      </Box>
+      {isLoading && !showEdit && <CircularProgress size={16} color="primary" />}
+    </Box>
+  );
 
   return (
     <Box
@@ -147,19 +217,21 @@ export const EditableWrapper = ({
       onMouseLeave={handleMouseLeave}
       sx={{
         position: 'relative',
-        width: 'fit-content',
-        '&:hover': {
-          '& .edit-overlay': {
-            opacity: 1,
-          },
-          '& .edit-icon': {
-            opacity: 1,
-          },
-        },
+        width: '100%',
+        '&:hover': canEdit
+          ? {
+              '& .edit-overlay': {
+                opacity: 1,
+              },
+              '& .edit-icon': {
+                opacity: 1,
+              },
+            }
+          : {},
         ...customStyles.wrapper,
       }}
     >
-      {children}
+      {children || defaultContent}
       <AnimatePresence>
         {showEdit && (
           <Box
@@ -174,16 +246,37 @@ export const EditableWrapper = ({
               field={{
                 value: displayValue,
                 isEditing: false,
-                type,
-                options,
+                type: effectiveInputType,
+                options: selectOptions ? selectOptions.map((opt) => opt.value) : options,
+                optionLabels: selectOptions
+                  ? selectOptions.reduce(
+                      (acc, curr) => {
+                        acc[curr.value] = curr.label;
+                        return acc;
+                      },
+                      {} as Record<string, string>
+                    )
+                  : optionLabels,
               }}
               onEdit={(newValue) => {
                 if (typeof newValue === 'boolean') return;
-                onUpdate?.(fieldName, newValue);
+                if (onUpdate) {
+                  if (effectiveInputType === 'number' && typeof newValue === 'string') {
+                    onUpdate(parseFloat(newValue));
+                  } else {
+                    onUpdate(newValue);
+                  }
+                } else if (fieldName) {
+                  // Legacy support
+                  console.warn(
+                    'Using deprecated fieldName prop. Please update to use onUpdate(value) instead.'
+                  );
+                }
               }}
               onStartEdit={() => {}}
               onCancelEdit={() => {}}
               hideIcon={true}
+              placeholder={placeholder}
               sx={
                 {
                   width: '100%',
