@@ -24,14 +24,16 @@ import {
 import { motion } from 'framer-motion';
 import { useEffect } from 'react';
 
+import { DashboardOpportunity } from '@/types/opportunity';
+
 import { OpportunityCard, OpportunityCardSkeleton } from './components/OpportunityCard';
 import { ProgressCard, ProgressCardSkeleton } from './components/ProgressCard';
 import QuickActions from './components/QuickActions';
 import RecentActivity from './components/RecentActivity';
 import { StatCard, StatCardSkeleton } from './components/StatCard';
 import WelcomeSection from './components/WelcomeSection';
-import { useDashboardData, type DashboardOpportunity } from './hooks/useDashboardData';
-import { TrackedOpportunity } from './types';
+import { useDashboardData } from './hooks/useDashboardData';
+import { Opportunity, TrackedOpportunity } from './types';
 
 export default function DashboardPage() {
   const theme = useTheme();
@@ -219,19 +221,21 @@ export default function DashboardPage() {
               {quickOpportunities.length > 0 ? (
                 <Stack spacing={2}>
                   {quickOpportunities.map((opp: DashboardOpportunity) => {
-                    const transformedOpp = {
-                      ...opp,
+                    const transformedOpp: Opportunity = {
+                      id: opp.id || `opportunity-${Math.random().toString(36).substring(2, 11)}`,
+                      title: opp.title || opp.name || 'Untitled Opportunity',
                       type: (opp.type === 'bank' ? 'bank_account' : 'credit_card') as
                         | 'credit_card'
                         | 'bank_account',
+                      value: opp.value || 0,
+                      bank: opp.bank || 'Unknown Bank',
+                      description: opp.description || 'No description available',
+                      requirements: [],
                       source: opp.source,
                       sourceLink: opp.sourceLink,
                       postedDate: opp.postedDate,
                       confidence: opp.confidence,
-                      title: opp.title || opp.name || 'Untitled Opportunity',
-                      bank: opp.bank || 'Unknown Bank',
-                      description: opp.description || 'No description available',
-                      requirements: opp.requirements || [],
+                      status: opp.status || 'active',
                       metadata: opp.metadata
                         ? {
                             progress: opp.metadata.progress as number | undefined,
@@ -240,6 +244,7 @@ export default function DashboardPage() {
                             riskFactors: opp.metadata.riskFactors as string[] | undefined,
                           }
                         : undefined,
+                      logo: opp.logo
                     };
                     return <OpportunityCard key={opp.id} opportunity={transformedOpp} />;
                   })}

@@ -12,11 +12,10 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { useSupabase } from '@/lib/providers/SupabaseProvider';
+import { supabase } from '@/lib/supabase/client';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const { supabase } = useSupabase();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);

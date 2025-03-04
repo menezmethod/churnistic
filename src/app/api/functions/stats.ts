@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-import { createAuthContext } from '@/lib/auth';
+import { createAuthContext } from '@/lib/auth/authUtils';
 
 export const dynamic = 'force-dynamic';
 

@@ -2,10 +2,12 @@ import { NextRequest } from 'next/server';
 
 import { createClient } from '@/lib/supabase/server';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+type Params = Promise<{ id: string }>;
+
+export async function GET(request: NextRequest, context: { params: Params }) {
   try {
     const supabase = await createClient();
-    const { id } = params;
+    const { id } = await context.params;
 
     const { data: user, error } = await supabase
       .from('users')
@@ -27,11 +29,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, context: { params: Params }) {
   try {
     const updates = await request.json();
     const supabase = await createClient();
-    const { id } = params;
+    const { id } = await context.params;
 
     const { error } = await supabase
       .from('users')
@@ -52,11 +54,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Params }
 ) {
   try {
     const supabase = await createClient();
-    const { id } = params;
+    const { id } = await context.params;
 
     const { error } = await supabase.from('users').delete().eq('id', id);
 

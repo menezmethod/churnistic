@@ -10,7 +10,7 @@ import TextField from '@mui/material/TextField';
 import * as React from 'react';
 import type { JSX } from 'react';
 
-import { useSupabase } from '@/lib/providers/SupabaseProvider';
+import { supabase } from '@/lib/supabase/client';
 
 interface ForgotPasswordProps {
   open: boolean;
@@ -18,7 +18,6 @@ interface ForgotPasswordProps {
 }
 
 export function ForgotPassword({ open, onClose }: ForgotPasswordProps): JSX.Element {
-  const { supabase } = useSupabase();
   const [email, setEmail] = React.useState('');
   const [error, setError] = React.useState('');
   const [success, setSuccess] = React.useState(false);

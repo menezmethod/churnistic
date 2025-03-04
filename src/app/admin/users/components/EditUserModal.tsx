@@ -45,9 +45,8 @@ export default function EditUserModal({ user, open, onClose }: EditUserModalProp
       await updateUser.mutateAsync({
         userId: user.id,
         data: {
-          displayName: formData.displayName,
+          displayName: formData.displayName || undefined,
           role: formData.role,
-          status: formData.status,
         },
       });
 

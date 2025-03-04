@@ -12,13 +12,12 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { useSupabase } from '@/lib/providers/SupabaseProvider';
+import { supabase } from '@/lib/supabase/client';
 
 import { GoogleIcon } from '../components/icons';
 
 export default function SignUpForm() {
   const router = useRouter();
-  const { supabase } = useSupabase();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
