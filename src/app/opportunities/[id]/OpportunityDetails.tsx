@@ -124,7 +124,10 @@ export default function OpportunityDetails({
   };
 
   // Create a wrapper with the expected signature for BonusDetailsSection
-  const handleComponentFieldUpdate = (field: string, value: string | number | string[]) => {
+  const handleComponentFieldUpdate = (
+    field: string,
+    value: string | number | string[]
+  ) => {
     if (onUpdate) {
       onUpdate(field, value);
     }
@@ -224,7 +227,9 @@ export default function OpportunityDetails({
                     <ValueDisplay
                       value={opportunity.value}
                       isGlobalEditMode={editState.isGlobalEditMode}
-                      onUpdate={(field, newValue) => handleSafeFieldUpdate(field, newValue)}
+                      onUpdate={(field, newValue) =>
+                        handleSafeFieldUpdate(field, newValue)
+                      }
                     />
                   </Box>
                 </Box>
@@ -510,7 +515,10 @@ export default function OpportunityDetails({
                       }}
                       onEdit={(newValue) => {
                         if (typeof newValue !== 'boolean') {
-                          handleSafeFieldUpdate('bonus.requirements.0.description', newValue);
+                          handleSafeFieldUpdate(
+                            'bonus.requirements.0.description',
+                            newValue
+                          );
                         }
                       }}
                       onStartEdit={() => {}}
