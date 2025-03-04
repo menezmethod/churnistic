@@ -1,9 +1,9 @@
 import {
+  Add as AddIcon,
   Public,
   LocationOn,
-  Add as AddIcon,
-  Close as CloseIcon,
   Search as SearchIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -18,6 +18,7 @@ import {
   ListSubheader,
   TextField,
   InputAdornment,
+  Button,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import * as React from 'react';
@@ -144,13 +145,28 @@ export default function AvailabilitySection({
     );
   }, [availability?.states]);
 
+  // Effect to ensure availability type stays consistent with selected states
+  React.useEffect(() => {
+    if (isGlobalEditMode && onUpdate) {
+      const newIsNationwide = chipData.length === 0;
+      const currentType = availability?.type;
+      
+      // Update the type only if it's inconsistent with the chip data
+      if (newIsNationwide && currentType !== 'Nationwide') {
+        onUpdate('details.availability.type', 'Nationwide');
+      } else if (!newIsNationwide && currentType !== 'State-specific') {
+        onUpdate('details.availability.type', 'State-specific');
+      }
+    }
+  }, [chipData, isGlobalEditMode, onUpdate, availability?.type]);
+
   if (availability === undefined && !isGlobalEditMode) return null;
 
-  const isNationwide =
-    availability?.type === 'Nationwide' ||
-    !availability?.states ||
-    getStatesArray(availability?.states).length === 0 ||
-    availability === null;
+  // Updated logic: nationwide only when no states are selected
+  const isNationwide = 
+    !chipData.length || // No states selected
+    (availability?.states === undefined) || // No states defined in data
+    (Array.isArray(availability?.states) && availability.states.length === 0); // Empty states array
 
   const handleAddClick = (
     event: React.MouseEvent<HTMLDivElement | HTMLButtonElement>
@@ -166,6 +182,12 @@ export default function AvailabilitySection({
   const handleStateSelect = (_event: React.MouseEvent, abbr: string, name: string) => {
     const newChips = [...chipData, { key: abbr, label: name, abbr }];
     setChipData(newChips);
+    
+    // When adding the first state, update from nationwide to state-specific
+    if (newChips.length === 1 && isNationwide) {
+      onUpdate?.('details.availability.type', 'State-specific');
+    }
+    
     onUpdate?.(
       'details.availability.states',
       newChips.map((chip) => chip.key)
@@ -176,6 +198,12 @@ export default function AvailabilitySection({
   const handleDelete = (chipToDelete: ChipData) => {
     const newChips = chipData.filter((chip) => chip.key !== chipToDelete.key);
     setChipData(newChips);
+    
+    // When removing the last state, update from state-specific to nationwide
+    if (newChips.length === 0) {
+      onUpdate?.('details.availability.type', 'Nationwide');
+    }
+    
     onUpdate?.(
       'details.availability.states',
       newChips.map((chip) => chip.key)
@@ -257,7 +285,7 @@ export default function AvailabilitySection({
                 Availability
               </Typography>
               <Chip
-                label={isNationwide ? 'Available Nationwide' : 'Selected States Only'}
+                label={isNationwide ? 'Available Nationwide' : `Available in ${chipData.length} State${chipData.length !== 1 ? 's' : ''}`}
                 size="small"
                 sx={{
                   mt: 1,
@@ -277,7 +305,9 @@ export default function AvailabilitySection({
           </Box>
         </Grid>
 
-        {(!isNationwide || isGlobalEditMode) && (
+        {/* Always show the state selection section in edit mode, 
+            or when specific states are selected in view mode */}
+        {(isGlobalEditMode || !isNationwide) && (
           <Grid item xs={12}>
             <Box
               sx={{
@@ -290,23 +320,18 @@ export default function AvailabilitySection({
               <Typography variant="subtitle2" color="text.secondary">
                 Available States
               </Typography>
-              {canModify && (
-                <Chip
-                  icon={<AddIcon />}
-                  label="Add State"
+              {isGlobalEditMode && (
+                <Button
                   size="small"
-                  onClick={(e) => handleAddClick(e)}
+                  startIcon={<AddIcon />}
+                  onClick={handleAddClick}
                   sx={{
-                    bgcolor: alpha(theme.palette.primary.main, 0.1),
-                    color: theme.palette.primary.main,
-                    border: '1px solid',
-                    borderColor: alpha(theme.palette.primary.main, 0.2),
-                    cursor: 'pointer',
-                    '&:hover': {
-                      bgcolor: alpha(theme.palette.primary.main, 0.15),
-                    },
+                    borderRadius: 1,
+                    textTransform: 'none',
                   }}
-                />
+                >
+                  Add State
+                </Button>
               )}
             </Box>
             <Box
