@@ -16,12 +16,12 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 
-import { FirestoreOpportunity } from '@/types/opportunity';
+import { FirestoreOpportunity, Opportunity } from '@/types/opportunity';
 
 import { LogoImage } from '../../components/LogoImage';
 
 interface HeaderSectionProps {
-  opportunity: FirestoreOpportunity;
+  opportunity: FirestoreOpportunity | Opportunity;
 }
 
 export const HeaderSection = ({ opportunity }: HeaderSectionProps) => {

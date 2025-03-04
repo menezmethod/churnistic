@@ -11,12 +11,10 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 
 import {
-  Details,
   Opportunity,
   Requirement,
   RequirementType,
   BankRewardsOffer,
-  BankRewardsResponse,
 } from '../types/opportunity';
 
 interface PaginationState {
@@ -182,179 +180,12 @@ const parseRequirements = (
   return requirements;
 };
 
-const transformBankRewardsOffer = (offer: BankRewardsOffer): Opportunity => {
-  const bank = offer.name?.split(' ')?.[0] || offer.name || '';
 
-  // Transform bonus
-  const bonus = {
-    title: offer.bonus?.title || '',
-    value: offer.value || 0,
-    description: offer.bonus?.description || '',
-    requirements: parseRequirements(
-      offer.bonus?.requirements?.description,
-      offer.type,
-      offer.details
-    ),
-    tiers:
-      offer.bonus?.tiers?.map((tier) => ({
-        reward: tier.reward || '',
-        deposit: tier.deposit || '',
-        level: tier.level || null,
-        value: tier.value ?? null,
-        minimum_deposit: tier.minimum_deposit ?? null,
-        requirements: tier.requirements || null,
-      })) || null,
-    additional_info: offer.bonus?.additional_info || null,
-  };
 
-  // Transform details with all possible fields
-  const details: Details = {
-    monthly_fees: offer.details?.monthly_fees
-      ? {
-          amount: offer.details.monthly_fees.amount || '0',
-          waiver_details: offer.details.monthly_fees.waiver_details || null,
-        }
-      : null,
-    annual_fees: offer.details?.annual_fees
-      ? {
-          amount: offer.details.annual_fees.amount || '0',
-          waived_first_year: offer.details.annual_fees.waived_first_year || false,
-        }
-      : null,
-    account_type: offer.details?.account_type || null,
-    account_category: offer.details?.account_category || null,
-    availability: offer.details?.availability
-      ? {
-          type: offer.details.availability.type || 'Nationwide',
-          states: offer.details.availability.states || null,
-          is_nationwide: offer.details.availability.is_nationwide ?? true,
-          details: offer.details.availability.details || null,
-        }
-      : null,
-    credit_inquiry: offer.details?.credit_inquiry || null,
-    expiration: offer.details?.expiration || null,
-    credit_score: offer.details?.credit_score || null,
-    under_5_24: offer.details?.under_5_24 ?? null,
-    foreign_transaction_fees: offer.details?.foreign_transaction_fees
-      ? {
-          percentage: offer.details.foreign_transaction_fees.percentage || '0',
-          waived: offer.details.foreign_transaction_fees.waived || false,
-        }
-      : null,
-    minimum_credit_limit: offer.details?.minimum_credit_limit || null,
-    rewards_structure: offer.details?.rewards_structure
-      ? {
-          base_rewards: offer.details.rewards_structure.base_rewards || '',
-          bonus_categories: offer.details.rewards_structure.bonus_categories || [],
-          welcome_bonus: offer.details.rewards_structure.welcome_bonus || '',
-          card_perks: offer.details.rewards_structure.card_perks,
-          cash_back: offer.details.rewards_structure.cash_back,
-          points_multiplier: offer.details.rewards_structure.points_multiplier,
-          statement_credits: offer.details.rewards_structure.statement_credits,
-        }
-      : null,
-    household_limit: offer.details?.household_limit || null,
-    early_closure_fee: offer.details?.early_closure_fee || null,
-    chex_systems: offer.details?.chex_systems || null,
-    options_trading: offer.details?.options_trading || null,
-    ira_accounts: offer.details?.ira_accounts || null,
-    minimum_deposit: offer.details?.minimum_deposit || null,
-    holding_period: offer.details?.holding_period || null,
-    trading_requirements: offer.details?.trading_requirements || null,
-    platform_features: offer.details?.platform_features || null,
-  };
-
-  return {
-    id: offer.id,
-    name: offer.name,
-    type: offer.type,
-    bank,
-    value: offer.value,
-    status: 'staged' as const,
-    metadata: {
-      created_at: offer.metadata?.created_at || new Date().toISOString(),
-      updated_at: offer.metadata?.updated_at || new Date().toISOString(),
-      created_by: offer.metadata?.created_by || '',
-      updated_by: offer.metadata?.updated_by || '',
-      status: (offer.metadata?.status || 'active') as 'active' | 'expired' | 'staged',
-      environment: process.env.NODE_ENV || 'development',
-    },
-    source: {
-      name: offer.metadata?.source?.name || 'bankrewards.io',
-      collected_at: new Date().toISOString(),
-      original_id: offer.metadata?.source?.original_id || offer.id,
-      timing: offer.metadata?.timing || null,
-      availability: offer.metadata?.availability || null,
-      credit: offer.metadata?.credit || null,
-    },
-    source_id: offer.metadata?.source?.original_id || offer.id,
-    bonus,
-    details,
-    logo: offer.logo || {
-      type: '',
-      url: '',
-    },
-    card_image: offer.card_image || null,
-    offer_link: offer.offer_link || '',
-    description: offer.description || offer.bonus?.description || '',
-    processing_status: {
-      source_validation: true,
-      ai_processed: false,
-      duplicate_checked: false,
-      needs_review: true,
-    },
-    ai_insights: {
-      confidence_score: 0.8,
-      validation_warnings: [],
-      potential_duplicates: [],
-    },
-    createdAt: offer.metadata?.created_at || new Date().toISOString(),
-    updatedAt: offer.metadata?.updated_at || new Date().toISOString(),
-  };
-};
-
-const fetchBankRewardsOffers = async (): Promise<BankRewardsResponse> => {
-  const { data, error } = await supabase.rpc('get_bank_rewards_offers');
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data;
-};
-
-const fetchStagedOpportunities = async (): Promise<
-  (Opportunity & { isStaged: boolean })[]
-> => {
-  const { data, error } = await supabase
-    .from('staged_offers')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data.map((offer: Record<string, unknown>) => ({
-    ...offer,
-    isStaged: true,
-  }));
-};
 
 // Query keys for React Query
 // Keeping this for future reference when migrating to Supabase
 /* eslint-disable @typescript-eslint/no-unused-vars */
-const queryKeys = {
-  opportunities: {
-    all: ['opportunities'] as const,
-    paginated: (pagination: PaginationState) =>
-      ['opportunities', 'paginated', pagination] as const,
-    staged: ['opportunities', 'staged'] as const,
-    approved: ['opportunities', 'approved'] as const,
-    rejected: ['opportunities', 'rejected'] as const,
-    stats: ['opportunities', 'stats'] as const,
-  },
-};
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
 interface UseOpportunitiesReturn {
@@ -382,6 +213,8 @@ interface UseOpportunitiesReturn {
   loadingStates: {
     [key: string]: boolean; // Track loading state for individual items
   };
+  createFunctions: () => void;
+  isCreatingFunctions: boolean;
 }
 
 export function useOpportunities(): UseOpportunitiesReturn {
@@ -397,55 +230,120 @@ export function useOpportunities(): UseOpportunitiesReturn {
 
   // Fetch opportunities with pagination and filters
   const {
-    // Not using paginatedData directly, but kept as reference
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    data: paginatedData = { items: [], total: 0, hasMore: false },
     isLoading: isLoadingPaginated,
     isFetching,
     error,
   } = useQuery<PaginatedResponse>({
     queryKey: ['opportunities', pagination],
     queryFn: async () => {
-      let query = supabase
-        .from('opportunities')
-        .select('*', { count: 'exact' })
-        .range(
-          (pagination.page - 1) * pagination.pageSize,
-          pagination.page * pagination.pageSize - 1
-        )
-        .order(pagination.sortBy, {
-          ascending: pagination.sortDirection === 'asc',
+      try {
+        // Check if we have a valid session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error('No authenticated session found');
+        }
+
+        // DIAGNOSTIC: Check database schema
+        console.log('🔍 Checking database schema...');
+        const { data: schemaInfo, error: schemaError } = await supabase
+          .rpc('get_schema_info', { table_name: 'opportunities' });
+        
+        if (schemaError) {
+          console.log('❌ Schema check failed:', schemaError);
+        } else {
+          console.log('📋 Table schema:', schemaInfo);
+        }
+
+        // DIAGNOSTIC: List all functions
+        console.log('🔍 Checking available functions...');
+        const { data: functions, error: functionsError } = await supabase
+          .from('pg_catalog.pg_proc')
+          .select('proname')
+          .eq('pronamespace', 'public');
+
+        if (functionsError) {
+          console.log('❌ Function check failed:', functionsError);
+        } else {
+          console.log('📋 Available functions:', functions);
+        }
+
+        // First, let's check if we can access the table
+        console.log('🔍 Attempting to describe opportunities table...');
+        const { data: tableInfo, error: tableError } = await supabase
+          .from('opportunities')
+          .select('*')
+          .limit(1);
+
+        if (tableError) {
+          console.error('❌ Table access error:', {
+            error: tableError,
+            code: tableError.code,
+            details: tableError.details,
+            hint: tableError.hint
+          });
+          throw tableError;
+        } else {
+          console.log('📋 Table structure:', tableInfo ? Object.keys(tableInfo[0]) : 'No data');
+        }
+
+        let query = supabase
+          .from('opportunities')
+          .select('id, name, type, value, status, created_at, updated_at, card_image, offer_link, processing_status, ai_insights, source_id', { 
+            count: 'exact' 
+          })
+          .range(
+            (pagination.page - 1) * pagination.pageSize,
+            pagination.page * pagination.pageSize - 1
+          )
+          .order('created_at', {
+            ascending: pagination.sortDirection === 'asc',
+          });
+
+        // Apply filters
+        if (pagination.filters.status) {
+          console.log('🏷️ Applying status filter:', pagination.filters.status);
+          query = query.eq('status', pagination.filters.status);
+        }
+        if (pagination.filters.type) {
+          query = query.eq('type', pagination.filters.type);
+        }
+        if (pagination.filters.minValue) {
+          query = query.gte('value', pagination.filters.minValue);
+        }
+        if (pagination.filters.maxValue) {
+          query = query.lte('value', pagination.filters.maxValue);
+        }
+        if (pagination.filters.search) {
+          query = query.ilike('name', `%${pagination.filters.search}%`);
+        }
+
+        const { data, error: queryError, count } = await query;
+
+        if (queryError) {
+          console.error('❌ Query error:', {
+            error: queryError,
+            details: queryError.details,
+            hint: queryError.hint,
+            code: queryError.code
+          });
+          throw queryError;
+        }
+
+        console.log('✅ Query successful:', {
+          resultCount: data?.length || 0,
+          totalCount: count,
+          firstRow: data?.[0] ? Object.keys(data[0]) : 'No data'
         });
 
-      // Apply filters
-      if (pagination.filters.status) {
-        query = query.eq('status', pagination.filters.status);
-      }
-      if (pagination.filters.type) {
-        query = query.eq('type', pagination.filters.type);
-      }
-      if (pagination.filters.minValue) {
-        query = query.gte('value', pagination.filters.minValue);
-      }
-      if (pagination.filters.maxValue) {
-        query = query.lte('value', pagination.filters.maxValue);
-      }
-      if (pagination.filters.search) {
-        query = query.ilike('name', `%${pagination.filters.search}%`);
-      }
-
-      const { data, error, count } = await query;
-
-      if (error) {
+        return {
+          items: data || [],
+          total: count || 0,
+          hasMore: (count || 0) > pagination.page * pagination.pageSize,
+        };
+      } catch (error) {
+        console.error('❌ Error fetching opportunities:', error);
         throw error;
       }
-
-      return {
-        items: data,
-        total: count || 0,
-        hasMore: (count || 0) > pagination.page * pagination.pageSize,
-      };
     },
     placeholderData: keepPreviousData,
   });
@@ -453,7 +351,29 @@ export function useOpportunities(): UseOpportunitiesReturn {
   // Fetch staged opportunities
   const { data: stagedOpportunities = [], isLoading: isLoadingStaged } = useQuery({
     queryKey: ['opportunities', 'staged'],
-    queryFn: fetchStagedOpportunities,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('staged_offers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      // Map the data to match your frontend types
+      return data?.map((item: Record<string, any>) => ({
+        ...item,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        card_image: item.card_image,
+        offer_link: item.offer_link,
+        processing_status: item.processing_status,
+        ai_insights: item.ai_insights,
+        source_id: item.source_id,
+        isStaged: true,
+      })) || [];
+    },
   });
 
   // Fetch approved opportunities
@@ -470,7 +390,17 @@ export function useOpportunities(): UseOpportunitiesReturn {
         throw error;
       }
 
-      return data;
+      // Map the data to match your frontend types
+      return data?.map((item: Record<string, any>) => ({
+        ...item,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        card_image: item.card_image,
+        offer_link: item.offer_link,
+        processing_status: item.processing_status,
+        ai_insights: item.ai_insights,
+        source_id: item.source_id,
+      })) || [];
     },
   });
 
@@ -488,20 +418,44 @@ export function useOpportunities(): UseOpportunitiesReturn {
         throw error;
       }
 
-      return data;
+      // Map the data to match your frontend types
+      return data?.map((item: Record<string, any>) => ({
+        ...item,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        card_image: item.card_image,
+        offer_link: item.offer_link,
+        processing_status: item.processing_status,
+        ai_insights: item.ai_insights,
+        source_id: item.source_id,
+      })) || [];
     },
   });
 
-  // Fetch stats
+  // Fetch stats with diagnostic logging
   const { data: stats = defaultStats } = useQuery({
     queryKey: ['opportunities', 'stats'],
     queryFn: async () => {
+      console.log('📊 Attempting to fetch opportunity stats...');
+      
+      // First check if the function exists
+      const { data: functions, error: functionError } = await supabase
+        .rpc('get_available_functions');
+        
+      if (functionError) {
+        console.error('❌ Error checking available functions:', functionError);
+      } else {
+        console.log('📋 Available functions:', functions);
+      }
+
       const { data, error } = await supabase.rpc('get_opportunity_stats');
 
       if (error) {
+        console.error('❌ Stats error:', error);
         throw error;
       }
 
+      console.log('✅ Stats fetched successfully:', data);
       return data;
     },
   });
@@ -539,53 +493,136 @@ export function useOpportunities(): UseOpportunitiesReturn {
 
   const bulkApproveMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('bulk_approve_opportunities');
-
-      if (error) {
-        throw error;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('No authenticated user found');
       }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/bulk-operations?action=bulk_approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ force: false }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to bulk approve opportunities');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'approved'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'stats'] });
     },
   });
 
   const importMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('import_opportunities');
-
-      if (error) {
-        throw error;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('No authenticated user found');
       }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/bulk-operations?action=import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to import opportunities');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'approved'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'stats'] });
     },
   });
 
   const resetStagedMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('reset_staged_offers');
-
-      if (error) {
-        throw error;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('No authenticated user found');
       }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/bulk-operations?action=reset_staged`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to reset staged offers');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'staged'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'approved'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities', 'stats'] });
     },
   });
 
   const resetOpportunitiesMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('reset_opportunities');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/bulk-operations?action=reset_all`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${supabase.auth.getSession()?.data.session?.access_token}`,
+          },
+        }
+      );
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error('Failed to reset opportunities');
       }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['staged-offers'] });
+    },
+  });
+
+  const createFunctionsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/bulk-operations?action=create_functions`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${supabase.auth.getSession()?.data.session?.access_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to create database functions');
+      }
+
+      return response.json();
     },
   });
 
@@ -631,11 +668,11 @@ export function useOpportunities(): UseOpportunitiesReturn {
       resetStagedMutation.mutate();
     },
     isResettingStagedOffers: resetStagedMutation.isPending,
-    resetOpportunities: () => {
-      resetOpportunitiesMutation.mutate();
-    },
+    resetOpportunities: resetOpportunitiesMutation.mutate,
     isResettingOpportunities: resetOpportunitiesMutation.isPending,
     queryClient,
     loadingStates,
+    createFunctions: createFunctionsMutation.mutate,
+    isCreatingFunctions: createFunctionsMutation.isPending,
   };
 }

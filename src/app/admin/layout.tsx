@@ -16,7 +16,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!authLoading) {
       console.log('Auth state:', {
         user: user?.email,
-        isAdmin: hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPERADMIN),
+        isAdmin: hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPER_ADMIN),
         isSuperAdmin: isSuperAdmin(),
       });
 
@@ -52,15 +52,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <Box
-      component="main"
-      sx={{
-        flexGrow: 1,
-        p: 3,
-        width: '100%',
-      }}
-    >
-      {children}
-    </Box>
+    <main>
+      <Box
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: '100%',
+        }}
+      >
+        {children}
+      </Box>
+    </main>
   );
 }

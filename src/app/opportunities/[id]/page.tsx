@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { useOpportunities } from '@/lib/hooks/useOpportunities';
 import { useOpportunity } from '@/lib/hooks/useOpportunity';
 import { FirestoreOpportunity } from '@/types/opportunity';
+import { Opportunity } from '@/types/opportunity';
 
 import AccountDetailsSection from './components/AccountDetailsSection';
 import AvailabilitySection from './components/AvailabilitySection';
@@ -82,14 +83,12 @@ export default function OpportunityDetailsPage() {
 
   const handleEditClick = () => {
     if (!opportunity) return;
-    setOriginalData(opportunity);
+    setOriginalData(opportunity as unknown as FirestoreOpportunity);
     setEditData({
       name: opportunity.name,
       description: opportunity.description,
       value: opportunity.value,
       offer_link: opportunity.offer_link,
-      bonus: opportunity.bonus,
-      details: opportunity.details,
     });
     setEditDialog(true);
   };
@@ -108,18 +107,23 @@ export default function OpportunityDetailsPage() {
       const valueToSave =
         typeof editData.value === 'string' ? parseFloat(editData.value) : editData.value;
 
+      // Create a properly typed data object for updateOpportunity
+      const updateData: Partial<Opportunity> = {
+        name: editData.name,
+        description: editData.description,
+        value: valueToSave,
+        offer_link: editData.offer_link,
+        metadata: {
+          created_at: opportunity.metadata.created_at,
+          created_by: opportunity.metadata.created_by,
+          status: opportunity.metadata.status || 'active',
+          updated_at: new Date().toISOString(),
+        },
+      };
+
       await updateOpportunity({
         id: opportunity.id,
-        data: {
-          ...editData,
-          value: valueToSave,
-          metadata: {
-            created_at: opportunity.metadata.created_at,
-            created_by: opportunity.metadata.created_by,
-            status: opportunity.metadata.status,
-            updated_at: new Date().toISOString(),
-          },
-        },
+        data: updateData,
       });
 
       // Invalidate both the individual opportunity and the opportunities list
@@ -197,12 +201,12 @@ export default function OpportunityDetailsPage() {
         {/* Left Column - Main Content */}
         <Grid item xs={12} lg={8}>
           <Box>
-            <BonusDetailsSection bonus={opportunity.bonus} />
+            <BonusDetailsSection bonus={(opportunity as FirestoreOpportunity).bonus} />
             <AccountDetailsSection
-              details={opportunity.details}
+              details={(opportunity as FirestoreOpportunity).details}
               type={opportunity.type}
             />
-            <AvailabilitySection availability={opportunity.details?.availability} />
+            <AvailabilitySection availability={(opportunity as FirestoreOpportunity).details?.availability} />
           </Box>
         </Grid>
 
@@ -210,7 +214,7 @@ export default function OpportunityDetailsPage() {
         <Grid item xs={12} lg={4}>
           <Box sx={{ position: 'sticky', top: 24 }}>
             <QuickActionsSection
-              opportunity={opportunity}
+              opportunity={opportunity as FirestoreOpportunity}
               canModify={canModify}
               onEditClick={handleEditClick}
               onDeleteClick={handleDeleteClick}
@@ -223,7 +227,7 @@ export default function OpportunityDetailsPage() {
       {opportunity.id && (
         <OpportunityDeleteDialog
           open={deleteDialog}
-          opportunity={opportunity}
+          opportunity={opportunity as FirestoreOpportunity}
           onCancelAction={handleDeleteCancel}
           onConfirm={handleDeleteConfirm}
           loading={isDeleting}
