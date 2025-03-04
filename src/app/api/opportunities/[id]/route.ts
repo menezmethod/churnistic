@@ -50,9 +50,9 @@ export async function PUT(
   if (!id) {
     return NextResponse.json({ error: 'Missing opportunity ID' }, { status: 400 });
   }
-  
+
   console.log(`PUT request received for opportunity ${id}`);
-  
+
   try {
     const { session } = await createAuthContext(request);
 
@@ -176,27 +176,33 @@ export async function PUT(
 
     // Process update data using our utility function to handle nested fields properly
     const db = getAdminDb();
-    
+
     // First, get the current document to properly merge with existing data
     const currentDoc = await db.collection('opportunities').doc(id).get();
-    
+
     if (!currentDoc.exists) {
       console.error(`Opportunity ${id} not found during update`);
       return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
     }
-    
+
     const currentData = currentDoc.data() as FirestoreOpportunity;
     console.log(`Current data for opportunity ${id} before update:`, currentData);
-    
+
     // Use our improved update data preparation that preserves nested objects
     // It will first create a properly merged document, then process it for Firestore
-    const mergedData = prepareUpdateData(currentData, body);
+    const mergedData = prepareUpdateData(
+      currentData as unknown as Record<string, unknown>,
+      body
+    );
     const firestoreUpdateData = processNestedUpdates(mergedData);
 
     // Debug logging
     console.log(`Received update data for opportunity ${id}:`, body);
     console.log(`Merged update data for opportunity ${id}:`, mergedData);
-    console.log(`Processed update data for Firestore for opportunity ${id}:`, firestoreUpdateData);
+    console.log(
+      `Processed update data for Firestore for opportunity ${id}:`,
+      firestoreUpdateData
+    );
 
     // Compare keys to verify no data loss
     if (currentData.details && mergedData.details) {
@@ -204,8 +210,8 @@ export async function PUT(
         currentDetailsKeys: Object.keys(currentData.details),
         mergedDetailsKeys: Object.keys(mergedData.details as Record<string, unknown>),
         missingKeys: Object.keys(currentData.details).filter(
-          key => !(mergedData.details as Record<string, unknown>)[key]
-        )
+          (key) => !(mergedData.details as Record<string, unknown>)[key]
+        ),
       });
     }
 
@@ -224,18 +230,21 @@ export async function PUT(
     // Ensure all the data is preserved by deep merging with the original
     const freshData = freshDoc.data() as FirestoreOpportunity;
     console.log(`Raw data after Firestore update for ${id}:`, freshData);
-    
+
     // Verify that all expected fields are still present
     if (currentData.details && freshData.details) {
       const missingKeys = Object.keys(currentData.details).filter(
-        key => !Object.keys(freshData.details).includes(key)
+        (key) => !Object.keys(freshData.details || {}).includes(key)
       );
-      
+
       if (missingKeys.length > 0) {
-        console.warn(`Missing keys in details object after update for ${id}:`, missingKeys);
+        console.warn(
+          `Missing keys in details object after update for ${id}:`,
+          missingKeys
+        );
       }
     }
-    
+
     const responseData = {
       id: freshDoc.id,
       ...freshData,
@@ -244,7 +253,7 @@ export async function PUT(
         updated_at: new Date().toISOString(),
       },
     };
-    
+
     console.log(`Response data for opportunity ${id} update:`, responseData);
     return NextResponse.json(responseData);
   } catch (error) {

@@ -54,7 +54,9 @@ export default function AccountDetailsSection({
   const { user, isAdmin, hasRole, hasPermission } = useAuth();
 
   // Helper function to convert states object to array if needed
-  const getStatesArray = (states: any): string[] => {
+  const getStatesArray = (
+    states: string[] | Record<string, string> | undefined
+  ): string[] => {
     if (!states) return [];
     if (Array.isArray(states)) return states;
     if (typeof states === 'object') {
@@ -131,7 +133,9 @@ export default function AccountDetailsSection({
       value: [
         details.availability.type === 'State'
           ? `${getStatesArray(details.availability.states).join(', ')} only`
-          : details.availability.type === 'State' ? 'State restrictions apply' : null,
+          : details.availability.type === 'Nationwide'
+            ? 'Available nationwide'
+            : null,
         details.under_5_24 ? '5/24 Rule applies' : null,
         details.credit_score ? `${details.credit_score}+ credit score` : null,
         details.household_limit ? details.household_limit : null,
@@ -332,7 +336,11 @@ export default function AccountDetailsSection({
                     type={item.type || 'text'}
                     options={item.options}
                     isGlobalEditMode={isGlobalEditMode}
-                    onUpdate={onUpdate}
+                    onUpdate={
+                      item.field
+                        ? (value) => onUpdate?.(item.field as string, value)
+                        : undefined
+                    }
                     hideIcon={!canEdit}
                     tooltip={`Edit ${item.label.toLowerCase()}`}
                     showEmpty={isGlobalEditMode}

@@ -20,11 +20,13 @@ We've addressed this issue with several key fixes:
 ### Step 1: Verify the fixes are working
 
 After implementing our fixes, your logs should show:
+
 - Proper deep merging in the API route
 - Full preservation of object structures
 - Detailed debugging information throughout the update process
 
 The console logs should show messages like:
+
 - "Deep merging existing data for key"
 - "Merged update data for opportunity"
 - "Details object key comparison"
@@ -76,7 +78,7 @@ If you're still having issues:
 function mergeObjectsRecursive(target, source) {
   // Start with a deep clone of the target
   const result = cloneDeep(target);
-  
+
   // Then carefully update only the specific fields from source
   for (const [key, value] of Object.entries(source)) {
     if (value === null) {
@@ -84,15 +86,16 @@ function mergeObjectsRecursive(target, source) {
       result[key] = null;
     } else if (typeof value === 'object' && !Array.isArray(value)) {
       // For objects, recursively merge
-      result[key] = result[key] && typeof result[key] === 'object' && !Array.isArray(result[key]) 
-        ? mergeObjectsRecursive(result[key], value)
-        : cloneDeep(value);
+      result[key] =
+        result[key] && typeof result[key] === 'object' && !Array.isArray(result[key])
+          ? mergeObjectsRecursive(result[key], value)
+          : cloneDeep(value);
     } else {
       // For primitives and arrays, use the source value
       result[key] = cloneDeep(value);
     }
   }
-  
+
   return result;
 }
 ```
@@ -108,4 +111,4 @@ To verify the issue is fully resolved:
 3. Reload the page and verify all data is still present
 4. Try editing other fields to ensure consistent behavior
 
-Our comprehensive fixes should resolve the issue of disappearing components during inline editing. If you're still experiencing problems, review the logs carefully and focus on the specific steps where data might be getting lost. 
+Our comprehensive fixes should resolve the issue of disappearing components during inline editing. If you're still experiencing problems, review the logs carefully and focus on the specific steps where data might be getting lost.

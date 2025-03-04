@@ -14,10 +14,7 @@ const updatedOpportunity = { ...opportunity };
 set(updatedOpportunity, fieldKey, value);
 
 // Optimistically update the cache
-queryClient.setQueryData(
-  opportunityKeys.detail(opportunity.id),
-  updatedOpportunity
-);
+queryClient.setQueryData(opportunityKeys.detail(opportunity.id), updatedOpportunity);
 ```
 
 This directly replaces the entire cached object with `updatedOpportunity`, which might be missing some nested fields that weren't included in the spread operation.
@@ -59,19 +56,16 @@ This should properly merge changes, but if `firestoreUpdateData` has nested obje
 
 ```typescript
 // Modify the optimistic update to merge with existing data:
-queryClient.setQueryData(
-  opportunityKeys.detail(opportunity.id),
-  (oldData) => {
-    if (!oldData) return updatedOpportunity;
-    // Deep merge to preserve all nested fields
-    return {
-      ...oldData,
-      ...updatedOpportunity,
-      // Handle nested fields if needed
-      // For nested objects that could be overwritten, use more specific merging
-    };
-  }
-);
+queryClient.setQueryData(opportunityKeys.detail(opportunity.id), (oldData) => {
+  if (!oldData) return updatedOpportunity;
+  // Deep merge to preserve all nested fields
+  return {
+    ...oldData,
+    ...updatedOpportunity,
+    // Handle nested fields if needed
+    // For nested objects that could be overwritten, use more specific merging
+  };
+});
 ```
 
 ### 2. Fix the useUpdateOpportunity Hook's Optimistic Update
@@ -95,16 +89,13 @@ For complex nested structures, this should be modified to use a deep merge:
 ```typescript
 import deepmerge from 'deepmerge';
 
-queryClient.setQueryData<FirestoreOpportunity>(
-  opportunityKeys.detail(id),
-  (oldData) => {
-    if (!oldData) return { ...data, id };
-    return deepmerge(oldData, data, {
-      // Custom merge options if needed
-      arrayMerge: (destinationArray, sourceArray) => sourceArray,
-    });
-  }
-);
+queryClient.setQueryData<FirestoreOpportunity>(opportunityKeys.detail(id), (oldData) => {
+  if (!oldData) return { ...data, id };
+  return deepmerge(oldData, data, {
+    // Custom merge options if needed
+    arrayMerge: (destinationArray, sourceArray) => sourceArray,
+  });
+});
 ```
 
 ### 3. Ensure API Route Properly Handles Nested Updates
@@ -163,4 +154,4 @@ The root issue appears to be related to how data is managed during updates, part
 2. A server update that might not correctly handle complex nested structures
 3. Potential inconsistencies in how different field types are processed
 
-By implementing proper deep merging for optimistic updates and ensuring the server-side logic correctly handles nested structures, the deletion issue should be resolved. 
+By implementing proper deep merging for optimistic updates and ensuring the server-side logic correctly handles nested structures, the deletion issue should be resolved.

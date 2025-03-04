@@ -36,6 +36,19 @@ export function HeaderSection({
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
+  // Create adapter functions to match the expected signature
+  const handleNameUpdate = (value: string | number) => {
+    if (onUpdate) {
+      onUpdate('name', value);
+    }
+  };
+
+  const handleOfferLinkUpdate = (value: string | number) => {
+    if (onUpdate) {
+      onUpdate('offer_link', value);
+    }
+  };
+
   return (
     <Paper
       elevation={0}
@@ -104,7 +117,7 @@ export function HeaderSection({
                 value={opportunity.name}
                 type="text"
                 isGlobalEditMode={isGlobalEditMode}
-                onUpdate={onUpdate}
+                onUpdate={handleNameUpdate}
                 customStyles={{
                   wrapper: {
                     width: '100%',
@@ -189,7 +202,7 @@ export function HeaderSection({
               value={opportunity.offer_link || ''}
               type="text"
               isGlobalEditMode={isGlobalEditMode}
-              onUpdate={onUpdate}
+              onUpdate={handleOfferLinkUpdate}
               placement="below"
               customStyles={{
                 wrapper: {

@@ -1,6 +1,7 @@
 # Debugging Guide: Inline Editing Section Deletion Issue
 
 ## Issue Description
+
 When submitting an inline edit, sections of content are being deleted unexpectedly. This document provides a step-by-step approach to identify and fix the issue.
 
 ## Potential Root Causes
@@ -22,6 +23,7 @@ First, determine the specific pattern of the deletion:
 ## Step 2: Inspect Network Requests
 
 ### Request Payload Analysis
+
 1. Open browser DevTools and go to the Network tab
 2. Filter for API requests (filter: "api")
 3. Perform an inline edit that reproduces the issue
@@ -31,6 +33,7 @@ First, determine the specific pattern of the deletion:
    - Are nested objects structured correctly?
 
 ### Response Analysis
+
 1. Check the response from the server
 2. Verify if the response includes the full object or just the updated fields
 3. Look for any unexpected `null` values or missing fields
@@ -53,12 +56,12 @@ const updateField = useCallback(
   (fieldKey: string, value: string | number | boolean) => {
     console.log('Before update - Opportunity:', opportunity);
     console.log('Updating field:', fieldKey, 'with value:', value);
-    
+
     // Create updated opportunity object
     const updatedOpportunity = { ...opportunity };
     set(updatedOpportunity, fieldKey, value);
     console.log('After update - Updated object:', updatedOpportunity);
-    
+
     // Rest of the function...
   },
   [opportunity, queryClient, updateOpportunity]
@@ -75,12 +78,12 @@ export async function PUT(
 ) {
   try {
     const { id } = await context.params;
-    
+
     let body;
     try {
       body = await request.json();
       console.log('API received update:', body);
-      
+
       // Rest of the function...
     } catch (error) {
       console.error('Error parsing request body:', error);
@@ -96,6 +99,7 @@ export async function PUT(
 ## Step 5: Common Issues to Check
 
 ### Issue 1: Improper Nested Object Handling
+
 When updating nested fields like `details.monthly_fees.amount`, ensure the structure is maintained:
 
 ```jsx
@@ -115,22 +119,21 @@ currentObj[fieldParts[fieldParts.length - 1]] = value;
 ```
 
 ### Issue 2: Improper Optimistic Updates
+
 Ensure optimistic updates properly merge with existing data rather than replacing it:
 
 ```jsx
 // Correct optimistic update
-queryClient.setQueryData(
-  opportunityKeys.detail(opportunity.id),
-  (oldData) => {
-    if (!oldData) return updatedOpportunity;
-    
-    // Deep merge oldData with updatedOpportunity
-    return deepMerge(oldData, updatedOpportunity);
-  }
-);
+queryClient.setQueryData(opportunityKeys.detail(opportunity.id), (oldData) => {
+  if (!oldData) return updatedOpportunity;
+
+  // Deep merge oldData with updatedOpportunity
+  return deepMerge(oldData, updatedOpportunity);
+});
 ```
 
 ### Issue 3: API Response Replacing Instead of Merging
+
 If the API response is replacing entire objects, modify the API route handler:
 
 ```jsx
@@ -148,14 +151,17 @@ return NextResponse.json({
 ## Step 6: Specific Field Type Issues
 
 ### Text Fields
+
 - Ensure empty string values are properly handled (not converted to null)
 - Check how trimming is applied
 
 ### Select Fields
+
 - Verify the selected value matches one of the available options
 - Check for any type conversion issues (string vs. number)
 
 ### Multiline Text Fields
+
 - Verify line breaks are being preserved
 - Check for any HTML sanitization issues
 
@@ -178,4 +184,4 @@ The most likely cause of sections being deleted upon submission is related to ho
 3. How the API processes partial updates
 4. How the updated data is merged back into the UI
 
-By following this debugging guide, you should be able to identify and fix the specific cause of the section deletion issue. 
+By following this debugging guide, you should be able to identify and fix the specific cause of the section deletion issue.

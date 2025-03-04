@@ -94,7 +94,7 @@ export default function BonusDetailsSection({
               value={bonus?.description || ''}
               type="multiline"
               isGlobalEditMode={isGlobalEditMode}
-              onUpdate={handleFieldUpdate}
+              onUpdate={(value) => handleFieldUpdate('bonus.description', value)}
               customStyles={{
                 wrapper: {
                   width: '100%',
@@ -107,7 +107,7 @@ export default function BonusDetailsSection({
             </EditableWrapper>
           ) : (
             <Typography variant="body1" color="text.secondary">
-              {bonus?.description}
+              {bonus?.description || 'No description available'}
             </Typography>
           )}
         </Box>
@@ -137,7 +137,9 @@ export default function BonusDetailsSection({
                 value={bonus?.requirements?.[0]?.description || ''}
                 type="multiline"
                 isGlobalEditMode={isGlobalEditMode}
-                onUpdate={handleFieldUpdate}
+                onUpdate={(value) =>
+                  handleFieldUpdate('bonus.requirements[0].description', value)
+                }
                 customStyles={{
                   wrapper: {
                     width: '100%',
@@ -224,7 +226,7 @@ export default function BonusDetailsSection({
               value={bonus?.additional_info || ''}
               type="multiline"
               isGlobalEditMode={isGlobalEditMode}
-              onUpdate={handleFieldUpdate}
+              onUpdate={(value) => handleFieldUpdate('bonus.additional_info', value)}
               customStyles={{
                 wrapper: {
                   width: '100%',

@@ -108,7 +108,9 @@ export default function AvailabilitySection({
   const open = Boolean(anchorEl);
 
   // Helper function to convert states object to array if needed
-  const getStatesArray = (states: any): string[] => {
+  const getStatesArray = (
+    states: string[] | Record<string, string> | undefined
+  ): string[] => {
     if (!states) return [];
     if (Array.isArray(states)) return states;
     if (typeof states === 'object') {
@@ -118,11 +120,12 @@ export default function AvailabilitySection({
   };
 
   const [chipData, setChipData] = React.useState<readonly ChipData[]>(
-    availability?.states 
+    availability?.states
       ? getStatesArray(availability.states).map((state) => ({
           key: state,
           label: state,
-          abbr: Object.entries(US_STATES_MAP).find(([name]) => name === state)?.[0] || state,
+          abbr:
+            Object.entries(US_STATES_MAP).find(([name]) => name === state)?.[0] || state,
         }))
       : []
   );
@@ -134,7 +137,8 @@ export default function AvailabilitySection({
             key: state,
             label: state,
             abbr:
-              Object.entries(US_STATES_MAP).find(([name]) => name === state)?.[0] || state,
+              Object.entries(US_STATES_MAP).find(([name]) => name === state)?.[0] ||
+              state,
           }))
         : []
     );
@@ -144,7 +148,7 @@ export default function AvailabilitySection({
 
   const isNationwide =
     availability?.type === 'Nationwide' ||
-    !availability?.states || 
+    !availability?.states ||
     getStatesArray(availability?.states).length === 0 ||
     availability === null;
 
@@ -178,8 +182,10 @@ export default function AvailabilitySection({
     );
   };
 
-  const handleDetailsUpdate = (_unused: string, value: string | number | string[]) => {
-    onUpdate?.('details.availability.details', value);
+  const handleDetailsUpdate = (value: string | number) => {
+    if (onUpdate) {
+      onUpdate('details.availability.details', value.toString());
+    }
   };
 
   const availableStates = Object.entries(US_STATES_MAP).filter(

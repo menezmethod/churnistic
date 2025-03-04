@@ -203,7 +203,7 @@ export default function OpportunityDetailsPage() {
           opportunity={opportunity}
           canModify={canModify}
           isGlobalEditMode={isGlobalEditMode}
-          onUpdate={handleFieldUpdate}
+          onUpdate={(field, value) => handleFieldUpdate(field, value)}
         />
       </Box>
 
@@ -228,11 +228,11 @@ export default function OpportunityDetailsPage() {
               type={opportunity.type}
               canModify={canModify}
               isGlobalEditMode={isGlobalEditMode}
-              onUpdate={handleFieldUpdate}
+              onUpdate={(field, value) => handleFieldUpdate(field, value)}
             />
             <AvailabilitySection
               availability={opportunity.details?.availability}
-              onUpdate={handleFieldUpdate}
+              onUpdate={(field, value) => handleFieldUpdate(field, value)}
               canModify={canModify}
               isGlobalEditMode={isGlobalEditMode}
             />
@@ -250,7 +250,7 @@ export default function OpportunityDetailsPage() {
               onFeatureClick={handleFeatureClick}
               isFeatureLoading={featureMutation.isPending}
               isGlobalEditMode={isGlobalEditMode}
-              onUpdate={handleFieldUpdate}
+              onUpdate={(field, value) => handleFieldUpdate(field, value)}
             />
           </Box>
         </Grid>
