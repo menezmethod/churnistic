@@ -53,6 +53,16 @@ export default function AccountDetailsSection({
   const isDark = theme.palette.mode === 'dark';
   const { user, isAdmin, hasRole, hasPermission } = useAuth();
 
+  // Helper function to convert states object to array if needed
+  const getStatesArray = (states: any): string[] => {
+    if (!states) return [];
+    if (Array.isArray(states)) return states;
+    if (typeof states === 'object') {
+      return Object.values(states).filter(Boolean).map(String);
+    }
+    return [];
+  };
+
   // Check if user can edit this section
   const canEdit =
     !!user &&
@@ -120,8 +130,8 @@ export default function AccountDetailsSection({
       label: 'Restrictions',
       value: [
         details.availability.type === 'State'
-          ? `${details.availability.states?.join(', ')} only`
-          : null,
+          ? `${getStatesArray(details.availability.states).join(', ')} only`
+          : details.availability.type === 'State' ? 'State restrictions apply' : null,
         details.under_5_24 ? '5/24 Rule applies' : null,
         details.credit_score ? `${details.credit_score}+ credit score` : null,
         details.household_limit ? details.household_limit : null,

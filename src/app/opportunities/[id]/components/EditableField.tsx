@@ -10,6 +10,7 @@ import {
   SxProps,
   Theme,
   CircularProgress,
+  Tooltip,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
@@ -29,6 +30,7 @@ export interface EditableFieldProps {
   editable?: boolean;
   hideIcon?: boolean;
   isUpdating?: boolean;
+  fieldKey?: string;
 }
 
 export const EditableField = ({
@@ -40,6 +42,7 @@ export const EditableField = ({
   editable = true,
   hideIcon = false,
   isUpdating = false,
+  fieldKey,
 }: EditableFieldProps) => {
   const theme = useTheme();
   const [localValue, setLocalValue] = useState<string | number | boolean>(
@@ -47,41 +50,68 @@ export const EditableField = ({
   );
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLocalValue(field.value ?? '');
-  }, [field.value]);
+    setIsEditing(field.isEditing);
+  }, [field.value, field.isEditing]);
+
+  const validateValue = (value: string | number | boolean): boolean => {
+    if (field.type === 'number' && typeof value === 'number') {
+      if (isNaN(value)) {
+        setError('Please enter a valid number');
+        return false;
+      }
+    }
+    
+    setError(null);
+    return true;
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = field.type === 'number' ? Number(e.target.value) : e.target.value;
     setLocalValue(value);
+    validateValue(value);
   };
 
   const handleSelectChange = (e: { target: { value: string } }) => {
     setLocalValue(e.target.value);
+    validateValue(e.target.value);
   };
 
   const handleSubmit = () => {
-    onEdit(localValue);
-    setIsEditing(false);
+    console.log(`Submitting edit for field ${fieldKey || 'unknown'}:`, {
+      oldValue: field.value,
+      newValue: localValue,
+    });
+    
+    if (validateValue(localValue)) {
+      onEdit(localValue);
+      setIsEditing(false);
+    }
   };
 
   const handleStartEdit = () => {
     if (!editable) return;
     setIsEditing(true);
+    setError(null);
     onStartEdit();
   };
 
   const handleCancel = () => {
     setIsEditing(false);
     setLocalValue(field.value ?? '');
+    setError(null);
     onCancelEdit();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
+      if (field.type !== 'multiline') {
+        e.preventDefault();
+        handleSubmit();
+      }
     } else if (e.key === 'Escape') {
       handleCancel();
     }
@@ -94,6 +124,8 @@ export const EditableField = ({
       autoFocus: true,
       size: 'small' as const,
       fullWidth: true,
+      error: Boolean(error),
+      helperText: error,
       sx: {
         '& .MuiInputBase-root': {
           bgcolor: alpha(theme.palette.background.paper, 0.6),
@@ -171,7 +203,7 @@ export const EditableField = ({
     return (
       <TextField
         {...commonProps}
-        type={field.type}
+        type={field.type === 'number' ? 'number' : 'text'}
         multiline={field.type === 'multiline'}
         minRows={field.type === 'multiline' ? 3 : 1}
         onChange={handleChange}
@@ -200,6 +232,7 @@ export const EditableField = ({
         },
       }}
       className={className}
+      data-field-key={fieldKey}
     >
       {isEditing ? (
         <Box sx={{ position: 'relative' }}>
@@ -211,6 +244,7 @@ export const EditableField = ({
                 right: 40,
                 top: '50%',
                 transform: 'translateY(-50%)',
+                zIndex: 3,
               }}
             />
           )}
@@ -231,36 +265,42 @@ export const EditableField = ({
               boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.1)}`,
             }}
           >
-            <IconButton
-              size="small"
-              onClick={handleSubmit}
-              sx={{
-                color: 'success.main',
-                bgcolor: alpha(theme.palette.success.main, 0.1),
-                '&:hover': {
-                  bgcolor: alpha(theme.palette.success.main, 0.2),
-                  transform: 'scale(1.05)',
-                },
-                transition: 'all 0.2s ease-in-out',
-              }}
-            >
-              <Check fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={handleCancel}
-              sx={{
-                color: 'error.main',
-                bgcolor: alpha(theme.palette.error.main, 0.1),
-                '&:hover': {
-                  bgcolor: alpha(theme.palette.error.main, 0.2),
-                  transform: 'scale(1.05)',
-                },
-                transition: 'all 0.2s ease-in-out',
-              }}
-            >
-              <Close fontSize="small" />
-            </IconButton>
+            <Tooltip title="Save changes">
+              <IconButton
+                size="small"
+                onClick={handleSubmit}
+                disabled={Boolean(error) || isUpdating}
+                sx={{
+                  color: 'success.main',
+                  bgcolor: alpha(theme.palette.success.main, 0.1),
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.success.main, 0.2),
+                    transform: 'scale(1.05)',
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              >
+                <Check fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Cancel editing">
+              <IconButton
+                size="small"
+                onClick={handleCancel}
+                disabled={isUpdating}
+                sx={{
+                  color: 'error.main',
+                  bgcolor: alpha(theme.palette.error.main, 0.1),
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.error.main, 0.2),
+                    transform: 'scale(1.05)',
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              >
+                <Close fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Box>
         </Box>
       ) : (
@@ -292,37 +332,29 @@ export const EditableField = ({
           onClick={editable ? handleStartEdit : undefined}
         >
           {field.value || (editable ? '(Click to edit)' : '')}
-          <AnimatePresence>
-            {editable && isHovered && !isEditing && !hideIcon && (
-              <IconButton
-                component={motion.button}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                onClick={handleStartEdit}
-                size="small"
-                className="edit-button"
-                sx={{
-                  position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  opacity: 0,
-                  visibility: 'hidden',
-                  transition: 'all 0.2s ease-in-out',
-                  color: 'primary.main',
+          {isHovered && editable && !hideIcon && (
+            <IconButton
+              className="edit-button"
+              size="small"
+              sx={{
+                position: 'absolute',
+                right: 4,
+                opacity: 0,
+                visibility: 'hidden',
+                transition: 'all 0.2s ease-in-out',
+                color: theme.palette.primary.main,
+                bgcolor: alpha(theme.palette.background.paper, 0.9),
+                boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.1)}`,
+                backdropFilter: 'blur(8px)',
+                '&:hover': {
                   bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  backdropFilter: 'blur(8px)',
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.primary.main, 0.2),
-                    transform: 'translateY(-50%) scale(1.05)',
-                  },
-                }}
-              >
-                <EditIcon fontSize="small" />
-              </IconButton>
-            )}
-          </AnimatePresence>
+                  transform: 'scale(1.05)',
+                },
+              }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
       )}
     </Box>
