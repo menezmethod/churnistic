@@ -21,6 +21,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { useSplashStats } from '@/lib/hooks/useSplashStats';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
+// TODO: Re-implement bank logos and public opportunities after API is ready
 import { FAQ } from './components/FAQ';
 import { FeaturedOpportunities } from './components/FeaturedOpportunities';
 
@@ -400,89 +401,21 @@ export default function HomePage() {
         <FAQ />
       </Box>
       {!user && (
-        <Container maxWidth="lg" sx={{ my: { xs: 6, md: 8 } }}>
-          <Box
-            component={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            sx={{
-              p: { xs: 3, md: 6 },
-              borderRadius: 4,
-              bgcolor: 'background.paper',
-              border: '1px solid',
-              borderColor: 'divider',
-              boxShadow: theme.shadows[1],
-              position: 'relative',
-              overflow: 'hidden',
-              textAlign: 'center',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: `radial-gradient(circle at top right, ${alpha(
-                  theme.palette.primary.main,
-                  0.1
-                )}, transparent 70%)`,
-                opacity: 0,
-                transition: 'opacity 0.3s',
-              },
-              '&:hover::after': {
-                opacity: 1,
-              },
-            }}
-          >
-            <Typography
-              variant="h3"
-              sx={{
-                mb: 2,
-                fontWeight: 800,
-                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
-              }}
-            >
-              Ready to Start Earning?
-            </Typography>
-            <Typography
-              variant="h6"
-              color="text.secondary"
-              sx={{
-                mb: 4,
-                maxWidth: '800px',
-                mx: 'auto',
-                lineHeight: 1.6,
-                fontWeight: 400,
-              }}
-            >
-              Join our community of reward maximizers and start tracking your bonuses
-              today.
-            </Typography>
+        <Container maxWidth="lg" sx={{ my: 8, textAlign: 'center' }}>
+          <Box>
             <Button
-              variant="contained"
-              size="large"
               component={Link}
-              href="/auth/signup"
-              endIcon={<KeyboardArrowRight />}
+              href="/auth/register"
+              variant="contained"
+              color="primary"
+              size="large"
               sx={{
-                px: 6,
                 py: 2,
-                borderRadius: 3,
+                px: 4,
+                fontSize: '1.1rem',
                 textTransform: 'none',
-                fontSize: { xs: '1rem', sm: '1.1rem', md: '1.2rem' },
-                fontWeight: 600,
-                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.25)}`,
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: `0 6px 12px ${alpha(theme.palette.primary.main, 0.35)}`,
-                  background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
-                },
+                borderRadius: 2,
+                boxShadow: 4,
               }}
             >
               Create Free Account
