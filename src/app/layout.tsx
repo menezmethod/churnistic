@@ -6,6 +6,7 @@ import AppNavbar from '@/components/AppNavbar';
 import { ToastProvider } from '@/components/ui/toaster';
 
 import { ClientProviders } from './client-providers';
+import ChatBoxWrapper from './components/ChatBoxWrapper';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -29,6 +30,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Box component="main" sx={{ flexGrow: 1, pt: { xs: '64px', md: '72px' } }}>
                 {children}
               </Box>
+              {/* Add ChatBox here to make it globally available */}
+              <ChatBoxWrapper />
             </Box>
           </ToastProvider>
         </ClientProviders>

@@ -150,7 +150,7 @@ export default function AvailabilitySection({
     if (isGlobalEditMode && onUpdate) {
       const newIsNationwide = chipData.length === 0;
       const currentType = availability?.type;
-      
+
       // Update the type only if it's inconsistent with the chip data
       if (newIsNationwide && currentType !== 'Nationwide') {
         onUpdate('details.availability.type', 'Nationwide');
@@ -163,9 +163,9 @@ export default function AvailabilitySection({
   if (availability === undefined && !isGlobalEditMode) return null;
 
   // Updated logic: nationwide only when no states are selected
-  const isNationwide = 
+  const isNationwide =
     !chipData.length || // No states selected
-    (availability?.states === undefined) || // No states defined in data
+    availability?.states === undefined || // No states defined in data
     (Array.isArray(availability?.states) && availability.states.length === 0); // Empty states array
 
   const handleAddClick = (
@@ -182,12 +182,12 @@ export default function AvailabilitySection({
   const handleStateSelect = (_event: React.MouseEvent, abbr: string, name: string) => {
     const newChips = [...chipData, { key: abbr, label: name, abbr }];
     setChipData(newChips);
-    
+
     // When adding the first state, update from nationwide to state-specific
     if (newChips.length === 1 && isNationwide) {
       onUpdate?.('details.availability.type', 'State-specific');
     }
-    
+
     onUpdate?.(
       'details.availability.states',
       newChips.map((chip) => chip.key)
@@ -198,12 +198,12 @@ export default function AvailabilitySection({
   const handleDelete = (chipToDelete: ChipData) => {
     const newChips = chipData.filter((chip) => chip.key !== chipToDelete.key);
     setChipData(newChips);
-    
+
     // When removing the last state, update from state-specific to nationwide
     if (newChips.length === 0) {
       onUpdate?.('details.availability.type', 'Nationwide');
     }
-    
+
     onUpdate?.(
       'details.availability.states',
       newChips.map((chip) => chip.key)
@@ -285,7 +285,11 @@ export default function AvailabilitySection({
                 Availability
               </Typography>
               <Chip
-                label={isNationwide ? 'Available Nationwide' : `Available in ${chipData.length} State${chipData.length !== 1 ? 's' : ''}`}
+                label={
+                  isNationwide
+                    ? 'Available Nationwide'
+                    : `Available in ${chipData.length} State${chipData.length !== 1 ? 's' : ''}`
+                }
                 size="small"
                 sx={{
                   mt: 1,
