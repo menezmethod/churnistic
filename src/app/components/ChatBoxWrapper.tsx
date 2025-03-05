@@ -9,4 +9,4 @@ const ChatBox = dynamic(() => import('./ChatBox'), {
 
 export default function ChatBoxWrapper() {
   return <ChatBox />;
-} 
+}
