@@ -29,6 +29,7 @@ import {
   useMediaQuery,
   alpha,
 } from '@mui/material';
+import { Suspense } from 'react';
 import { useState } from 'react';
 
 import { FormField } from '@/components/forms/FormField';
@@ -95,6 +96,14 @@ const US_STATES = [
 ] as const;
 
 export default function AddOpportunityPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AddOpportunityPageContent />
+    </Suspense>
+  );
+}
+
+function AddOpportunityPageContent() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [activeStep, setActiveStep] = useState(0);
