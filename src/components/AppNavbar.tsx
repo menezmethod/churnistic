@@ -52,18 +52,20 @@ import {
   Chip,
   Paper,
 } from '@mui/material';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  useState,
-  type JSX,
-  useEffect,
-  ReactElement,
+import React, {
   Fragment,
+  JSX,
+  ReactElement,
   Suspense,
+  useEffect,
   useMemo,
+  useState,
 } from 'react';
 
+import { useOffersValidationCount } from '@/app/hooks/useOffersValidationCount';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { UserRole } from '@/lib/auth/types';
 
@@ -219,7 +221,6 @@ const analyticsMenuItems: MenuItemType[] = [
     requiresAuth: true,
     hideWhenAuth: false,
     description: 'Review and validate scraped rewards and offers',
-    badge: 5,
   },
 ];
 
@@ -279,11 +280,15 @@ const useSelectedCategory = () => {
   }, [searchParams]);
 };
 
+const queryClient = new QueryClient();
+
 export default function AppNavbar() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <AppNavbarContent />
-    </Suspense>
+    <QueryClientProvider client={queryClient}>
+      <Suspense fallback={<div>Loading...</div>}>
+        <AppNavbarContent />
+      </Suspense>
+    </QueryClientProvider>
   );
 }
 
@@ -298,6 +303,7 @@ function AppNavbarContent() {
   );
   const [offersAnchorEl, setOffersAnchorEl] = useState<null | HTMLElement>(null);
   const selectedPath = useSelectedCategory();
+  const { validationCount } = useOffersValidationCount();
 
   const isAdmin = hasRole(UserRole.ADMIN);
   const isUserSuperAdmin = isSuperAdmin();
@@ -778,6 +784,13 @@ function AppNavbarContent() {
     </Menu>
   );
 
+  const analyticsMenuItemsWithCount = analyticsMenuItems.map((item) => {
+    if (!('section' in item) && item.text === 'Offer Validation') {
+      return { ...item, badge: validationCount };
+    }
+    return item;
+  });
+
   const renderDrawerContent = () => {
     if (!user) {
       // Guest Menu
@@ -893,7 +906,9 @@ function AppNavbarContent() {
                 ADMIN CONTROLS
               </Typography>
             </Box>
-            {analyticsMenuItems.map((item, index) => renderMenuItem(item, index))}
+            {analyticsMenuItemsWithCount.map((item, index) =>
+              renderMenuItem(item, index)
+            )}
 
             <Divider sx={{ my: 2 }} />
             <Box sx={{ mb: 2, px: 2 }}>
