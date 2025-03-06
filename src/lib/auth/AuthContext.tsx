@@ -1,6 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import {
   createContext,
@@ -14,17 +15,13 @@ import {
 import { Permission, UserRole } from '@/lib/auth/types';
 import { ROLE_PERMISSIONS } from '@/lib/auth/types';
 
-import { useUser, useLogin, useRegister, useLogout } from './authConfig';
-import {
-  loginWithGoogle,
-  loginWithGithub,
-  resetPassword as resetPasswordService,
-  isSuperAdmin as checkIsSuperAdmin,
-} from './authService';
 import type { AuthUser } from './authService';
+import * as firebaseAuth from './firebase-auth';
 
+// Enhanced AuthContextType following Firebase codelab patterns
 interface AuthContextType {
   user: AuthUser | null;
+  firebaseUser: FirebaseUser | null;
   loading: boolean;
   isAdmin: boolean;
   hasRole: (role: UserRole) => boolean;
@@ -39,8 +36,10 @@ interface AuthContextType {
   isOnline: boolean;
 }
 
+// Creating the context with a default value
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  firebaseUser: null,
   loading: true,
   isAdmin: false,
   hasRole: () => false,
@@ -52,122 +51,261 @@ const AuthContext = createContext<AuthContextType>({
   signInWithGoogle: async () => {},
   signInWithGithub: async () => {},
   resetPassword: async () => {},
-  isOnline: false,
+  isOnline: true,
 });
 
+/**
+ * Auth provider component that handles authentication state
+ */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
   const router = useRouter();
-  const { data: user, isLoading } = useUser();
-  const { mutateAsync: login } = useLogin();
-  const { mutateAsync: register } = useRegister();
-  const { mutateAsync: logoutMutation } = useLogout();
-  const [contextUpdateCounter, setContextUpdateCounter] = useState(0);
   const queryClient = useQueryClient();
 
+  // Handle online/offline status
   useEffect(() => {
-    console.log('[AuthContext] Forcing re-render:', contextUpdateCounter);
-  }, [contextUpdateCounter]);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
-  const signIn = useCallback(
-    async (email: string, password: string) => {
-      await login({ email, password });
-      router.push('/dashboard');
-    },
-    [login, router]
-  );
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
-  const signUp = useCallback(
-    async (email: string, password: string) => {
-      await register({ email, password });
-    },
-    [register]
-  );
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Initialize Firebase auth and listen for auth state changes
+  useEffect(() => {
+    const initAuth = async () => {
+      const auth = await firebaseAuth.getFirebaseAuth();
+
+      return onAuthStateChanged(auth, async (firebaseUser) => {
+        setLoading(true);
+
+        try {
+          if (firebaseUser) {
+            setFirebaseUser(firebaseUser);
+
+            // Get session from the server
+            const sessionData = await firebaseAuth.getSession();
+
+            if (sessionData) {
+              // Set user data from the session
+              setUser({
+                ...firebaseUser,
+                uid: sessionData.uid,
+                email: sessionData.email,
+                emailVerified: sessionData.emailVerified,
+                role: sessionData.role || 'user',
+                username: sessionData.username,
+              } as AuthUser);
+            } else {
+              // If there's a Firebase user but no session, create one
+              const idToken = await firebaseUser.getIdToken();
+              const response = await firebaseAuth.createSession(idToken);
+
+              if (response.ok) {
+                const sessionData = await response.json();
+                setUser({
+                  ...firebaseUser,
+                  uid: sessionData.uid,
+                  email: sessionData.email,
+                  emailVerified: sessionData.emailVerified,
+                  role: sessionData.role || 'user',
+                  username: sessionData.username,
+                } as AuthUser);
+              } else {
+                // Failed to create session
+                console.error('Failed to create session');
+                setUser(null);
+              }
+            }
+          } else {
+            // No Firebase user, clear user data
+            setFirebaseUser(null);
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('Auth state change error:', error);
+          setUser(null);
+          setFirebaseUser(null);
+        } finally {
+          setLoading(false);
+        }
+      });
+    };
+
+    const unsubscribe = initAuth();
+    return () => {
+      unsubscribe.then((unsub) => unsub());
+    };
+  }, []);
+
+  // Define auth functions
+  const signIn = useCallback(async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      await firebaseAuth.signInWithEmail(email, password);
+      // Session will be created in the auth state change listener
+    } catch (error) {
+      console.error('Sign in error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const signUp = useCallback(async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      await firebaseAuth.createUser(email, password);
+      // Session will be created in the auth state change listener
+    } catch (error) {
+      console.error('Sign up error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const signOut = useCallback(async () => {
-    await logoutMutation({});
-    router.push('/auth/signin');
-  }, [logoutMutation, router]);
+    try {
+      setLoading(true);
+      await firebaseAuth.endSession();
+      await firebaseAuth.signOut();
+      queryClient.clear();
+      router.push('/auth/signin');
+    } catch (error) {
+      console.error('Sign out error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [queryClient, router]);
 
-  const handleSignInWithGoogle = useCallback(async () => {
-    await loginWithGoogle();
-    setContextUpdateCounter((prev) => prev + 1);
-    queryClient.invalidateQueries({ queryKey: ['authenticated-user'] });
-    await queryClient.fetchQuery({ queryKey: ['authenticated-user'] });
-  }, [setContextUpdateCounter, queryClient]);
-
-  const handleSignInWithGithub = useCallback(async () => {
-    await loginWithGithub();
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      setLoading(true);
+      await firebaseAuth.signInWithGoogle();
+      // Session will be created in the auth state change listener
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleResetPassword = useCallback(async (email: string) => {
-    await resetPasswordService(email);
+  const signInWithGithub = useCallback(async () => {
+    try {
+      setLoading(true);
+      await firebaseAuth.signInWithGitHub();
+      // Session will be created in the auth state change listener
+    } catch (error) {
+      console.error('GitHub sign in error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  const resetPassword = useCallback(async (email: string) => {
+    try {
+      setLoading(true);
+      await firebaseAuth.resetPassword(email);
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Role and permission checks
   const hasRole = useCallback(
-    (role: UserRole) => {
-      if (!user) return false;
-      return user.customClaims?.role === role;
+    (role: UserRole): boolean => {
+      return (
+        user?.role === role || user?.role === 'admin' || user?.role === 'super_admin'
+      );
     },
     [user]
   );
 
   const hasPermission = useCallback(
-    (permission: Permission) => {
+    (permission: Permission): boolean => {
       if (!user) return false;
-      if (checkIsSuperAdmin(user)) return true;
-      const userRole = user.customClaims?.role as UserRole;
-      if (!userRole) return false;
-      return ROLE_PERMISSIONS[userRole].includes(permission);
+
+      // Get permissions for the user's role
+      const rolePermissions = ROLE_PERMISSIONS[(user.role || 'user') as UserRole] || [];
+
+      // Super admins and admins have all permissions
+      return (
+        user.role === 'super_admin' ||
+        user.role === 'admin' ||
+        rolePermissions.includes(permission)
+      );
     },
     [user]
   );
 
-  const isSuperAdmin = useCallback(() => {
-    return checkIsSuperAdmin(user ?? null);
+  const isAdmin = useMemo(() => {
+    return user?.role === 'admin' || user?.role === 'super_admin';
   }, [user]);
 
+  const isSuperAdmin = useCallback(() => {
+    return user?.role === 'super_admin';
+  }, [user]);
+
+  // Create the auth context value
   const value = useMemo(
     () => ({
-      user: user ?? null,
-      loading: isLoading,
-      isAdmin: hasRole(UserRole.ADMIN),
+      user,
+      firebaseUser,
+      loading,
+      isAdmin,
       hasRole,
       hasPermission,
       isSuperAdmin,
       signIn,
       signUp,
       signOut,
-      signInWithGoogle: handleSignInWithGoogle,
-      signInWithGithub: handleSignInWithGithub,
-      resetPassword: handleResetPassword,
-      isOnline: true,
+      signInWithGoogle,
+      signInWithGithub,
+      resetPassword,
+      isOnline,
     }),
     [
       user,
-      isLoading,
+      firebaseUser,
+      loading,
+      isAdmin,
       hasRole,
       hasPermission,
       isSuperAdmin,
       signIn,
       signUp,
       signOut,
-      handleSignInWithGoogle,
-      handleSignInWithGithub,
-      handleResetPassword,
+      signInWithGoogle,
+      signInWithGithub,
+      resetPassword,
+      isOnline,
     ]
   );
-
-  console.log('[AuthContext] Provider value updated:', {
-    user: user?.email,
-    loading: isLoading,
-  });
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/**
+ * Hook to use the auth context
+ */
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
