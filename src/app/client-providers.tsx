@@ -1,4 +1,5 @@
 'use client';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
 import type { JSX } from 'react';
 
 import { ThemeProvider } from '@/app/styles/theme/ThemeContext';
@@ -11,10 +12,12 @@ interface ClientProvidersProps {
 
 export function ClientProviders({ children }: ClientProvidersProps): JSX.Element {
   return (
-    <QueryProvider>
-      <ThemeProvider>
-        <AuthProvider>{children}</AuthProvider>
-      </ThemeProvider>
-    </QueryProvider>
+    <AppRouterCacheProvider>
+      <QueryProvider>
+        <ThemeProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </ThemeProvider>
+      </QueryProvider>
+    </AppRouterCacheProvider>
   );
 }

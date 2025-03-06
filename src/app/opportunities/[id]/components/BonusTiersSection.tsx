@@ -1,19 +1,48 @@
 import { Box, Typography, Paper, Stack, alpha, useTheme, Grid } from '@mui/material';
 import { motion } from 'framer-motion';
 
+import { useAuth } from '@/lib/auth/AuthContext';
+import { Permission, UserRole } from '@/lib/auth/types';
 import { FirestoreOpportunity } from '@/types/opportunity';
+
+import { EditableWrapper } from './EditableWrapper';
 
 interface BonusTiersSectionProps {
   opportunity: FirestoreOpportunity;
+  isGlobalEditMode?: boolean;
+  canModify?: boolean;
+  onUpdate?: (field: string, value: string | number | string[]) => void;
 }
 
-export const BonusTiersSection = ({ opportunity }: BonusTiersSectionProps) => {
+export const BonusTiersSection = ({
+  opportunity,
+  isGlobalEditMode = false,
+  canModify = false,
+  onUpdate,
+}: BonusTiersSectionProps) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const { user, isAdmin, hasRole, hasPermission } = useAuth();
 
-  if (!opportunity.bonus?.tiers || opportunity.bonus.tiers.length === 0) {
-    return null;
-  }
+  // Check if user can edit this section
+  const canEdit =
+    !!user &&
+    canModify &&
+    (isAdmin ||
+      hasRole(UserRole.SUPER_ADMIN) ||
+      (hasRole(UserRole.CONTRIBUTOR) && hasPermission(Permission.MANAGE_OPPORTUNITIES)));
+
+  if (!opportunity.bonus?.tiers && !isGlobalEditMode) return null;
+
+  // Create empty tiers array if it doesn't exist for global edit mode
+  const tiers = opportunity.bonus?.tiers || [];
+
+  const handleTierUpdate = (tierIndex: number, field: string, value: string | number) => {
+    if (!onUpdate) return;
+
+    const fieldPath = `bonus.tiers[${tierIndex}].${field}`;
+    onUpdate(fieldPath, value);
+  };
 
   return (
     <Box sx={{ mb: 3 }}>
@@ -21,7 +50,7 @@ export const BonusTiersSection = ({ opportunity }: BonusTiersSectionProps) => {
         Bonus Tiers
       </Typography>
       <Stack spacing={2}>
-        {opportunity.bonus.tiers.map((tier, index) => (
+        {tiers.map((tier, index) => (
           <Paper
             key={index}
             elevation={0}
@@ -72,12 +101,23 @@ export const BonusTiersSection = ({ opportunity }: BonusTiersSectionProps) => {
                 {index + 1}
               </Box>
               <Box>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  {tier.level}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Tier {index + 1}
-                </Typography>
+                <EditableWrapper
+                  value={tier.level || ''}
+                  onUpdate={(value) => handleTierUpdate(index, 'level', value)}
+                  canEdit={canEdit}
+                  isGlobalEditMode={isGlobalEditMode}
+                  label="Tier Level"
+                  placeholder="Enter tier level..."
+                  hideIcon={!canEdit}
+                  showEmpty={isGlobalEditMode}
+                  customStyles={{
+                    wrapper: { width: '100%' },
+                  }}
+                >
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    {tier.level || `Tier ${index + 1}`}
+                  </Typography>
+                </EditableWrapper>
               </Box>
             </Box>
 
@@ -87,12 +127,25 @@ export const BonusTiersSection = ({ opportunity }: BonusTiersSectionProps) => {
                   <Typography variant="caption" color="text.secondary">
                     Value
                   </Typography>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: 'primary.main', fontWeight: 600 }}
+                  <EditableWrapper
+                    value={tier.reward || ''}
+                    onUpdate={(value) => handleTierUpdate(index, 'reward', value)}
+                    canEdit={canEdit}
+                    isGlobalEditMode={isGlobalEditMode}
+                    placeholder="Enter reward value..."
+                    hideIcon={!canEdit}
+                    showEmpty={isGlobalEditMode}
+                    customStyles={{
+                      wrapper: { width: '100%' },
+                    }}
                   >
-                    {tier.reward}
-                  </Typography>
+                    <Typography
+                      variant="h6"
+                      sx={{ color: 'primary.main', fontWeight: 600 }}
+                    >
+                      {tier.reward}
+                    </Typography>
+                  </EditableWrapper>
                 </Box>
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -100,9 +153,22 @@ export const BonusTiersSection = ({ opportunity }: BonusTiersSectionProps) => {
                   <Typography variant="caption" color="text.secondary">
                     Minimum Deposit
                   </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    {tier.deposit}
-                  </Typography>
+                  <EditableWrapper
+                    value={tier.deposit || ''}
+                    onUpdate={(value) => handleTierUpdate(index, 'deposit', value)}
+                    canEdit={canEdit}
+                    isGlobalEditMode={isGlobalEditMode}
+                    placeholder="Enter minimum deposit..."
+                    hideIcon={!canEdit}
+                    showEmpty={isGlobalEditMode}
+                    customStyles={{
+                      wrapper: { width: '100%' },
+                    }}
+                  >
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      {tier.deposit}
+                    </Typography>
+                  </EditableWrapper>
                 </Box>
               </Grid>
               <Grid item xs={12}>
@@ -110,7 +176,21 @@ export const BonusTiersSection = ({ opportunity }: BonusTiersSectionProps) => {
                   <Typography variant="caption" color="text.secondary">
                     Requirements
                   </Typography>
-                  <Typography>{tier.requirements}</Typography>
+                  <EditableWrapper
+                    value={tier.requirements || ''}
+                    onUpdate={(value) => handleTierUpdate(index, 'requirements', value)}
+                    canEdit={canEdit}
+                    isGlobalEditMode={isGlobalEditMode}
+                    type="multiline"
+                    placeholder="Enter requirements..."
+                    hideIcon={!canEdit}
+                    showEmpty={isGlobalEditMode}
+                    customStyles={{
+                      wrapper: { width: '100%' },
+                    }}
+                  >
+                    <Typography>{tier.requirements}</Typography>
+                  </EditableWrapper>
                 </Box>
               </Grid>
             </Grid>

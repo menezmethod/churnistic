@@ -6,7 +6,7 @@ import AppNavbar from '@/components/AppNavbar';
 import { ToastProvider } from '@/components/ui/toaster';
 
 import { ClientProviders } from './client-providers';
-import ChatBoxWrapper from './components/ChatBoxWrapper';
+import ChatBoxWrapper from '../components/ChatBoxWrapper';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });

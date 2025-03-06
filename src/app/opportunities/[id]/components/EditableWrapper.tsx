@@ -8,15 +8,15 @@ import {
   SxProps,
   Theme,
   CircularProgress,
+  Typography,
 } from '@mui/material';
-import { SystemStyleObject } from '@mui/system';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { SystemStyleObject, CSSObject } from '@mui/system';
+import { useState, useEffect } from 'react';
 
 import { EditableField } from './EditableField';
 
 // New interface with improved props
-interface EditableWrapperProps {
+export interface EditableWrapperProps {
   // Core props
   value: string | number | boolean | null;
   onUpdate?: (value: string | number) => void;
@@ -47,6 +47,7 @@ interface EditableWrapperProps {
   tooltip?: string;
   hideIcon?: boolean;
   showEmpty?: boolean;
+  preserveOriginalStyle?: boolean; // Add a flag to preserve original styling
 }
 
 export const EditableWrapper = ({
@@ -76,15 +77,26 @@ export const EditableWrapper = ({
   tooltip,
   hideIcon = false,
   showEmpty = false,
+  preserveOriginalStyle = false, // Default to false for backward compatibility
 }: EditableWrapperProps) => {
   const theme = useTheme();
   const [hoveredField, setHoveredField] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState<string | number | boolean>(
+    value !== null && value !== undefined ? value : ''
+  );
 
   // For backward compatibility
   const effectiveFieldName = fieldName || label || 'field';
   const effectiveInputType = type || inputType;
   const isHovered = hoveredField === effectiveFieldName;
-  const showEdit = (isHovered || isGlobalEditMode) && canEdit;
+  // Only show edit controls if the field is hovered or in global edit mode, and editing is allowed
+  const shouldShowEdit = (isHovered || isGlobalEditMode) && canEdit;
+
+  // Update editValue when value changes externally
+  useEffect(() => {
+    setEditValue(value !== null && value !== undefined ? value : '');
+  }, [value]);
 
   // Don't render if value is empty and we're not in global edit mode
   if (!value && !isGlobalEditMode && !showEmpty && !children) return null;
@@ -95,83 +107,61 @@ export const EditableWrapper = ({
     ? formatter(displayValue as string | number)
     : displayValue;
 
-  const getOverlayStyles = () => {
-    const baseStyles = {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: alpha(theme.palette.background.paper, 0.8),
-      backdropFilter: 'blur(4px)',
-      borderRadius: 1,
-      opacity: 0,
-      transition: 'all 0.2s ease',
-      cursor: canEdit ? 'pointer' : 'default',
-      border: '1px dashed',
-      borderColor: alpha(theme.palette.primary.main, 0.3),
-      ...customStyles.overlay,
-    };
+  // In global edit mode, show placeholder text for empty fields
+  const displayText =
+    isGlobalEditMode && !formattedValue
+      ? placeholder || `Add ${label || fieldName}...`
+      : formattedValue;
 
-    switch (placement) {
-      case 'below':
-        return {
-          ...baseStyles,
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
-          marginTop: 1,
-          minHeight: 48,
-          zIndex: 1,
-          boxShadow: `0 4px 20px ${alpha(theme.palette.common.black, 0.1)}`,
-        };
-      case 'right':
-        return {
-          ...baseStyles,
-          position: 'absolute',
-          top: 0,
-          left: '100%',
-          bottom: 0,
-          marginLeft: 1,
-          minWidth: 200,
-          boxShadow: `4px 0 20px ${alpha(theme.palette.common.black, 0.1)}`,
-        };
-      default:
-        return {
-          ...baseStyles,
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-        };
-    }
-  };
+  // Make sure fields are editable appropriately
+  const isEffectivelyEditable = canEdit || (isGlobalEditMode && canEdit);
 
   const handleMouseEnter = () => {
-    if (!isGlobalEditMode && canEdit) {
+    if (canEdit) {
       setHoveredField(effectiveFieldName);
     }
   };
 
   const handleMouseLeave = () => {
-    if (!isGlobalEditMode) {
-      setHoveredField(null);
+    setHoveredField(null);
+  };
+
+  const handleStartEdit = () => {
+    if (isEffectivelyEditable) {
+      setIsEditing(true);
+      setEditValue(value ?? '');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleSubmitEdit = (newValue: string | number | boolean) => {
+    setIsEditing(false);
+
+    // Only trigger updates for strings and numbers
+    if (onUpdate && (typeof newValue === 'string' || typeof newValue === 'number')) {
+      onUpdate(newValue);
     }
   };
 
   const renderEditIcon = () => {
-    if (hideIcon || !showEdit || placement !== 'overlay') return null;
+    if (hideIcon || !canEdit) return null;
+
+    // Don't render the edit icon if we're not hovering and not in global edit mode
+    if (!shouldShowEdit) return null;
 
     return (
-      <Tooltip title={tooltip || 'Click to edit'} placement="top" arrow>
+      <Tooltip title={tooltip || 'Edit'} placement="top">
         <IconButton
-          className="edit-icon"
           size="small"
+          onClick={handleStartEdit}
           sx={{
             position: 'absolute',
             top: 8,
             right: 8,
-            opacity: 0,
+            opacity: isHovered ? 1 : isGlobalEditMode ? 0.7 : 0,
             transition: 'opacity 0.2s ease',
             bgcolor: alpha(theme.palette.primary.main, 0.1),
             '&:hover': {
@@ -193,104 +183,230 @@ export const EditableWrapper = ({
   // Generate content if children not provided
   const defaultContent = !children && (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      {icon && <Box sx={{ color: 'primary.main' }}>{icon}</Box>}
-      <Box sx={{ flex: 1 }}>
-        {label && (
-          <Box
-            component="span"
-            sx={{ fontSize: '0.75rem', color: 'text.secondary', display: 'block' }}
-          >
-            {label}
-          </Box>
-        )}
-        <Box component="span" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
-          {formattedValue || placeholder || '—'}
-        </Box>
-      </Box>
-      {isLoading && !showEdit && <CircularProgress size={16} color="primary" />}
+      {icon && <Box color="primary.main">{icon}</Box>}
+      {label && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem' }}
+        >
+          {label}
+        </Typography>
+      )}
     </Box>
   );
 
+  // If we're in editing mode, show the EditableField
+  if (isEditing) {
+    return (
+      <Box
+        sx={{
+          position: 'relative',
+          ...customStyles.wrapper,
+        }}
+      >
+        {defaultContent}
+        <EditableField
+          field={{
+            value: editValue,
+            isEditing: true,
+            type: effectiveInputType,
+            options: selectOptions ? selectOptions.map((opt) => opt.value) : options,
+            optionLabels: selectOptions
+              ? selectOptions.reduce(
+                  (acc, curr) => {
+                    acc[curr.value] = curr.label;
+                    return acc;
+                  },
+                  {} as Record<string, string>
+                )
+              : optionLabels,
+          }}
+          onEdit={handleSubmitEdit}
+          onStartEdit={() => {}} // No-op since we're already editing
+          onCancelEdit={handleCancelEdit}
+          fieldKey={effectiveFieldName}
+          placeholder={placeholder}
+          isUpdating={isLoading}
+        />
+      </Box>
+    );
+  }
+
+  // Prepare box styles for below and right placements
+  const getInputBoxStyles = (): SxProps<Theme> => {
+    // Create the base styles
+    const baseStyles = {
+      p: 0,
+      borderRadius: 1,
+      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+      backgroundColor: alpha(theme.palette.background.paper, 0.06),
+      flex: 1,
+      transition: 'all 0.2s ease',
+    };
+
+    // Conditionally add styles in a type-safe way
+    const conditionalStyles: CSSObject = {};
+
+    if (isEffectivelyEditable) {
+      conditionalStyles.cursor = 'pointer';
+    }
+
+    if (!formattedValue) {
+      conditionalStyles.color = 'text.secondary';
+      conditionalStyles.fontStyle = 'italic';
+    }
+
+    // Handle hover pseudo-selector properly
+    if (isEffectivelyEditable) {
+      conditionalStyles['&:hover'] = {
+        bgcolor: alpha(theme.palette.primary.main, 0.05),
+        borderColor: alpha(theme.palette.primary.main, 0.2),
+      };
+    }
+
+    if (isHovered && isEffectivelyEditable) {
+      conditionalStyles.borderColor = alpha(theme.palette.primary.main, 0.2);
+      conditionalStyles.boxShadow = `0 0 0 1px ${alpha(theme.palette.primary.main, 0.1)}`;
+    }
+
+    // Combine all styles
+    return {
+      ...baseStyles,
+      ...conditionalStyles,
+      ...(customStyles.input || {}),
+    } as SxProps<Theme>;
+  };
+
+  const getBoxStyles = (): SxProps<Theme> => {
+    // Start with base styles
+    const baseStyles = {
+      position: 'relative',
+      width: '100%',
+    };
+
+    // If preserving original style, just return base + custom
+    if (preserveOriginalStyle) {
+      return {
+        ...baseStyles,
+        ...(customStyles.overlay || {}),
+      } as SxProps<Theme>;
+    }
+
+    // Build additional styles
+    const additionalStyles: CSSObject = {
+      cursor: isEffectivelyEditable ? 'pointer' : 'default',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: 0,
+      borderRadius: 1,
+      backgroundColor: alpha(theme.palette.background.paper, 0.05),
+      border: '1px solid transparent',
+      transition: 'all 0.2s ease',
+    };
+
+    if (!formattedValue) {
+      additionalStyles.color = 'text.secondary';
+      additionalStyles.fontStyle = 'italic';
+    }
+
+    // Handle hover pseudo-selector properly
+    if (isEffectivelyEditable) {
+      additionalStyles['&:hover'] = {
+        bgcolor: alpha(theme.palette.primary.main, 0.05),
+        borderColor: isHovered ? alpha(theme.palette.primary.main, 0.3) : undefined,
+      };
+    }
+
+    if (isHovered && isEffectivelyEditable) {
+      additionalStyles.borderColor = alpha(theme.palette.primary.main, 0.2);
+      additionalStyles.boxShadow = `0 0 0 1px ${alpha(theme.palette.primary.main, 0.1)}`;
+    }
+
+    // Combine all styles
+    return {
+      ...baseStyles,
+      ...additionalStyles,
+      ...(customStyles.overlay || {}),
+    } as SxProps<Theme>;
+  };
+
+  // If we're using the overlay placement
+  if (placement === 'overlay') {
+    return (
+      <Box
+        className="hover-container"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        sx={{
+          position: 'relative',
+          ...customStyles.wrapper,
+        }}
+        data-testid={`editable-field-${effectiveFieldName}`}
+      >
+        {defaultContent}
+        <Box
+          sx={getBoxStyles()}
+          onClick={isEffectivelyEditable ? handleStartEdit : undefined}
+        >
+          {children || (
+            <Box component="span" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+              {displayText}
+            </Box>
+          )}
+        </Box>
+        {renderEditIcon()}
+      </Box>
+    );
+  }
+
+  // Below or right placement
   return (
     <Box
+      className="hover-container"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       sx={{
-        position: 'relative',
-        width: '100%',
-        '&:hover': canEdit
-          ? {
-              '& .edit-overlay': {
-                opacity: 1,
-              },
-              '& .edit-icon': {
-                opacity: 1,
-              },
-            }
-          : {},
         ...customStyles.wrapper,
       }}
+      data-testid={`editable-field-${effectiveFieldName}`}
     >
-      {children || defaultContent}
-      <AnimatePresence>
-        {showEdit && (
-          <Box
-            component={motion.div}
-            initial={{ opacity: 0, y: placement === 'below' ? -10 : 0 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="edit-overlay"
-            sx={getOverlayStyles() as SxProps<Theme>}
-          >
-            <EditableField
-              field={{
-                value: displayValue,
-                isEditing: false,
-                type: effectiveInputType,
-                options: selectOptions ? selectOptions.map((opt) => opt.value) : options,
-                optionLabels: selectOptions
-                  ? selectOptions.reduce(
-                      (acc, curr) => {
-                        acc[curr.value] = curr.label;
-                        return acc;
-                      },
-                      {} as Record<string, string>
-                    )
-                  : optionLabels,
+      {defaultContent}
+      <Box
+        sx={{
+          mt: placement === 'below' ? 1 : 0,
+          ml: placement === 'right' ? 2 : 0,
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 1,
+        }}
+      >
+        <Box
+          sx={getInputBoxStyles()}
+          onClick={isEffectivelyEditable ? handleStartEdit : undefined}
+        >
+          {children || displayText}
+        </Box>
+        {shouldShowEdit && !hideIcon && (
+          <Tooltip title={tooltip || 'Edit'}>
+            <IconButton
+              size="small"
+              onClick={handleStartEdit}
+              sx={{
+                opacity: isHovered ? 1 : isGlobalEditMode ? 0.7 : 0,
+                transition: 'opacity 0.2s ease',
               }}
-              onEdit={(newValue) => {
-                if (typeof newValue === 'boolean') return;
-                if (onUpdate) {
-                  if (effectiveInputType === 'number' && typeof newValue === 'string') {
-                    onUpdate(parseFloat(newValue));
-                  } else {
-                    onUpdate(newValue);
-                  }
-                } else if (fieldName) {
-                  // Legacy support
-                  console.warn(
-                    'Using deprecated fieldName prop. Please update to use onUpdate(value) instead.'
-                  );
-                }
-              }}
-              onStartEdit={() => {}}
-              onCancelEdit={() => {}}
-              hideIcon={true}
-              placeholder={placeholder}
-              sx={
-                {
-                  width: '100%',
-                  '& .MuiInputBase-root': {
-                    width: '100%',
-                    ...customStyles.input,
-                  },
-                } as SxProps<Theme>
-              }
-            />
-          </Box>
+            >
+              {isLoading ? (
+                <CircularProgress size={16} color="primary" />
+              ) : (
+                <EditIcon fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
         )}
-      </AnimatePresence>
-      {renderEditIcon()}
+      </Box>
     </Box>
   );
 };

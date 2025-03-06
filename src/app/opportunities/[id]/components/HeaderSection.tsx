@@ -32,6 +32,7 @@ export function HeaderSection({
   opportunity,
   isGlobalEditMode = false,
   onUpdate,
+  canModify = false,
 }: HeaderSectionProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -203,7 +204,11 @@ export function HeaderSection({
               type="text"
               isGlobalEditMode={isGlobalEditMode}
               onUpdate={handleOfferLinkUpdate}
-              placement="below"
+              canEdit={canModify}
+              placeholder="Add offer link"
+              hideIcon={!canModify}
+              showEmpty={isGlobalEditMode}
+              preserveOriginalStyle={true}
               customStyles={{
                 wrapper: {
                   width: '100%',

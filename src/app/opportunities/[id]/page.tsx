@@ -18,6 +18,7 @@ import { showErrorToast } from '@/lib/utils/toast';
 import AccountDetailsSection from './components/AccountDetailsSection';
 import AvailabilitySection from './components/AvailabilitySection';
 import BonusDetailsSection from './components/BonusDetailsSection';
+import { BonusTiersSection } from './components/BonusTiersSection';
 import { ErrorState } from './components/ErrorState';
 import { HeaderSection } from './components/HeaderSection';
 import { LoadingState } from './components/LoadingState';
@@ -76,6 +77,7 @@ export default function OpportunityDetailsPage() {
     isAdmin,
     hasRole: hasRole(UserRole.SUPER_ADMIN),
     canModify,
+    isGlobalEditMode,
   });
 
   // Debug logging for opportunity data
@@ -145,6 +147,12 @@ export default function OpportunityDetailsPage() {
       console.error('Failed to toggle feature status:', error);
       showErrorToast('Failed to update feature status');
     }
+  };
+
+  // Toggle global edit mode
+  const toggleGlobalEditMode = () => {
+    setIsGlobalEditMode(!isGlobalEditMode);
+    console.log('Toggling global edit mode:', !isGlobalEditMode);
   };
 
   if (isLoading) {
@@ -220,6 +228,14 @@ export default function OpportunityDetailsPage() {
                 isGlobalEditMode={isGlobalEditMode}
               />
             )}
+            {opportunity.bonus?.tiers && opportunity.bonus.tiers.length > 0 && (
+              <BonusTiersSection
+                opportunity={opportunity}
+                onUpdate={handleFieldUpdate}
+                canModify={canModify}
+                isGlobalEditMode={isGlobalEditMode}
+              />
+            )}
             <AccountDetailsSection
               details={
                 (opportunity.details as WithRequired<AccountDetails, 'monthly_fees'>) ??
@@ -245,7 +261,7 @@ export default function OpportunityDetailsPage() {
             <QuickActionsSection
               opportunity={opportunity}
               canModify={canModify}
-              onEditClick={() => setIsGlobalEditMode(!isGlobalEditMode)}
+              onEditClick={toggleGlobalEditMode}
               onDeleteClick={handleDeleteClick}
               onFeatureClick={handleFeatureClick}
               isFeatureLoading={featureMutation.isPending}

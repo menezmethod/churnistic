@@ -331,6 +331,7 @@ export default function OpportunityDetails({
             type={opportunity.type}
             isGlobalEditMode={editState.isGlobalEditMode}
             onUpdate={(field, value) => handleComponentFieldUpdate(field, value)}
+            canModify={canModify}
           />
         </motion.div>
 

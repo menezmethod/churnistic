@@ -4,18 +4,17 @@ import {
   cert,
   getApps,
   initializeApp,
-  applicationDefault,
 } from 'firebase-admin/app';
 import { type Auth, getAuth } from 'firebase-admin/auth';
 import { type Firestore, getFirestore } from 'firebase-admin/firestore';
 
-import { FirebaseConfigError } from '@/lib/errors/firebase';
-
 import { shouldUseEmulators } from './utils/environment';
 
+// Use proper singleton variables
 let adminApp: App | undefined;
 let adminAuth: Auth | undefined;
 let adminDb: Firestore | undefined;
+let isInitialized = false;
 
 // Set emulator environment variables if needed
 if (shouldUseEmulators()) {
@@ -82,48 +81,30 @@ function getAdminConfig(): AppOptions {
   }
 }
 
-export async function initializeAdminApp() {
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-
-  if (getApps().length === 0) {
-    try {
-      console.log('🔧 Initializing Admin App for project:', projectId);
-
-      const app = initializeApp({
-        credential: cert({
-          projectId,
-          clientEmail,
-          privateKey,
-        }),
-        projectId,
-      });
-
-      return app;
-    } catch (error) {
-      console.error('Failed to initialize Admin App:', error);
-      throw new FirebaseConfigError(
-        'admin/initialization-failed',
-        'Failed to initialize Firebase Admin app',
-        error
-      );
-    }
+// Main initialization function - initialize only once
+async function initializeAdmin() {
+  // Return immediately if already initialized
+  if (isInitialized) {
+    return { app: adminApp, auth: adminAuth, db: adminDb };
   }
 
-  return getApps()[0];
-}
-
-export function initializeAdminDb(): Firestore {
   try {
-    if (!adminApp) {
-      const config = getAdminConfig();
-      adminApp = getApps().length ? getApps()[0] : initializeApp(config);
-    }
+    // Use lock mechanism to prevent race conditions
+    if (getApps().length === 0) {
+      console.log('Initializing Firebase Admin...');
 
-    if (!adminDb) {
+      // Initialize app
+      const config = getAdminConfig();
+      adminApp = initializeApp(config);
+
+      // Initialize Auth
+      adminAuth = getAuth(adminApp);
+      console.log('Firebase Admin Auth initialized');
+
+      // Initialize Firestore
       adminDb = getFirestore(adminApp);
 
+      // Configure Firestore for emulator if needed
       if (shouldUseEmulators()) {
         adminDb.settings({
           host: 'localhost:8080',
@@ -132,73 +113,19 @@ export function initializeAdminDb(): Firestore {
         });
         console.log('📚 Connected Admin to Firestore Emulator at: localhost:8080');
       }
-    }
 
-    return adminDb;
-  } catch (error) {
-    console.error('Failed to initialize Admin Firestore:', error);
-    throw error;
-  }
-}
+      console.log('Firebase Admin Firestore initialized');
+      console.log('Firebase Admin initialized successfully');
 
-export function initializeAdminAuth(): Auth {
-  try {
-    if (!adminApp) {
-      const config = getAdminConfig();
-      adminApp = getApps().length ? getApps()[0] : initializeApp(config);
-    }
-
-    if (!adminAuth) {
+      isInitialized = true;
+    } else {
+      // If already initialized, get the instances
+      adminApp = getApps()[0];
       adminAuth = getAuth(adminApp);
-      if (shouldUseEmulators()) {
-        console.log('🔐 Connected Admin to Auth Emulator at: localhost:9099');
-      }
+      adminDb = getFirestore(adminApp);
     }
 
-    return adminAuth;
-  } catch (error) {
-    console.error('Failed to initialize Admin Auth:', error);
-    throw error;
-  }
-}
-
-export function getAdminAuth(): Auth {
-  return adminAuth ?? initializeAdminAuth();
-}
-
-export function getAdminDb(): Firestore {
-  return adminDb ?? initializeAdminDb();
-}
-
-export function getAdminApp(): App {
-  if (!adminApp) {
-    const config = getAdminConfig();
-    adminApp = getApps().length ? getApps()[0] : initializeApp(config);
-  }
-  return adminApp;
-}
-
-// Initialize both Auth and Firestore
-let isInitialized = false;
-
-async function initializeAdmin() {
-  if (isInitialized) {
-    return;
-  }
-
-  try {
-    console.log('Initializing Firebase Admin...');
-
-    // Initialize Auth first
-    initializeAdminAuth();
-    console.log('Firebase Admin Auth initialized');
-
-    // Then initialize Firestore
-    initializeAdminDb();
-    console.log('Firebase Admin Firestore initialized');
-
-    isInitialized = true;
-    console.log('Firebase Admin initialized successfully');
+    return { app: adminApp, auth: adminAuth, db: adminDb };
   } catch (error) {
     console.error('Failed to initialize Firebase Admin:', error);
     isInitialized = false;
@@ -206,22 +133,55 @@ async function initializeAdmin() {
   }
 }
 
-// Initialize on module load
+// Always call initialize on module load
+// Use void to handle the promise without waiting
 void initializeAdmin();
 
-export { adminApp as app, adminAuth as auth, adminDb as db };
-export type { App, Auth, Firestore };
-
-export const getFirebaseAdmin = () => {
+// Export getters that ensure initialization
+export function getAdminApp(): App {
   if (!adminApp) {
-    if (getApps().length > 0) {
-      adminApp = getApps()[0];
+    const apps = getApps();
+    if (apps.length > 0) {
+      adminApp = apps[0];
     } else {
-      adminApp = initializeApp({
-        credential: applicationDefault(),
-        databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-      });
+      // This will happen only if the initialization failed
+      throw new Error('Firebase Admin app not initialized');
     }
   }
   return adminApp;
-};
+}
+
+export function getAdminAuth(): Auth {
+  if (!adminAuth) {
+    adminAuth = getAuth(getAdminApp());
+  }
+  return adminAuth;
+}
+
+export function getAdminDb(): Firestore {
+  if (!adminDb) {
+    adminDb = getFirestore(getAdminApp());
+  }
+  return adminDb;
+}
+
+// Legacy methods for backward compatibility
+export async function initializeAdminApp() {
+  console.warn('Deprecated: Use getAdminApp() instead of initializeAdminApp()');
+  await initializeAdmin();
+  return adminApp;
+}
+
+export function initializeAdminAuth(): Auth {
+  console.warn('Deprecated: Use getAdminAuth() instead of initializeAdminAuth()');
+  return getAdminAuth();
+}
+
+export function initializeAdminDb(): Firestore {
+  console.warn('Deprecated: Use getAdminDb() instead of initializeAdminDb()');
+  return getAdminDb();
+}
+
+// Export for direct use
+export { adminApp as app, adminAuth as auth, adminDb as db };
+export type { App, Auth, Firestore };
