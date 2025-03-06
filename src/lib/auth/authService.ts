@@ -24,6 +24,7 @@ export type AuthUser = User & {
   };
   role?: string;
   isSuperAdmin?: boolean;
+  username?: string;
 };
 
 export interface LoginCredentials {
