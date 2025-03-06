@@ -30,14 +30,14 @@ interface DetailItem {
 }
 
 const formatAnnualFees = (
-  fees: { amount: string; waived_first_year: boolean } | null
+  fees: { amount: string; waived_first_year: boolean } | null | undefined
 ) => {
   if (!fees) return null;
   return `${fees.amount}${fees.waived_first_year ? ' (First Year Waived)' : ''}`;
 };
 
 const formatForeignTransactionFees = (
-  fees: { percentage: string; waived: boolean } | null
+  fees: { percentage: string; waived: boolean } | null | undefined
 ) => {
   if (!fees) return null;
   return fees.waived ? 'None' : fees.percentage;
@@ -80,24 +80,30 @@ export default function AccountDetailsSection({
     hasRole: hasRole(UserRole.SUPER_ADMIN),
     canModify,
     canEdit,
+    isGlobalEditMode,
   });
 
-  if (!details) return null;
+  if (!details && !isGlobalEditMode) return null;
 
-  const detailItems = [
+  // Create an empty details object if it doesn't exist and we're in global edit mode
+  const effectiveDetails = details || {};
+
+  // Define all possible detail fields based on the opportunity type and the FirestoreOpportunity schema
+  const allDetailItems: Array<DetailItem | null | undefined> = [
+    // Common fields for all opportunity types
     {
       icon: <AccountBalance />,
       label: 'Account Type',
-      value: details.account_type || '',
+      value: effectiveDetails.account_type || '',
       field: 'details.account_type',
       type: 'select',
       options: ['Personal', 'Business', 'Both'],
       highlight: false,
     },
-    details.account_category && {
+    {
       icon: <AccountBalance />,
       label: 'Account Category',
-      value: details.account_category,
+      value: effectiveDetails.account_category || '',
       field: 'details.account_category',
       type: 'select',
       options: ['personal', 'business'],
@@ -105,144 +111,172 @@ export default function AccountDetailsSection({
     {
       icon: <Payment />,
       label: 'Monthly Fees',
-      value: details.monthly_fees?.amount || '',
+      value: effectiveDetails.monthly_fees?.amount || '',
       field: 'details.monthly_fees.amount',
       type: 'text',
-      highlight: details.monthly_fees?.amount === 'None',
-      subtext: details.monthly_fees?.waiver_details,
+      highlight: effectiveDetails.monthly_fees?.amount === 'None',
+      subtext: effectiveDetails.monthly_fees?.waiver_details,
     },
-    details.annual_fees && {
+    {
       icon: <Payment />,
       label: 'Annual Fees',
-      value: formatAnnualFees(details.annual_fees) || '',
+      value: formatAnnualFees(effectiveDetails.annual_fees) || '',
       field: 'details.annual_fees.amount',
       type: 'text',
-      highlight: details.annual_fees?.amount?.includes('No annual fee'),
+      highlight: effectiveDetails.annual_fees?.amount?.includes('No annual fee'),
     },
-    details.foreign_transaction_fees && {
+    {
       icon: <Payment />,
       label: 'Foreign Transaction Fees',
-      value: formatForeignTransactionFees(details.foreign_transaction_fees) || '',
+      value:
+        formatForeignTransactionFees(effectiveDetails.foreign_transaction_fees) || '',
       field: 'details.foreign_transaction_fees.percentage',
       type: 'text',
-      highlight: details.foreign_transaction_fees?.waived,
+      highlight: effectiveDetails.foreign_transaction_fees?.waived,
     },
-    details.availability && {
+    {
       icon: <AccountBalance />,
       label: 'Restrictions',
       value: [
-        details.availability.type === 'State'
-          ? `${getStatesArray(details.availability.states).join(', ')} only`
-          : details.availability.type === 'Nationwide'
+        effectiveDetails.availability?.type === 'State'
+          ? `${getStatesArray(effectiveDetails.availability?.states).join(', ')} only`
+          : effectiveDetails.availability?.type === 'Nationwide'
             ? 'Available nationwide'
             : null,
-        details.under_5_24 ? '5/24 Rule applies' : null,
-        details.credit_score ? `${details.credit_score}+ credit score` : null,
-        details.household_limit ? details.household_limit : null,
+        effectiveDetails.under_5_24 ? '5/24 Rule applies' : null,
+        effectiveDetails.credit_score
+          ? `${effectiveDetails.credit_score}+ credit score`
+          : null,
+        effectiveDetails.household_limit ? effectiveDetails.household_limit : null,
       ]
         .filter(Boolean)
         .join(' • '),
-      warning: details.under_5_24 || details.availability.type === 'State',
-      highlight: details.availability.type === 'Nationwide',
-      subtext: details.availability.details,
+      warning:
+        effectiveDetails.under_5_24 || effectiveDetails.availability?.type === 'State',
+      highlight: effectiveDetails.availability?.type === 'Nationwide',
+      subtext: effectiveDetails.availability?.details,
     },
-    details.credit_inquiry && {
+    {
       icon: <AccountBalance />,
       label: 'Credit Inquiry',
-      value: details.credit_inquiry,
+      value: effectiveDetails.credit_inquiry || '',
       field: 'details.credit_inquiry',
       type: 'select',
       options: ['Hard Pull', 'Soft Pull', 'None'],
-      warning: details.credit_inquiry === 'Hard Pull',
+      warning: effectiveDetails.credit_inquiry === 'Hard Pull',
     },
-    details.minimum_credit_limit && {
+    {
       icon: <Payment />,
       label: 'Minimum Credit Limit',
-      value: details.minimum_credit_limit,
+      value: effectiveDetails.minimum_credit_limit || '',
       field: 'details.minimum_credit_limit',
       type: 'text',
     },
-    details.rewards_structure && {
+    {
       icon: <AccountBalance />,
       label: 'Rewards Structure',
-      value: details.rewards_structure,
+      value: effectiveDetails.rewards_structure || '',
       field: 'details.rewards_structure',
       type: 'multiline',
     },
-    details.minimum_deposit && {
+    {
       icon: <AccountBalance />,
       label: 'Minimum Deposit',
-      value: details.minimum_deposit,
+      value: effectiveDetails.minimum_deposit || '',
       field: 'details.minimum_deposit',
       type: 'text',
     },
-    details.holding_period && {
+    {
       icon: <CalendarToday />,
       label: 'Holding Period',
-      value: details.holding_period,
+      value: effectiveDetails.holding_period || '',
       field: 'details.holding_period',
       type: 'text',
     },
-    details.options_trading && {
+    {
       icon: <AccountBalance />,
       label: 'Options Trading',
-      value: details.options_trading,
+      value: effectiveDetails.options_trading || '',
       field: 'details.options_trading',
       type: 'select',
       options: ['Yes', 'No'],
-      highlight: details.options_trading === 'Yes',
+      highlight: effectiveDetails.options_trading === 'Yes',
     },
-    details.ira_accounts && {
+    {
       icon: <AccountBalance />,
       label: 'IRA Accounts',
-      value: details.ira_accounts,
+      value: effectiveDetails.ira_accounts || '',
       field: 'details.ira_accounts',
       type: 'select',
       options: ['Yes', 'No'],
-      highlight: details.ira_accounts === 'Yes',
+      highlight: effectiveDetails.ira_accounts === 'Yes',
     },
-    details.trading_requirements && {
+    {
       icon: <AccountBalance />,
       label: 'Trading Requirements',
-      value: details.trading_requirements,
+      value: effectiveDetails.trading_requirements || '',
       field: 'details.trading_requirements',
       type: 'multiline',
     },
-    details.platform_features && {
+    {
       icon: <AccountBalance />,
       label: 'Platform Features',
-      value: details.platform_features.map((f) => f.name).join(', '),
+      value: effectiveDetails.platform_features
+        ? effectiveDetails.platform_features.map((f) => f.name).join(', ')
+        : '',
       field: 'details.platform_features',
       type: 'multiline',
     },
-    details.early_closure_fee && {
+    {
       icon: <Payment />,
       label: 'Early Closure Fee',
-      value: details.early_closure_fee,
+      value: effectiveDetails.early_closure_fee || '',
       field: 'details.early_closure_fee',
       type: 'text',
     },
-    details.chex_systems && {
+    {
       icon: <AccountBalance />,
       label: 'ChexSystems',
-      value: details.chex_systems,
+      value: effectiveDetails.chex_systems || '',
       field: 'details.chex_systems',
       type: 'text',
     },
-    details.expiration && {
+    {
       icon: <CalendarToday />,
       label: 'Offer Expires',
-      value: details.expiration,
+      value: effectiveDetails.expiration || '',
       field: 'details.expiration',
       type: 'date',
-      warning: details.expiration && !isNaN(new Date(details.expiration).getTime()),
+      warning:
+        effectiveDetails.expiration &&
+        !isNaN(new Date(effectiveDetails.expiration).getTime()),
     },
   ].filter((item): item is NonNullable<typeof item> & DetailItem => {
+    // Show all items in global edit mode, otherwise only show items with values
     if (!item || typeof item === 'string') return false;
-    return typeof item.value === 'string' && item.value.length > 0;
+
+    if (isGlobalEditMode) {
+      return true; // Show all fields in global edit mode
+    } else {
+      return typeof item.value === 'string' && item.value.length > 0;
+    }
   });
 
-  if (detailItems.length === 0) return null;
+  // Filter null/undefined items and type-cast for TypeScript
+  const validDetailItems = allDetailItems.filter(
+    (item): item is NonNullable<typeof item> & DetailItem => {
+      // Show all items in global edit mode, otherwise only show items with values
+      if (!item || typeof item === 'string') return false;
+
+      if (isGlobalEditMode) {
+        return true; // Show all fields in global edit mode
+      } else {
+        return typeof item.value === 'string' && item.value.length > 0;
+      }
+    }
+  );
+
+  if (validDetailItems.length === 0) return null;
 
   return (
     <Paper
@@ -282,7 +316,7 @@ export default function AccountDetailsSection({
       </Typography>
 
       <Grid container spacing={3}>
-        {detailItems.map((item, index) => (
+        {validDetailItems.map((item, index) => (
           <Grid item xs={12} md={4} key={index}>
             <Box
               sx={{
@@ -342,18 +376,23 @@ export default function AccountDetailsSection({
                         : undefined
                     }
                     hideIcon={!canEdit}
+                    canEdit={canEdit || isGlobalEditMode}
                     tooltip={`Edit ${item.label.toLowerCase()}`}
                     showEmpty={isGlobalEditMode}
+                    label={item.label}
+                    placeholder={`Enter ${item.label.toLowerCase()}...`}
                     customStyles={{
                       wrapper: {
                         width: '100%',
                       },
                       input: {
                         bgcolor: 'transparent',
+                        padding: 0,
                         '&:hover': {
-                          bgcolor: canEdit
-                            ? alpha(theme.palette.background.paper, 0.6)
-                            : 'transparent',
+                          bgcolor:
+                            canEdit || isGlobalEditMode
+                              ? alpha(theme.palette.background.paper, 0.6)
+                              : 'transparent',
                         },
                       },
                     }}

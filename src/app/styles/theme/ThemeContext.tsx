@@ -40,26 +40,18 @@ const gray = {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Initialize with a default theme to avoid hydration mismatch
   const [mounted, setMounted] = useState(false);
-  const [mode, setMode] = useState<ThemeMode>(() => {
-    // Try to get the saved theme during initialization
-    if (typeof window !== 'undefined') {
-      const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
-      return savedMode || 'system';
-    }
-    return 'system';
-  });
-  const [systemPreference, setSystemPreference] = useState<'light' | 'dark'>(() => {
-    // Try to get system preference during initialization
-    if (typeof window !== 'undefined') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return 'light';
-  });
+  const [mode, setMode] = useState<ThemeMode>('system'); // Default to system during SSR
+  const [systemPreference, setSystemPreference] = useState<'light' | 'dark'>('light'); // Default to light during SSR
 
   // Only update the theme after component mount to avoid hydration mismatch
   useEffect(() => {
-    setMounted(true);
+    // Get saved theme from localStorage after mounting
+    const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
+    if (savedMode) {
+      setMode(savedMode);
+    }
 
+    // Now we can safely use browser APIs
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
       setSystemPreference(e.matches ? 'dark' : 'light');
@@ -69,11 +61,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setSystemPreference(mediaQuery.matches ? 'dark' : 'light');
     mediaQuery.addEventListener('change', handleChange);
 
+    // Set mounted to true after all client-side initialization
+    setMounted(true);
+
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
   const actualMode = useMemo(() => {
-    if (!mounted) return 'light'; // Default during SSR
+    if (!mounted) return 'light'; // Default during SSR and initial client render
     return mode === 'system' ? systemPreference : mode;
   }, [mounted, mode, systemPreference]);
 

@@ -1,4 +1,6 @@
+import { type ClassValue, clsx } from 'clsx';
 import { timingSafeEqual } from 'crypto';
+import { twMerge } from 'tailwind-merge';
 
 /**
  * Safely compares two strings in a timing-safe manner
@@ -18,3 +20,10 @@ export const compareStrings = (a: string, b: string): boolean => {
   }
 };
 export { timingSafeEqual };
+
+/**
+ * Combines multiple class names using clsx and tailwind-merge
+ */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}

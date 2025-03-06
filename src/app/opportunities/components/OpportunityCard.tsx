@@ -235,7 +235,6 @@ export default function OpportunityCard({
 
     const isNationwide = opportunity.details.availability.type === 'Nationwide';
     const states = opportunity.details.availability.states || [];
-    // Remove duplicates from states array
     const uniqueStates = Array.from(new Set(states));
 
     return (
@@ -288,6 +287,69 @@ export default function OpportunityCard({
         </Stack>
       </Stack>
     );
+  };
+
+  // Get detailed information for tooltip
+  const getDetailedInfo = () => {
+    const details = [];
+
+    // Add bonus value and requirements
+    if (opportunity.bonus?.requirements?.[0]?.description) {
+      details.push({
+        title: 'Bonus Details',
+        content: `${displayValue(opportunity.value)} - ${opportunity.bonus.requirements[0].description}`,
+      });
+    }
+
+    // Add expiration date if available
+    if (opportunity.details?.expiration) {
+      details.push({
+        title: 'Offer Expiration',
+        content: opportunity.details.expiration,
+        icon: <CalendarTodayIcon sx={{ fontSize: '0.9rem' }} />,
+      });
+    }
+
+    // Add credit inquiry if available (for credit cards)
+    if (opportunity.type === 'credit_card' && opportunity.details?.credit_inquiry) {
+      details.push({
+        title: 'Credit Pull',
+        content: opportunity.details.credit_inquiry,
+        icon: <CreditScoreIcon sx={{ fontSize: '0.9rem' }} />,
+      });
+    }
+
+    // Add account type details if available
+    if (opportunity.details?.account_type) {
+      details.push({
+        title: 'Account Type',
+        content: opportunity.details.account_type,
+        icon: <AccountBalanceIcon sx={{ fontSize: '0.9rem' }} />,
+      });
+    }
+
+    // Add monthly fees if available
+    if (opportunity.details?.monthly_fees) {
+      details.push({
+        title: 'Monthly Fee',
+        content: opportunity.details.monthly_fees.amount,
+        icon: <PaymentsIcon sx={{ fontSize: '0.9rem' }} />,
+      });
+    }
+
+    // Add annual fees if available (for credit cards)
+    if (opportunity.type === 'credit_card' && opportunity.details?.annual_fees) {
+      const waived = opportunity.details.annual_fees.waived_first_year
+        ? ' (First Year Waived)'
+        : '';
+      details.push({
+        title: 'Annual Fee',
+        content: `${opportunity.details.annual_fees.amount}${waived}`,
+        icon: <MonetizationOnIcon sx={{ fontSize: '0.9rem' }} />,
+      });
+    }
+
+    return details;
   };
 
   return (
@@ -492,33 +554,24 @@ export default function OpportunityCard({
           </Typography>
         </Box>
 
-        {/* Requirements */}
-        <Box sx={{ mb: 2.5 }}>{renderRequirements()}</Box>
+        {/* Main card content in a more organized grid layout */}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: '1fr',
+            gap: 2.5,
+            mb: 2.5,
+          }}
+        >
+          {/* Requirements */}
+          {renderRequirements() && <Box>{renderRequirements()}</Box>}
 
-        {/* Features */}
-        <Box sx={{ mb: 2.5 }}>{renderFeatures()}</Box>
+          {/* Features */}
+          {renderFeatures() && <Box>{renderFeatures()}</Box>}
 
-        {/* Availability */}
-        <Box sx={{ mb: 2.5 }}>{renderAvailability()}</Box>
-
-        {/* Description */}
-        {opportunity.description && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{
-              mb: 2.5,
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              fontSize: '0.875rem',
-              lineHeight: 1.5,
-            }}
-          >
-            {opportunity.description}
-          </Typography>
-        )}
+          {/* Availability */}
+          {renderAvailability() && <Box>{renderAvailability()}</Box>}
+        </Box>
 
         {/* Actions */}
         <Box
@@ -551,49 +604,102 @@ export default function OpportunityCard({
               <ArrowForwardIcon sx={{ ml: 1, fontSize: '0.9rem' }} />
             </Button>
           </Link>
-          {opportunity.offer_link && (
-            <Tooltip
-              title={
-                <Box sx={{ p: 1 }}>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    View offer details on provider&apos;s website
-                  </Typography>
-                  {opportunity.details?.expiration && (
-                    <Typography
-                      variant="caption"
-                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                    >
-                      <CalendarTodayIcon sx={{ fontSize: '0.8rem' }} />
-                      Expires: {opportunity.details.expiration}
-                    </Typography>
-                  )}
-                </Box>
-              }
-              arrow
-              placement="top"
-            >
-              <Button
-                variant="outlined"
-                href={opportunity.offer_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{
-                  minWidth: 'unset',
-                  width: 42,
-                  height: 42,
-                  borderRadius: '8px',
-                  borderColor: 'divider',
-                  color: colors.primary,
-                  '&:hover': {
-                    borderColor: colors.primary,
-                    bgcolor: alpha(colors.primary, 0.04),
+
+          {/* Enhanced Info Button with more comprehensive tooltip */}
+          <Tooltip
+            title={
+              <Box sx={{ p: 1 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                  {opportunity.name} Details
+                </Typography>
+
+                {getDetailedInfo().map((detail, idx) => (
+                  <Stack
+                    key={idx}
+                    direction="row"
+                    spacing={1}
+                    alignItems="flex-start"
+                    sx={{
+                      mb: 1,
+                      pb: idx < getDetailedInfo().length - 1 ? 1 : 0,
+                      borderBottom:
+                        idx < getDetailedInfo().length - 1 ? '1px solid' : 'none',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    {detail.icon && (
+                      <Box sx={{ color: colors.primary, mt: 0.3 }}>{detail.icon}</Box>
+                    )}
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        sx={{ fontWeight: 600, color: colors.primary }}
+                      >
+                        {detail.title}
+                      </Typography>
+                      <Typography variant="body2">{detail.content}</Typography>
+                    </Box>
+                  </Stack>
+                ))}
+
+                {opportunity.offer_link && (
+                  <Button
+                    variant="outlined"
+                    href={opportunity.offer_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="small"
+                    fullWidth
+                    sx={{
+                      mt: 1,
+                      borderRadius: '8px',
+                      textTransform: 'none',
+                      fontSize: '0.75rem',
+                      color: colors.primary,
+                      borderColor: colors.primary,
+                    }}
+                  >
+                    View on Provider Website
+                  </Button>
+                )}
+              </Box>
+            }
+            arrow
+            placement="top-end"
+            componentsProps={{
+              tooltip: {
+                sx: {
+                  maxWidth: 320,
+                  bgcolor: theme.palette.background.paper,
+                  boxShadow: `0 8px 16px ${alpha(theme.palette.common.black, 0.15)}`,
+                  color: 'text.primary',
+                  p: 2,
+                  borderRadius: '10px',
+                  '& .MuiTooltip-arrow': {
+                    color: theme.palette.background.paper,
                   },
-                }}
-              >
-                <InfoIcon sx={{ fontSize: '1.1rem' }} />
-              </Button>
-            </Tooltip>
-          )}
+                },
+              },
+            }}
+          >
+            <Button
+              variant="outlined"
+              sx={{
+                minWidth: 'unset',
+                width: 42,
+                height: 42,
+                borderRadius: '8px',
+                borderColor: 'divider',
+                color: colors.primary,
+                '&:hover': {
+                  borderColor: colors.primary,
+                  bgcolor: alpha(colors.primary, 0.04),
+                },
+              }}
+            >
+              <InfoIcon sx={{ fontSize: '1.1rem' }} />
+            </Button>
+          </Tooltip>
         </Box>
       </Box>
     </Paper>

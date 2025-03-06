@@ -1,4 +1,8 @@
-import { Check, Close, Edit as EditIcon } from '@mui/icons-material';
+import {
+  Check as CheckIcon,
+  Close as CloseIcon,
+  Edit as EditIcon,
+} from '@mui/icons-material';
 import {
   Box,
   IconButton,
@@ -12,7 +16,6 @@ import {
   CircularProgress,
   Tooltip,
 } from '@mui/material';
-import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
 export interface EditableFieldProps {
@@ -41,6 +44,7 @@ export const EditableField = ({
   onStartEdit,
   onCancelEdit,
   className,
+  sx = {},
   editable = true,
   hideIcon = false,
   isUpdating = false,
@@ -52,13 +56,34 @@ export const EditableField = ({
     field.value ?? ''
   );
   const [isHovered, setIsHovered] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Define editor styles
+  const editorStyles = {
+    '.MuiOutlinedInput-root': {
+      fontSize: '0.875rem',
+      backgroundColor: alpha(theme.palette.background.default, 0.4),
+    },
+    '.MuiInputBase-input': {
+      padding: '4px 8px',
+    },
+    width: '100%',
+  };
+
+  // Mouse event handlers for hover state
+  const handleMouseEnter = () => {
+    if (editable) {
+      setIsHovered(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
 
   useEffect(() => {
     setLocalValue(field.value ?? '');
-    setIsEditing(field.isEditing);
-  }, [field.value, field.isEditing]);
+  }, [field.value]);
 
   const validateValue = (value: string | number | boolean): boolean => {
     if (field.type === 'number' && typeof value === 'number') {
@@ -91,276 +116,179 @@ export const EditableField = ({
 
     if (validateValue(localValue)) {
       onEdit(localValue);
-      setIsEditing(false);
     }
   };
 
   const handleStartEdit = () => {
     if (!editable) return;
-    setIsEditing(true);
-    setError(null);
     onStartEdit();
   };
 
   const handleCancel = () => {
-    setIsEditing(false);
-    setLocalValue(field.value ?? '');
-    setError(null);
     onCancelEdit();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      if (field.type !== 'multiline') {
-        e.preventDefault();
-        handleSubmit();
-      }
+      e.preventDefault();
+      handleSubmit();
     } else if (e.key === 'Escape') {
       handleCancel();
     }
   };
 
-  const renderEditControl = () => {
-    const commonProps = {
-      value: localValue,
-      onKeyDown: handleKeyDown,
-      autoFocus: true,
-      size: 'small' as const,
-      fullWidth: true,
-      error: Boolean(error),
-      sx: {
-        '& .MuiInputBase-root': {
-          bgcolor: alpha(theme.palette.background.paper, 0.6),
-          backdropFilter: 'blur(8px)',
-          pr: '76px',
-          fontSize: {
-            xs: field.type === 'title' ? 'clamp(2.5rem, 6vw, 3.5rem)' : '0.875rem',
-            sm: field.type === 'title' ? 'clamp(3rem, 7vw, 4.5rem)' : 'inherit',
-          },
-          fontWeight: field.type === 'title' ? 600 : 'inherit',
-          minWidth: 'unset',
-          width: '100%',
-          borderRadius: 2,
-          border: '1px solid',
-          borderColor: alpha(theme.palette.divider, 0.1),
-          transition: 'all 0.2s ease-in-out',
-          '&:hover, &:focus-within': {
-            borderColor: alpha(theme.palette.primary.main, 0.3),
-            bgcolor: alpha(theme.palette.background.paper, 0.8),
-          },
-          height: 'auto',
-          minHeight: '40px',
-          alignItems: 'flex-start',
-          py: field.type === 'title' ? 0.5 : 0,
-          lineHeight: field.type === 'title' ? 1.2 : 1.5,
-        },
-        '& .MuiInputBase-input': {
-          py: { xs: 1, sm: 0.5 },
-          px: 1.5,
-          minHeight: 'auto',
-          fontSize: 'inherit',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          display: '-webkit-box',
-          WebkitLineClamp: field.type === 'multiline' ? 'unset' : 1,
-          WebkitBoxOrient: 'vertical',
-        },
-        '& .MuiOutlinedInput-notchedOutline': {
-          border: 'none',
-        },
-      },
-    };
-
-    if (field.type === 'select' && field.options) {
-      return (
-        <Select
-          {...commonProps}
-          value={
-            typeof localValue === 'string' ? localValue : localValue?.toString() || ''
-          }
-          onChange={handleSelectChange}
-          MenuProps={{
-            PaperProps: {
-              sx: {
-                bgcolor: alpha(theme.palette.background.paper, 0.9),
-                backdropFilter: 'blur(8px)',
-                borderRadius: 2,
-                border: '1px solid',
-                borderColor: alpha(theme.palette.divider, 0.1),
-                minWidth: 'unset !important',
-                width: 'calc(100% - 32px)',
-                maxWidth: '100%',
-                overflow: 'auto',
-              },
-            },
-          }}
-        >
-          {field.options.map((option) => (
-            <MenuItem key={option} value={option}>
-              {field.optionLabels?.[option] || option}
-            </MenuItem>
-          ))}
-        </Select>
-      );
-    }
-
-    return (
-      <TextField
-        {...commonProps}
-        type={field.type === 'number' ? 'number' : 'text'}
-        multiline={field.type === 'multiline'}
-        minRows={field.type === 'multiline' ? 3 : 1}
-        onChange={handleChange}
-        helperText={error}
-        placeholder={placeholder}
-      />
-    );
-  };
-
   return (
-    <Box
-      component={motion.div}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      sx={{
-        position: 'relative',
-        display: 'block',
-        width: '100%',
-        fontSize: field.type === 'title' ? '1.5rem' : 'inherit',
-        fontWeight: field.type === 'title' ? 600 : 'inherit',
-        minHeight: 'auto',
-        '&:hover': {
-          '& .edit-button': {
-            opacity: hideIcon ? 0 : 1,
-            visibility: hideIcon ? 'hidden' : 'visible',
-          },
-        },
-      }}
-      className={className}
-      data-field-key={fieldKey}
-    >
-      {isEditing ? (
+    <Box className={className} sx={sx}>
+      {field.isEditing ? (
         <Box sx={{ position: 'relative' }}>
-          {isUpdating && (
-            <CircularProgress
-              size={20}
+          {field.type === 'select' && field.options ? (
+            <Select
+              fullWidth
+              size="small"
+              value={String(localValue)}
+              onChange={handleSelectChange}
               sx={{
-                position: 'absolute',
-                right: 40,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                zIndex: 3,
+                '.MuiSelect-select': {
+                  py: 1,
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                },
+                ...editorStyles,
               }}
+              displayEmpty
+              autoFocus
+              error={!!error}
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {field.options.map((option) => (
+                <MenuItem key={option} value={option}>
+                  {field.optionLabels?.[option] || option}
+                </MenuItem>
+              ))}
+            </Select>
+          ) : field.type === 'multiline' ? (
+            <TextField
+              fullWidth
+              multiline
+              minRows={2}
+              maxRows={4}
+              value={localValue}
+              onChange={handleChange}
+              variant="outlined"
+              size="small"
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder || `Enter ${fieldKey || 'value'}...`}
+              autoFocus
+              sx={editorStyles}
+              error={!!error}
+              helperText={error}
+            />
+          ) : (
+            <TextField
+              fullWidth
+              value={localValue}
+              onChange={handleChange}
+              variant="outlined"
+              size="small"
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder || `Enter ${fieldKey || 'value'}...`}
+              autoFocus
+              type={field.type === 'number' ? 'number' : 'text'}
+              InputLabelProps={field.type === 'date' ? { shrink: true } : undefined}
+              sx={editorStyles}
+              error={!!error}
+              helperText={error}
             />
           )}
-          {renderEditControl()}
-          <Box
-            sx={{
-              position: 'absolute',
-              right: 8,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              display: 'flex',
-              gap: 0.5,
-              zIndex: 2,
-              backdropFilter: 'blur(8px)',
-              bgcolor: alpha(theme.palette.background.paper, 0.8),
-              p: 0.5,
-              borderRadius: 1,
-              boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.1)}`,
-            }}
-          >
-            <Tooltip title="Save changes">
-              <IconButton
-                size="small"
-                onClick={handleSubmit}
-                disabled={Boolean(error) || isUpdating}
-                sx={{
-                  color: 'success.main',
-                  bgcolor: alpha(theme.palette.success.main, 0.1),
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.success.main, 0.2),
-                    transform: 'scale(1.05)',
-                  },
-                  transition: 'all 0.2s ease-in-out',
-                }}
-              >
-                <Check fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Cancel editing">
-              <IconButton
-                size="small"
-                onClick={handleCancel}
-                disabled={isUpdating}
-                sx={{
-                  color: 'error.main',
-                  bgcolor: alpha(theme.palette.error.main, 0.1),
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.error.main, 0.2),
-                    transform: 'scale(1.05)',
-                  },
-                  transition: 'all 0.2s ease-in-out',
-                }}
-              >
-                <Close fontSize="small" />
-              </IconButton>
-            </Tooltip>
+          <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <IconButton
+              size="small"
+              onClick={handleCancel}
+              sx={{ color: 'text.secondary' }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={handleSubmit}
+              sx={{
+                color: 'primary.main',
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                },
+              }}
+            >
+              <CheckIcon fontSize="small" />
+            </IconButton>
           </Box>
         </Box>
       ) : (
         <Box
+          onClick={editable ? handleStartEdit : undefined}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
           sx={{
-            cursor: editable ? 'pointer' : 'text',
-            display: 'flex',
-            alignItems: 'center',
             position: 'relative',
-            pr: hideIcon ? 2 : { xs: '28px', sm: '36px' },
-            py: field.type === 'title' ? { xs: 1, sm: 1.5 } : 1,
-            px: { xs: 1.5, sm: 2 },
-            borderRadius: 2,
+            cursor: editable ? 'pointer' : 'default',
+            display: 'inline-block',
+            minHeight: '1.5em',
+            padding: field.type === 'title' ? '0' : '0',
+            borderRadius: '4px',
+            transition: 'all 0.2s',
+            fontWeight: field.type === 'title' ? 600 : 'normal',
+            fontSize: field.type === 'title' ? '1.25rem' : '0.875rem',
+            lineHeight: field.type === 'title' ? 1.6 : 1.4,
+            color: field.value ? 'text.primary' : 'text.secondary',
             border: '1px solid transparent',
-            transition: 'all 0.2s ease-in-out',
-            minHeight: '40px',
-            lineHeight: field.type === 'title' ? 1.3 : 1.5,
-            wordBreak: 'break-word',
-            whiteSpace: 'pre-wrap',
-            width: '100%',
-            maxWidth: '100%',
             '&:hover': {
-              bgcolor: editable
-                ? alpha(theme.palette.background.paper, 0.6)
+              backgroundColor: editable
+                ? alpha(theme.palette.primary.main, 0.04)
                 : 'transparent',
-              borderColor: editable ? alpha(theme.palette.divider, 0.1) : 'transparent',
+              border: editable
+                ? `1px solid ${alpha(theme.palette.primary.main, 0.2)}`
+                : '1px solid transparent',
             },
           }}
-          onClick={editable ? handleStartEdit : undefined}
         >
-          {field.value || (editable ? '(Click to edit)' : '')}
-          {isHovered && editable && !hideIcon && (
-            <IconButton
-              className="edit-button"
-              size="small"
-              sx={{
-                position: 'absolute',
-                right: 4,
-                opacity: 0,
-                visibility: 'hidden',
-                transition: 'all 0.2s ease-in-out',
-                color: theme.palette.primary.main,
-                bgcolor: alpha(theme.palette.background.paper, 0.9),
-                boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.1)}`,
-                backdropFilter: 'blur(8px)',
-                '&:hover': {
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  transform: 'scale(1.05)',
-                },
-              }}
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
+          {field.value !== null && field.value !== undefined && field.value !== '' ? (
+            <>{field.value}</>
+          ) : (
+            <Box component="span" sx={{ fontStyle: 'italic', opacity: 0.6 }}>
+              {placeholder || `Add ${fieldKey || 'value'}...`}
+            </Box>
+          )}
+          {!hideIcon && editable && isHovered && (
+            <Tooltip title="Edit" placement="top">
+              <EditIcon
+                sx={{
+                  fontSize: '0.875rem',
+                  ml: 0.5,
+                  verticalAlign: 'middle',
+                  opacity: 0.6,
+                  color: 'primary.main',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    opacity: 1,
+                    transform: 'scale(1.1)',
+                  },
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStartEdit();
+                }}
+              />
+            </Tooltip>
           )}
         </Box>
+      )}
+      {isUpdating && (
+        <CircularProgress
+          size={16}
+          sx={{ ml: 1, verticalAlign: 'middle', color: 'primary.main' }}
+        />
       )}
     </Box>
   );

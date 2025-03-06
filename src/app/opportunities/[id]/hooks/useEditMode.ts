@@ -8,6 +8,15 @@ import { FirestoreOpportunity } from '@/types/opportunity';
 
 import type { EditModeState, EditableField } from '../OpportunityDetails.types';
 
+/**
+ * This file uses dynamic property access for updating nested fields in Firestore documents.
+ * Type assertions (as DynamicObject) are used to allow bracket notation access
+ * for properties that   aren't part of the static type definition.
+ */
+
+// Define a type for objects with dynamic string keys
+type DynamicObject = Record<string, unknown>;
+
 export const useEditMode = (opportunity: FirestoreOpportunity & { id: string }) => {
   const queryClient = useQueryClient();
   const { mutate: updateOpportunity } = useUpdateOpportunity();
@@ -63,9 +72,17 @@ export const useEditMode = (opportunity: FirestoreOpportunity & { id: string }) 
 
   const updateField = useCallback(
     (fieldKey: string, value: string | number | boolean) => {
+      // If dealing with a date field, ensure it's in the right format
+      const processedValue =
+        typeof value === 'string' &&
+        value.includes('T') &&
+        fieldKey.includes('expiration')
+          ? value // The ISO string from DatePicker is already in the correct format
+          : value;
+
       console.log(`Updating field: ${fieldKey}`, {
         oldValue: get(opportunity, fieldKey),
-        newValue: value,
+        newValue: processedValue,
         opportunityId: opportunity.id,
       });
 
@@ -76,7 +93,7 @@ export const useEditMode = (opportunity: FirestoreOpportunity & { id: string }) 
           ...prev.editingFields,
           [fieldKey]: {
             ...prev.editingFields[fieldKey],
-            value,
+            value: processedValue,
             isEditing: false,
           },
         },
@@ -89,8 +106,17 @@ export const useEditMode = (opportunity: FirestoreOpportunity & { id: string }) 
       const fieldParts = fieldKey.split('.');
       console.log(`Field path structure: ${fieldParts.join(' > ')}`);
 
+      // For empty fields, make sure parent objects exist
+      let currentObj = updatedOpportunity as unknown as DynamicObject;
+      for (let i = 0; i < fieldParts.length - 1; i++) {
+        if (!currentObj[fieldParts[i]]) {
+          currentObj[fieldParts[i]] = {};
+        }
+        currentObj = currentObj[fieldParts[i]] as DynamicObject;
+      }
+
       // Set the value in the cloned object
-      set(updatedOpportunity, fieldKey, value);
+      set(updatedOpportunity, fieldKey, processedValue);
 
       // Update metadata
       updatedOpportunity.metadata = {
@@ -116,42 +142,45 @@ export const useEditMode = (opportunity: FirestoreOpportunity & { id: string }) 
       }
 
       // Optimistically update the cache with deep merging to prevent losing nested data
-      queryClient.setQueryData(opportunityKeys.detail(opportunity.id), (oldData) => {
-        if (!oldData) {
-          console.log('No existing data in cache, using updated opportunity directly');
-          return updatedOpportunity;
+      queryClient.setQueryData(
+        opportunityKeys.detail(opportunity.id),
+        (oldData: (FirestoreOpportunity & { id: string }) | undefined) => {
+          if (!oldData) {
+            console.log('No existing data in cache, using updated opportunity directly');
+            return updatedOpportunity;
+          }
+
+          // Create deep clones to avoid reference issues
+          const oldClone = cloneDeep(oldData);
+          const updateClone = cloneDeep(updatedOpportunity);
+
+          // Deep merge to preserve all nested fields
+          console.log('Merging data:', {
+            oldData: oldClone,
+            updatedOpportunity: updateClone,
+            fieldUpdated: fieldKey,
+          });
+
+          // Check if we're updating a nested field in an object
+          const parentPath = fieldParts.slice(0, -1).join('.');
+          if (parentPath) {
+            const parentObject = get(oldClone, parentPath);
+            console.log(`Parent object at ${parentPath}:`, parentObject);
+          }
+
+          const result = merge({}, oldClone, updateClone);
+
+          // Verify the field was updated correctly
+          console.log('Field value verification:', {
+            oldValue: get(oldClone, fieldKey),
+            newValue: get(result, fieldKey),
+            updatedCorrectly: get(result, fieldKey) === processedValue,
+          });
+
+          console.log('Merge result:', result);
+          return result;
         }
-
-        // Create deep clones to avoid reference issues
-        const oldClone = cloneDeep(oldData);
-        const updateClone = cloneDeep(updatedOpportunity);
-
-        // Deep merge to preserve all nested fields
-        console.log('Merging data:', {
-          oldData: oldClone,
-          updatedOpportunity: updateClone,
-          fieldUpdated: fieldKey,
-        });
-
-        // Check if we're updating a nested field in an object
-        const parentPath = fieldParts.slice(0, -1).join('.');
-        if (parentPath) {
-          const parentObject = get(oldClone, parentPath);
-          console.log(`Parent object at ${parentPath}:`, parentObject);
-        }
-
-        const result = merge({}, oldClone, updateClone);
-
-        // Verify the field was updated correctly
-        console.log('Field value verification:', {
-          oldValue: get(oldClone, fieldKey),
-          newValue: get(result, fieldKey),
-          updatedCorrectly: get(result, fieldKey) === value,
-        });
-
-        console.log('Merge result:', result);
-        return result;
-      });
+      );
 
       // Verify cache was updated correctly
       const updatedCache = queryClient.getQueryData(
@@ -161,10 +190,11 @@ export const useEditMode = (opportunity: FirestoreOpportunity & { id: string }) 
 
       // Verify the details object was preserved if relevant
       if (fieldKey.startsWith('details') && updatedCache) {
+        const updatedCacheTyped = updatedCache as FirestoreOpportunity & { id: string };
         console.log('Details object preservation check:', {
           detailsBeforeKeys: opportunity.details ? Object.keys(opportunity.details) : [],
-          detailsAfterKeys: get(updatedCache, 'details')
-            ? Object.keys(get(updatedCache, 'details') || {})
+          detailsAfterKeys: updatedCacheTyped.details
+            ? Object.keys(updatedCacheTyped.details)
             : [],
           fieldUpdated: fieldKey,
         });
@@ -172,14 +202,26 @@ export const useEditMode = (opportunity: FirestoreOpportunity & { id: string }) 
 
       // Send update to server - structure the update data properly
       const updateData: Record<string, unknown> = {};
-      let currentObj = updateData;
 
-      // Build nested object structure
-      for (let i = 0; i < fieldParts.length - 1; i++) {
-        currentObj[fieldParts[i]] = {} as Record<string, unknown>;
-        currentObj = currentObj[fieldParts[i]] as Record<string, unknown>;
+      // Special handling for nested fields - ensure all parent objects exist
+      if (fieldParts.length > 1) {
+        let currentObj = updateData as unknown as DynamicObject;
+
+        // Build nested object structure
+        for (let i = 0; i < fieldParts.length - 1; i++) {
+          currentObj[fieldParts[i]] = {} as Record<string, unknown>;
+          currentObj = currentObj[fieldParts[i]] as DynamicObject;
+        }
+
+        // Set the final value
+        currentObj[fieldParts[fieldParts.length - 1]] = processedValue;
+      } else {
+        // Simple non-nested field
+        updateData[fieldKey] = processedValue;
       }
-      currentObj[fieldParts[fieldParts.length - 1]] = value;
+
+      // Add metadata update
+      updateData.metadata = updatedOpportunity.metadata;
 
       console.log('Sending update to server:', {
         id: opportunity.id,
@@ -189,10 +231,7 @@ export const useEditMode = (opportunity: FirestoreOpportunity & { id: string }) 
 
       updateOpportunity({
         id: opportunity.id,
-        data: {
-          ...updateData,
-          metadata: updatedOpportunity.metadata,
-        },
+        data: updateData,
       });
     },
     [opportunity, queryClient, updateOpportunity]

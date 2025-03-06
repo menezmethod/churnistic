@@ -22,8 +22,8 @@ import { useSplashStats } from '@/lib/hooks/useSplashStats';
 import { FirestoreOpportunity } from '@/types/opportunity';
 
 // TODO: Re-implement bank logos and public opportunities after API is ready
-import { FAQ } from './components/FAQ';
-import { FeaturedOpportunities } from './components/FeaturedOpportunities';
+import { FAQ } from '../components/FAQ';
+import { FeaturedOpportunities } from '../components/FeaturedOpportunities';
 
 // Replace the User interface with the actual AuthUser type from your auth context
 type AuthUser = ReturnType<typeof useAuth>['user'];
