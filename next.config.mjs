@@ -69,6 +69,23 @@ const nextConfig = {
             value: 'Content-Type, Authorization'
           }
         ]
+      },
+      {
+        source: '/api/auth/verify-session',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*'
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, OPTIONS'
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization'
+          }
+        ]
       }
     ]
   },
@@ -76,6 +93,8 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '2mb'
     },
+    // The nodeMiddleware option is not supported
+    // Using standard Next.js middleware configuration instead
   },
 };
 
