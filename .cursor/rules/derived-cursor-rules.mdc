@@ -38,6 +38,7 @@ The project follows a standard Next.js folder structure.  Specific details are o
 - Always ensure the project builds successfully before committing changes.
 - For robust Firebase initialization, increase the maximum number of initialization attempts (e.g., to 5), add a cooldown period between attempts (e.g., 2 seconds), and verify the connection after initialization with a test query. Add a unique app name during initialization to avoid potential conflicts. Implement a fallback initialization method to handle common issues with service account key formatting.  This fallback method should attempt to correct escaped characters and newlines in the service account key. Always ensure the project builds successfully before committing changes.
 - Always ensure the project builds successfully before committing code.
+- Always ensure the project builds successfully before committing code.
 
 
 ## REFERENCE EXAMPLES
@@ -63,3 +64,4 @@ When debugging, follow these steps:
 - **DO** implement robust Firebase initialization with retries and cooldown periods to mitigate intermittent connection issues.  Verify initialization success using a test query. For more robust Firebase initialization, increase the maximum number of initialization attempts, add a cooldown period between attempts, and verify the connection after initialization with a test query. Consider adding a unique app name during initialization to avoid potential conflicts. Implement a fallback initialization method to handle issues with service account key formatting.  This fallback method should attempt to correct escaped characters and newlines in the service account key.
 - **DO** always ensure the project builds successfully before committing code.
 - **DO** ensure that the `.specstory` folder is added to the `.gitignore` file to prevent accidental commits. Use `git rm -r --cached .specstory/` to remove it from Git's tracking if necessary.
+- **DO**  Always ensure the project builds successfully before committing code.
