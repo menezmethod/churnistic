@@ -1,0 +1,67 @@
+---
+description: Cursor rules derived by SpecStory from the project AI interaction history
+globs: *
+---
+
+## PROJECT OVERVIEW
+This project, churnistic, is a Next.js application with Firebase integration.  It manages opportunities, user accounts, and provides an admin panel.
+
+## CODE STYLE
+Adhere to standard TypeScript and Next.js best practices.  Use Prettier for formatting.
+
+## FOLDER ORGANIZATION
+The project follows a standard Next.js folder structure.  Specific details are outlined in the `README.md`.
+
+## TECH STACK
+- Next.js
+- TypeScript
+- React Query (v5 - see `docs/react_query_v5_best_practices.md` for best practices)
+- Firebase (Firestore, Authentication)
+- Tailwind CSS
+
+## PROJECT-SPECIFIC STANDARDS
+- Commit messages should follow conventional commits (e.g., `feat`, `fix`, `chore`).
+- All new features and bug fixes should be implemented in separate branches.
+
+
+## WORKFLOW & RELEASE RULES
+- Create a new branch for each bug fix or feature.  (Example: `git checkout -b fix-inconsistent-public-stats`)
+- Thoroughly test all changes before merging into `main`.
+- Follow a structured approach to debugging, including identifying potential sources, narrowing down possibilities, adding logs to validate assumptions, and then implementing a code fix.
+- When debugging inconsistent behavior in production that is not reproducible locally, add comprehensive logs to the API routes, client-side hooks, and relevant components to track data flow, Firebase initialization, timing, and potential errors.  Analyze these logs to identify the root cause.
+- When diagnosing inconsistent behavior in production, create a new branch (e.g., `git checkout -b fix-inconsistent-public-stats`). Add comprehensive logs to API routes, client-side hooks, and components to track data flow, Firebase initialization, timing, and potential errors. Analyze these logs to identify the root cause.  Include logs indicating Firebase initialization status, data returned from APIs, and timing information.
+- Add `.specstory` folder to `.gitignore` to prevent accidental commits.  Use `git rm -r --cached .specstory/` to remove it from git's tracking if necessary.
+- When dealing with inconsistent behavior in production (e.g., public stats showing 0 instead of correct values), create a new branch for the fix (e.g., `git checkout -b fix-inconsistent-public-stats`). Add comprehensive logging to the API route, client-side hooks, and relevant components.  The logs should cover Firebase initialization, data flow, timing information, and potential errors. Analyze the logs to identify the root cause.  Include timestamps in logs.
+- Add `.specstory` folder to `.gitignore` to prevent accidental commits. Use `git rm -r --cached .specstory/` to remove it from Git's tracking if necessary.
+- For improved Firebase initialization reliability, increase the number of initialization attempts and add a cooldown period between attempts. Add a verification step after initialization to ensure a working connection.
+- For robust Firebase initialization, increase the maximum number of initialization attempts (e.g., to 5), add a cooldown period between attempts (e.g., 2 seconds), and verify the connection after initialization with a test query.  Add a unique app name during initialization to avoid potential conflicts.
+- Always ensure the project builds successfully before committing changes.
+- For robust Firebase initialization, increase the maximum number of initialization attempts (e.g., to 5), add a cooldown period between attempts (e.g., 2 seconds), and verify the connection after initialization with a test query. Add a unique app name during initialization to avoid potential conflicts. Implement a fallback initialization method to handle common issues with service account key formatting.  This fallback method should attempt to correct escaped characters and newlines in the service account key. Always ensure the project builds successfully before committing changes.
+- Always ensure the project builds successfully before committing code.
+- Always ensure the project builds successfully before committing code.
+
+
+## REFERENCE EXAMPLES
+- Refer to the documentation in the `docs` folder for implementation examples and best practices.
+
+## PROJECT DOCUMENTATION & CONTEXT SYSTEM
+Documentation is maintained in the `docs` folder.  This includes inline documentation within code files and markdown files for explaining specific concepts or processes.  New documentation may be added, such as additional details on debugging procedures.  Include detailed logging strategies in documentation when addressing complex production issues.  Add `.specstory` folder to .gitignore to prevent accidental commits.
+
+## DEBUGGING
+When debugging, follow these steps:
+1. Identify 5-7 potential sources of the problem.
+2. Distill those down to 1-2 most likely sources.
+3. Add comprehensive logs to validate assumptions before implementing a code fix.  Logs should include Firebase initialization status, data returned from APIs, and timing information.
+4. For production issues not reproducible locally, add extensive logging to API routes, client-side hooks, and components.  Log data flow, Firebase initialization status, timing information, and potential errors. Analyze the logs to determine the root cause.  Include timestamps in logs for easier correlation.  Include logs indicating whether Firebase Admin was successfully initialized.  Include logs indicating the environment (e.g., production, development) and the number of initialized Firebase apps. For complex production issues, ensure logs include timestamps and details about Firebase Admin initialization status. When dealing with Firebase initialization issues, consider increasing the number of initialization attempts and adding a cooldown period between attempts. Add a verification step after initialization to ensure a working connection. Include logs indicating the environment (e.g., production, development) and the number of initialized Firebase apps.
+
+## FINAL DOs AND DON'Ts
+- **DO** create a new branch for every bug fix or feature.
+- **DO** add comprehensive logs when debugging, especially for production issues. Include Firebase initialization status, API responses, timing information, and error details. For complex issues, add extensive logging across multiple layers of the application. Include timestamps in logs.  Include logs indicating whether Firebase Admin was successfully initialized.  Include logs indicating the environment (e.g., production, development) and the number of initialized Firebase apps.
+- **DO** use React Query v5 best practices.
+- **DON'T** merge untested code into `main`.
+- **DON'T** neglect to update the documentation when significant changes are implemented, including detailed logging strategies.
+- **DON'T** commit the `.specstory` folder to version control; add it to your `.gitignore` file.
+- **DO** implement robust Firebase initialization with retries and cooldown periods to mitigate intermittent connection issues.  Verify initialization success using a test query. For more robust Firebase initialization, increase the maximum number of initialization attempts, add a cooldown period between attempts, and verify the connection after initialization with a test query. Consider adding a unique app name during initialization to avoid potential conflicts. Implement a fallback initialization method to handle issues with service account key formatting.  This fallback method should attempt to correct escaped characters and newlines in the service account key.
+- **DO** always ensure the project builds successfully before committing code.
+- **DO** ensure that the `.specstory` folder is added to the `.gitignore` file to prevent accidental commits. Use `git rm -r --cached .specstory/` to remove it from Git's tracking if necessary.
+- **DO**  Always ensure the project builds successfully before committing code.

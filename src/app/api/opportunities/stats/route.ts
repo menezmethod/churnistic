@@ -1,15 +1,6 @@
-import { initializeApp, getApps } from 'firebase-admin/app';
-import { applicationDefault } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 
-// Proper singleton initialization
-if (getApps().length === 0) {
-  initializeApp({
-    credential: applicationDefault(),
-    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-  });
-}
+import { getAdminDb } from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 300; // 5 minutes
@@ -17,10 +8,23 @@ export const revalidate = 300; // 5 minutes
 export async function GET() {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // Increased to 8s timeout
 
     try {
-      const db = getFirestore();
+      // Use the shared admin DB instance
+      const db = getAdminDb();
+
+      if (!db) {
+        console.error('[STATS] Failed to get Firestore instance');
+        return NextResponse.json(
+          {
+            error: 'Database connection failed',
+            lastUpdated: new Date().toISOString(),
+          },
+          { status: 200 }
+        );
+      }
+
       // Fetch from both collections
       const [opportunitiesSnapshot, stagedSnapshot] = await Promise.all([
         db.collection('opportunities').get(),
@@ -90,9 +94,21 @@ export async function GET() {
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      return NextResponse.json({ error: 'Stats request timed out' }, { status: 504 });
+      return NextResponse.json(
+        {
+          error: 'Stats request timed out',
+          lastUpdated: new Date().toISOString(),
+        },
+        { status: 504 }
+      );
     }
     console.error('Stats endpoint error:', error);
-    return NextResponse.json({ error: 'Failed to fetch statistics' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch statistics',
+        lastUpdated: new Date().toISOString(),
+      },
+      { status: 500 }
+    );
   }
 }
