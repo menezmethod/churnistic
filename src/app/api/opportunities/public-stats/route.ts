@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 
@@ -31,7 +31,7 @@ async function ensureFirebaseInitialized(): Promise<boolean> {
     }
 
     // Initialize Firebase with the service account
-    const app = initializeApp({
+    initializeApp({
       credential: cert(JSON.parse(serviceAccount)),
       databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
     });
@@ -145,7 +145,7 @@ export async function GET() {
         }
       };
 
-      console.log(`[PUBLIC-STATS] Returning result:`, JSON.stringify(result));
+      console.log('[PUBLIC-STATS] Returning result:', JSON.stringify(result));
       console.log(`[PUBLIC-STATS] Total request duration: ${totalDuration}ms`);
 
       return NextResponse.json(result, {
