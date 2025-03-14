@@ -1,0 +1,50 @@
+---
+description: Cursor rules derived by SpecStory from the project AI interaction history
+globs: *
+---
+
+## PROJECT OVERVIEW
+This project, churnistic, is a Next.js application with Firebase integration.  It manages opportunities, user accounts, and provides an admin panel.
+
+## CODE STYLE
+Adhere to standard TypeScript and Next.js best practices.  Use Prettier for formatting.
+
+## FOLDER ORGANIZATION
+The project follows a standard Next.js folder structure.  Specific details are outlined in the `README.md`.
+
+## TECH STACK
+- Next.js
+- TypeScript
+- React Query (v5 - see `docs/react_query_v5_best_practices.md` for best practices)
+- Firebase (Firestore, Authentication)
+- Tailwind CSS
+
+## PROJECT-SPECIFIC STANDARDS
+- Commit messages should follow conventional commits (e.g., `feat`, `fix`, `chore`).
+- All new features and bug fixes should be implemented in separate branches.
+
+
+## WORKFLOW & RELEASE RULES
+- Create a new branch for each bug fix or feature.  (Example: `git checkout -b fix-inconsistent-public-stats`)
+- Thoroughly test all changes before merging into `main`.
+- Follow a structured approach to debugging, including identifying potential sources, narrowing down possibilities, adding logs to validate assumptions, and then implementing a code fix.
+
+## REFERENCE EXAMPLES
+- Refer to the documentation in the `docs` folder for implementation examples and best practices.
+
+## PROJECT DOCUMENTATION & CONTEXT SYSTEM
+Documentation is maintained in the `docs` folder.  This includes inline documentation within code files and markdown files for explaining specific concepts or processes.  New documentation may be added, such as additional details on debugging procedures.
+
+## DEBUGGING
+When debugging, follow these steps:
+1. Identify 5-7 potential sources of the problem.
+2. Distill those down to 1-2 most likely sources.
+3. Add comprehensive logs to validate assumptions before implementing a code fix.  Logs should include Firebase initialization status, data returned from APIs, and timing information.
+
+
+## FINAL DOs AND DON'Ts
+- **DO** create a new branch for every bug fix or feature.
+- **DO** add comprehensive logs when debugging.
+- **DO** use React Query v5 best practices.
+- **DON'T** merge untested code into `main`.
+- **DON'T** neglect to update the documentation when significant changes are implemented.
