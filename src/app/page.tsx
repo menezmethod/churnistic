@@ -335,7 +335,7 @@ function HeroSection({
 export default function HomePage() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { stats, error: statsError, isLoading } = useSplashStats();
+  const { stats, error: statsError } = useSplashStats();
   const [opportunities, setOpportunities] = useState<FirestoreOpportunity[]>([]);
   const [isOpportunitiesLoading, setIsOpportunitiesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
