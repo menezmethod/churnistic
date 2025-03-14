@@ -29,6 +29,7 @@ interface OpportunityStats {
     requestDuration: number;
     dbQueryDuration?: number;
     timestamp: number;
+    initAttempts?: number;
   };
 }
 
@@ -38,6 +39,7 @@ const fetchStats = async (): Promise<OpportunityStats> => {
   
   const response = await fetch('/api/opportunities/public-stats', {
     next: { revalidate: 300 }, // Cache for 5 minutes
+    cache: 'no-store', // Force a fresh request
   });
   
   const fetchDuration = Date.now() - fetchStart;
@@ -51,6 +53,15 @@ const fetchStats = async (): Promise<OpportunityStats> => {
   
   const data = await response.json();
   console.log('[CLIENT] Received stats data:', JSON.stringify(data));
+  
+  // Check if Firebase was not initialized and retry with a delay
+  if (data.debug?.firebaseInitialized === false) {
+    console.log('[CLIENT] Firebase not initialized on server, will retry after delay');
+    
+    // Throw special error to trigger retry
+    throw new Error('Firebase-not-initialized');
+  }
+  
   return data;
 };
 
@@ -95,7 +106,23 @@ export const useSplashStats = () => {
       console.log('[CLIENT] Formatted stats:', JSON.stringify(formattedStats));
       return formattedStats;
     },
-    retry: 2,
+    retry: (failureCount, error) => {
+      // Special retry logic for Firebase initialization issues
+      if (error instanceof Error && error.message === 'Firebase-not-initialized') {
+        console.log(`[CLIENT] Retrying due to Firebase initialization issue (attempt ${failureCount + 1})`);
+        return true; // Always retry for this specific error
+      }
+      
+      // Standard retry logic for other errors (up to 2 times)
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => {
+      // Exponential backoff with longer delays for Firebase initialization issues
+      const baseDelay = 1000; // 1 second
+      const delay = Math.min(baseDelay * Math.pow(2, attemptIndex), 10000); // Max 10 seconds
+      console.log(`[CLIENT] Retry delay: ${delay}ms`);
+      return delay;
+    },
     refetchOnWindowFocus: true,
   });
 
