@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, ServiceAccount } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 
@@ -8,19 +8,19 @@ const MAX_INIT_ATTEMPTS = 5; // Increased from 3 to 5
 let lastInitAttempt = 0;
 const INIT_COOLDOWN = 2000; // 2 seconds cooldown between initialization attempts
 
-// Interface for service account
-interface ServiceAccount {
-  type: string;
-  project_id: string;
-  private_key_id: string;
-  private_key: string;
-  client_email: string;
-  client_id: string;
-  auth_uri: string;
-  token_uri: string;
-  auth_provider_x509_cert_url: string;
-  client_x509_cert_url: string;
-}
+// Use Firebase Admin's ServiceAccount type instead of our custom interface
+// interface ServiceAccount {
+//   type: string;
+//   project_id: string;
+//   private_key_id: string;
+//   private_key: string;
+//   client_email: string;
+//   client_id: string;
+//   auth_uri: string;
+//   token_uri: string;
+//   auth_provider_x509_cert_url: string;
+//   client_x509_cert_url: string;
+// }
 
 // Create a more robust initialization function
 async function ensureFirebaseInitialized(): Promise<boolean> {
@@ -81,15 +81,14 @@ async function ensureFirebaseInitialized(): Promise<boolean> {
     try {
       parsedServiceAccount = JSON.parse(serviceAccount);
       console.log('[PUBLIC-STATS] Service account key successfully parsed');
-      console.log('[PUBLIC-STATS] Service account type:', parsedServiceAccount.type);
-      console.log('[PUBLIC-STATS] Service account project_id:', parsedServiceAccount.project_id);
-      console.log('[PUBLIC-STATS] Service account client_email exists:', !!parsedServiceAccount.client_email);
-      console.log('[PUBLIC-STATS] Service account private_key exists:', !!parsedServiceAccount.private_key);
+      console.log('[PUBLIC-STATS] Service account project_id:', parsedServiceAccount.projectId);
+      console.log('[PUBLIC-STATS] Service account client_email exists:', !!parsedServiceAccount.clientEmail);
+      console.log('[PUBLIC-STATS] Service account private_key exists:', !!parsedServiceAccount.privateKey);
       
       // Check for common issues with private_key format
-      if (parsedServiceAccount.private_key) {
-        console.log('[PUBLIC-STATS] Private key contains BEGIN PRIVATE KEY:', parsedServiceAccount.private_key.includes('BEGIN PRIVATE KEY'));
-        console.log('[PUBLIC-STATS] Private key contains newlines:', parsedServiceAccount.private_key.includes('\n'));
+      if (parsedServiceAccount.privateKey) {
+        console.log('[PUBLIC-STATS] Private key contains BEGIN PRIVATE KEY:', parsedServiceAccount.privateKey.includes('BEGIN PRIVATE KEY'));
+        console.log('[PUBLIC-STATS] Private key contains newlines:', parsedServiceAccount.privateKey.includes('\n'));
       }
     } catch (parseError) {
       console.error('[PUBLIC-STATS] Failed to parse service account key:', parseError);
@@ -189,9 +188,9 @@ async function ensureFirebaseInitialized(): Promise<boolean> {
         const parsedServiceAccount: ServiceAccount = JSON.parse(correctedServiceAccount);
         
         // Ensure private_key has proper newlines
-        if (parsedServiceAccount.private_key && !parsedServiceAccount.private_key.includes('\n')) {
+        if (parsedServiceAccount.privateKey && !parsedServiceAccount.privateKey.includes('\n')) {
           console.log('[PUBLIC-STATS] Adding newlines to private_key');
-          parsedServiceAccount.private_key = parsedServiceAccount.private_key.replace(/\\n/g, '\n');
+          parsedServiceAccount.privateKey = parsedServiceAccount.privateKey.replace(/\\n/g, '\n');
         }
         
         console.log('[PUBLIC-STATS] Initializing with fallback method');
