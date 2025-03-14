@@ -3,10 +3,12 @@ import * as functions from 'firebase-functions';
 import { CallableRequest } from 'firebase-functions/v2/https';
 
 import { UserRole, Permission } from '@/lib/auth/types';
+import { getAdminApp } from '@/lib/firebase/admin';
 
-// Initialize Firebase Admin if not already initialized
+// Use the shared Firebase Admin instance
 if (!admin.apps.length) {
-  admin.initializeApp();
+  // This will make admin use the app instance from our shared module
+  admin.app(getAdminApp().name);
 }
 
 // Rate limiting configuration
