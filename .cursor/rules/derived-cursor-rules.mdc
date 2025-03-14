@@ -35,6 +35,8 @@ The project follows a standard Next.js folder structure.  Specific details are o
 - Add `.specstory` folder to `.gitignore` to prevent accidental commits. Use `git rm -r --cached .specstory/` to remove it from Git's tracking if necessary.
 - For improved Firebase initialization reliability, increase the number of initialization attempts and add a cooldown period between attempts. Add a verification step after initialization to ensure a working connection.
 - For robust Firebase initialization, increase the maximum number of initialization attempts (e.g., to 5), add a cooldown period between attempts (e.g., 2 seconds), and verify the connection after initialization with a test query.  Add a unique app name during initialization to avoid potential conflicts.
+- Always ensure the project builds successfully before committing changes.
+- For robust Firebase initialization, increase the maximum number of initialization attempts (e.g., to 5), add a cooldown period between attempts (e.g., 2 seconds), and verify the connection after initialization with a test query. Add a unique app name during initialization to avoid potential conflicts. Implement a fallback initialization method to handle common issues with service account key formatting.  This fallback method should attempt to correct escaped characters and newlines in the service account key. Always ensure the project builds successfully before committing changes.
 
 
 ## REFERENCE EXAMPLES
@@ -57,4 +59,5 @@ When debugging, follow these steps:
 - **DON'T** merge untested code into `main`.
 - **DON'T** neglect to update the documentation when significant changes are implemented, including detailed logging strategies.
 - **DON'T** commit the `.specstory` folder to version control; add it to your `.gitignore` file.
-- **DO** implement robust Firebase initialization with retries and cooldown periods to mitigate intermittent connection issues.  Verify initialization success using a test query. For more robust Firebase initialization, increase the maximum number of initialization attempts, add a cooldown period between attempts, and verify the connection after initialization with a test query. Consider adding a unique app name during initialization to avoid potential conflicts.
+- **DO** implement robust Firebase initialization with retries and cooldown periods to mitigate intermittent connection issues.  Verify initialization success using a test query. For more robust Firebase initialization, increase the maximum number of initialization attempts, add a cooldown period between attempts, and verify the connection after initialization with a test query. Consider adding a unique app name during initialization to avoid potential conflicts. Implement a fallback initialization method to handle issues with service account key formatting.  This fallback method should attempt to correct escaped characters and newlines in the service account key.
+- **DO** always ensure the project builds successfully before committing code.
