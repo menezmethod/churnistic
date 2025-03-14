@@ -94,3 +94,6 @@ firebase-data/firestore_export/
 /firebase-export-*/
 
 *storybook.log
+
+# SpecStory
+.specstory/

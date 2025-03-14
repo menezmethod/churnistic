@@ -104,7 +104,7 @@ export async function GET() {
         }
       };
 
-      console.log(`[PUBLIC-STATS] Returning result:`, JSON.stringify(result));
+      console.log('[PUBLIC-STATS] Returning result:', JSON.stringify(result));
       console.log(`[PUBLIC-STATS] Total request duration: ${totalDuration}ms`);
 
       return NextResponse.json(result, {
