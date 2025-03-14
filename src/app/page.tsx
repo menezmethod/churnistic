@@ -335,15 +335,20 @@ function HeroSection({
 export default function HomePage() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { stats, error: statsError } = useSplashStats();
+  const { stats, error: statsError, isLoading } = useSplashStats();
   const [opportunities, setOpportunities] = useState<FirestoreOpportunity[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isOpportunitiesLoading, setIsOpportunitiesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Log stats whenever they change
+  useEffect(() => {
+    console.log('[HOMEPAGE] Stats received:', JSON.stringify(stats));
+  }, [stats]);
 
   useEffect(() => {
     const fetchFeaturedOpportunities = async () => {
       try {
-        setIsLoading(true);
+        setIsOpportunitiesLoading(true);
         const response = await fetch('/api/opportunities/featured');
         if (!response.ok) {
           throw new Error('Failed to fetch featured opportunities');
@@ -354,7 +359,7 @@ export default function HomePage() {
         console.error('Error fetching featured opportunities:', err);
         setError('Failed to load opportunities');
       } finally {
-        setIsLoading(false);
+        setIsOpportunitiesLoading(false);
       }
     };
 
@@ -366,6 +371,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (statsError) {
+      console.error('[HOMEPAGE] Stats error:', statsError);
       setErrorMessage('Failed to load statistics. Please try again later.');
     }
   }, [statsError]);
@@ -380,7 +386,7 @@ export default function HomePage() {
 
       <HeroSection user={user} stats={stats || []} />
       <Box sx={{ py: 8 }}>
-        {isLoading ? (
+        {isOpportunitiesLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>

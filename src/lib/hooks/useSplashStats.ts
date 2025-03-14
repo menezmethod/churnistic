@@ -24,14 +24,34 @@ interface OpportunityStats {
 
   // Metadata
   lastUpdated: string;
+  debug?: {
+    firebaseInitialized: boolean;
+    requestDuration: number;
+    dbQueryDuration?: number;
+    timestamp: number;
+  };
 }
 
 const fetchStats = async (): Promise<OpportunityStats> => {
+  console.log('[CLIENT] Fetching public stats at', new Date().toISOString());
+  const fetchStart = Date.now();
+  
   const response = await fetch('/api/opportunities/public-stats', {
     next: { revalidate: 300 }, // Cache for 5 minutes
   });
-  if (!response.ok) throw new Error('Failed to fetch stats');
-  return response.json();
+  
+  const fetchDuration = Date.now() - fetchStart;
+  console.log(`[CLIENT] Fetch completed in ${fetchDuration}ms, status: ${response.status}`);
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[CLIENT] Fetch error: ${response.status}`, errorText);
+    throw new Error(`Failed to fetch stats: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  console.log('[CLIENT] Received stats data:', JSON.stringify(data));
+  return data;
 };
 
 export const useSplashStats = () => {
@@ -41,6 +61,8 @@ export const useSplashStats = () => {
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
     select: (stats) => {
+      console.log('[CLIENT] Processing stats data in select:', JSON.stringify(stats));
+      
       // Ensure we have valid numbers before formatting
       const potentialValue =
         typeof stats.totalPotentialValue === 'string'
@@ -52,7 +74,7 @@ export const useSplashStats = () => {
           ? stats.averageValue // Already formatted
           : formatCurrency(stats.averageValue || 0);
 
-      return [
+      const formattedStats = [
         {
           label: 'POTENTIAL BONUS EARNINGS',
           value: potentialValue || '$0',
@@ -69,10 +91,17 @@ export const useSplashStats = () => {
           description: 'Average value per bonus opportunity',
         },
       ];
+      
+      console.log('[CLIENT] Formatted stats:', JSON.stringify(formattedStats));
+      return formattedStats;
     },
     retry: 2,
     refetchOnWindowFocus: true,
   });
+
+  if (error) {
+    console.error('[CLIENT] Error in useSplashStats hook:', error);
+  }
 
   return {
     stats: data || [],
