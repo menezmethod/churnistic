@@ -1,28 +1,63 @@
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 
-// Initialize Firebase Admin with proper error handling
-if (getApps().length === 0) {
+// Global variable to track initialization attempts
+let initializationAttempts = 0;
+const MAX_INIT_ATTEMPTS = 3;
+
+// Create a more robust initialization function
+async function ensureFirebaseInitialized(): Promise<boolean> {
+  // If Firebase is already initialized, return true
+  if (getApps().length > 0) {
+    console.log('[PUBLIC-STATS] Firebase already initialized');
+    return true;
+  }
+
+  // Limit the number of initialization attempts
+  if (initializationAttempts >= MAX_INIT_ATTEMPTS) {
+    console.error(`[PUBLIC-STATS] Max initialization attempts (${MAX_INIT_ATTEMPTS}) reached`);
+    return false;
+  }
+
+  initializationAttempts++;
+  console.log(`[PUBLIC-STATS] Attempting to initialize Firebase (attempt ${initializationAttempts}/${MAX_INIT_ATTEMPTS})`);
+
   try {
     const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     if (!serviceAccount) {
-      console.error('Firebase service account key is missing');
+      console.error('[PUBLIC-STATS] Firebase service account key is missing');
       throw new Error('Missing Firebase service account key');
     }
 
-    initializeApp({
+    // Initialize Firebase with the service account
+    const app = initializeApp({
       credential: cert(JSON.parse(serviceAccount)),
       databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
     });
-  } catch (error) {
-    console.error('Firebase Admin initialization error:', error);
-    if (error instanceof Error) {
-      console.error('Error details:', error.message);
-      if (error.stack) console.error('Stack:', error.stack);
+
+    // Verify initialization was successful
+    if (getApps().length > 0) {
+      console.log('[PUBLIC-STATS] Firebase successfully initialized');
+      return true;
+    } else {
+      console.error('[PUBLIC-STATS] Firebase initialization failed - getApps() returned empty array');
+      return false;
     }
+  } catch (error) {
+    console.error('[PUBLIC-STATS] Firebase Admin initialization error:', error);
+    if (error instanceof Error) {
+      console.error('[PUBLIC-STATS] Error details:', error.message);
+      if (error.stack) console.error('[PUBLIC-STATS] Stack:', error.stack);
+    }
+    return false;
   }
 }
+
+// Try to initialize Firebase immediately, but don't block
+ensureFirebaseInitialized().then((success) => {
+  console.log(`[PUBLIC-STATS] Initial Firebase initialization ${success ? 'succeeded' : 'failed'}`);
+});
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 300; // 5 minutes
@@ -30,6 +65,10 @@ export const revalidate = 300; // 5 minutes
 export async function GET() {
   const requestStart = Date.now();
   console.log('[PUBLIC-STATS] API endpoint called at', new Date().toISOString());
+  
+  // Attempt to ensure Firebase is initialized
+  const firebaseInitialized = await ensureFirebaseInitialized();
+  console.log('[PUBLIC-STATS] Firebase initialization status:', firebaseInitialized);
   console.log('[PUBLIC-STATS] Firebase apps initialized:', getApps().length);
 
   try {
@@ -41,7 +80,7 @@ export async function GET() {
 
     try {
       // Check if Firebase is properly initialized
-      if (getApps().length === 0) {
+      if (!firebaseInitialized || getApps().length === 0) {
         console.warn('[PUBLIC-STATS] Firebase not initialized, returning default values');
         return NextResponse.json(
           {
@@ -53,12 +92,13 @@ export async function GET() {
               firebaseInitialized: false,
               requestDuration: Date.now() - requestStart,
               timestamp: Date.now(),
+              initAttempts: initializationAttempts,
             }
           },
           {
             status: 200,
             headers: {
-              'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+              'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30', // Reduced cache time for failures
               'X-Debug-Firebase-Initialized': 'false',
             },
           }
@@ -101,10 +141,11 @@ export async function GET() {
           requestDuration: totalDuration,
           dbQueryDuration: dbDuration,
           timestamp: Date.now(),
+          initAttempts: initializationAttempts,
         }
       };
 
-      console.log('[PUBLIC-STATS] Returning result:', JSON.stringify(result));
+      console.log(`[PUBLIC-STATS] Returning result:`, JSON.stringify(result));
       console.log(`[PUBLIC-STATS] Total request duration: ${totalDuration}ms`);
 
       return NextResponse.json(result, {
@@ -133,6 +174,7 @@ export async function GET() {
           firebaseInitialized: getApps().length > 0,
           requestDuration: errorDuration,
           timestamp: Date.now(),
+          initAttempts: initializationAttempts,
         }
       }, { status: 504 });
     }
@@ -144,6 +186,7 @@ export async function GET() {
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         requestDuration: errorDuration,
         timestamp: Date.now(),
+        initAttempts: initializationAttempts,
       }
     }, { status: 500 });
   }
