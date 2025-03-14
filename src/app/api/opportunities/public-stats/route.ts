@@ -4,15 +4,35 @@ import { NextResponse } from 'next/server';
 
 // Global variable to track initialization attempts
 let initializationAttempts = 0;
-const MAX_INIT_ATTEMPTS = 3;
+const MAX_INIT_ATTEMPTS = 5; // Increased from 3 to 5
+let lastInitAttempt = 0;
+const INIT_COOLDOWN = 2000; // 2 seconds cooldown between initialization attempts
 
 // Create a more robust initialization function
 async function ensureFirebaseInitialized(): Promise<boolean> {
   // If Firebase is already initialized, return true
   if (getApps().length > 0) {
-    console.log('[PUBLIC-STATS] Firebase already initialized');
-    return true;
+    console.log('[PUBLIC-STATS] Firebase already initialized, apps count:', getApps().length);
+    try {
+      // Verify the connection works by making a small test query
+      const db = getFirestore();
+      const testQuery = await db.collection('opportunities').limit(1).get();
+      console.log('[PUBLIC-STATS] Firebase connection verified with test query, found', testQuery.size, 'documents');
+      return true;
+    } catch (e) {
+      console.error('[PUBLIC-STATS] Firebase initialized but connection test failed:', e);
+      // Continue with reinitialization
+    }
   }
+
+  // Implement cooldown between attempts
+  const now = Date.now();
+  if (now - lastInitAttempt < INIT_COOLDOWN && initializationAttempts > 0) {
+    console.log(`[PUBLIC-STATS] Cooling down between initialization attempts (${now - lastInitAttempt}ms < ${INIT_COOLDOWN}ms)`);
+    await new Promise(resolve => setTimeout(resolve, INIT_COOLDOWN - (now - lastInitAttempt)));
+  }
+  
+  lastInitAttempt = Date.now();
 
   // Limit the number of initialization attempts
   if (initializationAttempts >= MAX_INIT_ATTEMPTS) {
@@ -30,16 +50,39 @@ async function ensureFirebaseInitialized(): Promise<boolean> {
       throw new Error('Missing Firebase service account key');
     }
 
+    // Log service account key length for debugging (don't log the actual key)
+    console.log(`[PUBLIC-STATS] Service account key length: ${serviceAccount.length} chars`);
+    
+    // Try parsing the service account key
+    let parsedServiceAccount;
+    try {
+      parsedServiceAccount = JSON.parse(serviceAccount);
+      console.log('[PUBLIC-STATS] Service account key successfully parsed');
+    } catch (parseError) {
+      console.error('[PUBLIC-STATS] Failed to parse service account key:', parseError);
+      throw new Error('Invalid service account key format');
+    }
+
     // Initialize Firebase with the service account
     initializeApp({
-      credential: cert(JSON.parse(serviceAccount)),
+      credential: cert(parsedServiceAccount),
       databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-    });
+    }, `app-${Date.now()}`); // Add unique name to avoid conflicts
 
     // Verify initialization was successful
     if (getApps().length > 0) {
-      console.log('[PUBLIC-STATS] Firebase successfully initialized');
-      return true;
+      console.log('[PUBLIC-STATS] Firebase successfully initialized, apps count:', getApps().length);
+      
+      // Verify the connection works
+      try {
+        const db = getFirestore();
+        const testQuery = await db.collection('opportunities').limit(1).get();
+        console.log('[PUBLIC-STATS] Firebase connection verified with test query, found', testQuery.size, 'documents');
+        return true;
+      } catch (e) {
+        console.error('[PUBLIC-STATS] Firebase initialized but connection test failed:', e);
+        return false;
+      }
     } else {
       console.error('[PUBLIC-STATS] Firebase initialization failed - getApps() returned empty array');
       return false;
@@ -66,17 +109,17 @@ export async function GET() {
   const requestStart = Date.now();
   console.log('[PUBLIC-STATS] API endpoint called at', new Date().toISOString());
   
-  // Attempt to ensure Firebase is initialized
-  const firebaseInitialized = await ensureFirebaseInitialized();
-  console.log('[PUBLIC-STATS] Firebase initialization status:', firebaseInitialized);
-  console.log('[PUBLIC-STATS] Firebase apps initialized:', getApps().length);
-
   try {
+    // Attempt to ensure Firebase is initialized
+    const firebaseInitialized = await ensureFirebaseInitialized();
+    console.log('[PUBLIC-STATS] Firebase initialization status:', firebaseInitialized);
+    console.log('[PUBLIC-STATS] Firebase apps initialized:', getApps().length);
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.log('[PUBLIC-STATS] Request timed out after 5000ms');
+      console.log('[PUBLIC-STATS] Request timed out after 8000ms');
       controller.abort();
-    }, 5000);
+    }, 8000); // Increased from 5000 to 8000 ms
 
     try {
       // Check if Firebase is properly initialized
@@ -93,12 +136,14 @@ export async function GET() {
               requestDuration: Date.now() - requestStart,
               timestamp: Date.now(),
               initAttempts: initializationAttempts,
+              environment: process.env.NODE_ENV,
+              appsCount: getApps().length,
             }
           },
           {
             status: 200,
             headers: {
-              'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30', // Reduced cache time for failures
+              'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=15', // Further reduced cache time for failures
               'X-Debug-Firebase-Initialized': 'false',
             },
           }
@@ -142,6 +187,8 @@ export async function GET() {
           dbQueryDuration: dbDuration,
           timestamp: Date.now(),
           initAttempts: initializationAttempts,
+          environment: process.env.NODE_ENV,
+          appsCount: getApps().length,
         }
       };
 
@@ -175,6 +222,8 @@ export async function GET() {
           requestDuration: errorDuration,
           timestamp: Date.now(),
           initAttempts: initializationAttempts,
+          environment: process.env.NODE_ENV,
+          appsCount: getApps().length,
         }
       }, { status: 504 });
     }
@@ -187,6 +236,8 @@ export async function GET() {
         requestDuration: errorDuration,
         timestamp: Date.now(),
         initAttempts: initializationAttempts,
+        environment: process.env.NODE_ENV,
+        appsCount: getApps().length,
       }
     }, { status: 500 });
   }
