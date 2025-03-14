@@ -8,6 +8,20 @@ const MAX_INIT_ATTEMPTS = 5; // Increased from 3 to 5
 let lastInitAttempt = 0;
 const INIT_COOLDOWN = 2000; // 2 seconds cooldown between initialization attempts
 
+// Interface for service account
+interface ServiceAccount {
+  type: string;
+  project_id: string;
+  private_key_id: string;
+  private_key: string;
+  client_email: string;
+  client_id: string;
+  auth_uri: string;
+  token_uri: string;
+  auth_provider_x509_cert_url: string;
+  client_x509_cert_url: string;
+}
+
 // Create a more robust initialization function
 async function ensureFirebaseInitialized(): Promise<boolean> {
   // If Firebase is already initialized, return true
@@ -44,30 +58,70 @@ async function ensureFirebaseInitialized(): Promise<boolean> {
   console.log(`[PUBLIC-STATS] Attempting to initialize Firebase (attempt ${initializationAttempts}/${MAX_INIT_ATTEMPTS})`);
 
   try {
+    // Check for environment variables
+    console.log('[PUBLIC-STATS] Environment:', process.env.NODE_ENV);
+    console.log('[PUBLIC-STATS] NEXT_PUBLIC_FIREBASE_DATABASE_URL exists:', !!process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL);
+    console.log('[PUBLIC-STATS] FIREBASE_SERVICE_ACCOUNT_KEY exists:', !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    
     const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     if (!serviceAccount) {
       console.error('[PUBLIC-STATS] Firebase service account key is missing');
       throw new Error('Missing Firebase service account key');
     }
 
-    // Log service account key length for debugging (don't log the actual key)
+    // Log service account key length and characteristics for debugging
     console.log(`[PUBLIC-STATS] Service account key length: ${serviceAccount.length} chars`);
+    console.log(`[PUBLIC-STATS] Service account key starts with: ${serviceAccount.substring(0, 10)}...`);
+    console.log(`[PUBLIC-STATS] Service account key ends with: ...${serviceAccount.substring(serviceAccount.length - 10)}`);
+    console.log('[PUBLIC-STATS] Contains escaped quotes:', serviceAccount.includes('\\"'));
+    console.log('[PUBLIC-STATS] Contains linebreaks:', serviceAccount.includes('\\n'));
     
     // Try parsing the service account key
-    let parsedServiceAccount;
+    let parsedServiceAccount: ServiceAccount;
     try {
       parsedServiceAccount = JSON.parse(serviceAccount);
       console.log('[PUBLIC-STATS] Service account key successfully parsed');
+      console.log('[PUBLIC-STATS] Service account type:', parsedServiceAccount.type);
+      console.log('[PUBLIC-STATS] Service account project_id:', parsedServiceAccount.project_id);
+      console.log('[PUBLIC-STATS] Service account client_email exists:', !!parsedServiceAccount.client_email);
+      console.log('[PUBLIC-STATS] Service account private_key exists:', !!parsedServiceAccount.private_key);
+      
+      // Check for common issues with private_key format
+      if (parsedServiceAccount.private_key) {
+        console.log('[PUBLIC-STATS] Private key contains BEGIN PRIVATE KEY:', parsedServiceAccount.private_key.includes('BEGIN PRIVATE KEY'));
+        console.log('[PUBLIC-STATS] Private key contains newlines:', parsedServiceAccount.private_key.includes('\n'));
+      }
     } catch (parseError) {
       console.error('[PUBLIC-STATS] Failed to parse service account key:', parseError);
+      if (parseError instanceof Error) {
+        console.error('[PUBLIC-STATS] Parse error message:', parseError.message);
+        console.error('[PUBLIC-STATS] Parse error position:', parseError.message.match(/position (\d+)/)?.[1]);
+      }
       throw new Error('Invalid service account key format');
     }
 
     // Initialize Firebase with the service account
-    initializeApp({
-      credential: cert(parsedServiceAccount),
-      databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-    }, `app-${Date.now()}`); // Add unique name to avoid conflicts
+    console.log('[PUBLIC-STATS] Attempting to create Firebase credential');
+    try {
+      const credential = cert(parsedServiceAccount);
+      console.log('[PUBLIC-STATS] Firebase credential created successfully');
+      
+      const appName = `app-${Date.now()}`;
+      console.log(`[PUBLIC-STATS] Initializing Firebase app with name: ${appName}`);
+      
+      initializeApp({
+        credential: credential,
+        databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+      }, appName); // Add unique name to avoid conflicts
+      
+      console.log('[PUBLIC-STATS] initializeApp call completed');
+    } catch (certError) {
+      console.error('[PUBLIC-STATS] Error creating Firebase credential:', certError);
+      if (certError instanceof Error) {
+        console.error('[PUBLIC-STATS] Cert error message:', certError.message);
+      }
+      throw certError;
+    }
 
     // Verify initialization was successful
     if (getApps().length > 0) {
@@ -75,12 +129,18 @@ async function ensureFirebaseInitialized(): Promise<boolean> {
       
       // Verify the connection works
       try {
+        console.log('[PUBLIC-STATS] Attempting to get Firestore instance');
         const db = getFirestore();
+        console.log('[PUBLIC-STATS] Firestore instance obtained, attempting test query');
+        
         const testQuery = await db.collection('opportunities').limit(1).get();
         console.log('[PUBLIC-STATS] Firebase connection verified with test query, found', testQuery.size, 'documents');
         return true;
       } catch (e) {
         console.error('[PUBLIC-STATS] Firebase initialized but connection test failed:', e);
+        if (e instanceof Error) {
+          console.error('[PUBLIC-STATS] Connection test error details:', e.message);
+        }
         return false;
       }
     } else {
@@ -93,6 +153,65 @@ async function ensureFirebaseInitialized(): Promise<boolean> {
       console.error('[PUBLIC-STATS] Error details:', error.message);
       if (error.stack) console.error('[PUBLIC-STATS] Stack:', error.stack);
     }
+
+    // If all standard initialization attempts fail, try a fallback method
+    if (initializationAttempts >= MAX_INIT_ATTEMPTS - 1) {
+      console.log('[PUBLIC-STATS] Attempting fallback initialization method');
+      try {
+        // Try to fix common issues with service account keys in environment variables
+        const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+        if (!serviceAccount) {
+          return false;
+        }
+        
+        // Try to handle both double-escaped and single-escaped newlines
+        let correctedServiceAccount = serviceAccount;
+        
+        // Replace escaped newlines with actual newlines if they exist
+        if (correctedServiceAccount.includes('\\n')) {
+          console.log('[PUBLIC-STATS] Fixing escaped newlines in service account');
+          correctedServiceAccount = correctedServiceAccount.replace(/\\n/g, '\n');
+        }
+        
+        // Replace escaped quotes with regular quotes if they exist
+        if (correctedServiceAccount.includes('\\"')) {
+          console.log('[PUBLIC-STATS] Fixing escaped quotes in service account');
+          correctedServiceAccount = correctedServiceAccount.replace(/\\"/g, '"');
+        }
+        
+        // If the service account is surrounded by extra quotes, remove them
+        if (correctedServiceAccount.startsWith('"') && correctedServiceAccount.endsWith('"')) {
+          console.log('[PUBLIC-STATS] Removing surrounding quotes from service account');
+          correctedServiceAccount = correctedServiceAccount.slice(1, -1);
+        }
+        
+        console.log('[PUBLIC-STATS] Parsing corrected service account');
+        const parsedServiceAccount: ServiceAccount = JSON.parse(correctedServiceAccount);
+        
+        // Ensure private_key has proper newlines
+        if (parsedServiceAccount.private_key && !parsedServiceAccount.private_key.includes('\n')) {
+          console.log('[PUBLIC-STATS] Adding newlines to private_key');
+          parsedServiceAccount.private_key = parsedServiceAccount.private_key.replace(/\\n/g, '\n');
+        }
+        
+        console.log('[PUBLIC-STATS] Initializing with fallback method');
+        const appName = `fallback-app-${Date.now()}`;
+        initializeApp({
+          credential: cert(parsedServiceAccount),
+          databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+        }, appName);
+        
+        console.log('[PUBLIC-STATS] Fallback initialization succeeded');
+        return getApps().length > 0;
+      } catch (fallbackError) {
+        console.error('[PUBLIC-STATS] Fallback initialization failed:', fallbackError);
+        if (fallbackError instanceof Error) {
+          console.error('[PUBLIC-STATS] Fallback error details:', fallbackError.message);
+        }
+        return false;
+      }
+    }
+
     return false;
   }
 }
