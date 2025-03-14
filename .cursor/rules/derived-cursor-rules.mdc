@@ -29,25 +29,26 @@ The project follows a standard Next.js folder structure.  Specific details are o
 - Thoroughly test all changes before merging into `main`.
 - Follow a structured approach to debugging, including identifying potential sources, narrowing down possibilities, adding logs to validate assumptions, and then implementing a code fix.
 - When debugging inconsistent behavior in production that is not reproducible locally, add comprehensive logs to the API routes, client-side hooks, and relevant components to track data flow, Firebase initialization, timing, and potential errors.  Analyze these logs to identify the root cause.
+- When diagnosing inconsistent behavior in production, create a new branch (e.g., `git checkout -b fix-inconsistent-public-stats`). Add comprehensive logs to API routes, client-side hooks, and components to track data flow, Firebase initialization, timing, and potential errors. Analyze these logs to identify the root cause.  Include logs indicating Firebase initialization status, data returned from APIs, and timing information.
 
 
 ## REFERENCE EXAMPLES
 - Refer to the documentation in the `docs` folder for implementation examples and best practices.
 
 ## PROJECT DOCUMENTATION & CONTEXT SYSTEM
-Documentation is maintained in the `docs` folder.  This includes inline documentation within code files and markdown files for explaining specific concepts or processes.  New documentation may be added, such as additional details on debugging procedures.  Include detailed logging strategies in documentation when addressing complex production issues.
+Documentation is maintained in the `docs` folder.  This includes inline documentation within code files and markdown files for explaining specific concepts or processes.  New documentation may be added, such as additional details on debugging procedures.  Include detailed logging strategies in documentation when addressing complex production issues.  Add `.specstory` folder to .gitignore to prevent accidental commits.
 
 ## DEBUGGING
 When debugging, follow these steps:
 1. Identify 5-7 potential sources of the problem.
 2. Distill those down to 1-2 most likely sources.
 3. Add comprehensive logs to validate assumptions before implementing a code fix.  Logs should include Firebase initialization status, data returned from APIs, and timing information.
-4. For production issues not reproducible locally, add extensive logging to API routes, client-side hooks, and components.  Log data flow, Firebase initialization status, timing information, and potential errors. Analyze the logs to determine the root cause.
-
+4. For production issues not reproducible locally, add extensive logging to API routes, client-side hooks, and components.  Log data flow, Firebase initialization status, timing information, and potential errors. Analyze the logs to determine the root cause.  Include timestamps in logs for easier correlation.
 
 ## FINAL DOs AND DON'Ts
 - **DO** create a new branch for every bug fix or feature.
-- **DO** add comprehensive logs when debugging, especially for production issues. Include Firebase initialization status, API responses, timing information, and error details. For complex issues, add extensive logging across multiple layers of the application.
+- **DO** add comprehensive logs when debugging, especially for production issues. Include Firebase initialization status, API responses, timing information, and error details. For complex issues, add extensive logging across multiple layers of the application. Include timestamps in logs.
 - **DO** use React Query v5 best practices.
 - **DON'T** merge untested code into `main`.
 - **DON'T** neglect to update the documentation when significant changes are implemented, including detailed logging strategies.
+- **DON'T** commit the `.specstory` folder to version control; add it to your `.gitignore` file.
