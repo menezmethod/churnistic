@@ -43,7 +43,7 @@ const fetchWithRetry = async (): Promise<OpportunityStats> => {
   const originalFetchStart = Date.now();
   console.log('[CLIENT] Fetching public stats at', new Date().toISOString());
   console.log('[CLIENT] Manual retry count:', manualRetryCount);
-  
+
   try {
     const fetchStart = Date.now();
     const response = await fetch('/api/opportunities/public-stats', {
@@ -51,47 +51,53 @@ const fetchWithRetry = async (): Promise<OpportunityStats> => {
       cache: 'no-store', // Force a fresh request
       headers: {
         'X-Retry-Count': manualRetryCount.toString(), // Pass retry count to server
-        'Pragma': 'no-cache',
+        Pragma: 'no-cache',
       },
     });
-    
+
     const fetchDuration = Date.now() - fetchStart;
-    console.log(`[CLIENT] Fetch completed in ${fetchDuration}ms, status: ${response.status}`);
-    
+    console.log(
+      `[CLIENT] Fetch completed in ${fetchDuration}ms, status: ${response.status}`
+    );
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[CLIENT] Fetch error: ${response.status}`, errorText);
       throw new Error(`Failed to fetch stats: ${response.status}`);
     }
-    
+
     const data = await response.json();
     console.log('[CLIENT] Received stats data:', JSON.stringify(data));
-    
+
     // If Firebase wasn't initialized, retry with exponential backoff
     if (data.debug?.firebaseInitialized === false) {
       manualRetryCount++;
-      
+
       if (manualRetryCount <= MAX_MANUAL_RETRIES) {
-        console.log(`[CLIENT] Firebase not initialized on server, manual retry ${manualRetryCount}/${MAX_MANUAL_RETRIES}`);
-        
+        console.log(
+          `[CLIENT] Firebase not initialized on server, manual retry ${manualRetryCount}/${MAX_MANUAL_RETRIES}`
+        );
+
         // Calculate delay with exponential backoff (1s, 2s, 4s, 8s, etc. up to 15s max)
         const delay = Math.min(1000 * Math.pow(2, manualRetryCount - 1), 15000);
         console.log(`[CLIENT] Waiting ${delay}ms before retry`);
-        
+
         // Wait for the calculated delay
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
+        await new Promise((resolve) => setTimeout(resolve, delay));
+
         // Recursive retry
         return fetchWithRetry();
       } else {
-        console.log(`[CLIENT] Max manual retries (${MAX_MANUAL_RETRIES}) reached, returning default data`);
+        console.log(
+          `[CLIENT] Max manual retries (${MAX_MANUAL_RETRIES}) reached, returning default data`
+        );
         manualRetryCount = 0; // Reset for next time
       }
     } else {
       // Reset retry count if successful
       manualRetryCount = 0;
     }
-    
+
     const totalDuration = Date.now() - originalFetchStart;
     console.log(`[CLIENT] Total fetch process took ${totalDuration}ms`);
     return data;
@@ -105,7 +111,7 @@ export const useSplashStats = () => {
   // Function to format stats data
   const formatStatsData = (stats: OpportunityStats) => {
     console.log('[CLIENT] Processing stats data in select:', JSON.stringify(stats));
-    
+
     // Ensure we have valid numbers before formatting
     const potentialValue =
       typeof stats.totalPotentialValue === 'string'
@@ -134,11 +140,11 @@ export const useSplashStats = () => {
         description: 'Average value per bonus opportunity',
       },
     ];
-    
+
     console.log('[CLIENT] Formatted stats:', JSON.stringify(formattedStats));
     return formattedStats;
   };
-  
+
   // Regular react-query fetch
   const { data, error, isLoading } = useQuery({
     queryKey: ['opportunities', 'public-stats'],
